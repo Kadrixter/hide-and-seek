@@ -198,6 +198,52 @@ namespace HideAndSeek.Player.Editor
                 });
                 Check("coyote jump", jumped, $"left ledge at {leftGroundAt:0.00}s, jumped {jumped}");
 
+                // 9) footstep audio: surface detection on the test pads + noise events while walking across them
+                var audio = motor.GetComponent<FootstepAudio>();
+                if (audio != null)
+                {
+                    (Vector3 p, SurfaceType expect)[] probes =
+                    {
+                        (new Vector3(0f, 0f, -13f), SurfaceType.Concrete),
+                        (new Vector3(-6.5f, 0.02f, -11.5f), SurfaceType.Metal),   // render material name
+                        (new Vector3(-6.5f, 0.02f, -9f), SurfaceType.Metal),      // FootstepSurface component
+                        (new Vector3(-6.5f, 0.0f, -6.5f), SurfaceType.Water),     // FootstepSurface zone
+                        (new Vector3(-6.5f, 0.02f, -2.5f), SurfaceType.Water),    // PhysicsMaterial name
+                    };
+                    foreach (var (p, expect) in probes)
+                    {
+                        var got = SurfaceDetector.Detect(p, motor.transform, ~0, 0.5f, 0.6f, out bool hit);
+                        Check($"surface @{p}", got == expect, $"{got} (expected {expect}, ground hit {hit})");
+                    }
+
+                    var seen = new System.Collections.Generic.List<string>();
+                    int noises = 0;
+                    void OnNoise(MovementNoise n)
+                    {
+                        noises++;
+                        string s = n.Kind + "/" + n.Surface + "/" + n.Gait + $"/{n.AudibleRange:0}m";
+                        if (!seen.Contains(s)) seen.Add(s);
+                    }
+                    audio.NoiseEmitted += OnNoise;
+                    motor.Teleport(new Vector3(-6.5f, 0.05f, -13.5f), 0f);
+                    Simulate(0.3f);
+                    cmd = new MotorCommand { Move = Vector2.up };
+                    Simulate(4.2f);
+                    cmd = new MotorCommand { Move = Vector2.up, Run = true };
+                    Simulate(1.0f);
+                    cmd = new MotorCommand { Crouch = true };
+                    Simulate(0.6f);
+                    cmd = new MotorCommand();
+                    Simulate(0.6f);
+                    cmd.Jump = true;
+                    Simulate(1.0f);
+                    audio.NoiseEmitted -= OnNoise;
+                    bool metal = seen.Exists(s => s.Contains("/Metal/")), water = seen.Exists(s => s.Contains("/Water/"));
+                    Check("footstep noise events", noises > 8 && metal && water && seen.Exists(s => s.StartsWith("Landing")) && seen.Exists(s => s.StartsWith("Crouch")),
+                        $"{noises} events: {string.Join(", ", seen)}");
+                }
+                else Check("FootstepAudio present", false, "missing on player");
+
                 motor.CommandProvider = null;
             }
             catch (Exception e)
