@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HideAndSeek.Core;
 using UnityEngine;
@@ -61,6 +61,11 @@ namespace HideAndSeek.Characters
         public Transform KneeRight => kneeR;
         public Transform HipLeft => hipL;
         public Transform KneeLeft => kneeL;
+
+        BlockyCharacterActions actions;
+
+        /// <summary>Action layer (ICharacterActions) added by BlockyCharacterFactory; null if absent.</summary>
+        public BlockyCharacterActions Actions => actions != null ? actions : (actions = GetComponent<BlockyCharacterActions>());
 
         public bool IsBuilt => built && pelvis != null;
         public int SkinIndex => skinIndex;

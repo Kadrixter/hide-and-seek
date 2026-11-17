@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using HideAndSeek.Core;
@@ -17,7 +17,7 @@ namespace HideAndSeek.Characters.Editor
     ///   Unity.exe -batchmode -quit -projectPath &lt;path&gt; -executeMethod HideAndSeek.Characters.Editor.CharacterBuildMenu.BuildFromCommandLine
     ///   Unity.exe -batchmode -quit -projectPath &lt;path&gt; -executeMethod HideAndSeek.Characters.Editor.CharacterBuildMenu.CapturePreviews
     /// </summary>
-    public static class CharacterBuildMenu
+    public static partial class CharacterBuildMenu
     {
         public const string Root = "Assets/_Project/Characters";
         public const string SkinsDir = Root + "/Skins";
@@ -121,6 +121,7 @@ namespace HideAndSeek.Characters.Editor
             ConfigureOpaqueMaterial(floorMat, AssetDatabase.LoadAssetAtPath<Texture2D>(FloorTexturePath), Color.white, 0.18f);
             floorMat.mainTextureScale = new Vector2(60f, 60f);
 
+            BuildActionAssets();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
@@ -233,6 +234,8 @@ namespace HideAndSeek.Characters.Editor
                 var spawner = go.AddComponent<CharacterShowcaseSpawner>();
                 spawner.skinIndex = i % count;
             }
+
+            AddActionShowcase();
 
             var camGo = new GameObject("Showcase Camera");
             camGo.tag = "MainCamera";
