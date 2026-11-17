@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 987abe4a81f45744db4468ea6d2c7f68, type: 3}
+  m_Name: Skin_Yellow
+  m_EditorClassIdentifier: HideAndSeek.Characters::HideAndSeek.Characters.SkinDefinition
+  displayName: Yellow
+  texture: {fileID: 2800000, guid: dbcce6b60068c46499f6d8ccc1014e61, type: 3}
+  material: {fileID: 2100000, guid: 951142fcc8935cd43a7be4704f2995ad, type: 2}
+  accentColor: {r: 0.91764706, g: 0.7294118, b: 0.1882353, a: 1}
