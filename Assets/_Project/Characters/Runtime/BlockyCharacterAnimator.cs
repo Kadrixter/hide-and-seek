@@ -1,4 +1,4 @@
-using HideAndSeek.Core;
+﻿using HideAndSeek.Core;
 using UnityEngine;
 
 namespace HideAndSeek.Characters
@@ -388,7 +388,19 @@ namespace HideAndSeek.Characters
                                          + new Vector3(0f, shoulderLift, 0f);
                 elbowT.localRotation = Quaternion.Euler(elbow, 0f, 0f);
             }
+
+            // ---------------------------------------------------------------- action layer (knife, downed, props...)
+            if (actions == null && time >= nextActionsSearch)
+            {
+                nextActionsSearch = time + 1f;
+                actions = GetComponent<BlockyCharacterActions>();
+            }
+
+            if (actions != null && actions.enabled) actions.ApplyLayer(dt);
         }
+
+        BlockyCharacterActions actions;
+        float nextActionsSearch;
 
         void UpdateLookAround(float dt)
         {
@@ -425,7 +437,7 @@ namespace HideAndSeek.Characters
         /// Analytic two-bone IK (equal segment lengths). <paramref name="rel"/> is the sole target relative to the
         /// hip, expressed in the hip's parent space. The knee bends towards <paramref name="pole"/>.
         /// </summary>
-        static void SolveLeg(Transform upper, Transform lower, Vector3 rel, Vector3 pole)
+        internal static void SolveLeg(Transform upper, Transform lower, Vector3 rel, Vector3 pole)
         {
             float d = rel.magnitude;
             if (d < 1e-4f)

@@ -2,7 +2,8 @@
     "name": "HideAndSeek.Characters",
     "rootNamespace": "HideAndSeek.Characters",
     "references": [
-        "HideAndSeek.Core"
+        "HideAndSeek.Core",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
