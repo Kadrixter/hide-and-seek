@@ -1,0 +1,6 @@
+{
+    "name": "HideAndSeek.Core",
+    "rootNamespace": "HideAndSeek.Core",
+    "references": [],
+    "autoReferenced": true
+}
