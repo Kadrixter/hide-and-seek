@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using HideAndSeek.Core;
 using UnityEngine;
 
@@ -102,6 +102,11 @@ namespace HideAndSeek.Player
 
         /// <summary>Fired when a jump starts.</summary>
         public event Action Jumped;
+
+        /// <summary>Fired when <see cref="IsCrouching"/> changes (true = crouched down).</summary>
+        public event Action<bool> CrouchChanged;
+
+        private bool _wasCrouchingEvent;
 
         // ---------------------------------------------------------------- ICharacterMotionSource
 
@@ -220,6 +225,11 @@ namespace HideAndSeek.Player
             _wantsCrouch = hasInput && cmd.Crouch;
             UpdateCrouch(dt);
             UpdateStepOffset();
+            if (IsCrouching != _wasCrouchingEvent)
+            {
+                _wasCrouchingEvent = IsCrouching;
+                CrouchChanged?.Invoke(_wasCrouchingEvent);
+            }
 
             // --- target velocity
             bool crouching = IsCrouching;

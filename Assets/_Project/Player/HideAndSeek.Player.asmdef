@@ -3,6 +3,7 @@
     "rootNamespace": "HideAndSeek.Player",
     "references": [
         "HideAndSeek.Core",
+        "HideAndSeek.Player.Surfaces",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

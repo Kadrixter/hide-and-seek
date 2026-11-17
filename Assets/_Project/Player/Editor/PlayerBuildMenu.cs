@@ -75,6 +75,7 @@ namespace HideAndSeek.Player.Editor
                 m.SetFloat("_NearFade", 0.5f);
             });
             var profile = BuildProfile();
+            _footstepLibrary = Audio.PlayerAudioBuilder.BuildAudio();
             AssetDatabase.SaveAssets();
             var prefab = BuildPrefab(cookie, beamMesh, beamMat, dustMat, profile);
             BuildTestScene(prefab);
@@ -262,6 +263,8 @@ namespace HideAndSeek.Player.Editor
 
         // ------------------------------------------------------------------ prefab
 
+        private static FootstepLibrary _footstepLibrary;
+
         private static GameObject BuildPrefab(Texture2D cookie, Mesh beamMesh, Material beamMat, Material dustMat, HeadBobProfile profile)
         {
             var root = new GameObject("Player");
@@ -359,6 +362,16 @@ namespace HideAndSeek.Player.Editor
                 SetRef(fl, "input", reader);
                 SetRef(fl, "anchor", camGo.transform);
                 SetRef(fl, "body", root.transform);
+
+                // ---- footstep / movement audio + default garage reverb
+                var steps = root.AddComponent<FootstepAudio>();
+                SetRef(steps, "library", _footstepLibrary);
+                SetRef(steps, "motionSource", motor);
+                SetBool(steps, "localPlayer", true);
+                var reverbGo = new GameObject("GarageReverb");
+                reverbGo.transform.SetParent(camGo.transform, false);
+                reverbGo.AddComponent<AudioReverbZone>().reverbPreset = AudioReverbPreset.ParkingLot;
+                reverbGo.AddComponent<GarageReverb>();
 
                 var prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out bool ok);
                 if (!ok || prefab == null) throw new Exception("Failed to save prefab " + PrefabPath);
@@ -561,6 +574,8 @@ namespace HideAndSeek.Player.Editor
             Box("Doorframe_R", new Vector3(4.9f, 1.1f, 14f), new Vector3(0.3f, 2.2f, 0.3f), m.white, props);
             Box("Doorframe_Top", new Vector3(4f, 2.35f, 14f), new Vector3(2.1f, 0.3f, 0.3f), m.white, props);
 
+            BuildSurfacePads(env, grid);
+
             // Player
             var player = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
             player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -13f), Quaternion.identity);
@@ -573,6 +588,54 @@ namespace HideAndSeek.Player.Editor
             SetRef(hud, "flashlight", fl);
 
             if (!EditorSceneManager.SaveScene(scene, ScenePath)) throw new Exception("Failed to save scene " + ScenePath);
+        }
+
+        /// <summary>
+        /// Footstep surface test strip west of the spawn, one pad per detection path:
+        /// grate (render material name), steel plate (FootstepSurface component), decal puddle without collider
+        /// (FootstepSurface zone) and a wet patch (PhysicsMaterial name).
+        /// </summary>
+        private static void BuildSurfacePads(Transform env, Texture2D grid)
+        {
+            var pads = new GameObject("FootstepSurfacePads").transform;
+            pads.SetParent(env, false);
+
+            var grate = BuildStandardMaterial("MetalGrate", new Color(0.55f, 0.57f, 0.6f), grid, new Vector2(4f, 4f), 0.55f);
+            grate.SetFloat("_Metallic", 0.85f);
+            EditorUtility.SetDirty(grate);
+            var plate = BuildStandardMaterial("Plate", new Color(0.42f, 0.44f, 0.47f), null, Vector2.one, 0.7f);
+            plate.SetFloat("_Metallic", 0.9f);
+            EditorUtility.SetDirty(plate);
+            var puddle = BuildStandardMaterial("Puddle", new Color(0.03f, 0.035f, 0.045f), null, Vector2.one, 0.97f);
+            var wet = BuildStandardMaterial("DampConcrete", new Color(0.36f, 0.36f, 0.37f), grid, new Vector2(1f, 1f), 0.75f);
+
+            // 1) grate: detected through the render material name ("...Grate")
+            Box("Pad_Grate", new Vector3(-6.5f, 0.01f, -11.5f), new Vector3(2f, 0.02f, 2f), grate, pads);
+
+            // 2) neutral-named plate tagged with a FootstepSurface component
+            var p = Box("Pad_PlateTagged", new Vector3(-6.5f, 0.01f, -9f), new Vector3(2f, 0.02f, 2f), plate, pads);
+            p.AddComponent<FootstepSurface>().Type = SurfaceType.Metal;
+
+            // 3) puddle decal without a collider + FootstepSurface zone
+            var d = Box("Pad_PuddleDecalZone", new Vector3(-6.5f, 0.004f, -6.5f), new Vector3(2f, 0.004f, 2.4f), puddle, pads);
+            Object.DestroyImmediate(d.GetComponent<Collider>());
+            var zone = d.AddComponent<FootstepSurface>();
+            zone.Type = SurfaceType.Water;
+            zone.ZoneSize = new Vector3(2f, 0.6f, 2.4f);
+
+            // 4) wet patch: only the PhysicsMaterial name says "Wet"
+            string pmPath = MaterialsDir + "/TestRange_WetFloor.asset";
+            var pm = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(pmPath);
+            if (pm == null)
+            {
+                pm = new PhysicsMaterial("TestRange_WetFloor");
+                AssetDatabase.CreateAsset(pm, pmPath);
+            }
+            pm.dynamicFriction = 0.5f;
+            pm.staticFriction = 0.5f;
+            EditorUtility.SetDirty(pm);
+            var w = Box("Pad_WetPhysicsMaterial", new Vector3(-6.5f, 0.01f, -2.5f), new Vector3(2f, 0.02f, 2.4f), wet, pads);
+            w.GetComponent<Collider>().sharedMaterial = pm;
         }
 
         private static GameObject Box(string name, Vector3 center, Vector3 size, Material mat, Transform parent, float yaw = 0f)

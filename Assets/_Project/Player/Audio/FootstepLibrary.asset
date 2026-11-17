@@ -1,0 +1,106 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 48624dc6d9d2c9a47838c30fdcf6a88e, type: 3}
+  m_Name: FootstepLibrary
+  m_EditorClassIdentifier: HideAndSeek.Player::HideAndSeek.Player.FootstepLibrary
+  surfaces:
+  - surface: 0
+    walk:
+    - {fileID: 8300000, guid: 7c3ed58575ed6334db4a2b11aa206130, type: 3}
+    - {fileID: 8300000, guid: e6bee08688ed11844b9405a382e1b9a6, type: 3}
+    - {fileID: 8300000, guid: d01457df9cb6c3543a43c24201111840, type: 3}
+    - {fileID: 8300000, guid: f5c1a53abd44b3b48b10a243da1a1a9c, type: 3}
+    - {fileID: 8300000, guid: e5030afb078bbc74f84e485821859a7f, type: 3}
+    - {fileID: 8300000, guid: dad90a55ae1a1e14b92422781c48727c, type: 3}
+    - {fileID: 8300000, guid: eed34eda34d06ab4fb50688bc0bef73b, type: 3}
+    - {fileID: 8300000, guid: add212eb28b32b8418276fdfe46f3d1f, type: 3}
+    run:
+    - {fileID: 8300000, guid: ed567371e536b6f48916b317bb00ca51, type: 3}
+    - {fileID: 8300000, guid: a0db8a009e5c1ea4fb32a0f1f520dc48, type: 3}
+    - {fileID: 8300000, guid: c2384f31267652a4ab5b6e2d95bc84c8, type: 3}
+    - {fileID: 8300000, guid: f73535afb559780499d8d7885f9cf77d, type: 3}
+    - {fileID: 8300000, guid: 332e5bb419bde904590f37123825cd7a, type: 3}
+    - {fileID: 8300000, guid: f692188cfdccf194dbc76266a9505bc5, type: 3}
+    - {fileID: 8300000, guid: 1a0b79a37b5abf947b03c902a6c75c5b, type: 3}
+    - {fileID: 8300000, guid: c6c7eec30ecbaf640a1acc553c4cda51, type: 3}
+    crouch:
+    - {fileID: 8300000, guid: 0e8b01ad32a383049b92f86d402ff103, type: 3}
+    - {fileID: 8300000, guid: 73147b5889e198b4cacc7008ca3edc4a, type: 3}
+    - {fileID: 8300000, guid: 437d319f6b060184e874e5d2954b9251, type: 3}
+    - {fileID: 8300000, guid: 65a6d7c11f89a4e44a90fd63bd662d77, type: 3}
+    - {fileID: 8300000, guid: 64cd1bda895c18e43977b7b6c255a138, type: 3}
+    - {fileID: 8300000, guid: e4955b2378f69594abb0490a55247bd5, type: 3}
+    - {fileID: 8300000, guid: 8b975db7aa1ac7343995aaecf48851aa, type: 3}
+    - {fileID: 8300000, guid: cb05788148e15bf4393e2281dbf1f16c, type: 3}
+  - surface: 1
+    walk:
+    - {fileID: 8300000, guid: 700c3ac3a7f5d3e45989de5d31e80e37, type: 3}
+    - {fileID: 8300000, guid: 24bf87a6f8d9c594c855dcba122acdc9, type: 3}
+    - {fileID: 8300000, guid: cc0fbdcc151933f4caa104a75b7cc2b4, type: 3}
+    - {fileID: 8300000, guid: c4236929d8a6b7748bf4c6db5a9278b9, type: 3}
+    - {fileID: 8300000, guid: 2e4917d6f5c1b9644a507caa91d4ebce, type: 3}
+    - {fileID: 8300000, guid: dc39ca4a9fad5db43a3f8ee0be164baa, type: 3}
+    run:
+    - {fileID: 8300000, guid: 9a6724c53c0f1194681961555897a28a, type: 3}
+    - {fileID: 8300000, guid: c301069ac544433429e82f39258ae516, type: 3}
+    - {fileID: 8300000, guid: db24cad3670ba114baa3b6e132c080d4, type: 3}
+    - {fileID: 8300000, guid: 234cb05378b1d99448b30c94dd53db99, type: 3}
+    - {fileID: 8300000, guid: 35ae31202c6a51f459041c404063f0ec, type: 3}
+    - {fileID: 8300000, guid: ce84688feec70794687169aedf21cb48, type: 3}
+    crouch:
+    - {fileID: 8300000, guid: 937f62372660031499e4b9719ea4fcad, type: 3}
+    - {fileID: 8300000, guid: 131c1ab5a5b3e8d4796407ced3334029, type: 3}
+    - {fileID: 8300000, guid: 3cebb93570dc36847a92436a1525eb9f, type: 3}
+    - {fileID: 8300000, guid: 2ed25f2fa952045429db8050f61316f9, type: 3}
+    - {fileID: 8300000, guid: f0470c38f2a2aad43b566432451cafd3, type: 3}
+    - {fileID: 8300000, guid: 737d54eb63eb734449e22c5b35bc7a88, type: 3}
+  - surface: 2
+    walk:
+    - {fileID: 8300000, guid: 7c7a7d1ffbcc74f4d8bb79a2e195f9dd, type: 3}
+    - {fileID: 8300000, guid: 0a7e06eafe4ff2d4e8aa8dcae79ea25c, type: 3}
+    - {fileID: 8300000, guid: b4f36f5269ef32e4083f1628ac3b032f, type: 3}
+    - {fileID: 8300000, guid: 9674580aa21da7945a6526b3d734b480, type: 3}
+    - {fileID: 8300000, guid: 2129cb3775ea3de48965b05d5b7521ec, type: 3}
+    - {fileID: 8300000, guid: 530813cbe96e0d04d91c73b929a016a4, type: 3}
+    run:
+    - {fileID: 8300000, guid: ceb36eeff5ac3af4fafb66457c96de9a, type: 3}
+    - {fileID: 8300000, guid: 835484ae958800646a2a09ec1ca5c2c2, type: 3}
+    - {fileID: 8300000, guid: f2b329658bcbe1c4084dcf0ef8f204e2, type: 3}
+    - {fileID: 8300000, guid: 36a310351e914af488cab8a6b18dce26, type: 3}
+    - {fileID: 8300000, guid: 4dc38e83f92383f45acb37aea13b1768, type: 3}
+    - {fileID: 8300000, guid: ec2a3aaa904920b45a64f44a03aadca0, type: 3}
+    crouch:
+    - {fileID: 8300000, guid: 772ce3ac543c9b5498999c64d742ed2a, type: 3}
+    - {fileID: 8300000, guid: dc58233978e3f8f428f6624d53a792b8, type: 3}
+    - {fileID: 8300000, guid: a793358563c8c0040bb3b58d0143e41c, type: 3}
+    - {fileID: 8300000, guid: a2f95b2ac89351e4f854e02a32a4ba94, type: 3}
+    - {fileID: 8300000, guid: c14a6376fc875624fb15b51945b1586e, type: 3}
+    - {fileID: 8300000, guid: 60ce64d2fb141684096ff9123d502459, type: 3}
+  jump:
+  - {fileID: 8300000, guid: bf486d629bd2eb14ca0f745c5ed2c6df, type: 3}
+  - {fileID: 8300000, guid: d25f9df67a2d18442b1076e0d629be1a, type: 3}
+  - {fileID: 8300000, guid: fe2b33308bf2a4f48b37861487903ccc, type: 3}
+  landLight:
+  - {fileID: 8300000, guid: 8561140fb7252c44b82a2f48ca6387af, type: 3}
+  - {fileID: 8300000, guid: 853e630c485b5984bb01a21b5be5186a, type: 3}
+  - {fileID: 8300000, guid: c0c565925e2fc254a8721fd17ea92c53, type: 3}
+  landHeavy:
+  - {fileID: 8300000, guid: 00d945ff317d53e4585f15129399c2c1, type: 3}
+  - {fileID: 8300000, guid: c6ab37aa02439be47953380636e71d7b, type: 3}
+  - {fileID: 8300000, guid: 060534f32dae5d24ca2dbafa84a87380, type: 3}
+  crouchDown:
+  - {fileID: 8300000, guid: 67eae5f4bb336fd44b7af24f0b87a2d0, type: 3}
+  - {fileID: 8300000, guid: 3088f571f9d23c54cb3ecf537e0875f5, type: 3}
+  standUp:
+  - {fileID: 8300000, guid: 5419b3ad7df389e4d8ded2af725c40d9, type: 3}
+  - {fileID: 8300000, guid: e124667783cfd694da50f0f0efdbaa4c, type: 3}
+  clothLoop: {fileID: 8300000, guid: fb2a0a911e01e9f4bb46ab663d93d69f, type: 3}
