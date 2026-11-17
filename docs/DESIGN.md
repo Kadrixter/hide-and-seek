@@ -35,12 +35,17 @@ Przebieg: lobby → każdy gracz klika **Ready** → losowanie szukającego → 
 
 Kamera FPP z dopracowanym head-bobbingiem (inny rytm dla chodu, biegu i kucania).
 
+## Dźwięk
+- Dopracowane kroki (beton / metal / woda), skok, lądowanie, szelest ubrania; kroki innych graczy jako dźwięk 3D (bieg słychać z ~25 m, kucanie z ~6 m).
+- Ambient map (wentylacja, kapanie, buczenie lamp) — generowany przez ElevenLabs.
+- Podpowiedzi głosowe: `Assets/_Project/Audio/Voice/*.mp3`.
+
 ## Skiny
 5 wariantów kolorystycznych tego samego modelu. Gracz o nicku **cendy** ma twarz z pliku
 `Assets/_Project/Characters/Resources/Faces/opszczymorwformie.png`.
 
 ## Mapy
-1. **Podziemny parking** (beta) — 2 piętra połączone rampami, filary, zaparkowane auta, klatki schodowe, pomieszczenia techniczne.
+1. **Podziemny parking** — 3 piętra po ok. 180 x 120 m, połączone rampami i klatkami schodowymi; filary, zaparkowane auta, strefy (myjnia, budka ochrony, strefa remontowa, rampa załadunkowa, tunel serwisowy), pomieszczenia techniczne. Poziom -3 starszy i częściowo zalany.
 2. Labirynt (później).
 
 ## Architektura (Assets/_Project)
