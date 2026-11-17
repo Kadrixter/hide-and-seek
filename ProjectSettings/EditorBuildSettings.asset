@@ -6,13 +6,13 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/_Project/Game/Scenes/Beta_ParkingGarage.unity
-    guid: 22bb2766a1216ff49afbca5e85af9c57
+    path: Assets/_Project/Game/Scenes/Menu.unity
+    guid: fcc70aeb2191952489ae1dad4fbf4e75
   - enabled: 1
-    path: Assets/_Project/Characters/Scenes/CharacterShowcase.unity
-    guid: 0ecc51588488e384ba0bf49280620780
+    path: Assets/_Project/Game/Scenes/Lobby.unity
+    guid: 997e7f2a6e2ed6f44818aa7e4ffff84f
   - enabled: 1
-    path: Assets/_Project/Player/Scenes/PlayerTestRange.unity
-    guid: 9d57ccab1872a9b46850a9bfdd248c75
+    path: Assets/_Project/Game/Scenes/Game_ParkingGarage.unity
+    guid: 59147a0ab42f13440a4bd2da8cebf270
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}
