@@ -78,6 +78,13 @@ namespace HideAndSeek.Game.Net
             }
             if (SceneManager.GetActiveScene().name != NetSession.LobbyScene) _placedInLobby = false;
 
+            if (DebugPos && Time.time >= _nextDebug)
+            {
+                _nextDebug = Time.time + 2f;
+                Debug.Log($"[Pos] scene={SceneManager.GetActiveScene().name} phase={phase} life={_p.Life.Value} downed={_p.Motor.Downed} " +
+                          $"eye={_p.Motor.EyeHeight:0.00} crouch={_p.Motor.CrouchAmount:0.00} pos={transform.position} cam={(_p.Camera != null ? _p.Camera.transform.position.ToString() : "-")}");
+            }
+
             // ---- input locks
             bool dead = _p.Life.Value == LifeState.Dead;
             bool blind = _p.IsSeeker && (phase == MatchPhase.Hiding || phase == MatchPhase.Loading);
@@ -227,6 +234,8 @@ namespace HideAndSeek.Game.Net
         }
 
         private int _pickupId;
+        private float _nextDebug;
+        private static readonly bool DebugPos = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-debugpos") >= 0;
 
         private static bool InView(Vector3 eye, Vector3 fwd, Vector3 target, float maxAngle)
         {
@@ -351,8 +360,9 @@ namespace HideAndSeek.Game.Net
                 float radius;
                 if (o.Life.Value == LifeState.Downed)
                 {
-                    a = o.transform.position + Vector3.up * 0.25f - o.transform.forward * 0.8f;
-                    b = o.transform.position + Vector3.up * 0.25f + o.transform.forward * 0.8f;
+                    // Downed body lies behind the root (root at the shoulders).
+                    a = o.transform.position + Vector3.up * 0.25f - o.transform.forward * 1.5f;
+                    b = o.transform.position + Vector3.up * 0.25f + o.transform.forward * 0.2f;
                     radius = 0.32f;
                 }
                 else

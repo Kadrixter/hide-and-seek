@@ -335,7 +335,8 @@ namespace HideAndSeek.Game.Net
 
         private IEnumerator KnifeSequence(NetPlayer victim)
         {
-            Actions?.PlayKnifeAttack();
+            if (Actions is BlockyCharacterActions bca && victim != null) bca.PlayKnifeAttack(victim.Character);
+            else Actions?.PlayKnifeAttack();
             victim?.Actions?.PlayStabbedReaction();
             if (IsOwner) ViewModel?.PlayKnifeAttack();
             GameAudio.PlayAttached(GameSfx.KnifeDraw, transform, 0.8f);
@@ -370,7 +371,8 @@ namespace HideAndSeek.Game.Net
             }
             if (muzzle == null) muzzle = Actions?.MuzzlePoint;
             Vector3 from = muzzle != null ? muzzle.position : EyePosition + transform.forward * 0.5f;
-            ShotFx.Play(from, hitPoint, muzzle, IsOwner);
+            if (muzzle != null) MuzzleFlash.Spawn(muzzle, IsOwner);
+            ShotFx.Play(from, hitPoint, muzzle, IsOwner, muzzle == null);
             GameAudio.PlayAt(GameSfx.GlockShot, from);
             GameAudio.PlayAt(GameSfx.GlockShotDistant, from, 0.8f);
             GameAudio.PlayAt(GameSfx.ShellCasing, transform.position + transform.right * 0.4f, 0.5f);

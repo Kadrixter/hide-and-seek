@@ -82,14 +82,21 @@ namespace HideAndSeek.Game.Net
                     GameHud.Banner("SZUKAJĄCY WYRUSZYŁ", local != null && local.IsSeeker ? "Znajdź ich wszystkich." : "Nie daj się złapać.", 3f, Color.red);
                     break;
                 case MatchPhase.Ended:
-                    bool seekerWon = Winner.Value == MatchWinner.Seeker;
-                    bool iWon = local != null && (local.IsSeeker == seekerWon);
-                    GameAudio.Play2D(iWon ? GameSfx.WinSting : GameSfx.LoseSting);
-                    GameAudio.SetBed(AmbientId.None);
-                    GameHud.Banner(seekerWon ? "WYGRYWA SZUKAJĄCY" : "WYGRYWAJĄ UKRYCI",
-                        iWon ? "Wygrana :D" : "Przegrana :/", Tuning.EndScreenTime - 1f, iWon ? UI.UiKit.Accent : UI.UiKit.Danger);
                     break;
             }
+        }
+
+        /// <summary>Sent after Winner is set, so every client sees the right result (variable order is not guaranteed).</summary>
+        [Rpc(SendTo.Everyone)]
+        private void MatchEndedRpc(MatchWinner winner)
+        {
+            var local = NetPlayer.Local;
+            bool seekerWon = winner == MatchWinner.Seeker;
+            bool iWon = local != null && (local.IsSeeker == seekerWon);
+            GameAudio.Play2D(iWon ? GameSfx.WinSting : GameSfx.LoseSting);
+            GameAudio.SetBed(AmbientId.None);
+            GameHud.Banner(seekerWon ? "WYGRYWA SZUKAJĄCY" : "WYGRYWAJĄ UKRYCI",
+                iWon ? "Wygrana :D" : "Przegrana :/", Tuning.EndScreenTime - 1f, iWon ? UI.UiKit.Accent : UI.UiKit.Danger);
         }
 
         [Rpc(SendTo.Everyone)]
@@ -159,6 +166,8 @@ namespace HideAndSeek.Game.Net
             var candidates = players.FindAll(x => x.OwnerClientId != _lastSeekerClient);
             if (candidates.Count == 0) candidates = players;
             var seeker = candidates[Random.Range(0, candidates.Count)];
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-forceseeker") >= 0)
+                seeker = NetPlayer.FindByClient(NetworkManager.ServerClientId) ?? seeker;
             _lastSeekerClient = seeker.OwnerClientId;
 
             foreach (var pl in players)
@@ -335,6 +344,8 @@ namespace HideAndSeek.Game.Net
             }
         }
 
+        public void TestGiveGlock() => GiveGlock();
+
         private void GiveGlock()
         {
             GlockPhase.Value = true;
@@ -375,6 +386,7 @@ namespace HideAndSeek.Game.Net
             Winner.Value = w;
             Phase.Value = MatchPhase.Ended;
             PhaseEnd.Value = Now + Tuning.EndScreenTime;
+            MatchEndedRpc(w);
         }
 
         private void BackToLobby()

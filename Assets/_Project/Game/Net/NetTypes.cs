@@ -113,9 +113,9 @@ namespace HideAndSeek.Game.Net
         public const float KnifeRange = 3.0f;          // F works
         public const float KnifeServerRange = 4.5f;    // server tolerance (latency)
         public const float KnifeStandOff = 0.85f;      // victim distance during the animation
-        public static readonly float[] StabTimes = { 0.55f, 1.0f, 1.45f, 1.9f };
-        public const float KnifeAttackDuration = 2.4f;
-        public const float KnifeSequenceDuration = 3.3f; // incl. victim collapse
+        public static readonly float[] StabTimes = HideAndSeek.Characters.ActionTimeline.KnifeStabTimes;
+        public const float KnifeAttackDuration = HideAndSeek.Characters.ActionTimeline.KnifeAttackDuration;
+        public const float KnifeSequenceDuration = HideAndSeek.Characters.ActionTimeline.StabbedReactionDuration + 0.1f; // incl. victim collapse
 
         // Downed / rescue
         public const float BleedOutTime = 45f;
@@ -129,7 +129,7 @@ namespace HideAndSeek.Game.Net
         public const int MagSize = 5;
         public const int Mags = 3;                      // 1 loaded + 2 spare
         public const float FireInterval = 0.55f;
-        public const float ReloadTime = 1.6f;
+        public const float ReloadTime = HideAndSeek.Characters.ActionTimeline.ReloadDuration;
         public const float GlockRange = 70f;
 
         // Lobby

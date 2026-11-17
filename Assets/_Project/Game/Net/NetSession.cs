@@ -87,9 +87,9 @@ namespace HideAndSeek.Game.Net
         private System.Collections.IEnumerator Shots(string dir)
         {
             System.IO.Directory.CreateDirectory(dir);
-            for (int i = 0; i < 12; i++)
+            for (int i = 0; i < 20; i++)
             {
-                yield return new WaitForSeconds(i == 0 ? 2.5f : 5f);
+                yield return new WaitForSeconds(i == 0 ? 2.5f : 2f);
                 ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{LocalProfile.Nick}_{i:00}.png"));
             }
         }
@@ -99,9 +99,64 @@ namespace HideAndSeek.Game.Net
             while (MatchManager.Instance == null || NetPlayer.All.Count < 2) yield return new WaitForSeconds(0.5f);
             yield return new WaitForSeconds(3f);
             Debug.Log("[NetSession] autostart");
+            string[] a = Environment.GetCommandLineArgs();
+            int hi = Array.IndexOf(a, "-hidetime");
+            if (hi >= 0 && hi + 1 < a.Length && float.TryParse(a[hi + 1], out float ht))
+            {
+                var st = MatchManager.Instance.Settings.Value;
+                st.HideTime = ht;
+                MatchManager.Instance.Settings.Value = st;
+            }
             MatchManager.Instance.RequestStartRpc();
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-testcombat") >= 0) StartCoroutine(TestCombat());
         }
 
+        /// <summary>Host-only scripted test: seeker knifes the first hider, then shoots another / the downed one.</summary>
+        private System.Collections.IEnumerator TestCombat()
+        {
+            var mm = MatchManager.Instance;
+            while (mm.Phase.Value != MatchPhase.Seeking) yield return null;
+            yield return new WaitForSeconds(1f);
+            NetPlayer seeker = null, h1 = null, h2 = null;
+            foreach (var p in NetPlayer.All)
+            {
+                if (p.IsSeeker) seeker = p;
+                else if (h1 == null) h1 = p;
+                else h2 = p;
+            }
+            if (seeker == null || h1 == null) yield break;
+            void Log(string s) => Debug.Log($"[Test] {s}: h1={h1.Life.Value}/w{h1.Wounded.Value} h2={(h2 != null ? h2.Life.Value + "/w" + h2.Wounded.Value : "-")} phase={mm.Phase.Value} winner={mm.Winner.Value} ammo={seeker.Ammo.Value}+{seeker.SpareMags.Value}");
+
+            Vector3 hp = h1.transform.position;
+            seeker.TeleportRpc(hp + h1.transform.forward * 2f, Quaternion.LookRotation(-h1.transform.forward).eulerAngles.y);
+            if (h2 != null) h2.TeleportRpc(hp - h1.transform.right * 1.2f, Quaternion.LookRotation(h1.transform.right).eulerAngles.y);
+            yield return new WaitForSeconds(1.5f);
+            mm.ServerKnife(seeker, h1);
+            yield return new WaitForSeconds(Tuning.KnifeSequenceDuration + 1f);
+            Log("after knife");
+            if (h2 != null)
+            {
+                mm.ServerRescue(h2, h1);
+                yield return new WaitForSeconds(1.5f);
+                Log("after rescue");
+            }
+            mm.TestGiveGlock();
+            yield return new WaitForSeconds(2f);
+            mm.ServerShoot(seeker, seeker.EyePosition, (h1.ChestPosition - seeker.EyePosition).normalized, h1, h1.ChestPosition);
+            yield return new WaitForSeconds(2f);
+            Log("after shot (wounded -> dead)");
+            mm.ServerReload(seeker);
+            yield return new WaitForSeconds(Tuning.ReloadTime + 0.5f);
+            Log("after reload");
+            if (h2 != null)
+            {
+                seeker.TeleportRpc(h2.transform.position + h2.transform.forward * 2f, Quaternion.LookRotation(-h2.transform.forward).eulerAngles.y);
+                yield return new WaitForSeconds(1.5f);
+                mm.ServerKnife(seeker, h2);
+                yield return new WaitForSeconds(Tuning.KnifeSequenceDuration + 1f);
+                Log("after knife 2");
+            }
+        }
         private void TryAddPrefab(GameObject prefab)
         {
             if (prefab == null) return;

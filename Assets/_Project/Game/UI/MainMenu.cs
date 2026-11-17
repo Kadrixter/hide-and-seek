@@ -36,7 +36,7 @@ namespace HideAndSeek.Game.UI
             var side = UiKit.Image("Side", root, new Color(0.02f, 0.022f, 0.026f, 0.86f));
             side.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), Vector2.zero, new Vector2(700, 0));
 
-            var title = UiKit.Label("Title", side.transform, "HIDE AND SEEK", 78, TextAnchor.UpperLeft, null, FontStyle.Bold);
+            var title = UiKit.Label("Title", side.transform, "HIDE AND SEEK", 62, TextAnchor.UpperLeft, null, FontStyle.Bold);
             title.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(60, -60), new Vector2(-120, 100));
             var sub = UiKit.Label("Sub", side.transform, "chowany w ciemnościach", 30, TextAnchor.UpperLeft, UiKit.TextDim);
             sub.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(64, -150), new Vector2(-120, 40));

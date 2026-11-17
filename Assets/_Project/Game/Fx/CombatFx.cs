@@ -107,12 +107,12 @@ namespace HideAndSeek.Game
     /// <summary>Muzzle flash (bright short light visible far away in the dark), tracer and impact.</summary>
     public static class ShotFx
     {
-        public static void Play(Vector3 from, Vector3 to, Transform muzzle, bool firstPerson)
+        public static void Play(Vector3 from, Vector3 to, Transform muzzle, bool firstPerson, bool flash = true)
         {
-            FxUtil.Runner.StartCoroutine(Run(from, to, muzzle, firstPerson));
+            FxUtil.Runner.StartCoroutine(Run(from, to, muzzle, firstPerson, flash));
         }
 
-        private static IEnumerator Run(Vector3 from, Vector3 to, Transform muzzle, bool firstPerson)
+        private static IEnumerator Run(Vector3 from, Vector3 to, Transform muzzle, bool firstPerson, bool withFlash)
         {
             var go = new GameObject("MuzzleFlash");
             go.transform.position = from;
@@ -122,11 +122,12 @@ namespace HideAndSeek.Game
             light.range = 14f;
             light.intensity = 7f;
             light.shadows = LightShadows.None;
+            light.enabled = withFlash;
 
             var flash = GameObject.CreatePrimitive(PrimitiveType.Quad);
             Object.Destroy(flash.GetComponent<Collider>());
             flash.transform.SetParent(go.transform, false);
-            flash.transform.localScale = Vector3.one * (firstPerson ? 0.12f : 0.3f);
+            flash.transform.localScale = Vector3.one * (firstPerson ? 0.12f : 0.3f) * (withFlash ? 1f : 0f);
             var fr = flash.GetComponent<MeshRenderer>();
             fr.sharedMaterial = FxUtil.Unlit;
             var mpb = new MaterialPropertyBlock();

@@ -23,7 +23,8 @@ namespace HideAndSeek.Game
 
         private Canvas _canvas;
         private Text _timer, _phase, _players, _lobbyInfo, _ammo, _status, _spectate, _blindText, _downText;
-        private Image _blind, _vignette, _hurt, _crosshair;
+        private Image _blind, _crosshair;
+        private RawImage _vignette, _hurt;
         private RectTransform _prompt;
         private Text _promptText;
         private Image _promptFill;
@@ -64,17 +65,13 @@ namespace HideAndSeek.Game
             _blindText.rectTransform.Stretch();
             _blind.gameObject.SetActive(false);
 
-            _vignette = UiKit.Image("DownedVignette", root, new Color(0.5f, 0f, 0f, 0.45f));
-            _vignette.rectTransform.Stretch();
-            _vignette.sprite = VignetteSprite();
+            _vignette = VignetteImage("DownedVignette", root, new Color(0.5f, 0f, 0f, 0.45f));
             _downText = UiKit.Label("DownText", _vignette.transform, "", 34, TextAnchor.LowerCenter, new Color(1f, 0.75f, 0.7f));
             _downText.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0.5f, 0), new Vector2(0, 170), new Vector2(0, 120));
             _downText.AddOutline();
             _vignette.gameObject.SetActive(false);
 
-            _hurt = UiKit.Image("Hurt", root, new Color(0.7f, 0f, 0f, 0f));
-            _hurt.rectTransform.Stretch();
-            _hurt.sprite = VignetteSprite();
+            _hurt = VignetteImage("Hurt", root, new Color(0.7f, 0f, 0f, 0f));
 
             _crosshair = UiKit.Image("Crosshair", root, new Color(1f, 1f, 1f, 0.55f));
             _crosshair.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(4, 4));
@@ -140,11 +137,22 @@ namespace HideAndSeek.Game
             _bannerSub.AddOutline();
 
             _toast = UiKit.Label("Toast", root, "", 30, TextAnchor.MiddleCenter);
-            _toast.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 220), new Vector2(1300, 50));
+            _toast.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 330), new Vector2(1300, 50));
             _toast.AddOutline();
 
             _minimap = gameObject.AddComponent<Minimap>();
             _minimap.Build(root);
+        }
+
+        private static RawImage VignetteImage(string name, Transform parent, Color color)
+        {
+            var rt = UiKit.Rect(name, parent);
+            rt.Stretch();
+            var img = rt.gameObject.AddComponent<RawImage>();
+            img.texture = VignetteSprite().texture;
+            img.color = color;
+            img.raycastTarget = false;
+            return img;
         }
 
         private static Sprite _vignetteSprite;
@@ -160,7 +168,7 @@ namespace HideAndSeek.Game
             {
                 float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
                 float d = Mathf.Sqrt(dx * dx + dy * dy) / 1.414f;
-                float a = Mathf.SmoothStep(0.35f, 1f, d);
+                float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 1f, d));
                 px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255));
             }
             tex.SetPixels32(px);

@@ -216,6 +216,7 @@ namespace HideAndSeek.Game.Net
                     foreach (var ua in ni.GetIPProperties().UnicastAddresses)
                     {
                         if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                        if (ua.Address.ToString().StartsWith("169.254.")) continue; // link-local, unusable
                         var mask = ua.IPv4Mask ?? IPAddress.Parse("255.255.255.0");
                         if (mask.Equals(IPAddress.Any)) mask = IPAddress.Parse("255.255.255.0");
                         result.Add((ua.Address, mask));

@@ -8,7 +8,7 @@ namespace HideAndSeek.Game.Net
     {
         public static IFirstPersonViewModel Create(Transform cameraTransform, int skin, string nick)
         {
-            return null; // hooked up once the Characters view model lands
+            return HideAndSeek.Characters.FirstPersonViewModel.Create(cameraTransform, skin, nick);
         }
     }
 }

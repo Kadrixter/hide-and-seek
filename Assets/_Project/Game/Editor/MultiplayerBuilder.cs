@@ -72,6 +72,7 @@ namespace HideAndSeek.Game.Editor
             Directory.CreateDirectory(SceneDir);
             Directory.CreateDirectory(LobbyArtDir);
             EnsureLayer(PlayerAvatarBinder.LocalBodyLayer, "LocalPlayerBody");
+            EnsureLayer(9, "ViewModel");
             ConfigurePlayerSettings();
             BuildHintVoices();
             var netPlayer = BuildNetPlayerPrefab();
