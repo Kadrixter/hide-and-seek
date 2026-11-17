@@ -325,7 +325,7 @@ namespace HideAndSeek.Game
             {
                 double left = me.DownedUntil.Value - (mm != null ? mm.Now : 0);
                 float pulse = 0.35f + 0.15f * Mathf.Sin(Time.time * 6f);
-                _vignette.color = new Color(0.55f, 0f, 0f, pulse + 0.35f * (1f - (float)(left / Tuning.BleedOutTime)));
+                _vignette.color = new Color(0.55f, 0f, 0f, pulse + 0.35f * (1f - (float)(left / (mm != null ? mm.BleedOut : Tuning.BleedOutTime))));
                 bool weak = LocalPlayerController.Instance != null && LocalPlayerController.Instance.CrawlExhausted;
                 _downText.text = $"Wykrwawiasz się: {UiKit.FormatTime(left)}\n" + (weak
                     ? "Nie masz już sił się czołgać. Czekaj na pomoc."
@@ -590,7 +590,7 @@ namespace HideAndSeek.Game
             var mm = MatchManager.Instance;
             if (mm == null) return;
             bool host = NetworkManager.Singleton.IsServer;
-            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 860));
+            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 960));
             var panel = _settingsPanel.Find("Panel");
             var s = mm.Settings.Value;
             UiKit.Label("Title", panel, "USTAWIENIA RUNDY", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(56);
@@ -663,12 +663,22 @@ namespace HideAndSeek.Game
             }, 26);
             glockB.Height(56);
 
+            var bleedL = Row("");
+            var bleed = UiKit.Slider("BleedOut", panel, 20, 180, s.BleedOut > 1f ? s.BleedOut : Tuning.BleedOutTime, true, v =>
+            {
+                s.BleedOut = v;
+                bleedL.text = $"Wykrwawianie po złapaniu: {v:0} s";
+                Push();
+            });
+            bleed.Height(34);
+            bleedL.text = $"Wykrwawianie po złapaniu: {(s.BleedOut > 1f ? s.BleedOut : Tuning.BleedOutTime):0} s";
+
             var medL = Row("");
             var med = UiKit.Slider("Medkits", panel, 0, 8, s.Medkits, true, v => { s.Medkits = (byte)v; medL.text = $"Apteczki na mapie: {v:0}"; Push(); });
             med.Height(34);
             medL.text = $"Apteczki na mapie: {s.Medkits}";
 
-            foreach (var sl in new[] { hide, seek, hs, hi, med }) sl.interactable = host;
+            foreach (var sl in new[] { hide, seek, hs, hi, med, bleed }) sl.interactable = host;
             modeB.interactable = host;
             glockB.interactable = host;
 

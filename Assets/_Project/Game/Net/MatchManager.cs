@@ -33,6 +33,24 @@ namespace HideAndSeek.Game.Net
         private readonly HashSet<ulong> _reloading = new();
 
         public double Now => NetworkManager != null ? NetworkManager.ServerTime.Time : 0d;
+
+        /// <summary>Bleed-out time of this round (lobby setting).</summary>
+        public float BleedOut => Settings.Value.BleedOut > 1f ? Settings.Value.BleedOut : Tuning.BleedOutTime;
+
+        /// <summary>Raised on every client when a hider goes down (minimap / notifications).</summary>
+        public static event System.Action<NetPlayer> HelpNeeded;
+
+        [Rpc(SendTo.Everyone)]
+        private void HelpNeededRpc(ulong downedId)
+        {
+            var downed = NetPlayer.Find(downedId);
+            if (downed == null) return;
+            HelpNeeded?.Invoke(downed);
+            var local = NetPlayer.Local;
+            if (local == null || local == downed || !local.IsHider) return;
+            GameAudio.Play2D(GameSfx.UiError, 0.9f);
+            GameHud.Banner("POMOCY!", $"{downed.Nick} potrzebuje pomocy - czerwony znacznik na mapie.", 4f, new Color(1f, 0.35f, 0.3f));
+        }
         public double Remaining => PhaseEnd.Value - Now;
 
         private void Awake()
@@ -135,6 +153,7 @@ namespace HideAndSeek.Game.Net
             s.HintStart = Mathf.Clamp(s.HintStart, 0f, s.SeekTime);
             s.HintInterval = Mathf.Clamp(s.HintInterval, 15f, 600f);
             s.Medkits = (byte)Mathf.Clamp(s.Medkits, 0, 10);
+            s.BleedOut = Mathf.Clamp(s.BleedOut, 20f, 300f);
             Settings.Value = s;
         }
 
@@ -472,7 +491,8 @@ namespace HideAndSeek.Game.Net
         private void Down(NetPlayer pl)
         {
             pl.Life.Value = LifeState.Downed;
-            pl.DownedUntil.Value = Now + Tuning.BleedOutTime;
+            pl.DownedUntil.Value = Now + BleedOut;
+            HelpNeededRpc(pl.NetworkObjectId);
             pl.Held.Value = HeldItem.None;
             pl.ToastRpc("Wykrwawiasz się. Inny chowający może cię uratować (H).", 5f);
         }

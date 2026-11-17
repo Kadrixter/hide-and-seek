@@ -61,6 +61,7 @@ namespace HideAndSeek.Game.Net
         public byte HintMode;        // Core.HintMode flags
         public bool Glock;           // seeker gets a Glock for the last 2 minutes
         public byte Medkits;
+        public float BleedOut;       // seconds a downed hider survives
 
         public static NetSettings Default => new NetSettings
         {
@@ -71,6 +72,7 @@ namespace HideAndSeek.Game.Net
             HintMode = (byte)Core.HintMode.Both,
             Glock = true,
             Medkits = 3,
+            BleedOut = 78f,
         };
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
@@ -82,11 +84,12 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref HintMode);
             s.SerializeValue(ref Glock);
             s.SerializeValue(ref Medkits);
+            s.SerializeValue(ref BleedOut);
         }
 
         public bool Equals(NetSettings o) => HideTime == o.HideTime && SeekTime == o.SeekTime && HintStart == o.HintStart &&
                                              HintInterval == o.HintInterval && HintMode == o.HintMode && Glock == o.Glock &&
-                                             Medkits == o.Medkits;
+                                             Medkits == o.Medkits && BleedOut == o.BleedOut;
     }
 
     public struct MedkitState : INetworkSerializable, IEquatable<MedkitState>

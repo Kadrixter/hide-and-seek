@@ -118,7 +118,7 @@ namespace HideAndSeek.Game.Net
             bool exhausted = false;
             if (_p.Life.Value == LifeState.Downed && mm != null)
             {
-                double downedFor = mm.Now - (_p.DownedUntil.Value - Tuning.BleedOutTime);
+                double downedFor = mm.Now - (_p.DownedUntil.Value - mm.BleedOut);
                 exhausted = downedFor >= Tuning.CrawlTime;
             }
             CrawlExhausted = exhausted;

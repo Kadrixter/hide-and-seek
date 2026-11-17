@@ -176,6 +176,7 @@ namespace HideAndSeek.Game
             _arrow.localRotation = Quaternion.Euler(0f, 0f, -yaw);
 
             float size = _root.rect.width - 8f;
+            UpdateTeamDots(me, pos, size);
             for (int i = _pins.Count - 1; i >= 0; i--)
             {
                 var (rt, world, until) = _pins[i];
@@ -195,6 +196,57 @@ namespace HideAndSeek.Game
                 var img = rt.GetComponent<Image>();
                 img.color = new Color(1f, 0.2f, 0.15f, Mathf.Clamp01(left));
             }
+        }
+
+        // ================================================================ team dots
+
+        private readonly List<Image> _dots = new();
+
+        /// <summary>Hiders only: other hiders as white dots, downed ones as pulsing red markers (clamped to the edge when far).</summary>
+        private void UpdateTeamDots(NetPlayer me, Vector3 pos, float size)
+        {
+            int used = 0;
+            if (me.IsHider)
+            {
+                float edge = size * 0.5f - 8f;
+                foreach (var p in NetPlayer.All)
+                {
+                    if (p == null || p == me || !p.IsHider || p.Life.Value == LifeState.Dead) continue;
+                    bool downed = p.Life.Value == LifeState.Downed;
+                    Vector3 w = p.transform.position;
+                    Vector2 off = new Vector2(w.x - pos.x, w.z - pos.z) / ViewMetres * size;
+                    bool outside = Mathf.Abs(off.x) > edge || Mathf.Abs(off.y) > edge;
+                    if (outside && !downed) continue;
+                    off = new Vector2(Mathf.Clamp(off.x, -edge, edge), Mathf.Clamp(off.y, -edge, edge));
+                    bool otherFloor = Mathf.Abs(w.y - pos.y) > 1.7f;
+
+                    if (used >= _dots.Count)
+                    {
+                        var img = UiKit.Image("TeamDot", _root, Color.white);
+                        img.sprite = DotSprite();
+                        img.raycastTarget = false;
+                        _dots.Add(img);
+                    }
+                    var dot = _dots[used++];
+                    dot.gameObject.SetActive(true);
+                    var rt = dot.rectTransform;
+                    rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                    rt.anchoredPosition = off;
+                    if (downed)
+                    {
+                        float pulse = 1f + 0.35f * Mathf.Sin(Time.time * 7f);
+                        rt.sizeDelta = new Vector2(16, 16) * pulse;
+                        dot.color = new Color(1f, 0.15f, 0.12f, otherFloor ? 0.6f : 1f);
+                    }
+                    else
+                    {
+                        rt.sizeDelta = new Vector2(10, 10);
+                        dot.color = new Color(1f, 1f, 1f, otherFloor ? 0.35f : 0.95f);
+                    }
+                }
+            }
+            for (int i = used; i < _dots.Count; i++) _dots[i].gameObject.SetActive(false);
+            _arrow.SetAsLastSibling();
         }
 
         // ================================================================ sprites

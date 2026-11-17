@@ -25,7 +25,8 @@ namespace HideAndSeek.Game
                         $"Podpowiedzi od {UI.UiKit.FormatTime(s.HintStart)}, co {UI.UiKit.FormatTime(s.HintInterval)}\n" +
                         $"Tryb: {hint}\n" +
                         $"Glock na koniec: {(s.Glock ? "tak" : "nie")}\n" +
-                        $"Apteczki: {s.Medkits}\n\n" +
+                        $"Apteczki: {s.Medkits}\n" +
+                        $"Wykrwawianie: {(s.BleedOut > 1f ? s.BleedOut : 78f):0} s\n\n" +
                         $"Graczy: {NetPlayer.All.Count}\n[E]";
         }
     }
