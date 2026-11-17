@@ -70,6 +70,7 @@ namespace HideAndSeek.Map.Editor
             Make("Arrow_White", white, "Arrow", 1f, 0f, 0.35f, mode: Mode.Cutout);
             Make("Hatch_Yellow", new Color(1f, 0.76f, 0.1f), "Hatch", 1f, 0f, 0.35f, mode: Mode.Cutout);
             Make("Puddle", new Color(0.02f, 0.025f, 0.03f, 0.92f), "Puddle", 1f, 0f, 0.97f, mode: Mode.Transparent);
+            Make("Flood_Water", new Color(0.035f, 0.045f, 0.05f, 0.9f), "Flood", 1f, 0.1f, 0.98f, mode: Mode.Transparent);
             Make("Oil_Stain", white, "Oil_Stain", 1f, 0f, 0.75f, mode: Mode.Fade);
             Make("Crack", white, "Crack", 1f, 0f, 0.1f, mode: Mode.Fade);
             Make("Grate", white, "Grate", 0.5f, 0.6f, 0.35f);
@@ -105,7 +106,20 @@ namespace HideAndSeek.Map.Editor
             Make("Fixture_Dead", new Color(0.72f, 0.72f, 0.7f), null, 1f, 0f, 0.55f);
             Make("Lamp_Flicker", new Color(0.85f, 0.83f, 0.78f), null, 1f, 0f, 0.6f, emission: new Color(1f, 0.86f, 0.62f) * 1.4f);
             Make("Lamp_Exit", new Color(0.85f, 0.85f, 0.85f), null, 1f, 0f, 0.5f);
-            // --- car parts
+            // --- zones / level -3 (older, damp)
+            Make("Floor_Concrete_Old", new Color(0.7f, 0.71f, 0.66f), "Floor_Concrete", 4f, 0f, 0.42f, "Floor_Concrete_N", 1.5f);
+            Make("Wall_Concrete_Old", new Color(0.66f, 0.7f, 0.63f), "Wall_Concrete", 3f, 0f, 0.2f, "Wall_Concrete_N", 1.4f);
+            Make("Ceiling_Concrete_Old", new Color(0.42f, 0.45f, 0.41f), "Wall_Concrete", 3f, 0f, 0.12f, "Wall_Concrete_N", 1.2f);
+            Make("Column_Concrete_Old", new Color(0.7f, 0.72f, 0.66f), "Wall_Concrete", 2f, 0f, 0.15f, "Wall_Concrete_N", 1.4f);
+            Make("Hazard_Old", new Color(0.62f, 0.6f, 0.52f), "Hazard_Stripes", 0.5f, 0f, 0.3f);
+            Make("Paint_Red", new Color(0.62f, 0.12f, 0.1f), "Paint_Worn", 1.5f, 0f, 0.3f);
+            Make("Tile_Wash", new Color(0.7f, 0.82f, 0.95f), "Tile_Floor", 1.2f, 0f, 0.75f, "Tile_Floor_N", 1f);
+            Make("Brush_Blue", new Color(0.1f, 0.3f, 0.8f), "Tarp", 0.5f, 0f, 0.2f);
+            Make("Tarp_Blue", new Color(0.2f, 0.38f, 0.75f), "Tarp", 1.5f, 0f, 0.45f, "Tarp_N", 1f);
+            Make("Tarp_Grey", new Color(0.55f, 0.57f, 0.55f), "Tarp", 1.5f, 0f, 0.35f, "Tarp_N", 1f);
+            Make("Rubble", new Color(0.8f, 0.8f, 0.78f), "Wall_Concrete", 1f, 0f, 0.1f, "Wall_Concrete_N", 1.5f);
+            Make("Rust", new Color(0.55f, 0.3f, 0.16f), "Painted_Metal", 1f, 0.3f, 0.25f);
+            Make("Sack", new Color(0.82f, 0.82f, 0.78f), "Cardboard", 1f, 0f, 0.1f);            // --- car parts
             Make("Car_Headlight", new Color(0.9f, 0.9f, 0.85f), null, 1f, 0.4f, 0.92f);
             Make("Car_Taillight", new Color(0.55f, 0.03f, 0.02f), null, 1f, 0.2f, 0.85f);
             Make("Car_Indicator", new Color(0.9f, 0.45f, 0.05f), null, 1f, 0.2f, 0.85f);

@@ -505,6 +505,246 @@ namespace HideAndSeek.Map.Editor
             mb.Box(new Vector3(0, 0.6f, 0.32f), new Vector3(0.18f, 0.25f, 0.04f), M("PM_Grey"));
         });
 
+        // ================================================================== zone props
+
+        /// <summary>Blocky motorbike, length along Z.</summary>
+        public PropMesh Motorbike(string paint) => Get("Motorbike_" + paint, (mb, pm) =>
+        {
+            var p = M(paint);
+            var rubber = M("Rubber");
+            var chrome = M("Car_Chrome");
+            var dark = M("Car_Trim");
+            foreach (float z in new[] { -0.72f, 0.72f })
+            {
+                mb.Cylinder(new Vector3(-0.06f, 0.32f, z), new Vector3(0.06f, 0.32f, z), 0.32f, 14, rubber);
+                mb.Cylinder(new Vector3(-0.065f, 0.32f, z), new Vector3(0.065f, 0.32f, z), 0.15f, 10, chrome);
+            }
+            mb.Box(new Vector3(0, 0.55f, 0), new Vector3(0.18f, 0.12f, 1.25f), dark, Quaternion.Euler(-8f, 0, 0));
+            mb.Box(new Vector3(0, 0.5f, -0.05f), new Vector3(0.3f, 0.3f, 0.45f), M("Metal_Dark"));
+            mb.Box(new Vector3(0, 0.82f, 0.25f), new Vector3(0.34f, 0.22f, 0.45f), p);
+            mb.Box(new Vector3(0, 0.82f, -0.35f), new Vector3(0.28f, 0.1f, 0.6f), M("Plastic_Black"));
+            mb.Box(new Vector3(0, 0.75f, -0.75f), new Vector3(0.22f, 0.12f, 0.35f), p);
+            mb.Box(new Vector3(0, 0.75f, 0.62f), new Vector3(0.06f, 0.6f, 0.06f), chrome, Quaternion.Euler(20f, 0, 0));
+            mb.Box(new Vector3(0, 1.05f, 0.55f), new Vector3(0.7f, 0.035f, 0.035f), chrome);
+            mb.Box(new Vector3(0, 0.95f, 0.72f), new Vector3(0.16f, 0.14f, 0.08f), M("Car_Headlight"));
+            mb.Cylinder(new Vector3(0.17f, 0.35f, 0.1f), new Vector3(0.17f, 0.42f, -0.85f), 0.05f, 8, chrome);
+            pm.Colliders.Add(B(new Vector3(0, 0.6f, 0), new Vector3(0.5f, 1.2f, 2.1f)));
+        });
+
+        public PropMesh Bicycle(string paint) => Get("Bicycle_" + paint, (mb, pm) =>
+        {
+            var p = M(paint);
+            foreach (float z in new[] { -0.52f, 0.52f })
+                mb.Cylinder(new Vector3(-0.02f, 0.34f, z), new Vector3(0.02f, 0.34f, z), 0.34f, 16, M("Rubber"));
+            mb.Box(new Vector3(0, 0.58f, 0.05f), new Vector3(0.04f, 0.04f, 0.65f), p);
+            mb.Box(new Vector3(0, 0.46f, -0.22f), new Vector3(0.04f, 0.04f, 0.6f), p, Quaternion.Euler(-35f, 0, 0));
+            mb.Box(new Vector3(0, 0.46f, 0.3f), new Vector3(0.04f, 0.04f, 0.55f), p, Quaternion.Euler(40f, 0, 0));
+            mb.Box(new Vector3(0, 0.62f, -0.28f), new Vector3(0.04f, 0.6f, 0.04f), p, Quaternion.Euler(-15f, 0, 0));
+            mb.Box(new Vector3(0, 0.92f, -0.33f), new Vector3(0.12f, 0.05f, 0.24f), M("Plastic_Black"));
+            mb.Box(new Vector3(0, 0.95f, 0.42f), new Vector3(0.5f, 0.03f, 0.03f), M("Car_Chrome"));
+            pm.Colliders.Add(B(new Vector3(0, 0.5f, 0), new Vector3(0.4f, 1.0f, 1.7f)));
+        });
+
+        public PropMesh BikeRack(int slots) => Get("BikeRack" + slots, (mb, pm) =>
+        {
+            var m = M("Metal_Galvanized");
+            for (int i = 0; i < slots; i++)
+            {
+                float x = (i - (slots - 1) * 0.5f) * 0.75f;
+                mb.Box(new Vector3(x, 0.4f, -0.3f), new Vector3(0.05f, 0.8f, 0.05f), m);
+                mb.Box(new Vector3(x, 0.4f, 0.3f), new Vector3(0.05f, 0.8f, 0.05f), m);
+                mb.Box(new Vector3(x, 0.82f, 0f), new Vector3(0.05f, 0.05f, 0.65f), m);
+            }
+            pm.Colliders.Add(B(new Vector3(0, 0.45f, 0), new Vector3(slots * 0.75f, 0.9f, 0.7f)));
+        });
+
+        public PropMesh SecurityBooth() => Get("SecurityBooth", (mb, pm) =>
+        {
+            var w = M("PM_White");
+            var g = M("Glass_Dark");
+            float sx = 2.2f, sz = 2.0f, h = 2.5f;
+            foreach (float x in new[] { -1f, 1f })
+            foreach (float z in new[] { -1f, 1f })
+                mb.Box(new Vector3(x * (sx * 0.5f - 0.05f), h * 0.5f, z * (sz * 0.5f - 0.05f)), new Vector3(0.1f, h, 0.1f), w);
+            mb.Box(new Vector3(0, 0.5f, 0), new Vector3(sx, 1.0f, sz), w);
+            mb.Box(new Vector3(0, 1.65f, 0), new Vector3(sx - 0.04f, 1.3f, sz - 0.04f), g);
+            mb.Box(new Vector3(0, h + 0.08f, 0), new Vector3(sx + 0.3f, 0.16f, sz + 0.3f), M("PM_Blue"));
+            mb.Box(new Vector3(0, h - 0.05f, sz * 0.5f + 0.02f), new Vector3(sx - 0.2f, 0.18f, 0.02f), M("Sign_Blue"));
+            mb.Text("SECURITY", new Vector3(0, h - 0.05f, sz * 0.5f + 0.035f), Vector3.forward, Vector3.up, 0.13f, M("Text_White"));
+            mb.Box(new Vector3(0, 1.02f, sz * 0.5f + 0.15f), new Vector3(sx - 0.2f, 0.04f, 0.3f), M("PM_Grey"));
+            pm.Colliders.Add(B(new Vector3(0, h * 0.5f, 0), new Vector3(sx, h, sz)));
+        });
+
+        /// <summary>Barrier gate: base at origin, arm extends along +X (5 m). Only the base collides.</summary>
+        public PropMesh BarrierGate() => Get("BarrierGate", (mb, pm) =>
+        {
+            mb.Box(new Vector3(0, 0.55f, 0), new Vector3(0.4f, 1.1f, 0.4f), M("PM_Yellow"));
+            mb.Box(new Vector3(0, 1.12f, 0), new Vector3(0.45f, 0.05f, 0.45f), M("Plastic_Black"));
+            mb.Box(new Vector3(2.6f, 0.95f, 0), new Vector3(4.9f, 0.1f, 0.06f), M("Hazard"));
+            mb.Box(new Vector3(5.0f, 0.45f, 0), new Vector3(0.08f, 0.9f, 0.08f), M("PM_Yellow"));
+            pm.Colliders.Add(B(new Vector3(0, 0.55f, 0), new Vector3(0.4f, 1.1f, 0.4f)));
+            pm.Colliders.Add(B(new Vector3(5.0f, 0.45f, 0), new Vector3(0.1f, 0.9f, 0.1f)));
+        });
+
+        /// <summary>Car wash gantry spanning X (width 6 m), brushes hang into the bay.</summary>
+        public PropMesh CarWashGantry() => Get("CarWashGantry", (mb, pm) =>
+        {
+            var steel = M("PM_Grey");
+            var brush = M("Brush_Blue");
+            foreach (float x in new[] { -3f, 3f })
+            {
+                mb.Box(new Vector3(x, 1.4f, 0), new Vector3(0.3f, 2.8f, 0.5f), steel);
+                mb.Box(new Vector3(x, 0.05f, 0), new Vector3(0.5f, 0.1f, 1.2f), M("Metal_Dark"));
+            }
+            mb.Box(new Vector3(0, 2.7f, 0), new Vector3(6.3f, 0.3f, 0.5f), steel);
+            mb.Cylinder(new Vector3(-2.2f, 2.5f, 0.4f), new Vector3(-2.2f, 0.25f, 0.4f), 0.38f, 14, brush);
+            mb.Cylinder(new Vector3(2.2f, 2.5f, 0.4f), new Vector3(2.2f, 0.25f, 0.4f), 0.38f, 14, brush);
+            mb.Cylinder(new Vector3(-2.5f, 2.2f, -0.3f), new Vector3(2.5f, 2.2f, -0.3f), 0.3f, 14, brush);
+            mb.Box(new Vector3(0, 2.7f, 0.26f), new Vector3(1.8f, 0.22f, 0.02f), M("Sign_Blue"));
+            mb.Text("CAR WASH", new Vector3(0, 2.7f, 0.275f), Vector3.forward, Vector3.up, 0.15f, M("Text_White"));
+            pm.Colliders.Add(B(new Vector3(-3f, 1.4f, 0), new Vector3(0.4f, 2.8f, 0.6f)));
+            pm.Colliders.Add(B(new Vector3(3f, 1.4f, 0), new Vector3(0.4f, 2.8f, 0.6f)));
+        });
+
+        /// <summary>Scaffold tower: bays along X (each 2.5 m), 2 lifts, 1.2 m deep.</summary>
+        public PropMesh Scaffold(int bays) => Get("Scaffold" + bays, (mb, pm) =>
+        {
+            var tube = M("Metal_Galvanized");
+            var plank = M("Wood");
+            float len = bays * 2.5f, d = 1.2f;
+            for (int i = 0; i <= bays; i++)
+            {
+                float x = -len * 0.5f + i * 2.5f;
+                foreach (float z in new[] { -d * 0.5f, d * 0.5f })
+                {
+                    mb.Cylinder(new Vector3(x, 0, z), new Vector3(x, 2.75f, z), 0.025f, 6, tube);
+                    mb.Box(new Vector3(x, 0.01f, z), new Vector3(0.15f, 0.02f, 0.15f), M("Metal_Dark"));
+                }
+                foreach (float y in new[] { 0.15f, 1.3f, 2.5f })
+                    mb.Cylinder(new Vector3(x, y, -d * 0.5f), new Vector3(x, y, d * 0.5f), 0.022f, 6, tube);
+            }
+            foreach (float y in new[] { 0.15f, 1.3f, 2.5f })
+            foreach (float z in new[] { -d * 0.5f, d * 0.5f })
+                mb.Cylinder(new Vector3(-len * 0.5f, y, z), new Vector3(len * 0.5f, y, z), 0.022f, 6, tube);
+            for (int i = 0; i < bays; i++)
+            {
+                float x = -len * 0.5f + i * 2.5f;
+                mb.Cylinder(new Vector3(x, 0.15f, -d * 0.5f), new Vector3(x + 2.5f, 2.5f, -d * 0.5f), 0.02f, 6, tube);
+                foreach (float y in new[] { 1.33f, 2.53f })
+                    for (int k = 0; k < 4; k++)
+                        mb.Box(new Vector3(x + 1.25f, y + 0.025f, -d * 0.5f + 0.15f + k * 0.3f), new Vector3(2.45f, 0.04f, 0.27f), plank);
+            }
+            pm.Colliders.Add(B(new Vector3(0, 1.4f, 0), new Vector3(len, 2.8f, d)));
+        });
+
+        /// <summary>Car shape covered by a tarp (Sedan/Suv/Van proportions).</summary>
+        public PropMesh TarpCar(CarType type, string tarp) => Get($"TarpCar_{type}_{tarp}", (mb, pm) =>
+        {
+            var t = M(tarp);
+            float L = type == CarType.Van ? 5.1f : type == CarType.Suv ? 4.7f : 4.5f;
+            float W = type == CarType.Van ? 2.05f : 1.9f;
+            float bodyTop = type == CarType.Suv ? 1.15f : 0.9f;
+            float cabH = type == CarType.Van ? 1.1f : 0.55f;
+            float cabL = type == CarType.Van ? L - 0.9f : 2.5f;
+            foreach (float z in new[] { -1.4f, 1.4f })
+            foreach (float x in new[] { -0.8f, 0.8f })
+                mb.Cylinder(new Vector3(x - 0.12f, 0.32f, z), new Vector3(x + 0.12f, 0.32f, z), 0.32f, 12, M("Rubber"));
+            mb.Box(new Vector3(0, (0.22f + bodyTop) * 0.5f, 0), new Vector3(W, bodyTop - 0.22f, L), t);
+            mb.Box(new Vector3(0, bodyTop + cabH * 0.5f, type == CarType.Van ? -0.45f : -0.2f), new Vector3(W - 0.2f, cabH, cabL), t);
+            // sagging folds
+            mb.Box(new Vector3(0, bodyTop + 0.02f, 0.9f), new Vector3(W + 0.02f, 0.06f, 0.5f), t, Quaternion.Euler(-12f, 0, 0));
+            mb.Box(new Vector3(W * 0.5f + 0.01f, 0.35f, 0), new Vector3(0.04f, 0.3f, L - 0.4f), t, Quaternion.Euler(0, 0, 8f));
+            mb.Box(new Vector3(-W * 0.5f - 0.01f, 0.35f, 0), new Vector3(0.04f, 0.3f, L - 0.4f), t, Quaternion.Euler(0, 0, -8f));
+            foreach (float z in new[] { -1.2f, 1.2f })
+                mb.Box(new Vector3(0, bodyTop * 0.5f + 0.1f, z), new Vector3(W + 0.05f, 0.02f, 0.03f), M("PM_Yellow"));
+            pm.Colliders.Add(B(new Vector3(0, (bodyTop + cabH) * 0.5f + 0.1f, 0), new Vector3(W, bodyTop + cabH - 0.1f, L)));
+        });
+
+        /// <summary>Temporary construction fence panel 3.5 m along X with concrete feet.</summary>
+        public PropMesh TempFence() => Get("TempFence", (mb, pm) =>
+        {
+            mb.Box(new Vector3(0, 1.1f, 0), new Vector3(3.4f, 1.8f, 0.02f), M("Wire_Mesh"));
+            foreach (float x in new[] { -1.72f, 1.72f })
+            {
+                mb.Cylinder(new Vector3(x, 0.12f, 0), new Vector3(x, 2.05f, 0), 0.022f, 6, M("Metal_Galvanized"));
+                mb.Box(new Vector3(x, 0.07f, 0), new Vector3(0.25f, 0.14f, 0.6f), M("Rubble"));
+            }
+            mb.Cylinder(new Vector3(-1.72f, 2.02f, 0), new Vector3(1.72f, 2.02f, 0), 0.02f, 6, M("Metal_Galvanized"));
+            mb.Cylinder(new Vector3(-1.72f, 0.2f, 0), new Vector3(1.72f, 0.2f, 0), 0.02f, 6, M("Metal_Galvanized"));
+            mb.Box(new Vector3(0, 1.3f, 0.02f), new Vector3(0.9f, 0.5f, 0.01f), M("Sign_Yellow"));
+            mb.Text("DANGER", new Vector3(0, 1.38f, 0.027f), Vector3.forward, Vector3.up, 0.13f, M("Text_Black"));
+            mb.Text("KEEP OUT", new Vector3(0, 1.2f, 0.027f), Vector3.forward, Vector3.up, 0.09f, M("Text_Black"));
+            pm.Colliders.Add(B(new Vector3(0, 1.05f, 0), new Vector3(3.5f, 2.1f, 0.12f)));
+        });
+
+        public PropMesh Rubble(int variant) => Get("Rubble" + variant, (mb, pm) =>
+        {
+            var rng = new System.Random(3100 + variant);
+            int n = 10 + variant * 3;
+            for (int i = 0; i < n; i++)
+            {
+                float r = (float)rng.NextDouble();
+                var s = new Vector3(0.2f + r * 0.6f, 0.12f + (float)rng.NextDouble() * 0.35f, 0.2f + (float)rng.NextDouble() * 0.6f);
+                float rad = 1.2f * (1f - r * 0.5f);
+                var p = new Vector3(((float)rng.NextDouble() - 0.5f) * rad * 2f, s.y * 0.4f + (1f - r) * 0.25f, ((float)rng.NextDouble() - 0.5f) * rad * 1.6f);
+                mb.Box(p, s, M("Rubble"), Quaternion.Euler((float)rng.NextDouble() * 40f - 20f, (float)rng.NextDouble() * 360f, (float)rng.NextDouble() * 40f - 20f));
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                var a = new Vector3(((float)rng.NextDouble() - 0.5f) * 1.5f, 0.1f, ((float)rng.NextDouble() - 0.5f) * 1.2f);
+                mb.Cylinder(a, a + new Vector3(((float)rng.NextDouble() - 0.5f) * 1.2f, 0.4f + (float)rng.NextDouble() * 0.6f, ((float)rng.NextDouble() - 0.5f) * 1.2f), 0.012f, 4, M("Rust"));
+            }
+            pm.Colliders.Add(B(new Vector3(0, 0.3f, 0), new Vector3(2.0f, 0.6f, 1.6f)));
+        });
+
+        public PropMesh SackStack() => Get("SackStack", (mb, pm) =>
+        {
+            BuildPallet(mb, Vector3.zero);
+            for (int l = 0; l < 4; l++)
+            for (int i = 0; i < 2; i++)
+            {
+                bool rot = l % 2 == 1;
+                var size = rot ? new Vector3(0.38f, 0.14f, 0.75f) : new Vector3(1.15f, 0.14f, 0.38f);
+                var c = rot ? new Vector3(-0.2f + i * 0.4f, 0.145f + 0.07f + l * 0.14f, 0) : new Vector3(0, 0.145f + 0.07f + l * 0.14f, -0.2f + i * 0.4f);
+                mb.Box(c, size, M("Sack"));
+            }
+        });
+
+        public PropMesh EvCharger() => Get("EvCharger", (mb, pm) =>
+        {
+            mb.Box(new Vector3(0, 0.75f, 0), new Vector3(0.4f, 1.5f, 0.3f), M("PM_White"));
+            mb.Box(new Vector3(0, 1.2f, 0.152f), new Vector3(0.26f, 0.18f, 0.01f), M("Glass_Dark"));
+            mb.Box(new Vector3(0, 0.75f, 0.152f), new Vector3(0.36f, 0.06f, 0.01f), M("Paint_Green"));
+            mb.Cylinder(new Vector3(0.18f, 0.95f, 0.1f), new Vector3(0.25f, 0.3f, 0.35f), 0.025f, 6, M("Plastic_Black"));
+            mb.Box(new Vector3(0, 0.05f, 0), new Vector3(0.6f, 0.1f, 0.5f), M("Rubble"));
+            mb.Text("EV", new Vector3(0, 1.42f, 0.152f), Vector3.forward, Vector3.up, 0.09f, M("Text_Black"));
+        });
+
+        public PropMesh Workbench() => Get("Workbench", (mb, pm) =>
+        {
+            mb.Box(new Vector3(0, 0.88f, 0), new Vector3(2.0f, 0.06f, 0.7f), M("Wood"));
+            foreach (float x in new[] { -0.95f, 0.95f })
+            foreach (float z in new[] { -0.3f, 0.3f })
+                mb.Box(new Vector3(x, 0.43f, z), new Vector3(0.05f, 0.86f, 0.05f), M("PM_DarkGrey"));
+            mb.Box(new Vector3(0, 0.25f, 0), new Vector3(1.9f, 0.03f, 0.6f), M("Metal_Galvanized"));
+            mb.Box(new Vector3(0.7f, 0.97f, 0.2f), new Vector3(0.2f, 0.12f, 0.15f), M("PM_Blue"));
+            mb.Box(new Vector3(-0.4f, 0.95f, -0.1f), new Vector3(0.5f, 0.08f, 0.25f), M("PM_Red"));
+            mb.Box(new Vector3(0, 1.5f, -0.33f), new Vector3(1.9f, 0.9f, 0.03f), M("Wood"));
+        });
+
+        public PropMesh Generator() => Get("Generator", (mb, pm) =>
+        {
+            mb.Box(new Vector3(0, 0.1f, 0), new Vector3(3.2f, 0.2f, 1.3f), M("Metal_Dark"));
+            mb.Box(new Vector3(-0.4f, 0.9f, 0), new Vector3(2.2f, 1.4f, 1.1f), M("PM_Green"));
+            mb.Box(new Vector3(1.15f, 0.8f, 0), new Vector3(0.7f, 1.2f, 1.0f), M("PM_DarkGrey"));
+            for (int i = 0; i < 6; i++)
+                mb.Box(new Vector3(-1.4f + i * 0.4f, 1.0f, 0.56f), new Vector3(0.25f, 0.6f, 0.02f), M("Grate"));
+            mb.Cylinder(new Vector3(-1.2f, 1.6f, 0), new Vector3(-1.2f, 2.9f, 0), 0.1f, 10, M("Rust"));
+            mb.Box(new Vector3(1.15f, 1.1f, 0.505f), new Vector3(0.4f, 0.3f, 0.01f), M("Sign_Yellow"));
+            mb.Text("GEN", new Vector3(1.15f, 1.1f, 0.512f), Vector3.forward, Vector3.up, 0.14f, M("Text_Black"));
+            pm.Colliders.Add(B(new Vector3(0, 0.85f, 0), new Vector3(3.2f, 1.7f, 1.3f)));
+        });
+
         public PropMesh TrashBags(int variant) => Get("TrashBags" + variant, (mb, pm) =>
         {
             var rng = new System.Random(2100 + variant);
