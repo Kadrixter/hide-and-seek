@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b2d377b7278bbd448728474ff839aff, type: 3}
+  m_Name: SkinLibrary
+  m_EditorClassIdentifier: HideAndSeek.Characters::HideAndSeek.Characters.SkinLibrary
+  skins:
+  - {fileID: 11400000, guid: c4f31c0fdacdbac4c94621c0f08ddd7f, type: 2}
+  - {fileID: 11400000, guid: 0940047c553a7cd4aa205e848acd4607, type: 2}
+  - {fileID: 11400000, guid: 60ac7997ca2353f4c8e147a8a7e60edc, type: 2}
+  - {fileID: 11400000, guid: b450a9f1f8d73854b8cddd91389f0f81, type: 2}
+  - {fileID: 11400000, guid: 32055c823b842704f81823a1bccfb3ca, type: 2}
+  facePhotoMaterial: {fileID: 2100000, guid: e134b10c8f4751c439fe10fad008c3f1, type: 2}
