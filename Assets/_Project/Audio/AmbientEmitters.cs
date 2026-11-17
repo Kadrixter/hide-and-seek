@@ -265,7 +265,7 @@ namespace HideAndSeek.Audio
                 e.Occlusion = Mathf.MoveTowards(e.Occlusion, e.OcclusionTarget, dt * 3f);
                 e.LowPass.enabled = e.Occlusion > 0.01f;
                 if (e.LowPass.enabled) e.LowPass.cutoffFrequency = Mathf.Lerp(22000f, 700f, Mathf.Sqrt(e.Occlusion));
-                float target = e.BaseVolume * GameAudio.SfxVolume * Mathf.Lerp(1f, 0.45f, e.Occlusion);
+                float target = e.BaseVolume * GameAudio.AmbientVolume * Mathf.Lerp(1f, 0.45f, e.Occlusion);
                 s.volume = Mathf.MoveTowards(s.volume, target, dt * 2f);
             }
         }

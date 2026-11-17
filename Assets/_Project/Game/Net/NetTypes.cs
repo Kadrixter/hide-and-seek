@@ -118,11 +118,14 @@ namespace HideAndSeek.Game.Net
         public const float KnifeSequenceDuration = HideAndSeek.Characters.ActionTimeline.StabbedReactionDuration + 0.1f; // incl. victim collapse
 
         // Downed / rescue
-        public const float BleedOutTime = 45f;
+        public const float BleedOutTime = 78f;           // 1.3 min
+        public const float CrawlTime = 20f;              // downed players can crawl only this long
         public const float RescueRange = 2.2f;
         public const float RescueHoldTime = 3f;
         public const float HealHoldTime = 1.5f;
         public const float PickupRange = 2.0f;
+        public const int MaxMedkits = 3;
+        public const float GlockHintInterval = 20f;
 
         // Glock
         public const float GlockAtRemaining = 120f;

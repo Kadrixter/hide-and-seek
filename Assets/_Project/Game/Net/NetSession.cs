@@ -48,6 +48,7 @@ namespace HideAndSeek.Game.Net
             DontDestroyOnLoad(gameObject);
             Manager = GetComponent<NetworkManager>();
             LocalProfile.ApplyAudio();
+            if (PlayerPrefs.HasKey("hns.display")) LocalProfile.ApplyDisplay();
             Application.runInBackground = true;
         }
 
@@ -75,11 +76,13 @@ namespace HideAndSeek.Game.Net
             }
             bool Has(string name) => Array.IndexOf(args, name) >= 0;
 
+            if (Arg("-port") is string ps && ushort.TryParse(ps, out ushort port)) _port = port;
+            _noDiscovery = Has("-nodiscovery");
             string nick = Arg("-nick");
-            if (nick != null) LocalProfile.Nick = nick;
+            if (nick != null) LocalProfile.SessionNick = LocalProfile.Sanitize(nick);
             Debug.Log($"[NetSession] args nick={nick} profile={LocalProfile.Nick}");
             if (Has("-host")) Host();
-            else if (Arg("-join") is string ip) Join(ip);
+            else if (Arg("-join") is string ip) Join(ip, _port);
             if (Has("-autostart")) StartCoroutine(AutoStart());
             if (Arg("-shots") is string dir) StartCoroutine(Shots(dir));
         }
@@ -169,12 +172,14 @@ namespace HideAndSeek.Game.Net
             if (Manager != null && Manager.IsServer)
             {
                 var mm = MatchManager.Instance;
-                LanDiscovery.UpdatePayload(ServerName, Manager.ConnectedClientsIds.Count, GamePort,
+                LanDiscovery.UpdatePayload(ServerName, Manager.ConnectedClientsIds.Count, _port,
                     mm == null || mm.Phase.Value == MatchPhase.Lobby);
             }
         }
 
         public string ServerName { get; private set; } = "Serwer";
+        private ushort _port = GamePort;
+        private bool _noDiscovery;
 
         private UnityTransport Transport => GetComponent<UnityTransport>();
 
@@ -185,14 +190,14 @@ namespace HideAndSeek.Game.Net
         public bool Host()
         {
             ServerName = LocalProfile.Nick;
-            Transport.SetConnectionData("127.0.0.1", GamePort, "0.0.0.0");
+            Transport.SetConnectionData("127.0.0.1", _port, "0.0.0.0");
             Manager.NetworkConfig.ConnectionData = Payload();
             if (!Manager.StartHost())
             {
-                LastMessage = $"Nie udało się uruchomić serwera (port {GamePort} zajęty?)";
+                LastMessage = $"Nie udało się uruchomić serwera (port {_port} zajęty - czy gra jest już otwarta?)";
                 return false;
             }
-            LanDiscovery.StartResponder();
+            if (!_noDiscovery) LanDiscovery.StartResponder();
             var mm = Instantiate(matchManagerPrefab);
             DontDestroyOnLoad(mm);
             mm.GetComponent<NetworkObject>().Spawn(false);

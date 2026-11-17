@@ -27,7 +27,7 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<PlayerRole> Role = new();
         public readonly NetworkVariable<LifeState> Life = new();
         public readonly NetworkVariable<bool> Wounded = new();
-        public readonly NetworkVariable<bool> HasMedkit = new();
+        public readonly NetworkVariable<byte> MedkitCount = new();
         public readonly NetworkVariable<HeldItem> Held = new();
         public readonly NetworkVariable<bool> HasGlock = new();
         public readonly NetworkVariable<byte> Ammo = new();
@@ -98,6 +98,7 @@ namespace HideAndSeek.Game.Net
             }
 
             BuildCharacter();
+            if (_steps != null) _steps.MasterVolume = LocalProfile.FootstepVolume;
             if (IsOwner) SetupLocal();
             else SetupRemote();
 

@@ -45,6 +45,9 @@ namespace HideAndSeek.Game.Net
         /// <summary>True while a menu (Esc, settings board) owns the mouse.</summary>
         public static bool MenuOpen { get; set; }
 
+        /// <summary>Downed for longer than Tuning.CrawlTime: cannot crawl any more.</summary>
+        public bool CrawlExhausted { get; private set; }
+
         private void Awake()
         {
             Instance = this;
@@ -111,7 +114,15 @@ namespace HideAndSeek.Game.Net
             bool locked = MenuOpen || _p.Busy.Value || blind || dead || phase == MatchPhase.Loading;
             _p.InputReader.InputEnabled = !locked;
             _p.InputReader.ManageCursor = !MenuOpen;
-            _p.Motor.MovementEnabled = !locked;
+            // Downed: crawling only for the first CrawlTime seconds, then too weak to move.
+            bool exhausted = false;
+            if (_p.Life.Value == LifeState.Downed && mm != null)
+            {
+                double downedFor = mm.Now - (_p.DownedUntil.Value - Tuning.BleedOutTime);
+                exhausted = downedFor >= Tuning.CrawlTime;
+            }
+            CrawlExhausted = exhausted;
+            _p.Motor.MovementEnabled = !locked && !exhausted;
             _p.Motor.LookEnabled = !locked;
             var cc = _p.GetComponent<CharacterController>();
             if (cc != null && cc.enabled == dead) cc.enabled = !dead;
@@ -135,6 +146,8 @@ namespace HideAndSeek.Game.Net
                 CancelHold();
                 return;
             }
+
+            if (ForceFlashlight && _p.Flashlight != null && !_p.Flashlight.IsOn && _p.Life.Value == LifeState.Alive) _p.Flashlight.SetOn(true, false);
 
             // ---- T toggles the flashlight always (LMB is the gun while the Glock is out)
             if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.Life.Value != LifeState.Downed) _p.Flashlight.Toggle();
@@ -209,24 +222,29 @@ namespace HideAndSeek.Game.Net
                     {
                         if (o.Life.Value == LifeState.Downed)
                             Offer(PromptKind.Rescue, chest, "H  przytrzymaj - uratuj", d);
-                        else if (o.Life.Value == LifeState.Alive && o.Wounded.Value && _p.HasMedkit.Value)
+                        else if (o.Life.Value == LifeState.Alive && o.Wounded.Value && _p.MedkitCount.Value > 0)
                             Offer(PromptKind.Heal, chest, "H  przytrzymaj - ulecz", d);
                     }
                 }
+            }
 
+            // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
+            if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
+            {
                 var mm = MatchManager.Instance;
-                if (_p.IsAliveHider && !_p.HasMedkit.Value && mm != null)
+                if (_p.IsAliveHider && mm != null)
                 {
+                    bool full = _p.MedkitCount.Value >= Tuning.MaxMedkits;
                     for (int i = 0; i < mm.Medkits.Count; i++)
                     {
                         var m = mm.Medkits[i];
                         if (m.Taken) continue;
                         Vector3 mp = m.Position + Vector3.up * 0.2f;
                         float d = Vector3.Distance(eye, mp);
-                        if (d <= Tuning.PickupRange + 0.8f && InView(eye, fwd, mp, 45f))
+                        if (d < best && d <= Tuning.PickupRange + 1f && InView(eye, fwd, mp, 55f))
                         {
-                            Offer(PromptKind.Pickup, mp, "E  apteczka", d);
                             _pickupId = m.Id;
+                            Offer(PromptKind.Pickup, mp, full ? "E  (masz już max apteczek)" : "E  podnieś apteczkę", d);
                         }
                     }
                 }
@@ -255,6 +273,7 @@ namespace HideAndSeek.Game.Net
 
         private int _pickupId;
         private float _nextDebug;
+        private static readonly bool ForceFlashlight = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-flashlight") >= 0;
         private bool _testPlaced;
         private static readonly bool TestButton = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testbutton") >= 0;
         private static readonly bool DebugPos = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-debugpos") >= 0;
@@ -317,12 +336,12 @@ namespace HideAndSeek.Game.Net
                 wantHold = Prompt;
                 target2 = Nearest(o => o.IsHider && (Prompt == PromptKind.Rescue ? o.Life.Value == LifeState.Downed : o.Wounded.Value));
             }
-            else if (kb.gKey.isPressed && _p.HasMedkit.Value && _p.Wounded.Value && _p.IsAliveHider)
+            else if (kb.gKey.isPressed && _p.MedkitCount.Value > 0 && _p.Wounded.Value && _p.IsAliveHider)
             {
                 wantHold = PromptKind.Heal;
                 target2 = _p;
             }
-            else if (kb.gKey.wasPressedThisFrame && _p.HasMedkit.Value && !_p.Wounded.Value)
+            else if (kb.gKey.wasPressedThisFrame && _p.MedkitCount.Value > 0 && !_p.Wounded.Value)
             {
                 GameHud.Toast("Nie jesteś ranny.", 2f);
             }

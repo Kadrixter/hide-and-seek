@@ -26,6 +26,23 @@ namespace HideAndSeek.Audio
         public static float SfxVolume { get; set; } = 1f;
         public static float MusicVolume { get; set; } = 0.7f;
 
+        // Per-category mix (0..1), multiplied with SfxVolume. Set from the options menu.
+        public static float UiVolume { get; set; } = 1f;
+        public static float VoiceVolume { get; set; } = 1f;
+        public static float WeaponVolume { get; set; } = 1f;
+        /// <summary>3D ambient emitters (vents, drips, lamps).</summary>
+        public static float AmbientVolume { get; set; } = 1f;
+
+        /// <summary>Category multiplier for a sound id (UI, voices, weapons; everything else 1).</summary>
+        public static float CategoryVolume(GameSfx id)
+        {
+            int v = (int)id;
+            if (v >= 1 && v <= 11) return UiVolume;
+            if (v >= 30 && v <= 33) return VoiceVolume;
+            if ((v >= 20 && v <= 23) || (v >= 50 && v <= 56)) return WeaponVolume;
+            return 1f;
+        }
+
         /// <summary>Muffle 3D sounds behind walls (one raycast per voice every ~0.12 s).</summary>
         public static bool OcclusionEnabled { get; set; } = true;
 

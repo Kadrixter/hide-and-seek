@@ -185,7 +185,7 @@ namespace HideAndSeek.Game.Net
         {
             pl.Life.Value = LifeState.Alive;
             pl.Wounded.Value = false;
-            pl.HasMedkit.Value = false;
+            pl.MedkitCount.Value = 0;
             pl.Held.Value = HeldItem.None;
             pl.HasGlock.Value = false;
             pl.Ammo.Value = 0;
@@ -311,7 +311,9 @@ namespace HideAndSeek.Game.Net
                     if (s.Glock && !GlockPhase.Value && PhaseEnd.Value - now <= Tuning.GlockAtRemaining) GiveGlock();
                     if (s.HintMode != 0 && now >= _nextHint)
                     {
-                        _nextHint = now + Mathf.Max(5f, s.HintInterval);
+                        // Glock phase (last 2 minutes): hints come much more often.
+                        float interval = GlockPhase.Value ? Mathf.Min(s.HintInterval, Tuning.GlockHintInterval) : s.HintInterval;
+                        _nextHint = now + Mathf.Max(5f, interval);
                         SendHints(s);
                     }
                     if (CheckWin(out var w)) EndMatch(w);
@@ -349,6 +351,7 @@ namespace HideAndSeek.Game.Net
         private void GiveGlock()
         {
             GlockPhase.Value = true;
+            _nextHint = System.Math.Min(_nextHint, Now + 5);
             foreach (var pl in NetPlayer.All)
             {
                 if (pl == null || !pl.IsSeeker) continue;
@@ -551,10 +554,10 @@ namespace HideAndSeek.Game.Net
 
         public void ServerHeal(NetPlayer helper, NetPlayer target)
         {
-            if (helper == null || target == null || !helper.HasMedkit.Value || !helper.IsAliveHider) return;
+            if (helper == null || target == null || helper.MedkitCount.Value == 0 || !helper.IsAliveHider) return;
             if (!target.IsAliveHider || !target.Wounded.Value) return;
             if (helper != target && Vector3.Distance(helper.transform.position, target.transform.position) > Tuning.RescueRange + 1f) return;
-            helper.HasMedkit.Value = false;
+            helper.MedkitCount.Value--;
             target.Wounded.Value = false;
             target.SfxRpc(GameSfx.MedkitUse, 1f);
             if (helper != target) target.ToastRpc($"{helper.Nick} opatrzył twoje rany.", 4f);
@@ -563,7 +566,13 @@ namespace HideAndSeek.Game.Net
 
         public void ServerPickup(NetPlayer pl, int medkitId)
         {
-            if (pl == null || !pl.IsAliveHider || pl.HasMedkit.Value) return;
+            if (pl == null || !pl.IsAliveHider) return;
+            if (pl.MedkitCount.Value >= Tuning.MaxMedkits)
+            {
+                pl.ToastRpc($"Masz już {Tuning.MaxMedkits} apteczki.", 2f);
+                return;
+            }
+            if (Phase.Value != MatchPhase.Seeking && Phase.Value != MatchPhase.Hiding) return;
             for (int i = 0; i < Medkits.Count; i++)
             {
                 var m = Medkits[i];
@@ -571,9 +580,9 @@ namespace HideAndSeek.Game.Net
                 if (Vector3.Distance(pl.transform.position, m.Position) > Tuning.PickupRange + 1.5f) return;
                 m.Taken = true;
                 Medkits[i] = m;
-                pl.HasMedkit.Value = true;
+                pl.MedkitCount.Value++;
                 pl.SfxRpc(GameSfx.MedkitPickup, 1f);
-                pl.ToastRpc("Masz apteczkę. G - ulecz siebie, H - ulecz rannego.", 4f);
+                pl.ToastRpc($"Apteczki: {pl.MedkitCount.Value}. G - ulecz siebie, H - ulecz rannego.", 4f);
                 return;
             }
         }

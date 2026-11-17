@@ -121,6 +121,8 @@ namespace HideAndSeek.Player
             if (body == null && anchor != null) body = anchor.root;
             if (input == null) input = GetComponentInParent<PlayerInputReader>();
             if (dust != null) _dustRenderer = dust.GetComponent<ParticleSystemRenderer>();
+            if (beamRenderer != null && beamRenderer.GetComponent<BeamOcclusion>() == null && Application.isPlaying)
+                beamRenderer.gameObject.AddComponent<BeamOcclusion>();
             _mpb = new MaterialPropertyBlock();
             _isOn = startOn;
             _level = startOn ? 1f : 0f;

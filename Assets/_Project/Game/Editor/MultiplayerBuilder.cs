@@ -32,7 +32,15 @@ namespace HideAndSeek.Game.Editor
         public const string MenuScenePath = SceneDir + "/Menu.unity";
         public const string LobbyScenePath = SceneDir + "/Lobby.unity";
         public const string GameScenePath = SceneDir + "/Game_ParkingGarage.unity";
-        private const string BuildOutput = "Builds/Windows/HideAndSeek.exe";
+        private static string BuildOutput
+        {
+            get
+            {
+                string[] a = Environment.GetCommandLineArgs();
+                int i = Array.IndexOf(a, "-buildOut");
+                return i >= 0 && i + 1 < a.Length ? a[i + 1] : "Builds/Windows/HideAndSeek.exe";
+            }
+        }
 
         [MenuItem("HideAndSeek/Multiplayer/Build All Scenes")]
         public static void BuildAllMenu() => BuildAll();

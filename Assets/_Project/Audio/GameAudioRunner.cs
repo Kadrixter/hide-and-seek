@@ -90,7 +90,7 @@ namespace HideAndSeek.Audio
             v.Spatial = spatial;
             v.FadeOut = -1f;
             v.StartTime = Time.unscaledTime;
-            v.BaseVolume = Mathf.Clamp01(e.volume * volume * GameAudio.SfxVolume);
+            v.BaseVolume = Mathf.Clamp01(e.volume * volume * GameAudio.SfxVolume * GameAudio.CategoryVolume(e.id));
             s.transform.position = pos;
             s.clip = clip;
             s.loop = loop;

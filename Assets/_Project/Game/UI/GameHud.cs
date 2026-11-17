@@ -326,7 +326,10 @@ namespace HideAndSeek.Game
                 double left = me.DownedUntil.Value - (mm != null ? mm.Now : 0);
                 float pulse = 0.35f + 0.15f * Mathf.Sin(Time.time * 6f);
                 _vignette.color = new Color(0.55f, 0f, 0f, pulse + 0.35f * (1f - (float)(left / Tuning.BleedOutTime)));
-                _downText.text = $"Wykrwawiasz się: {UiKit.FormatTime(left)}\nCzołgaj się do kryjówki. Inny chowający może cię uratować.";
+                bool weak = LocalPlayerController.Instance != null && LocalPlayerController.Instance.CrawlExhausted;
+                _downText.text = $"Wykrwawiasz się: {UiKit.FormatTime(left)}\n" + (weak
+                    ? "Nie masz już sił się czołgać. Czekaj na pomoc."
+                    : "Czołgaj się do kryjówki. Inny chowający może cię uratować.");
             }
 
             _hurtLevel = Mathf.MoveTowards(_hurtLevel, 0f, Time.deltaTime * 1.6f);
@@ -345,7 +348,7 @@ namespace HideAndSeek.Game
             if (inGame && me.IsHider)
             {
                 if (me.Wounded.Value) st.Append("<color=#f66>Ranny</color> - kolejne złapanie = śmierć\n");
-                if (me.HasMedkit.Value) st.Append(me.Wounded.Value ? "Apteczka: przytrzymaj G\n" : "Apteczka (H na rannym, G na sobie)\n");
+                if (me.MedkitCount.Value > 0) st.Append($"Apteczki: {me.MedkitCount.Value}" + (me.Wounded.Value ? "  (przytrzymaj G)\n" : "  (H na rannym, G na sobie)\n"));
             }
             if (inGame && me.IsSeeker && phase == MatchPhase.Seeking)
                 st.Append("Kółko myszy - skupienie latarki\n");
@@ -353,6 +356,7 @@ namespace HideAndSeek.Game
 
             // ---- prompt
             UpdatePrompt();
+            UpdateNameTags(me, phase);
 
             // ---- crosshair
             _crosshair.enabled = inGame && me.Life.Value == LifeState.Alive && !blind;
@@ -398,6 +402,74 @@ namespace HideAndSeek.Game
                 sb.Append(state).Append("  ").Append(nick).Append('\n');
             }
             return sb.ToString();
+        }
+
+        // ================================================================ name tags
+
+        private readonly List<Text> _tags = new();
+        private readonly RaycastHit[] _tagHits = new RaycastHit[8];
+
+        /// <summary>Lobby: everyone's nick. In a round: only hiders see the nicks of other hiders (seeker sees none).</summary>
+        private void UpdateNameTags(NetPlayer me, MatchPhase phase)
+        {
+            var cam = Camera.main;
+            bool lobby = phase == MatchPhase.Lobby || phase == MatchPhase.Loading;
+            bool canSee = lobby || me.IsHider;
+            int used = 0;
+            if (cam != null && canSee)
+            {
+                var canvasRt = (RectTransform)_canvas.transform;
+                Vector3 camPos = cam.transform.position;
+                foreach (var p in NetPlayer.All)
+                {
+                    if (p == null || p == me) continue;
+                    if (!lobby && !p.IsHider) continue;
+                    bool lying = p.Life.Value != LifeState.Alive;
+                    Vector3 head = p.transform.position + Vector3.up * (lying ? 0.75f : 2.15f - 0.55f * p.Motor.CrouchAmount);
+                    float dist = Vector3.Distance(camPos, head);
+                    if (dist > (lobby ? 30f : 35f)) continue;
+                    Vector3 sp = cam.WorldToScreenPoint(head);
+                    if (sp.z <= 0.1f) continue;
+                    if (Blocked(camPos, head, p.transform, me.transform)) continue;
+
+                    if (used >= _tags.Count)
+                    {
+                        var t = UiKit.Label("Tag", _canvas.transform, "", 24, TextAnchor.MiddleCenter);
+                        t.rectTransform.sizeDelta = new Vector2(320, 34);
+                        t.supportRichText = true;
+                        t.AddOutline(1.5f);
+                        t.transform.SetAsFirstSibling();
+                        _tags.Add(t);
+                    }
+                    var tag = _tags[used++];
+                    tag.gameObject.SetActive(true);
+                    RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, sp, null, out Vector2 local);
+                    tag.rectTransform.anchorMin = tag.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                    tag.rectTransform.anchoredPosition = local;
+                    float scale = Mathf.Clamp(6f / Mathf.Max(1f, dist), 0.55f, 1.1f);
+                    tag.rectTransform.localScale = Vector3.one * scale;
+                    string color = p.IsSeeker ? "#ff6655" : p.Life.Value == LifeState.Downed ? "#ff9a8a" : p.Life.Value == LifeState.Dead ? "#999999" : "#ffffff";
+                    string suffix = !lobby && p.Life.Value == LifeState.Downed ? "  (złapany)" : !lobby && p.Wounded.Value ? "  (ranny)" : "";
+                    tag.text = $"<color={color}>{p.Nick}{suffix}</color>";
+                    var c = tag.color;
+                    c.a = Mathf.Clamp01((35f - dist) / 8f);
+                    tag.color = c;
+                }
+            }
+            for (int i = used; i < _tags.Count; i++) _tags[i].gameObject.SetActive(false);
+        }
+
+        private bool Blocked(Vector3 from, Vector3 to, Transform target, Transform self)
+        {
+            Vector3 d = to - from;
+            int n = Physics.RaycastNonAlloc(from, d.normalized, _tagHits, d.magnitude, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var t = _tagHits[i].transform;
+                if (t.IsChildOf(target) || t.IsChildOf(self)) continue;
+                return true;
+            }
+            return false;
         }
 
         private void UpdatePrompt()
@@ -480,18 +552,13 @@ namespace HideAndSeek.Game
 
         private void ShowEscMenu()
         {
-            _escMenu = MenuPanel("EscMenu", new Vector2(560, 560));
+            _escMenu = MenuPanel("EscMenu", new Vector2(600, 640));
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "MENU", 44, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(64);
-            UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(70);
-            UiKit.Label("SensL", panel, "Czułość myszy", 24).Height(30);
-            UiKit.Slider("Sens", panel, 0.02f, 0.4f, LocalProfile.MouseSensitivity, false, v =>
-            {
-                LocalProfile.MouseSensitivity = v;
-                if (NetPlayer.Local != null) NetPlayer.Local.InputReader.MouseSensitivity = v;
-            }).Height(36);
-            UiKit.Label("VolL", panel, "Głośność", 24).Height(30);
-            UiKit.Slider("Vol", panel, 0f, 1f, LocalProfile.MasterVolume, false, v => LocalProfile.MasterVolume = v).Height(36);
+            UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(66);
+            SettingsUi.SensitivitySlider(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.MouseSensitivity = v; });
+            SettingsUi.DisplayModeButton(panel);
+            UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
             string leave = NetworkManager.Singleton.IsServer ? "Zamknij serwer" : "Rozłącz";
             UiKit.Button("Leave", panel, leave, () =>
             {
@@ -499,6 +566,22 @@ namespace HideAndSeek.Game
                 NetSession.Instance.Leave();
             }, 30, new Color(0.35f, 0.1f, 0.1f)).Height(70);
             UiKit.Button("Quit", panel, "Wyjdź z gry", Application.Quit).Height(60);
+        }
+
+        private void ShowAudioMenu()
+        {
+            if (_escMenu != null) Destroy(_escMenu.gameObject);
+            _escMenu = MenuPanel("AudioMenu", new Vector2(720, 900));
+            var panel = _escMenu.Find("Panel");
+            UiKit.Label("Title", panel, "DŹWIĘK", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(54);
+            SettingsUi.BuildAudio(panel);
+            UiKit.Button("Back", panel, "Wróć", () =>
+            {
+                PlayerPrefs.Save();
+                Destroy(_escMenu.gameObject);
+                _escMenu = null;
+                ShowEscMenu();
+            }, 28).Height(58);
         }
 
         private void ShowSettings(bool fromBoard)
