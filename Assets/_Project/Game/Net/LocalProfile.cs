@@ -22,6 +22,16 @@ namespace HideAndSeek.Game.Net
             set => PlayerPrefs.SetInt("hns.skin", Mathf.Clamp(value, 0, 4));
         }
 
+        /// <summary>Minecraft nick whose skin is used (empty = built-in skin).</summary>
+        /// <summary>Per-process override (command line tests).</summary>
+        public static string SessionMcNick;
+
+        public static string McNick
+        {
+            get => SessionMcNick ?? PlayerPrefs.GetString("hns.mcnick", "");
+            set => PlayerPrefs.SetString("hns.mcnick", (value ?? "").Trim());
+        }
+
         public static string LastIp
         {
             get => PlayerPrefs.GetString("hns.ip", "127.0.0.1");
@@ -106,7 +116,7 @@ namespace HideAndSeek.Game.Net
             set => PlayerPrefs.SetString("hns.voice.device", value ?? "");
         }
 
-        public static float ChatVolume { get => Get("hns.voice.vol", 1f); set => PlayerPrefs.SetFloat("hns.voice.vol", value); }
+        public static float ChatVolume { get => Get("hns.voice.vol2", 1f); set => PlayerPrefs.SetFloat("hns.voice.vol2", value); }
         public static float MicGain { get => Get("hns.voice.gain", 1.5f); set => PlayerPrefs.SetFloat("hns.voice.gain", value); }
         /// <summary>Voice-activation level 0..1 (open mic).</summary>
         public static float MicThreshold { get => Get("hns.voice.thr", 0.12f); set => PlayerPrefs.SetFloat("hns.voice.thr", value); }

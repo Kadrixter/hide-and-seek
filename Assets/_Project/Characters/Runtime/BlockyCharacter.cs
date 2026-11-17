@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using HideAndSeek.Core;
 using UnityEngine;
@@ -180,6 +180,7 @@ namespace HideAndSeek.Characters
 
             var skin = SkinLibrary.GetSkin(skinIndex);
             var mat = skin != null && skin.Material != null ? skin.Material : GetFallbackMaterial();
+            if (customSkin != null) mat = CustomSkins.MaterialFor(customSkin, mat);
             foreach (var r in skinRenderers)
                 if (r != null) r.sharedMaterial = mat;
 
@@ -200,6 +201,15 @@ namespace HideAndSeek.Characters
         /// First-person mode for the local player: all parts render as ShadowCastingMode.ShadowsOnly, so the
         /// player sees their own shadow but never the model clipping the camera.
         /// </summary>
+        private Texture2D customSkin;
+
+        /// <summary>Uses a downloaded 64x64 Minecraft skin instead of the library skin (null = back to the library).</summary>
+        public void SetCustomSkin(Texture2D tex)
+        {
+            customSkin = tex;
+            SetSkin(skinIndex, playerNick);
+        }
+
         public void SetFirstPersonMode(bool fp)
         {
             if (!IsBuilt) Build();

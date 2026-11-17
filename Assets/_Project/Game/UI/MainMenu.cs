@@ -17,7 +17,8 @@ namespace HideAndSeek.Game.UI
         private Canvas _canvas;
         private RectTransform _main, _browser, _options, _audio, _voicePage, _connecting;
         private Text _message, _skinLabel, _serverList, _connectingText;
-        private InputField _nick, _ip;
+        private InputField _nick, _ip, _mcNick;
+        private Text _mcStatus;
         private RectTransform _listRoot;
         private BlockyCharacter _preview;
         private float _nextListRefresh;
@@ -102,7 +103,23 @@ namespace HideAndSeek.Game.UI
             next.gameObject.AddComponent<LayoutElement>().preferredWidth = 70;
             UpdateSkinLabel();
 
-            UiKit.Rect("Gap", page).Height(16);
+            // Minecraft skin by nick
+            var mcRow = UiKit.Rect("McRow", page);
+            mcRow.Height(52);
+            var mh = mcRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+            mh.spacing = 10;
+            mh.childControlWidth = true;
+            mh.childControlHeight = true;
+            mh.childForceExpandWidth = false;
+            _mcNick = UiKit.Input("McNick", mcRow, LocalProfile.McNick, "Skin z Minecrafta: wpisz nick", 24);
+            _mcNick.characterLimit = 16;
+            _mcNick.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
+            var fetch = UiKit.Button("Fetch", mcRow, "Pobierz", () => FetchMcSkin(_mcNick.text), 24);
+            fetch.gameObject.AddComponent<LayoutElement>().preferredWidth = 130;
+            _mcStatus = UiKit.Label("McStatus", page, "", 20, TextAnchor.MiddleLeft, UiKit.TextDim);
+            _mcStatus.Height(24);
+
+            UiKit.Rect("Gap", page).Height(10);
             UiKit.Button("Host", page, "Stwórz serwer", Host, 32, new Color(0.13f, 0.32f, 0.16f)).Height(76);
             UiKit.Button("Find", page, "Szukaj serwerów", () => Show(_browser), 32).Height(76);
             UiKit.Button("Options", page, "Ustawienia", () => Show(_options), 30).Height(66);
@@ -213,14 +230,55 @@ namespace HideAndSeek.Game.UI
             }
         }
 
+        private void FetchMcSkin(string nick)
+        {
+            nick = (nick ?? "").Trim();
+            if (nick.Length == 0)
+            {
+                LocalProfile.McNick = "";
+                PlayerPrefs.Save();
+                _mcStatus.text = "Używasz skina z gry.";
+                if (_preview != null) _preview.SetCustomSkin(null);
+                UpdateSkinLabel();
+                return;
+            }
+            _mcStatus.text = $"Pobieram skin {nick}...";
+            MinecraftSkins.Get(nick, (tex, err) =>
+            {
+                if (this == null) return;
+                if (tex == null)
+                {
+                    _mcStatus.text = err ?? "Nie udało się pobrać skina.";
+                    return;
+                }
+                LocalProfile.McNick = nick;
+                PlayerPrefs.Save();
+                _mcStatus.text = $"Skin {nick} ustawiony :]  (puste pole + Pobierz = skin z gry)";
+                if (_preview != null) _preview.SetCustomSkin(tex);
+                UpdateSkinLabel();
+            });
+        }
+
         private void ChangeSkin(int d)
         {
+            if (!string.IsNullOrEmpty(LocalProfile.McNick))
+            {
+                // Arrows switch back to the built-in skins.
+                LocalProfile.McNick = "";
+                if (_mcNick != null) _mcNick.text = "";
+                if (_preview != null) _preview.SetCustomSkin(null);
+                _mcStatus.text = "Używasz skina z gry.";
+                UpdateSkinLabel();
+                return;
+            }
             LocalProfile.Skin = (LocalProfile.Skin + d + 5) % 5;
             UpdateSkinLabel();
             RefreshPreview();
         }
 
-        private void UpdateSkinLabel() => _skinLabel.text = $"Skin {LocalProfile.Skin + 1} / 5";
+        private void UpdateSkinLabel() => _skinLabel.text = string.IsNullOrEmpty(LocalProfile.McNick)
+            ? $"Skin {LocalProfile.Skin + 1} / 5"
+            : $"Minecraft: {LocalProfile.McNick}";
 
         // ================================================================ preview
 
@@ -229,6 +287,7 @@ namespace HideAndSeek.Game.UI
             if (previewRoot == null) return;
             _preview = BlockyCharacterFactory.Create(previewRoot, LocalProfile.Skin, LocalProfile.Nick);
             _preview.SetFirstPersonMode(false);
+            if (!string.IsNullOrEmpty(LocalProfile.McNick)) FetchMcSkin(LocalProfile.McNick);
         }
 
         private void RefreshPreview()

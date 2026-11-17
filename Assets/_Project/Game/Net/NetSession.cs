@@ -28,7 +28,7 @@ namespace HideAndSeek.Game.Net
         public static NetSession Instance { get; private set; }
 
         /// <summary>Nick / skin sent by each client in the connection payload (server side).</summary>
-        private readonly Dictionary<ulong, (string nick, int skin)> _pending = new();
+        private readonly Dictionary<ulong, (string nick, int skin, string mc)> _pending = new();
 
         /// <summary>Message shown in the main menu after returning (e.g. why we were disconnected).</summary>
         public static string LastMessage;
@@ -81,6 +81,7 @@ namespace HideAndSeek.Game.Net
             _noDiscovery = Has("-nodiscovery");
             string nick = Arg("-nick");
             if (nick != null) LocalProfile.SessionNick = LocalProfile.Sanitize(nick);
+            if (Arg("-mcnick") is string mcn) LocalProfile.SessionMcNick = mcn;
             Debug.Log($"[NetSession] args nick={nick} profile={LocalProfile.Nick}");
             if (Has("-host")) Host();
             else if (Arg("-join") is string ip) Join(ip, _port);
@@ -184,7 +185,7 @@ namespace HideAndSeek.Game.Net
 
         private UnityTransport Transport => GetComponent<UnityTransport>();
 
-        private byte[] Payload() => Encoding.UTF8.GetBytes($"{LocalProfile.Nick}|{LocalProfile.Skin}|{Application.version}");
+        private byte[] Payload() => Encoding.UTF8.GetBytes($"{LocalProfile.Nick}|{LocalProfile.Skin}|{Application.version}|{LocalProfile.McNick}");
 
         // ---------------------------------------------------------------- start / stop
 
@@ -246,11 +247,13 @@ namespace HideAndSeek.Game.Net
         {
             string nick = "Gracz";
             int skin = 0;
+            string mc = "";
             try
             {
                 string[] p = Encoding.UTF8.GetString(req.Payload ?? Array.Empty<byte>()).Split('|');
                 if (p.Length > 0) nick = LocalProfile.Sanitize(p[0]);
                 if (p.Length > 1) int.TryParse(p[1], out skin);
+                if (p.Length > 3 && MinecraftSkins.IsValidNick(p[3])) mc = p[3];
             }
             catch { /* defaults */ }
 
@@ -265,7 +268,7 @@ namespace HideAndSeek.Game.Net
 
             nick = UniqueNick(nick);
             Debug.Log($"[NetSession] approve client={req.ClientNetworkId} payload='{Encoding.UTF8.GetString(req.Payload ?? Array.Empty<byte>())}' -> {nick}");
-            _pending[req.ClientNetworkId] = (nick, Mathf.Clamp(skin, 0, 4));
+            _pending[req.ClientNetworkId] = (nick, Mathf.Clamp(skin, 0, 4), mc);
             resp.Approved = true;
             resp.CreatePlayerObject = true;
             resp.Pending = false;
@@ -281,14 +284,14 @@ namespace HideAndSeek.Game.Net
             return n;
         }
 
-        public (string nick, int skin) TakeProfile(ulong clientId)
+        public (string nick, int skin, string mc) TakeProfile(ulong clientId)
         {
             if (_pending.TryGetValue(clientId, out var v))
             {
                 _pending.Remove(clientId);
                 return v;
             }
-            return clientId == NetworkManager.ServerClientId ? (LocalProfile.Nick, LocalProfile.Skin) : ("Gracz" + clientId, 0);
+            return clientId == NetworkManager.ServerClientId ? (LocalProfile.Nick, LocalProfile.Skin, LocalProfile.McNick) : ("Gracz" + clientId, 0, "");
         }
 
         private void OnClientDisconnect(ulong clientId)

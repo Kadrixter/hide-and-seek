@@ -75,7 +75,7 @@ namespace HideAndSeek.Game.UI
                 });
             Row(parent, "Wzmocnienie mikrofonu", 0.5f, 4f, LocalProfile.MicGain, v => LocalProfile.MicGain = v, v => $"{v:0.0}x");
             Row(parent, "Próg aktywacji głosem", 0.02f, 0.5f, LocalProfile.MicThreshold, v => LocalProfile.MicThreshold = v, Pct);
-            Row(parent, "Głośność innych graczy", 0f, 1.5f, LocalProfile.ChatVolume, v => LocalProfile.ChatVolume = v, Pct);
+            Row(parent, "Głośność innych graczy", 0f, 2f, LocalProfile.ChatVolume, v => LocalProfile.ChatVolume = v, Pct);
 
             var meter = UiKit.Label("Meter", parent, "", 22, TextAnchor.MiddleLeft, UiKit.TextDim);
             meter.Height(28);

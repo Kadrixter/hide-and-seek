@@ -24,6 +24,8 @@ namespace HideAndSeek.Game.Net
         // ---- server-written state
         public readonly NetworkVariable<FixedString32Bytes> NickVar = new();
         public readonly NetworkVariable<byte> SkinVar = new();
+        /// <summary>Minecraft nick for a downloaded skin (empty = built-in skin).</summary>
+        public readonly NetworkVariable<FixedString32Bytes> McNickVar = new();
         public readonly NetworkVariable<PlayerRole> Role = new();
         public readonly NetworkVariable<LifeState> Life = new();
         public readonly NetworkVariable<bool> Wounded = new();
@@ -94,9 +96,10 @@ namespace HideAndSeek.Game.Net
             All.Add(this);
             if (IsServer && NetSession.Instance != null)
             {
-                var (nick, skin) = NetSession.Instance.TakeProfile(OwnerClientId);
+                var (nick, skin, mc) = NetSession.Instance.TakeProfile(OwnerClientId);
                 NickVar.Value = nick;
                 SkinVar.Value = (byte)skin;
+                McNickVar.Value = mc ?? "";
             }
 
             BuildCharacter();
@@ -106,6 +109,8 @@ namespace HideAndSeek.Game.Net
 
             NickVar.OnValueChanged += (_, _) => RefreshSkin();
             SkinVar.OnValueChanged += (_, _) => RefreshSkin();
+            McNickVar.OnValueChanged += (_, _) => LoadMcSkin();
+            LoadMcSkin();
             Life.OnValueChanged += (_, v) => ApplyLife(v, true);
             Held.OnValueChanged += (_, v) => ApplyHeld(v);
             FlashOn.OnValueChanged += (_, v) => { if (!IsOwner && Flashlight != null) Flashlight.SetOn(v, true); };
@@ -151,6 +156,23 @@ namespace HideAndSeek.Game.Net
             // Motion for the animator always comes from the motor (simulated locally or fed from the network).
             var anim = Character.GetComponent<BlockyCharacterAnimator>();
             if (anim != null) anim.SetMotionSource(Motor);
+        }
+
+        private void LoadMcSkin()
+        {
+            string mc = McNickVar.Value.ToString();
+            if (string.IsNullOrEmpty(mc))
+            {
+                Character?.SetCustomSkin(null);
+                (ViewModel as FirstPersonViewModel)?.SetCustomSkin(null);
+                return;
+            }
+            MinecraftSkins.Get(mc, (tex, err) =>
+            {
+                if (this == null || tex == null || McNickVar.Value.ToString() != mc) return;
+                Character?.SetCustomSkin(tex);
+                (ViewModel as FirstPersonViewModel)?.SetCustomSkin(tex);
+            });
         }
 
         private void RefreshSkin()

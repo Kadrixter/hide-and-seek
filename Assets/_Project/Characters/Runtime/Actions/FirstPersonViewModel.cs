@@ -1,4 +1,4 @@
-﻿using HideAndSeek.Core;
+using HideAndSeek.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -142,11 +142,23 @@ namespace HideAndSeek.Characters
             return t;
         }
 
+        private Texture2D customSkin;
+        private int lastSkinIndex;
+
+        /// <summary>Uses a downloaded Minecraft skin for the arms (null = library skin).</summary>
+        public void SetCustomSkin(Texture2D tex)
+        {
+            customSkin = tex;
+            SetSkin(lastSkinIndex);
+        }
+
         /// <summary>Re-skins the arms.</summary>
         public void SetSkin(int skinIndex)
         {
+            lastSkinIndex = skinIndex;
             var skin = SkinLibrary.GetSkin(skinIndex);
             skinMaterial = skin != null ? skin.Material : null;
+            if (customSkin != null && skinMaterial != null) skinMaterial = CustomSkins.MaterialFor(customSkin, skinMaterial);
             if (skinMaterial == null)
             {
                 skinMaterial = new Material(Shader.Find("Standard")) { hideFlags = HideFlags.DontSave, color = new Color(0.85f, 0.7f, 0.6f) };

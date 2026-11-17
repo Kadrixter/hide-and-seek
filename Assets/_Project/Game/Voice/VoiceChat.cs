@@ -150,7 +150,9 @@ namespace HideAndSeek.Game.Voice
             if (!TestTone && Array.IndexOf(Environment.GetCommandLineArgs(), "-debugpos") < 0) return;
             if (Time.unscaledTime < _nextStats) return;
             _nextStats = Time.unscaledTime + 3f;
-            Debug.Log($"[Voice] tx={_txPackets} rx={_rxPackets} transmitting={Transmitting}");
+            int buf = 0;
+            foreach (var vp in FindObjectsByType<VoicePlayback>(FindObjectsInactive.Exclude)) buf = Mathf.Max(buf, vp.BufferMs);
+            Debug.Log($"[Voice] tx={_txPackets} rx={_rxPackets} transmitting={Transmitting} bufferMs={buf}");
         }
 
         private void ProcessFrame(NetworkManager nm, bool forceSend)
@@ -192,7 +194,7 @@ namespace HideAndSeek.Game.Voice
                 using var writer = new FastBufferWriter(_encoded.Length + 8, Allocator.Temp);
                 writer.WriteValueSafe((ushort)_encoded.Length);
                 writer.WriteBytesSafe(_encoded, _encoded.Length);
-                nm.CustomMessagingManager.SendNamedMessage(Message, NetworkManager.ServerClientId, writer, NetworkDelivery.Unreliable);
+                nm.CustomMessagingManager.SendNamedMessage(Message, NetworkManager.ServerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
             }
         }
 
@@ -245,7 +247,7 @@ namespace HideAndSeek.Game.Voice
                 if (!hears) continue;
 
                 if (listener.OwnerClientId == nm.LocalClientId) Play(speakerId, data, len); // host listens locally
-                else nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writer, NetworkDelivery.Unreliable);
+                else nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
             }
         }
 
