@@ -192,8 +192,8 @@ namespace HideAndSeek.Characters
         }
 
         /// <summary>
-        /// First-person mode for the local player: the body still casts shadows (and receives none of its own
-        /// visuals) so the player sees their shadow but never their own model clipping the camera.
+        /// First-person mode for the local player: all parts render as ShadowCastingMode.ShadowsOnly, so the
+        /// player sees their own shadow but never the model clipping the camera.
         /// </summary>
         public void SetFirstPersonMode(bool fp)
         {

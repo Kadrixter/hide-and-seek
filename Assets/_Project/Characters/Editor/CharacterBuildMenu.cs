@@ -248,8 +248,29 @@ namespace HideAndSeek.Characters.Editor
             camGo.AddComponent<AudioListener>();
             orbit.SendMessage("OnEnable", SendMessageOptions.DontRequireReceiver);
 
+            // Unity assigns random local fileIDs on every save; keep the previous file when nothing else changed
+            // so repeated builds produce no diff.
+            string full = Path.Combine(Directory.GetParent(Application.dataPath)!.FullName, ShowcaseScenePath);
+            string previous = File.Exists(full) ? File.ReadAllText(full) : null;
             EditorSceneManager.SaveScene(scene, ShowcaseScenePath);
+            if (previous != null && NormalizeYaml(previous) == NormalizeYaml(File.ReadAllText(full)))
+            {
+                File.WriteAllText(full, previous);
+                AssetDatabase.ImportAsset(ShowcaseScenePath, ImportAssetOptions.ForceUpdate);
+                EditorSceneManager.OpenScene(ShowcaseScenePath, OpenSceneMode.Single);
+            }
+
             AssetDatabase.Refresh();
+        }
+
+        static string NormalizeYaml(string yaml)
+        {
+            yaml = System.Text.RegularExpressions.Regex.Replace(yaml, @"&-?\d+", "&");
+            yaml = System.Text.RegularExpressions.Regex.Replace(yaml, @"fileID: -?\d+", "fileID:");
+            // Objects are written sorted by fileID, so compare the documents order-independently.
+            var docs = new List<string>(yaml.Replace("\r\n", "\n").Split(new[] { "--- !u!" }, StringSplitOptions.None));
+            docs.Sort(string.CompareOrdinal);
+            return string.Join("\n---\n", docs);
         }
 
         static void ConfigureCamera(Camera cam)
