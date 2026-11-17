@@ -4,6 +4,7 @@
     "references": [
         "HideAndSeek.Core",
         "HideAndSeek.Player.Surfaces",
+        "HideAndSeek.Audio",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

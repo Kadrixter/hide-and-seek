@@ -63,6 +63,8 @@ namespace HideAndSeek.Player
         [SerializeField, Range(0f, 1f)] private float clothVolume = 0.16f;
         [Tooltip("Volume multiplier per surface (concrete, metal, water).")]
         [SerializeField] private Vector3 surfaceVolume = new Vector3(1f, 1.05f, 0.95f);
+        [Tooltip("Volume multiplier (relative to concrete) for wood (x) and carpet (y).")]
+        [SerializeField] private Vector2 woodCarpetVolume = new Vector2(1f, 0.6f);
 
         [Header("Audible range (m) - also used for noise events")]
         [SerializeField] private float crouchRange = 6f;
@@ -71,6 +73,8 @@ namespace HideAndSeek.Player
         [SerializeField] private float landingRangeMax = 30f;
         [Tooltip("Range multiplier per surface (concrete, metal, water).")]
         [SerializeField] private Vector3 surfaceRange = new Vector3(1f, 1.3f, 1.2f);
+        [Tooltip("Range multiplier (relative to concrete) for wood (x) and carpet (y).")]
+        [SerializeField] private Vector2 woodCarpetRange = new Vector2(1.05f, 0.55f);
         [Tooltip("Full volume inside this fraction of the audible range; 1/d falloff beyond, fading to 0 at the range.")]
         [SerializeField, Range(0.02f, 0.5f)] private float rolloffInnerFraction = 0.1f;
 
@@ -493,6 +497,16 @@ namespace HideAndSeek.Player
             AnyNoise?.Invoke(n);
         }
 
-        private static float SurfaceComponent(Vector3 v, SurfaceType s) => s == SurfaceType.Metal ? v.y : s == SurfaceType.Water ? v.z : v.x;
+        private float SurfaceComponent(Vector3 v, SurfaceType s)
+        {
+            switch (s)
+            {
+                case SurfaceType.Metal: return v.y;
+                case SurfaceType.Water: return v.z;
+                case SurfaceType.Wood: return v.x * (v == surfaceRange ? woodCarpetRange.x : woodCarpetVolume.x);
+                case SurfaceType.Carpet: return v.x * (v == surfaceRange ? woodCarpetRange.y : woodCarpetVolume.y);
+                default: return v.x;
+            }
+        }
     }
 }

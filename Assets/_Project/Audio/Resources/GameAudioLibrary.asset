@@ -1,0 +1,368 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee153bb6a444c8f478df95a959bf3eb0, type: 3}
+  m_Name: GameAudioLibrary
+  m_EditorClassIdentifier: HideAndSeek.Audio::HideAndSeek.Audio.GameAudioLibrary
+  sfx:
+  - id: 1
+    clips:
+    - {fileID: 8300000, guid: 5501e824011a8824c8a39bbc12066fef, type: 3}
+    volume: 0.6
+    pitchJitter: 0.03
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 2
+    clips:
+    - {fileID: 8300000, guid: 43dd738b8613b044a9de305e035d78e3, type: 3}
+    volume: 0.35
+    pitchJitter: 0.03
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 3
+    clips:
+    - {fileID: 8300000, guid: 157ae63203b548e4796ec92169d19899, type: 3}
+    volume: 0.6
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 4
+    clips:
+    - {fileID: 8300000, guid: 8c3d1aba1efe36d44af8aa65f9bc2b87, type: 3}
+    volume: 0.9
+    pitchJitter: 0.04
+    range: 20
+    echo: 0
+    reverbMix: 1
+  - id: 5
+    clips:
+    - {fileID: 8300000, guid: 67b639c458645bd4aa9aa109a983fb9e, type: 3}
+    volume: 0.7
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 6
+    clips:
+    - {fileID: 8300000, guid: 2f73d6c964dc2b84cb0f6f664376a1c7, type: 3}
+    volume: 0.9
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 7
+    clips:
+    - {fileID: 8300000, guid: 70630e4f0a2de5944a8590b8c8cc9c4d, type: 3}
+    volume: 1
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 8
+    clips:
+    - {fileID: 8300000, guid: f3bf79c8785f4ee49b3875abc3733089, type: 3}
+    volume: 0.9
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 9
+    clips:
+    - {fileID: 8300000, guid: 73a603bef617146478334b1c82651278, type: 3}
+    volume: 0.9
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 10
+    clips:
+    - {fileID: 8300000, guid: 594ef19d5fa52584cb811dca706cbccf, type: 3}
+    volume: 0.6
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 11
+    clips:
+    - {fileID: 8300000, guid: 7413cc6fff7299744b27fe1904ba4c49, type: 3}
+    volume: 0.6
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 0
+  - id: 20
+    clips:
+    - {fileID: 8300000, guid: 6d2ae54db08349241bfbb6084945196e, type: 3}
+    - {fileID: 8300000, guid: 684c386ed6467894b83f6e01e2fb7d3d, type: 3}
+    - {fileID: 8300000, guid: fa288d116afdd9740a7b9cd30af74ea6, type: 3}
+    volume: 0.7
+    pitchJitter: 0.05
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 21
+    clips:
+    - {fileID: 8300000, guid: 165c4d8bcba72364cbb0607517bfa63c, type: 3}
+    - {fileID: 8300000, guid: de7e2269fddd18e48b67ee9daef3d1c0, type: 3}
+    - {fileID: 8300000, guid: 082dd74dbd2a5e14c92c6ac4b864a31a, type: 3}
+    - {fileID: 8300000, guid: d7882196e4eed364da390c54219fc2e9, type: 3}
+    - {fileID: 8300000, guid: b0d1bb1587f9cac4995765cf2576c1c1, type: 3}
+    - {fileID: 8300000, guid: 04fe400092177b54180657ad10318eb7, type: 3}
+    - {fileID: 8300000, guid: 370250a2a32ba1d4d975218b2ef363c7, type: 3}
+    volume: 0.8
+    pitchJitter: 0.08
+    range: 12
+    echo: 0
+    reverbMix: 1
+  - id: 22
+    clips:
+    - {fileID: 8300000, guid: 9dfeff723d5eae1429b075f38cb626cc, type: 3}
+    - {fileID: 8300000, guid: 436171f251d30f944991c27d68b83df8, type: 3}
+    - {fileID: 8300000, guid: 8032caa17c1f1fd47ba0ed8ba2d53262, type: 3}
+    - {fileID: 8300000, guid: 6b8d17be203153d4a9fb696f5784119b, type: 3}
+    - {fileID: 8300000, guid: a7f2527a135555d4499efc564ac25f73, type: 3}
+    volume: 1
+    pitchJitter: 0.08
+    range: 15
+    echo: 0
+    reverbMix: 1
+  - id: 23
+    clips:
+    - {fileID: 8300000, guid: c9c2bb13231a63547930fdfc01387513, type: 3}
+    - {fileID: 8300000, guid: fbee15aa6caf96b4c9b91a7f665ce33e, type: 3}
+    - {fileID: 8300000, guid: 50ac2b443e380de4aad21f43a17936d8, type: 3}
+    - {fileID: 8300000, guid: 4eebbf0f7150cdd4a9ef1f48ddd2729f, type: 3}
+    volume: 1
+    pitchJitter: 0.06
+    range: 22
+    echo: 0
+    reverbMix: 1
+  - id: 30
+    clips:
+    - {fileID: 8300000, guid: c91c52a4e2d2c3e4cb3ff255e3add446, type: 3}
+    - {fileID: 8300000, guid: 49b618897bc61f5479007b3901a1aa5a, type: 3}
+    volume: 1
+    pitchJitter: 0.05
+    range: 45
+    echo: 1
+    reverbMix: 1
+  - id: 31
+    clips:
+    - {fileID: 8300000, guid: 2e0b28cba07171444a392eaf8e8de9ca, type: 3}
+    - {fileID: 8300000, guid: b68d051609e4e8d44ae903d64b34f898, type: 3}
+    - {fileID: 8300000, guid: 994fae93b39c3bf428bd6fd77636e47b, type: 3}
+    - {fileID: 8300000, guid: 62380b56f2d174943b34fac9ffac51fb, type: 3}
+    volume: 0.9
+    pitchJitter: 0.06
+    range: 25
+    echo: 0
+    reverbMix: 1
+  - id: 32
+    clips:
+    - {fileID: 8300000, guid: 400dc80b66b9b9c46a252317f9c208d1, type: 3}
+    - {fileID: 8300000, guid: 25f787b419a99624ca9b5a805ceb84fb, type: 3}
+    volume: 1
+    pitchJitter: 0.04
+    range: 45
+    echo: 1
+    reverbMix: 1
+  - id: 33
+    clips:
+    - {fileID: 8300000, guid: cf8ee0c35738b3d45be2677a61c0939d, type: 3}
+    volume: 0.7
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 40
+    clips:
+    - {fileID: 8300000, guid: 570380b3913a0dd4d9b79c6d5903d842, type: 3}
+    volume: 0.6
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 41
+    clips:
+    - {fileID: 8300000, guid: 5c28a314a6117d940a157c111ec446ca, type: 3}
+    volume: 0.85
+    pitchJitter: 0
+    range: 5
+    echo: 0
+    reverbMix: 0
+  - id: 42
+    clips:
+    - {fileID: 8300000, guid: 9a8b0f410cdfe5042b289fdbab1d006b, type: 3}
+    volume: 0.7
+    pitchJitter: 0
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 43
+    clips:
+    - {fileID: 8300000, guid: 0015605fcef01b348b9f09fb081ae040, type: 3}
+    volume: 0.8
+    pitchJitter: 0.03
+    range: 15
+    echo: 0
+    reverbMix: 1
+  - id: 44
+    clips:
+    - {fileID: 8300000, guid: e9ce9bf23d90f0449bed9dbd2898f8f2, type: 3}
+    volume: 0.7
+    pitchJitter: 0.05
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 45
+    clips:
+    - {fileID: 8300000, guid: 9ff7a3f33a35ff84d8483e6db1b44307, type: 3}
+    volume: 0.8
+    pitchJitter: 0.04
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 50
+    clips:
+    - {fileID: 8300000, guid: 6772d0976bc71d749929abbdd83b5695, type: 3}
+    volume: 0.7
+    pitchJitter: 0.05
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 51
+    clips:
+    - {fileID: 8300000, guid: efc88a9cd3215c04aaf32f95882f9d3e, type: 3}
+    volume: 1
+    pitchJitter: 0.04
+    range: 120
+    echo: 1
+    reverbMix: 1
+  - id: 52
+    clips:
+    - {fileID: 8300000, guid: 9c9ea914e4a2aa742889917e5c444f54, type: 3}
+    volume: 0.75
+    pitchJitter: 0.05
+    range: 300
+    echo: 0
+    reverbMix: 1
+  - id: 53
+    clips:
+    - {fileID: 8300000, guid: 2ef5098184c33014eb935541e973c6c8, type: 3}
+    volume: 0.8
+    pitchJitter: 0.03
+    range: 15
+    echo: 0
+    reverbMix: 1
+  - id: 54
+    clips:
+    - {fileID: 8300000, guid: bbca00eb9db63404db5cec2adebd9e1d, type: 3}
+    - {fileID: 8300000, guid: 82b4daf981b4da148a5229140369765e, type: 3}
+    - {fileID: 8300000, guid: decb2b8a0947223429c3f8f1216904a3, type: 3}
+    volume: 0.7
+    pitchJitter: 0.05
+    range: 8
+    echo: 0
+    reverbMix: 1
+  - id: 55
+    clips:
+    - {fileID: 8300000, guid: 952f353103344234da8d1253b957d360, type: 3}
+    - {fileID: 8300000, guid: 2fab4003163e8a74f91d8d65a0310e6b, type: 3}
+    - {fileID: 8300000, guid: 0f536ab1e03d98f43b9bb7b2e9557b40, type: 3}
+    volume: 0.9
+    pitchJitter: 0.08
+    range: 35
+    echo: 0
+    reverbMix: 1
+  - id: 56
+    clips:
+    - {fileID: 8300000, guid: ae7c0dfa66a753e4f9b7d11922f7fe89, type: 3}
+    - {fileID: 8300000, guid: 2f4a47f18ff30774cb7e44153196f47b, type: 3}
+    - {fileID: 8300000, guid: 67e7ca21a54fd3b44b65f7239f3d9c68, type: 3}
+    - {fileID: 8300000, guid: a05e217942f56df48a27af026f7eae65, type: 3}
+    - {fileID: 8300000, guid: 685056b96569cfb438b7c8836bd65161, type: 3}
+    - {fileID: 8300000, guid: a079f760b4abbe74eb82dd8f1dc550bc, type: 3}
+    volume: 0.5
+    pitchJitter: 0.1
+    range: 10
+    echo: 0
+    reverbMix: 1
+  - id: 60
+    clips:
+    - {fileID: 8300000, guid: 7151c3153f6f3b249a92f64a41b7deca, type: 3}
+    volume: 1
+    pitchJitter: 0.03
+    range: 60
+    echo: 1
+    reverbMix: 1
+  - id: 61
+    clips:
+    - {fileID: 8300000, guid: 69143201b86d7f442b22f64194a8103a, type: 3}
+    - {fileID: 8300000, guid: 89c48a9b879a5a2439ae7ffaeb6afb8c, type: 3}
+    - {fileID: 8300000, guid: 3b498e7d121bfa74ab0f1f02d7c6b0fe, type: 3}
+    - {fileID: 8300000, guid: e24dd0814b1611f4facfebd57c891ffa, type: 3}
+    volume: 0.6
+    pitchJitter: 0.05
+    range: 8
+    echo: 0
+    reverbMix: 1
+  - id: 62
+    clips:
+    - {fileID: 8300000, guid: 83eb67f76aad532448ce020c619a0039, type: 3}
+    volume: 0.5
+    pitchJitter: 0.05
+    range: 6
+    echo: 0
+    reverbMix: 1
+  ambient:
+  - id: 1
+    clip: {fileID: 8300000, guid: 384a4ec721868ef4da4ef80edb786405, type: 3}
+    volume: 0.8
+    range: 0
+    pitchJitter: 0
+  - id: 2
+    clip: {fileID: 8300000, guid: a3a94b5cbec8cd942b618fb69ed905f2, type: 3}
+    volume: 0.5
+    range: 0
+    pitchJitter: 0
+  - id: 3
+    clip: {fileID: 8300000, guid: 10e81ad826555f342b6c5310d9d816cc, type: 3}
+    volume: 0.55
+    range: 0
+    pitchJitter: 0
+  - id: 4
+    clip: {fileID: 8300000, guid: af24168ebc51c5542a03d3d015dced1f, type: 3}
+    volume: 0.5
+    range: 12
+    pitchJitter: 0.04
+  - id: 5
+    clip: {fileID: 8300000, guid: dde951e8a6bb94944b18ff0abb35b660, type: 3}
+    volume: 0.6
+    range: 10
+    pitchJitter: 0.04
+  - id: 6
+    clip: {fileID: 8300000, guid: 2b2d43463a77d424980c42c4b1a85d4a, type: 3}
+    volume: 0.35
+    range: 6
+    pitchJitter: 0.04
+  - id: 7
+    clip: {fileID: 8300000, guid: 97a6f5aff8fab4a479aaf52373116d40, type: 3}
+    volume: 0.5
+    range: 30
+    pitchJitter: 0.04
+  - id: 8
+    clip: {fileID: 8300000, guid: b69fd047d6a6f1f44bf882d75b332d34, type: 3}
+    volume: 0.7
+    range: 0
+    pitchJitter: 0

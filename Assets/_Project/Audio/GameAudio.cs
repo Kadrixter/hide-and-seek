@@ -5,6 +5,8 @@ namespace HideAndSeek.Audio
     /// <summary>
     /// Static facade for gameplay sound effects. Network code calls these on every client
     /// (e.g. from a ClientRpc); missing clips are silently ignored so code never depends on assets.
+    /// 3D sounds get distance rolloff, reverb from <see cref="AudioEnvironment"/>, echo (entries flagged echo)
+    /// and wall occlusion (low-pass) automatically.
     /// </summary>
     public static class GameAudio
     {
@@ -24,6 +26,12 @@ namespace HideAndSeek.Audio
         public static float SfxVolume { get; set; } = 1f;
         public static float MusicVolume { get; set; } = 0.7f;
 
+        /// <summary>Muffle 3D sounds behind walls (one raycast per voice every ~0.12 s).</summary>
+        public static bool OcclusionEnabled { get; set; } = true;
+
+        /// <summary>Layers that block sound (walls, floors, pillars). Defaults to everything except Ignore Raycast.</summary>
+        public static LayerMask OcclusionMask { get; set; } = Physics.DefaultRaycastLayers;
+
         private static GameAudioRunner Runner
         {
             get
@@ -40,11 +48,20 @@ namespace HideAndSeek.Audio
 
         /// <summary>3D one-shot at a world position.</summary>
         public static AudioSource PlayAt(GameSfx id, Vector3 position, float volume = 1f)
-            => Runner.Play(Library?.Get(id), position, null, volume, true, false);
+        {
+            var src = Runner.Play(Library?.Get(id), position, null, volume, true, false);
+            PlayLayers(id, position, null, volume);
+            return src;
+        }
 
         /// <summary>3D one-shot following a transform (scream on a moving player).</summary>
         public static AudioSource PlayAttached(GameSfx id, Transform target, float volume = 1f)
-            => target == null ? null : Runner.Play(Library?.Get(id), target.position, target, volume, true, false);
+        {
+            if (target == null) return null;
+            var src = Runner.Play(Library?.Get(id), target.position, target, volume, true, false);
+            PlayLayers(id, target.position, target, volume);
+            return src;
+        }
 
         /// <summary>2D one-shot (UI, local-only feedback).</summary>
         public static AudioSource Play2D(GameSfx id, float volume = 1f)
@@ -59,6 +76,12 @@ namespace HideAndSeek.Audio
             if (source != null && _runner != null) _runner.Stop(source, fade);
         }
 
+        /// <summary>Fades out every pooled sfx voice (e.g. when leaving a match).</summary>
+        public static void StopAll(float fade = 0.2f)
+        {
+            if (_runner != null) _runner.StopAll(fade);
+        }
+
         /// <summary>Plays an arbitrary clip (e.g. Voice/*.mp3 hint) in 3D.</summary>
         public static AudioSource PlayClipAt(AudioClip clip, Vector3 position, float volume = 1f, float range = 40f)
         {
@@ -69,5 +92,36 @@ namespace HideAndSeek.Audio
 
         /// <summary>Switches the 2D music/ambient bed (menu, lobby, garage, tension). Crossfades.</summary>
         public static void SetBed(AmbientId id, float fade = 1.5f) => Runner.SetBed(Library?.Get(id), fade);
+
+        /// <summary>Audible range in metres of a sound (library value; 0 when unknown). Useful for "who heard it" logic.</summary>
+        public static float GetRange(GameSfx id)
+        {
+            var e = Library?.Get(id);
+            return e != null ? e.range : 0f;
+        }
+
+        /// <summary>True when the library has at least one clip for the id.</summary>
+        public static bool HasClip(GameSfx id)
+        {
+            var e = Library?.Get(id);
+            return e != null && e.clips != null && e.clips.Length > 0 && e.clips[0] != null;
+        }
+
+        /// <summary>Transform of the active AudioListener (null when none).</summary>
+        public static Transform Listener => Runner.Listener;
+
+        // A gunshot also plays its far tail: quiet close by, carries far through the garage.
+        private static void PlayLayers(GameSfx id, Vector3 position, Transform follow, float volume)
+        {
+            if (id == GameSfx.GlockShot)
+                Runner.Play(Library?.Get(GameSfx.GlockShotDistant), position, follow, volume, true, false);
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            _runner = null;
+            _library = null;
+        }
     }
 }

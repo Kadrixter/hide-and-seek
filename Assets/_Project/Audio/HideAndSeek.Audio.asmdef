@@ -2,7 +2,8 @@
     "name": "HideAndSeek.Audio",
     "rootNamespace": "HideAndSeek.Audio",
     "references": [
-        "HideAndSeek.Core"
+        "HideAndSeek.Core",
+        "HideAndSeek.Player.Surfaces"
     ],
     "autoReferenced": true
 }
