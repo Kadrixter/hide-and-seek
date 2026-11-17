@@ -78,9 +78,29 @@ namespace HideAndSeek.Game.Net
             }
             if (SceneManager.GetActiveScene().name != NetSession.LobbyScene) _placedInLobby = false;
 
-            if (DebugPos && Time.time >= _nextDebug)
+            if (TestButton && !_testPlaced && LobbyButton.Instance != null && phase == MatchPhase.Lobby && Time.timeSinceLevelLoad > 1.5f)
             {
-                _nextDebug = Time.time + 2f;
+                _testPlaced = true;
+                Vector3 aim = LobbyButton.Instance.AimPoint;
+                Vector3 from = aim + new Vector3(-1.4f, 0f, 0f);
+                from.y = 0.02f;
+                Vector3 dir = aim - (from + Vector3.up * 1.62f);
+                _p.TeleportLocal(from, Quaternion.LookRotation(new Vector3(dir.x, 0f, dir.z)).eulerAngles.y);
+                _p.Motor.SetLook(_p.Motor.LookYaw, Mathf.Atan2(dir.y, new Vector2(dir.x, dir.z).magnitude) * Mathf.Rad2Deg);
+            }
+            if ((DebugPos || TestButton) && Time.time >= _nextDebug)
+            {
+                _nextDebug = Time.time + 1f;
+                string extra = "";
+                if (LobbyButton.Instance != null)
+                {
+                    Vector3 e = _p.EyePosition, t = LobbyButton.Instance.AimPoint, to = t - e;
+                    Vector3 f = _p.Camera != null ? _p.Camera.transform.forward : transform.forward;
+                    string hitName = Physics.Linecast(e, t - to.normalized * 0.3f, out var h, ~(1 << PlayerAvatarBinder.LocalBodyLayer), QueryTriggerInteraction.Ignore)
+                        ? h.collider.name + "/" + h.collider.gameObject.layer : "none";
+                    extra = $" id={GetHashCode()} d={to.magnitude:0.00} ang={Vector3.Angle(f, to):0} hit={hitName} instances={FindObjectsByType<LocalPlayerController>(FindObjectsInactive.Include).Length}";
+                }
+                Debug.Log($"[Prompt] {Prompt} '{PromptText}'{extra}");
                 Debug.Log($"[Pos] scene={SceneManager.GetActiveScene().name} phase={phase} life={_p.Life.Value} downed={_p.Motor.Downed} " +
                           $"eye={_p.Motor.EyeHeight:0.00} crouch={_p.Motor.CrouchAmount:0.00} pos={transform.position} cam={(_p.Camera != null ? _p.Camera.transform.position.ToString() : "-")}");
             }
@@ -217,17 +237,17 @@ namespace HideAndSeek.Game.Net
                 var button = LobbyButton.Instance;
                 if (button != null)
                 {
-                    Vector3 bp = button.transform.position;
+                    Vector3 bp = button.AimPoint;
                     float d = Vector3.Distance(eye, bp);
-                    if (d <= Tuning.ButtonRange && InView(eye, fwd, bp, 35f))
-                        Offer(PromptKind.Button, bp + Vector3.up * 0.25f, "E  START", d);
+                    if (d <= Tuning.ButtonRange && InView(eye, fwd, bp, 40f, button.transform))
+                        Offer(PromptKind.Button, bp + Vector3.up * 0.2f, "E  START", d);
                 }
                 var board = LobbySettingsBoard.Instance;
                 if (board != null)
                 {
                     Vector3 bp = board.transform.position;
                     float d = Vector3.Distance(eye, bp);
-                    if (d <= Tuning.ButtonRange + 1f && InView(eye, fwd, bp, 30f))
+                    if (d <= Tuning.ButtonRange + 1f && InView(eye, fwd, bp, 35f, board.transform))
                         Offer(PromptKind.Settings, bp, NetworkManager.Singleton.IsServer ? "E  ustawienia rundy" : "E  podgląd ustawień", d);
                 }
             }
@@ -235,15 +255,36 @@ namespace HideAndSeek.Game.Net
 
         private int _pickupId;
         private float _nextDebug;
+        private bool _testPlaced;
+        private static readonly bool TestButton = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testbutton") >= 0;
         private static readonly bool DebugPos = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-debugpos") >= 0;
 
-        private static bool InView(Vector3 eye, Vector3 fwd, Vector3 target, float maxAngle)
+        private bool InView(Vector3 eye, Vector3 fwd, Vector3 target, float maxAngle, Transform ignore = null)
         {
             Vector3 to = target - eye;
             if (Vector3.Angle(fwd, to) > maxAngle) return false;
-            // Line of sight against the level only (players have no colliders for others).
-            return !Physics.Linecast(eye, target - to.normalized * 0.3f, out _, ~(1 << PlayerAvatarBinder.LocalBodyLayer),
+            // Line of sight against the level only; our own capsule and the target object itself never block.
+            float dist = to.magnitude - 0.3f;
+            return dist <= 0f || !LevelRaycast(eye, to.normalized, dist, ignore, out _);
+        }
+
+        private readonly RaycastHit[] _hits = new RaycastHit[16];
+
+        /// <summary>Nearest hit along the ray, skipping the local player's own colliders (and <paramref name="ignore"/>).</summary>
+        private bool LevelRaycast(Vector3 origin, Vector3 dir, float maxDist, Transform ignore, out RaycastHit best)
+        {
+            best = default;
+            int n = Physics.RaycastNonAlloc(origin, dir, _hits, maxDist, ~(1 << PlayerAvatarBinder.LocalBodyLayer | 1 << 9),
                 QueryTriggerInteraction.Ignore);
+            float bestD = float.MaxValue;
+            for (int i = 0; i < n; i++)
+            {
+                var h = _hits[i];
+                if (h.transform.IsChildOf(transform)) continue;
+                if (ignore != null && h.transform.IsChildOf(ignore)) continue;
+                if (h.distance < bestD) { bestD = h.distance; best = h; }
+            }
+            return bestD < float.MaxValue;
         }
 
         private void HandlePromptInput(Keyboard kb)
@@ -344,7 +385,7 @@ namespace HideAndSeek.Game.Net
             // Level hit.
             float maxDist = Tuning.GlockRange;
             Vector3 hitPoint = origin + dir * maxDist;
-            if (Physics.Raycast(origin, dir, out var hit, maxDist, ~(1 << PlayerAvatarBinder.LocalBodyLayer), QueryTriggerInteraction.Ignore))
+            if (LevelRaycast(origin, dir, maxDist, null, out var hit))
             {
                 maxDist = hit.distance;
                 hitPoint = hit.point;

@@ -25,6 +25,9 @@ namespace HideAndSeek.Game
             _mpb = new MaterialPropertyBlock();
         }
 
+        /// <summary>Point the player aims at (top of the green cap).</summary>
+        public Vector3 AimPoint => cap != null ? cap.position + Vector3.up * 0.05f : transform.position + Vector3.up * 1.15f;
+
         public void Press()
         {
             var mm = MatchManager.Instance;
