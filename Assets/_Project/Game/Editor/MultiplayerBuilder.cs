@@ -117,6 +117,8 @@ namespace HideAndSeek.Game.Editor
         private static void ConfigurePlayerSettings()
         {
             PlayerSettings.productName = "Hide and Seek";
+            // Build stamp: servers reject clients from a different build (see NetSession.Approve).
+            PlayerSettings.bundleVersion = DateTime.Now.ToString("yyyy.MM.dd.HHmm");
             PlayerSettings.companyName = "Kadrixter";
             PlayerSettings.runInBackground = true;
             PlayerSettings.visibleInBackground = true;

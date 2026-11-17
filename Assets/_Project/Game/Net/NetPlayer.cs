@@ -163,16 +163,61 @@ namespace HideAndSeek.Game.Net
             string mc = McNickVar.Value.ToString();
             if (string.IsNullOrEmpty(mc))
             {
+                _netSkin = null;
                 Character?.SetCustomSkin(null);
                 (ViewModel as FirstPersonViewModel)?.SetCustomSkin(null);
                 return;
             }
+            Debug.Log($"[Skin] {Nick}: downloading Minecraft skin {mc}");
             MinecraftSkins.Get(mc, (tex, err) =>
             {
+                Debug.Log($"[Skin] {Nick}: {mc} -> {(tex != null ? "applied" : "failed: " + err)}");
                 if (this == null || tex == null || McNickVar.Value.ToString() != mc) return;
-                Character?.SetCustomSkin(tex);
-                (ViewModel as FirstPersonViewModel)?.SetCustomSkin(tex);
+                if (_netSkin == null) ApplySkinTexture(tex);
+                // The owner shares the skin file itself, so others need neither Mojang access nor a download.
+                if (IsOwner && IsSpawned)
+                {
+                    byte[] png = tex.EncodeToPNG();
+                    if (png != null && png.Length <= MaxSkinBytes) SubmitSkinRpc(png);
+                }
             });
+        }
+
+        private const int MaxSkinBytes = 48 * 1024;
+        private byte[] _skinPng;      // server copy, re-sent to late joiners
+        private Texture2D _netSkin;
+
+        private void ApplySkinTexture(Texture2D tex)
+        {
+            Character?.SetCustomSkin(tex);
+            (ViewModel as FirstPersonViewModel)?.SetCustomSkin(tex);
+        }
+
+        [Rpc(SendTo.Server)]
+        private void SubmitSkinRpc(byte[] png)
+        {
+            if (png == null || png.Length > MaxSkinBytes) return;
+            _skinPng = png;
+            SkinPngRpc(png, RpcTarget.Everyone);
+        }
+
+        /// <summary>Server: sends the stored skin file to one newly connected client.</summary>
+        public void SendSkinTo(ulong clientId)
+        {
+            if (_skinPng != null) SkinPngRpc(_skinPng, RpcTarget.Single(clientId, RpcTargetUse.Temp));
+        }
+
+        [Rpc(SendTo.SpecifiedInParams)]
+        private void SkinPngRpc(byte[] png, RpcParams rpcParams)
+        {
+            if (png == null || png.Length == 0 || IsOwner) return;
+            var raw = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!raw.LoadImage(png)) return;
+            var tex = CustomSkins.Prepare(raw, "net_" + Nick);
+            if (tex == null) return;
+            _netSkin = tex;
+            ApplySkinTexture(tex);
+            Debug.Log($"[Skin] {Nick}: received skin file ({png.Length} B)");
         }
 
         private void RefreshSkin()

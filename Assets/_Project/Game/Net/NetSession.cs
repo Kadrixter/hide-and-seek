@@ -60,6 +60,12 @@ namespace HideAndSeek.Game.Net
             Manager.NetworkConfig.ConnectionApproval = true;
             Manager.ConnectionApprovalCallback = Approve;
             Manager.OnClientDisconnectCallback += OnClientDisconnect;
+            Manager.OnClientConnectedCallback += id =>
+            {
+                // Late joiners get the skin files of everyone already here.
+                if (!Manager.IsServer || id == NetworkManager.ServerClientId) return;
+                foreach (var p in NetPlayer.All) if (p != null && p.OwnerClientId != id) p.SendSkinTo(id);
+            };
             Manager.OnServerStopped += _ => LanDiscovery.StopResponder();
             GameHud.EnsureExists();
             Voice.VoiceChat.EnsureExists();
@@ -257,6 +263,21 @@ namespace HideAndSeek.Game.Net
             }
             catch { /* defaults */ }
 
+            // Everybody must run the same build.
+            string theirVersion = "";
+            try
+            {
+                string[] pv = Encoding.UTF8.GetString(req.Payload ?? Array.Empty<byte>()).Split('|');
+                if (pv.Length > 2) theirVersion = pv[2];
+            }
+            catch { /* ignore */ }
+            if (req.ClientNetworkId != NetworkManager.ServerClientId && theirVersion != Application.version)
+            {
+                resp.Approved = false;
+                resp.Reason = $"Inna wersja gry: masz {theirVersion}, serwer ma {Application.version}. Pobierzcie tę samą wersję.";
+                return;
+            }
+
             var mm = MatchManager.Instance;
             bool inLobby = mm == null || mm.Phase.Value == MatchPhase.Lobby;
             if (!inLobby && req.ClientNetworkId != NetworkManager.ServerClientId)
@@ -267,7 +288,7 @@ namespace HideAndSeek.Game.Net
             }
 
             nick = UniqueNick(nick);
-            Debug.Log($"[NetSession] approve client={req.ClientNetworkId} payload='{Encoding.UTF8.GetString(req.Payload ?? Array.Empty<byte>())}' -> {nick}");
+            Debug.Log($"[NetSession] approve client={req.ClientNetworkId} mc={mc} payload='{Encoding.UTF8.GetString(req.Payload ?? Array.Empty<byte>())}' -> {nick}");
             _pending[req.ClientNetworkId] = (nick, Mathf.Clamp(skin, 0, 4), mc);
             resp.Approved = true;
             resp.CreatePlayerObject = true;

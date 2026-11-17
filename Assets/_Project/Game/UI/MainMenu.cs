@@ -46,6 +46,9 @@ namespace HideAndSeek.Game.UI
             _message.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 0), new Vector2(60, 40), new Vector2(-120, 80));
             NetSession.LastMessage = null;
 
+            var ver = UiKit.Label("Version", root, "wersja " + Application.version, 20, TextAnchor.LowerRight, UiKit.TextDim);
+            ver.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-20, 14), new Vector2(500, 30));
+
             _main = BuildMain(side.transform);
             _browser = BuildBrowser(side.transform);
             _options = BuildOptions(side.transform);
