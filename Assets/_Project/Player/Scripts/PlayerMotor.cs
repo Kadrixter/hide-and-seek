@@ -128,7 +128,8 @@ namespace HideAndSeek.Player
         public float LookYaw => transform.eulerAngles.y;
 
         /// <summary>Camera height above the feet (interpolated with crouch).</summary>
-        public float EyeHeight => Mathf.Lerp(standEyeHeight, crouchEyeHeight, _crouchAmount);
+        public float EyeHeight => Mathf.Lerp(Mathf.Lerp(standEyeHeight, crouchEyeHeight, _crouchAmount), downedEyeHeight, _downedBlend);
+        private float _downedBlend;
 
         /// <summary>Continuous step counter; increases by 1 per footstep. Footfall happens at integer values.</summary>
         public float StepPhase => _stepPhase;
@@ -187,7 +188,75 @@ namespace HideAndSeek.Player
             ApplyCapsuleHeight();
         }
 
-        private void Update() => Tick(Time.deltaTime);
+        private void Update()
+        {
+            if (IsRemoteProxy) TickRemote(Time.deltaTime);
+            else Tick(Time.deltaTime);
+        }
+
+        // ---------------------------------------------------------------- downed / network proxy
+
+        /// <summary>Downed: forced prone crawl (slow, no run/jump, camera near the floor).</summary>
+        public bool Downed { get; set; }
+        [SerializeField] private float crawlSpeed = 0.7f;
+        [SerializeField] private float downedEyeHeight = 0.38f;
+
+        /// <summary>True for other players' copies: no simulation, state comes from the network.</summary>
+        public bool IsRemoteProxy { get; private set; }
+
+        private Vector3 _remoteLastPos;
+        private bool _remoteHasPos;
+        private bool _remoteGrounded = true, _remoteCrouch, _remoteRun;
+        private float _remoteCrouchAmount, _remotePitch;
+
+        public void SetRemoteProxy(bool on)
+        {
+            IsRemoteProxy = on;
+            if (_cc == null) _cc = GetComponent<CharacterController>();
+            if (on && _cc != null) _cc.enabled = false;
+            _remoteHasPos = false;
+        }
+
+        /// <summary>Network state for a remote proxy (position itself comes from the NetworkTransform).</summary>
+        public void ApplyRemoteState(bool grounded, bool crouching, float crouchAmount, bool running, float pitch, bool downed)
+        {
+            _remoteGrounded = grounded;
+            _remoteCrouch = crouching;
+            _remoteCrouchAmount = crouchAmount;
+            _remoteRun = running;
+            _remotePitch = pitch;
+            Downed = downed;
+        }
+
+        private void TickRemote(float dt)
+        {
+            if (dt <= 0f) return;
+            Vector3 pos = transform.position;
+            if (!_remoteHasPos) { _remoteLastPos = pos; _remoteHasPos = true; }
+            Vector3 raw = (pos - _remoteLastPos) / dt;
+            _remoteLastPos = pos;
+            if (raw.sqrMagnitude > 30f * 30f) raw = Vector3.zero; // teleport
+            _velocity = Vector3.Lerp(_velocity, raw, 1f - Mathf.Exp(-dt * 12f));
+
+            bool wasGrounded = _grounded;
+            float vy = _velocity.y;
+            _grounded = _remoteGrounded;
+            if (_grounded && !wasGrounded && -vy > 1f) Landed?.Invoke(-vy);
+            if (!_grounded && wasGrounded && vy > 1.5f) Jumped?.Invoke();
+
+            _crouchAmount = Downed ? 1f : _remoteCrouchAmount;
+            _wantsCrouch = _remoteCrouch || Downed;
+            if (IsCrouching != _wasCrouchingEvent)
+            {
+                _wasCrouchingEvent = IsCrouching;
+                CrouchChanged?.Invoke(_wasCrouchingEvent);
+            }
+            _pitch = Mathf.LerpAngle(_pitch, _remotePitch, 1f - Mathf.Exp(-dt * 15f));
+            _running = _remoteRun;
+            float hSpeed = HorizontalSpeed;
+            UpdateSteps(hSpeed, dt);
+            UpdateState(hSpeed);
+        }
 
         private MotorCommand GatherCommand()
         {
@@ -222,7 +291,8 @@ namespace HideAndSeek.Player
             }
 
             // --- crouch
-            _wantsCrouch = hasInput && cmd.Crouch;
+            _wantsCrouch = (hasInput && cmd.Crouch) || Downed;
+            _downedBlend = Mathf.MoveTowards(_downedBlend, Downed ? 1f : 0f, dt * 1.5f);
             UpdateCrouch(dt);
             UpdateStepOffset();
             if (IsCrouching != _wasCrouchingEvent)
@@ -233,8 +303,8 @@ namespace HideAndSeek.Player
 
             // --- target velocity
             bool crouching = IsCrouching;
-            bool wantsRun = hasInput && cmd.Run && !crouching && move.y > runForwardThreshold;
-            float targetSpeed = crouching ? Mathf.Lerp(walkSpeed, crouchSpeed, Mathf.Clamp01(_crouchAmount * 2f))
+            bool wantsRun = hasInput && !Downed && cmd.Run && !crouching && move.y > runForwardThreshold;
+            float targetSpeed = Downed ? crawlSpeed : crouching ? Mathf.Lerp(walkSpeed, crouchSpeed, Mathf.Clamp01(_crouchAmount * 2f))
                               : wantsRun ? runSpeed : walkSpeed;
             Vector3 wishDir = transform.right * move.x + transform.forward * move.y;
             Vector3 targetVelocity = wishDir * targetSpeed;
@@ -257,7 +327,7 @@ namespace HideAndSeek.Player
             }
 
             // --- jump (coyote + buffer)
-            bool canJump = !_jumpedSinceGrounded && _clock - _lastGroundedTime <= coyoteTime && !crouching;
+            bool canJump = !Downed && !_jumpedSinceGrounded && _clock - _lastGroundedTime <= coyoteTime && !crouching;
             if (hasInput && cmd.Jump && canJump)
             {
                 if (CommandProvider == null && input != null) input.ConsumeJump();

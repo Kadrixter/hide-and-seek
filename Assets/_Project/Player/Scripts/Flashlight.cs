@@ -301,6 +301,35 @@ namespace HideAndSeek.Player
             }
         }
 
+        private float _baseRange = -1f, _baseAngle, _baseIntensity;
+        private Vector3 _baseBeamScale;
+
+        /// <summary>
+        /// Seeker beam focus: 0 = default (wide, normal range), 1 = narrow long throw.
+        /// Range and angle trade off; intensity rises a little as the cone narrows.
+        /// </summary>
+        public void SetFocus(float focus)
+        {
+            if (_baseRange < 0f)
+            {
+                _baseRange = range;
+                _baseAngle = spotAngle;
+                _baseIntensity = intensity;
+                if (beamRenderer != null) _baseBeamScale = beamRenderer.transform.localScale;
+            }
+            focus = Mathf.Clamp01(focus);
+            range = _baseRange * Mathf.Lerp(1f, 2.1f, focus);
+            spotAngle = _baseAngle * Mathf.Lerp(1f, 0.38f, focus);
+            intensity = _baseIntensity * Mathf.Lerp(1f, 1.9f, focus);
+            ConfigureLight();
+            if (beamRenderer != null)
+            {
+                float w = Mathf.Tan(spotAngle * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(_baseAngle * 0.5f * Mathf.Deg2Rad);
+                float l = range / _baseRange;
+                beamRenderer.transform.localScale = new Vector3(_baseBeamScale.x * w * l, _baseBeamScale.y * w * l, _baseBeamScale.z * l);
+            }
+        }
+
         /// <summary>Enables/disables the soft depth fade of the beam (requires a camera depth texture).</summary>
         public void SetBeamDepthFade(bool enabled) => _depthFade = enabled;
 

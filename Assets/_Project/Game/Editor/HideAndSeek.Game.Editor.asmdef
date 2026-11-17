@@ -1,9 +1,14 @@
-{
+﻿{
     "name": "HideAndSeek.Game.Editor",
     "rootNamespace": "HideAndSeek.Game.Editor",
     "references": [
         "HideAndSeek.Core",
-        "HideAndSeek.Game"
+        "HideAndSeek.Game",
+        "HideAndSeek.Player",
+        "HideAndSeek.Player.Surfaces",
+        "HideAndSeek.Audio",
+        "Unity.Netcode.Runtime",
+        "Unity.Networking.Transport"
     ],
     "includePlatforms": [
         "Editor"
