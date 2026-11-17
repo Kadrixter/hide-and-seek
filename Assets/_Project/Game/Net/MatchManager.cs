@@ -67,6 +67,7 @@ namespace HideAndSeek.Game.Net
         private void OnPhaseChanged(MatchPhase prev, MatchPhase phase)
         {
             var local = NetPlayer.Local;
+            Debug.Log($"[Match] phase {prev} -> {phase}, players {NetPlayer.All.Count}, me {(local != null ? local.Role.Value.ToString() : "-")}");
             switch (phase)
             {
                 case MatchPhase.Hiding:

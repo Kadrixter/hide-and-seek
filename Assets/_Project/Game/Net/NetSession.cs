@@ -61,6 +61,34 @@ namespace HideAndSeek.Game.Net
             Manager.OnClientDisconnectCallback += OnClientDisconnect;
             Manager.OnServerStopped += _ => LanDiscovery.StopResponder();
             GameHud.EnsureExists();
+            HandleCommandLine();
+        }
+
+        /// <summary>Test helpers: -nick X, -host, -join IP, -autostart (host starts the round once 2 players are in).</summary>
+        private void HandleCommandLine()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            string Arg(string name)
+            {
+                for (int i = 0; i < args.Length - 1; i++) if (args[i] == name) return args[i + 1];
+                return null;
+            }
+            bool Has(string name) => Array.IndexOf(args, name) >= 0;
+
+            string nick = Arg("-nick");
+            if (nick != null) LocalProfile.Nick = nick;
+            Debug.Log($"[NetSession] args nick={nick} profile={LocalProfile.Nick}");
+            if (Has("-host")) Host();
+            else if (Arg("-join") is string ip) Join(ip);
+            if (Has("-autostart")) StartCoroutine(AutoStart());
+        }
+
+        private System.Collections.IEnumerator AutoStart()
+        {
+            while (MatchManager.Instance == null || NetPlayer.All.Count < 2) yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(3f);
+            Debug.Log("[NetSession] autostart");
+            MatchManager.Instance.RequestStartRpc();
         }
 
         private void TryAddPrefab(GameObject prefab)
@@ -164,6 +192,7 @@ namespace HideAndSeek.Game.Net
             }
 
             nick = UniqueNick(nick);
+            Debug.Log($"[NetSession] approve client={req.ClientNetworkId} payload='{Encoding.UTF8.GetString(req.Payload ?? Array.Empty<byte>())}' -> {nick}");
             _pending[req.ClientNetworkId] = (nick, Mathf.Clamp(skin, 0, 4));
             resp.Approved = true;
             resp.CreatePlayerObject = true;

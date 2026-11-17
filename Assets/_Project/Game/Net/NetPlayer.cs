@@ -117,6 +117,7 @@ namespace HideAndSeek.Game.Net
                 Flashlight.SetFocus(FlashFocus.Value / 255f);
             }
             GameAudio.PlayAt(GameSfx.PlayerJoined, transform.position, 0.6f);
+            Debug.Log($"[NetPlayer] spawned {Nick} owner={OwnerClientId} local={IsOwner} actions={(Actions != null)}");
         }
 
         public override void OnNetworkDespawn()
