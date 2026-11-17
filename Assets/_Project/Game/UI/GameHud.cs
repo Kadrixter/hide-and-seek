@@ -85,7 +85,7 @@ namespace HideAndSeek.Game
             _phase.AddOutline();
 
             var listBg = UiKit.Image("PlayerListBg", root, new Color(0f, 0f, 0f, 0.45f));
-            listBg.rectTransform.Place(new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -20), new Vector2(330, 420));
+            listBg.rectTransform.Place(new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -20), new Vector2(430, 420));
             _players = UiKit.Label("Players", listBg.transform, "", 24, TextAnchor.UpperLeft);
             _players.rectTransform.Stretch(14);
             _players.supportRichText = true;
@@ -306,8 +306,20 @@ namespace HideAndSeek.Game
                     sb.Append("Twój serwer. Adresy do połączenia:\n");
                     foreach (var (ip, _) in LanDiscovery.LocalIPv4()) sb.Append("  ").Append(ip).Append('\n');
                 }
-                sb.Append("\nPodejdź do <color=#5f5>zielonego przycisku</color> i wciśnij <b>E</b>, aby zacząć.\n");
-                sb.Append("Tablica na ścianie: ustawienia rundy (E).\nEsc - menu");
+                int readyCount = 0, need = 0;
+                foreach (var o in NetPlayer.All)
+                {
+                    if (o == null || o.OwnerClientId == NetworkManager.ServerClientId) continue;
+                    need++;
+                    if (o.Ready.Value) readyCount++;
+                }
+                if (nm.IsServer)
+                    sb.Append($"\nGotowi: <b>{readyCount}/{need}</b>. Gdy wszyscy będą gotowi, pociągnij <color=#ff6a5a>dźwignię</color> (E).\n");
+                else
+                    sb.Append(me.Ready.Value
+                        ? "\n<color=#6dff7a>Jesteś gotowy.</color> R - cofnij. Czekaj, aż właściciel pokoju wystartuje.\n"
+                        : "\nWciśnij <b>R</b>, gdy będziesz gotowy.\n");
+                sb.Append("E na kanapie / pufie - usiądź. Tablica na ścianie - ustawienia rundy.\nEsc - menu");
                 _lobbyInfo.text = sb.ToString();
             }
             else _lobbyInfo.text = "";
@@ -371,7 +383,7 @@ namespace HideAndSeek.Game
                 _voice.rectTransform.Place(Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(24, 330), new Vector2(500, 34));
                 _voice.AddOutline();
             }
-            _voice.text = vc != null && vc.Transmitting ? "MÓWISZ  " + new string('|', Mathf.RoundToInt(vc.MicLevel * 20f))
+            _voice.text = vc != null && vc.Transmitting ? MeterText(vc.MicLevel)
                 : (vc != null && LocalProfile.VoiceEnabled && !LocalProfile.VoiceOpenMic && phase == MatchPhase.Lobby ? "<color=#9a9a9a>V - mów</color>" : "");
             _voice.supportRichText = true;
 
@@ -403,11 +415,15 @@ namespace HideAndSeek.Game
             foreach (var p in list)
             {
                 if (p == null) continue;
-                bool talking = p.IsOwner ? (Voice.VoiceChat.Instance != null && Voice.VoiceChat.Instance.Transmitting) : Voice.VoiceChat.IsSpeaking(p);
-                string nick = p.Nick + (p.IsOwner ? " (ty)" : "") + (talking ? "  <color=#7dff8a>((mówi))</color>" : "");
+                string nick = p.Nick + (p.IsOwner ? " (ty)" : "");
                 if (phase == MatchPhase.Lobby || phase == MatchPhase.Loading || p.Role.Value == PlayerRole.None)
                 {
-                    sb.Append(p.OwnerClientId == NetworkManager.ServerClientId ? "<color=#ffd75e>[host]</color> " : "  ").Append(nick).Append('\n');
+                    if (p.OwnerClientId == NetworkManager.ServerClientId)
+                        sb.Append("<color=#ffd75e>WŁAŚCICIEL</color>  ").Append(nick).Append('\n');
+                    else if (phase == MatchPhase.Lobby)
+                        sb.Append(p.Ready.Value ? "<color=#6dff7a>GOTOWY</color>  " : "<color=#9a9a9a>czeka</color>  ").Append(nick).Append('\n');
+                    else
+                        sb.Append("  ").Append(nick).Append('\n');
                     continue;
                 }
                 if (p.IsSeeker)
@@ -470,7 +486,7 @@ namespace HideAndSeek.Game
                     tag.rectTransform.anchoredPosition = local;
                     float scale = Mathf.Clamp(6f / Mathf.Max(1f, dist), 0.55f, 1.1f);
                     tag.rectTransform.localScale = Vector3.one * scale;
-                    string color = p.IsSeeker ? "#ff6655" : p.Life.Value == LifeState.Downed ? "#ff9a8a" : p.Life.Value == LifeState.Dead ? "#999999" : "#ffffff";
+                    string color = lobby && p.Ready.Value ? "#6dff7a" : p.IsSeeker ? "#ff6655" : p.Life.Value == LifeState.Downed ? "#ff9a8a" : p.Life.Value == LifeState.Dead ? "#999999" : "#ffffff";
                     string suffix = !lobby && p.Life.Value == LifeState.Downed ? "  (złapany)" : !lobby && p.Wounded.Value ? "  (ranny)" : "";
                     string mic = Voice.VoiceChat.IsSpeaking(p) ? "<color=#7dff8a>((</color> " : "";
                     tag.text = $"{mic}<color={color}>{p.Nick}{suffix}</color>";
@@ -480,6 +496,23 @@ namespace HideAndSeek.Game
                 }
             }
             for (int i = used; i < _tags.Count; i++) _tags[i].gameObject.SetActive(false);
+        }
+
+        /// <summary>"MÓWISZ ||||||||" with green / yellow / red zones; red = shout (heard across the garage, with echo).</summary>
+        public static string MeterText(float level, int bars = 32)
+        {
+            var sb = new StringBuilder("MÓWISZ  ");
+            int filled = Mathf.RoundToInt(level * bars);
+            int yellowFrom = Mathf.RoundToInt(Voice.VoiceChat.YellowLevel * bars);
+            int redFrom = Mathf.RoundToInt(Voice.VoiceChat.ShoutLevel * bars);
+            for (int i = 0; i < bars; i++)
+            {
+                string col = i >= redFrom ? "ff4a3a" : i >= yellowFrom ? "ffd23a" : "5dff6a";
+                string alpha = i < filled ? "ff" : "40";
+                sb.Append("<color=#").Append(col).Append(alpha).Append(">|</color>");
+            }
+            if (level >= Voice.VoiceChat.ShoutLevel) sb.Append("  <color=#ff4a3a>KRZYK</color>");
+            return sb.ToString();
         }
 
         private bool Blocked(Vector3 from, Vector3 to, Transform target, Transform self)

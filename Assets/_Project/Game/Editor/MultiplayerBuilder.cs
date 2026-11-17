@@ -282,6 +282,7 @@ namespace HideAndSeek.Game.Editor
         private static void BuildLobbyScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _seatCounter = 0;
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.09f, 0.08f, 0.07f);
             RenderSettings.skybox = null;
@@ -329,8 +330,8 @@ namespace HideAndSeek.Game.Editor
             rugZone.Priority = 5;
 
             // Sofas around the rug
-            Sofa(root, new Vector3(-1.5f, 0, 3.6f), 180f, fabric, darkWood);
-            Sofa(root, new Vector3(-5.6f, 0, 0.5f), 90f, fabric, darkWood);
+            Sofa(root, new Vector3(-1.5f, 0, 3.6f), 0f, fabric, darkWood);     // backrest to the north wall
+            Sofa(root, new Vector3(-5.6f, 0, 0.5f), -90f, fabric, darkWood);   // backrest to the west wall
             Box("CoffeeTable", root, new Vector3(-1.5f, 0.42f, 0.8f), new Vector3(1.6f, 0.06f, 0.9f), darkWood);
             foreach (var (x, z) in new[] { (-2.2f, 0.45f), (-0.8f, 0.45f), (-2.2f, 1.15f), (-0.8f, 1.15f) })
                 Box("TableLeg", root, new Vector3(x, 0.2f, z), new Vector3(0.06f, 0.4f, 0.06f), darkWood);
@@ -372,40 +373,36 @@ namespace HideAndSeek.Game.Editor
                 l.shadows = x == 0f ? LightShadows.Soft : LightShadows.None;
             }
 
-            // Start button on a pedestal by the east wall
-            var buttonRoot = new GameObject("StartButton").transform;
-            buttonRoot.SetParent(root, false);
-            buttonRoot.position = new Vector3(5.2f, 0f, 0.5f);
-            Cylinder("Pedestal", buttonRoot, new Vector3(0, 0.5f, 0), new Vector3(0.7f, 0.5f, 0.7f), metal);
-            Cylinder("Rim", buttonRoot, new Vector3(0, 1.02f, 0), new Vector3(0.62f, 0.03f, 0.62f), Mat("ButtonRim", new Color(0.85f, 0.75f, 0.1f), null, 0.6f, Vector2.one));
-            var cap = Cylinder("Cap", buttonRoot, new Vector3(0, 1.1f, 0), new Vector3(0.48f, 0.07f, 0.48f), green);
-            var glow = new GameObject("Glow").AddComponent<Light>();
-            glow.transform.SetParent(buttonRoot, false);
-            glow.transform.localPosition = new Vector3(0, 1.5f, 0);
-            glow.type = LightType.Point;
-            glow.color = new Color(0.2f, 1f, 0.3f);
-            glow.range = 3.5f;
-            glow.intensity = 1.6f;
-            var label = new GameObject("Label").AddComponent<TextMesh>();
-            label.transform.SetParent(buttonRoot, false);
-            label.transform.localPosition = new Vector3(0, 0.62f, 0.36f);
-            label.transform.localRotation = Quaternion.Euler(0, 180, 0);
-            label.text = "START";
-            label.characterSize = 0.05f;
-            label.fontSize = 64;
-            label.anchor = TextAnchor.MiddleCenter;
-            label.color = new Color(0.9f, 0.9f, 0.85f);
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            AddWorldText(label, new Vector2(0.55f, 0.22f));
-            buttonRoot.position = new Vector3(5.2f, 0f, 0.5f);
-            buttonRoot.rotation = Quaternion.Euler(0, -90, 0);
-            var lb = buttonRoot.gameObject.AddComponent<LobbyButton>();
-            var lbo = new SerializedObject(lb);
-            lbo.FindProperty("cap").objectReferenceValue = cap.transform;
-            lbo.FindProperty("glow").objectReferenceValue = glow;
-            lbo.FindProperty("capRenderer").objectReferenceValue = cap.GetComponent<Renderer>();
-            lbo.ApplyModifiedPropertiesWithoutUndo();
+            // Start lever on the east wall (room owner pulls it when everyone is ready).
+            BuildLever(root, new Vector3(W / 2 - 0.02f, 0f, 0.5f), metal, trim);
 
+            // Big mirror on the south wall.
+            BuildMirror(root, new Vector3(0.8f, 1.35f, -D / 2 + 0.03f), new Vector2(1.9f, 2.4f), darkWood);
+
+            // Poufs around the coffee table (seats).
+            var pouf = Mat("LobbyPouf", new Color(0.45f, 0.32f, 0.12f), Tex("lobby_fabric", TexKind.Fabric), 0.05f, new Vector2(2, 1));
+            Pouf(root, new Vector3(0.6f, 0f, 0.8f), -90f, pouf);
+            Pouf(root, new Vector3(-1.5f, 0f, -0.9f), 0f, pouf);
+            Pouf(root, new Vector3(-3.5f, 0f, -0.6f), 30f, pouf);
+
+            // Plants in the corners.
+            var pot = Mat("LobbyPot", new Color(0.22f, 0.12f, 0.08f), null, 0.3f, Vector2.one);
+            var leaf = Mat("LobbyLeaf", new Color(0.16f, 0.42f, 0.14f), Tex("lobby_fabric", TexKind.Fabric), 0.2f, new Vector2(0.5f, 0.5f));
+            Plant(root, new Vector3(-7.3f, 0f, 5.3f), pot, leaf, 1);
+            Plant(root, new Vector3(7.3f, 0f, 5.3f), pot, leaf, 2);
+            Plant(root, new Vector3(-7.3f, 0f, -5.3f), pot, leaf, 3);
+            Plant(root, new Vector3(5.6f, 0f, -5.3f), pot, leaf, 4);
+
+            // Paintings on the north wall.
+            Painting(root, new Vector3(-1.2f, 1.9f, D / 2 - 0.03f), new Vector2(1.4f, 1.0f), "lobby_painting_city", 1, trim);
+            Painting(root, new Vector3(-4.4f, 1.9f, D / 2 - 0.03f), new Vector2(1.0f, 1.3f), "lobby_painting_moon", 2, trim);
+
+            // Floor lamps next to the sofas.
+            FloorLamp(root, new Vector3(-6.9f, 0f, 3.9f), metal, lampMat);
+            FloorLamp(root, new Vector3(0.3f, 0f, 3.9f), metal, lampMat);
+
+            // Neon sign on the west wall.
+            Neon(root, new Vector3(-W / 2 + 0.06f, 2.65f, 1.6f), "HIDE & SEEK");
             // Settings board on the north wall
             var boardGo = Box("SettingsBoard", root, new Vector3(3.2f, 1.75f, D / 2 - 0.05f), new Vector3(2.6f, 1.7f, 0.06f), board);
             Box("BoardFrame", root, new Vector3(3.2f, 1.75f, D / 2 - 0.02f), new Vector3(2.8f, 1.9f, 0.04f), trim);
@@ -475,8 +472,255 @@ namespace HideAndSeek.Game.Editor
             Box("ArmL", s, new Vector3(-1.15f, 0.5f, 0), new Vector3(0.2f, 0.6f, 0.9f), fabric);
             Box("ArmR", s, new Vector3(1.15f, 0.5f, 0), new Vector3(0.2f, 0.6f, 0.9f), fabric);
             Box("Base", s, new Vector3(0, 0.04f, 0), new Vector3(2.3f, 0.08f, 0.8f), wood);
+            // Two seats: root on the floor in front of the cushion, facing away from the backrest.
+            for (int i = 0; i < 2; i++)
+            {
+                var seat = new GameObject($"Seat_{_seatCounter++:00}").transform;
+                seat.SetParent(s, false);
+                seat.localPosition = new Vector3(i == 0 ? -0.55f : 0.55f, 0f, -0.3f);
+                seat.localRotation = Quaternion.Euler(0, 180, 0);
+                seat.gameObject.AddComponent<LobbySeat>();
+            }
             s.position = pos;
             s.rotation = Quaternion.Euler(0, yaw, 0);
+        }
+
+        private static int _seatCounter;
+
+        private static void Pouf(Transform root, Vector3 pos, float yaw, Material fabric)
+        {
+            var p = new GameObject("Pouf").transform;
+            p.SetParent(root, false);
+            Cylinder("Body", p, new Vector3(0, 0.21f, 0), new Vector3(0.62f, 0.21f, 0.62f), fabric);
+            Cylinder("Top", p, new Vector3(0, 0.43f, 0), new Vector3(0.56f, 0.02f, 0.56f), fabric);
+            var seat = new GameObject($"Seat_{_seatCounter++:00}").transform;
+            seat.SetParent(p, false);
+            seat.localPosition = new Vector3(0f, 0f, 0.14f);
+            seat.gameObject.AddComponent<LobbySeat>();
+            p.position = pos;
+            p.rotation = Quaternion.Euler(0, yaw, 0);
+        }
+
+        private static void Plant(Transform root, Vector3 pos, Material pot, Material leaf, int seed)
+        {
+            var p = new GameObject("Plant").transform;
+            p.SetParent(root, false);
+            Cylinder("Pot", p, new Vector3(0, 0.25f, 0), new Vector3(0.5f, 0.25f, 0.5f), pot);
+            Cylinder("Soil", p, new Vector3(0, 0.49f, 0), new Vector3(0.44f, 0.01f, 0.44f), Mat("LobbySoil", new Color(0.12f, 0.08f, 0.05f), null, 0f, Vector2.one));
+            var rnd = new System.Random(seed);
+            for (int i = 0; i < 9; i++)
+            {
+                float a = i / 9f * 360f + (float)rnd.NextDouble() * 25f;
+                float h = 0.7f + (float)rnd.NextDouble() * 0.7f;
+                var l = Box("Leaf", p, Vector3.zero, new Vector3(0.12f, h, 0.03f), leaf);
+                UnityEngine.Object.DestroyImmediate(l.GetComponent<Collider>());
+                l.transform.localPosition = new Vector3(0f, 0.5f + h * 0.45f, 0f);
+                l.transform.localRotation = Quaternion.Euler(0f, a, 0f) * Quaternion.Euler(18f + (float)rnd.NextDouble() * 18f, 0f, 0f);
+                l.transform.localPosition += l.transform.localRotation * new Vector3(0f, 0f, 0.08f);
+            }
+            p.position = pos;
+        }
+
+        private static void Painting(Transform root, Vector3 pos, Vector2 size, string tex, int seed, Material frame)
+        {
+            var p = new GameObject("Painting").transform;
+            p.SetParent(root, false);
+            p.position = pos;
+            var f = Box("Frame", p, pos + new Vector3(0, 0, 0.015f), new Vector3(size.x + 0.12f, size.y + 0.12f, 0.04f), frame);
+            UnityEngine.Object.DestroyImmediate(f.GetComponent<Collider>());
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q.name = "Canvas";
+            UnityEngine.Object.DestroyImmediate(q.GetComponent<Collider>());
+            q.transform.SetParent(p, false);
+            q.transform.position = pos - new Vector3(0, 0, 0.01f);
+            q.transform.localScale = new Vector3(size.x, size.y, 1f);
+            q.GetComponent<MeshRenderer>().sharedMaterial = Mat("Painting_" + tex, Color.white, PaintingTex(tex, seed), 0.1f, Vector2.one);
+        }
+
+        private static Texture2D PaintingTex(string name, int seed)
+        {
+            string path = $"{LobbyArtDir}/{name}.png";
+            if (!File.Exists(path))
+            {
+                const int w = 128, h = 128;
+                var t = new Texture2D(w, h, TextureFormat.RGB24, false);
+                var px = new Color[w * h];
+                var rnd = new System.Random(seed);
+                for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    float u = x / (float)w, v = y / (float)h;
+                    Color c;
+                    if (seed == 1)
+                    {
+                        // Night city skyline with lit windows.
+                        Color sky = Color.Lerp(new Color(0.05f, 0.05f, 0.15f), new Color(0.35f, 0.15f, 0.3f), 1f - v);
+                        int col = x / 9;
+                        float bh = 0.2f + Mathf.PerlinNoise(col * 0.73f, 3.1f) * 0.55f;
+                        c = v < bh ? new Color(0.06f, 0.06f, 0.09f) : sky;
+                        if (v < bh && x % 9 > 1 && x % 9 < 7 && y % 6 < 3 && Mathf.PerlinNoise(x * 0.5f, y * 0.5f) > 0.55f)
+                            c = new Color(1f, 0.82f, 0.45f);
+                    }
+                    else
+                    {
+                        // Moon over dark hills.
+                        c = Color.Lerp(new Color(0.02f, 0.04f, 0.1f), new Color(0.1f, 0.15f, 0.3f), v);
+                        float dm = Vector2.Distance(new Vector2(u, v), new Vector2(0.66f, 0.72f));
+                        if (dm < 0.12f) c = Color.Lerp(new Color(0.95f, 0.93f, 0.8f), new Color(0.8f, 0.78f, 0.65f), Mathf.PerlinNoise(u * 20f, v * 20f));
+                        else if (dm < 0.2f) c += new Color(0.15f, 0.15f, 0.12f) * (1f - (dm - 0.12f) / 0.08f);
+                        float hill = 0.25f + Mathf.Sin(u * 7f + 1f) * 0.06f + Mathf.PerlinNoise(u * 4f, 1f) * 0.1f;
+                        if (v < hill) c = new Color(0.02f, 0.03f, 0.03f);
+                    }
+                    c *= 0.9f + (float)rnd.NextDouble() * 0.12f;
+                    px[y * w + x] = c;
+                }
+                t.SetPixels(px);
+                t.Apply();
+                File.WriteAllBytes(path, t.EncodeToPNG());
+                UnityEngine.Object.DestroyImmediate(t);
+                AssetDatabase.ImportAsset(path);
+                var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+                imp.filterMode = FilterMode.Point;
+                imp.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        private static void FloorLamp(Transform root, Vector3 pos, Material metal, Material shade)
+        {
+            var p = new GameObject("FloorLamp").transform;
+            p.SetParent(root, false);
+            Cylinder("Base", p, new Vector3(0, 0.02f, 0), new Vector3(0.36f, 0.02f, 0.36f), metal);
+            Cylinder("Pole", p, new Vector3(0, 0.8f, 0), new Vector3(0.04f, 0.8f, 0.04f), metal);
+            var s = Cylinder("Shade", p, new Vector3(0, 1.62f, 0), new Vector3(0.42f, 0.16f, 0.42f), shade);
+            UnityEngine.Object.DestroyImmediate(s.GetComponent<Collider>());
+            var l = new GameObject("LampLight").AddComponent<Light>();
+            l.transform.SetParent(p, false);
+            l.transform.localPosition = new Vector3(0, 1.45f, 0);
+            l.type = LightType.Point;
+            l.color = new Color(1f, 0.72f, 0.45f);
+            l.range = 4.5f;
+            l.intensity = 0.9f;
+            p.position = pos;
+        }
+
+        private static void Neon(Transform root, Vector3 pos, string text)
+        {
+            var t = new GameObject("Neon").AddComponent<TextMesh>();
+            t.transform.SetParent(root, false);
+            t.transform.position = pos;
+            t.transform.rotation = Quaternion.Euler(0, -90, 0);
+            t.text = text;
+            t.characterSize = 0.06f;
+            t.fontSize = 80;
+            t.fontStyle = FontStyle.Bold;
+            t.anchor = TextAnchor.MiddleCenter;
+            t.color = new Color(1f, 0.3f, 0.75f);
+            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            AddWorldText(t, new Vector2(3.2f, 0.6f));
+            var l = new GameObject("NeonGlow").AddComponent<Light>();
+            l.transform.SetParent(root, false);
+            l.transform.position = pos + new Vector3(0.6f, 0f, 0f);
+            l.type = LightType.Point;
+            l.color = new Color(1f, 0.25f, 0.7f);
+            l.range = 5f;
+            l.intensity = 1.1f;
+        }
+
+        private static void BuildMirror(Transform root, Vector3 center, Vector2 size, Material frame)
+        {
+            var p = new GameObject("Mirror").transform;
+            p.SetParent(root, false);
+            var f = Box("MirrorFrame", p, center + new Vector3(0, 0, -0.01f), new Vector3(size.x + 0.16f, size.y + 0.16f, 0.05f), frame);
+            UnityEngine.Object.DestroyImmediate(f.GetComponent<Collider>());
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q.name = "MirrorGlass";
+            UnityEngine.Object.DestroyImmediate(q.GetComponent<Collider>());
+            q.transform.SetParent(p, false);
+            q.transform.position = center + new Vector3(0, 0, 0.02f);
+            q.transform.rotation = Quaternion.Euler(0, 180, 0); // face into the room (+Z)
+            q.transform.localScale = new Vector3(size.x, size.y, 1f);
+            string path = $"{LobbyArtDir}/MirrorSurface.mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (m == null)
+            {
+                m = new Material(Shader.Find("HideAndSeek/Mirror"));
+                AssetDatabase.CreateAsset(m, path);
+            }
+            q.GetComponent<MeshRenderer>().sharedMaterial = m;
+            q.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            q.AddComponent<PlanarMirror>();
+        }
+
+        private static void BuildLever(Transform root, Vector3 wallPos, Material metal, Material trim)
+        {
+            var r = new GameObject("StartLever").transform;
+            r.SetParent(root, false);
+            var plateMat = Mat("LeverPlate", new Color(0.12f, 0.12f, 0.13f), null, 0.6f, Vector2.one, 0.6f);
+            var hazard = Mat("LeverHazard", new Color(0.9f, 0.72f, 0.1f), null, 0.3f, Vector2.one);
+            var knobMat = Mat("LeverKnob", new Color(0.75f, 0.08f, 0.06f), null, 0.7f, Vector2.one);
+            var lampMat = Mat("LeverLamp", new Color(1f, 0.2f, 0.15f), null, 0.8f, Vector2.one);
+            lampMat.EnableKeyword("_EMISSION");
+            lampMat.SetColor("_EmissionColor", new Color(1f, 0.2f, 0.15f));
+
+            // Local space: +Z points into the room.
+            void L(GameObject g, Vector3 lp) { g.transform.SetParent(r, false); g.transform.localPosition = lp; }
+            var plate = Box("Plate", null, Vector3.zero, new Vector3(0.62f, 0.95f, 0.06f), plateMat); L(plate, new Vector3(0, 1.25f, 0.03f));
+            var stripe = Box("Hazard", null, Vector3.zero, new Vector3(0.66f, 0.08f, 0.065f), hazard); L(stripe, new Vector3(0, 0.74f, 0.03f));
+            var stripe2 = Box("Hazard2", null, Vector3.zero, new Vector3(0.66f, 0.08f, 0.065f), hazard); L(stripe2, new Vector3(0, 1.76f, 0.03f));
+            var slot = Box("Slot", null, Vector3.zero, new Vector3(0.08f, 0.55f, 0.02f), Mat("LeverSlot", Color.black, null, 0f, Vector2.one)); L(slot, new Vector3(0, 1.2f, 0.065f));
+            var hub = Cylinder("Hub", r, new Vector3(0, 1.2f, 0.09f), new Vector3(0.16f, 0.04f, 0.16f), metal);
+            hub.transform.localRotation = Quaternion.Euler(90, 0, 0);
+
+            var pivot = new GameObject("HandlePivot").transform;
+            pivot.SetParent(r, false);
+            pivot.localPosition = new Vector3(0, 1.2f, 0.11f);
+            var arm = Cylinder("Arm", pivot, new Vector3(0, 0.2f, 0), new Vector3(0.05f, 0.2f, 0.05f), metal);
+            UnityEngine.Object.DestroyImmediate(arm.GetComponent<Collider>());
+            var knob = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            knob.name = "Knob";
+            knob.transform.SetParent(pivot, false);
+            knob.transform.localPosition = new Vector3(0, 0.42f, 0);
+            knob.transform.localScale = Vector3.one * 0.13f;
+            knob.GetComponent<MeshRenderer>().sharedMaterial = knobMat;
+
+            var lamp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            lamp.name = "StatusLamp";
+            lamp.transform.SetParent(r, false);
+            lamp.transform.localPosition = new Vector3(0, 1.98f, 0.08f);
+            lamp.transform.localScale = Vector3.one * 0.15f;
+            lamp.GetComponent<MeshRenderer>().sharedMaterial = lampMat;
+            var glow = new GameObject("Glow").AddComponent<Light>();
+            glow.transform.SetParent(r, false);
+            glow.transform.localPosition = new Vector3(0, 1.98f, 0.35f);
+            glow.type = LightType.Point;
+            glow.range = 3f;
+            glow.intensity = 1.2f;
+
+            var label = new GameObject("Label").AddComponent<TextMesh>();
+            label.transform.SetParent(r, false);
+            label.transform.localPosition = new Vector3(0, 0.6f, 0.07f);
+            label.transform.localRotation = Quaternion.Euler(0, 180, 0);
+            label.text = "START";
+            label.characterSize = 0.05f;
+            label.fontSize = 64;
+            label.fontStyle = FontStyle.Bold;
+            label.anchor = TextAnchor.MiddleCenter;
+            label.color = new Color(0.95f, 0.85f, 0.4f);
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            AddWorldText(label, new Vector2(0.6f, 0.18f));
+
+            r.position = wallPos;
+            r.rotation = Quaternion.Euler(0, -90, 0);
+            var lb = r.gameObject.AddComponent<LobbyButton>();
+            var so = new SerializedObject(lb);
+            so.FindProperty("handle").objectReferenceValue = pivot;
+            so.FindProperty("knob").objectReferenceValue = knob.transform;
+            so.FindProperty("lamp").objectReferenceValue = lamp.GetComponent<Renderer>();
+            so.FindProperty("glow").objectReferenceValue = glow;
+            so.FindProperty("upAngle").floatValue = 20f;
+            so.FindProperty("downAngle").floatValue = 125f;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // ================================================================ game scene

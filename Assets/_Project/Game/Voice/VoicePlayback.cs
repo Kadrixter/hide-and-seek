@@ -31,6 +31,11 @@ namespace HideAndSeek.Game.Voice
         private float _nextOcclusion, _occlusion;
         private int _seenUnderruns;
         private float _steadySince;
+        private float _shoutUntil = -10f;
+        private float _range;
+
+        /// <summary>True while this player is shouting (heard across the garage).</summary>
+        public bool Shouting => Time.time < _shoutUntil;
 
         /// <summary>Time.time of the last received packet (speaking indicator).</summary>
         public float LastPacketTime { get; private set; } = -10f;
@@ -75,9 +80,10 @@ namespace HideAndSeek.Game.Voice
             _lowPass.cutoffFrequency = 22000f;
         }
 
-        public void Push(byte[] data, int length)
+        public void Push(byte[] data, int length, float level = 0f)
         {
             LastPacketTime = Time.time;
+            if (level >= VoiceChat.ShoutLevel) _shoutUntil = Time.time + 0.8f;
             lock (_lock)
             {
                 for (int i = 0; i < length; i++)
@@ -148,17 +154,22 @@ namespace HideAndSeek.Game.Voice
                 _steadySince = Time.time;
             }
 
-            _source.maxDistance = VoiceChat.CurrentHearRange;
+            // Shouts carry across the whole garage; the range eases back after the shout.
+            bool lobby = VoiceChat.CurrentHearRange > VoiceChat.HearRange;
+            float targetRange = Shouting && !lobby ? VoiceChat.ShoutRange : VoiceChat.CurrentHearRange;
+            _range = targetRange > _range ? targetRange : Mathf.MoveTowards(_range, targetRange, Time.deltaTime * 120f);
+            _source.maxDistance = Mathf.Max(5f, _range);
 
             var listener = Camera.main;
             float dist = listener != null ? Vector3.Distance(listener.transform.position, transform.position) : 0f;
 
-            // Echo: only in the big concrete garage, stronger the farther away the speaker is.
+            // Echo: only in the big concrete garage. Stronger and longer the farther away the speaker is;
+            // a shout from the other end of the parking comes back as a clear slap echo.
             bool garage = AudioEnvironment.Current == AudioEnvironmentKind.Garage;
-            float far = Mathf.InverseLerp(4f, VoiceChat.HearRange, dist);
-            _echo.wetMix = garage ? Mathf.Lerp(0.18f, 0.6f, far) : 0f;
-            _echo.delay = Mathf.Lerp(220f, 420f, far);
-            _echo.decayRatio = garage ? Mathf.Lerp(0.3f, 0.45f, far) : 0f;
+            float far = Mathf.InverseLerp(4f, Shouting ? VoiceChat.ShoutRange * 0.6f : VoiceChat.HearRange, dist);
+            _echo.wetMix = garage ? Mathf.Lerp(0.18f, Shouting ? 0.85f : 0.6f, far) : 0f;
+            _echo.delay = Mathf.Lerp(220f, Shouting ? 650f : 420f, far);
+            _echo.decayRatio = garage ? Mathf.Lerp(0.3f, Shouting ? 0.55f : 0.45f, far) : 0f;
             _echo.enabled = garage;
 
             if (Time.time >= _nextOcclusion)

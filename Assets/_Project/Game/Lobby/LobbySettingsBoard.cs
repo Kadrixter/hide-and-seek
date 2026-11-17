@@ -27,7 +27,19 @@ namespace HideAndSeek.Game
                         $"Glock na koniec: {(s.Glock ? "tak" : "nie")}\n" +
                         $"Apteczki: {s.Medkits}\n" +
                         $"Wykrwawianie: {(s.BleedOut > 1f ? s.BleedOut : 78f):0} s\n\n" +
-                        $"Graczy: {NetPlayer.All.Count}\n[E]";
+                        $"Graczy: {NetPlayer.All.Count}   Gotowi: {ReadyText()}\n[E]";
+        }
+
+        private static string ReadyText()
+        {
+            int r = 0, n = 0;
+            foreach (var p in NetPlayer.All)
+            {
+                if (p == null || p.OwnerClientId == Unity.Netcode.NetworkManager.ServerClientId) continue;
+                n++;
+                if (p.Ready.Value) r++;
+            }
+            return $"{r}/{n}";
         }
     }
 }

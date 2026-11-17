@@ -128,7 +128,12 @@ namespace HideAndSeek.Player
         public float LookYaw => transform.eulerAngles.y;
 
         /// <summary>Camera height above the feet (interpolated with crouch).</summary>
-        public float EyeHeight => Mathf.Lerp(Mathf.Lerp(standEyeHeight, crouchEyeHeight, _crouchAmount), downedEyeHeight, _downedBlend);
+        public float EyeHeight => Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(standEyeHeight, crouchEyeHeight, _crouchAmount), seatedEyeHeight, _seatBlend), downedEyeHeight, _downedBlend);
+        private float _seatBlend;
+
+        /// <summary>Sitting on a seat: camera lowered (movement is locked by the caller).</summary>
+        public bool Seated { get; set; }
+        [SerializeField] private float seatedEyeHeight = 1.12f;
         private float _downedBlend;
 
         /// <summary>Continuous step counter; increases by 1 per footstep. Footfall happens at integer values.</summary>
@@ -293,6 +298,17 @@ namespace HideAndSeek.Player
             // --- crouch
             _wantsCrouch = (hasInput && cmd.Crouch) || Downed;
             _downedBlend = Mathf.MoveTowards(_downedBlend, Downed ? 1f : 0f, dt * 1.5f);
+            _seatBlend = Mathf.MoveTowards(_seatBlend, Seated ? 1f : 0f, dt * 3f);
+            if (!_cc.enabled)
+            {
+                // Seated / dead: controller off, no physics movement (look still works).
+                _velocity = Vector3.zero;
+                _horizontalVelocity = Vector3.zero;
+                _verticalVelocity = 0f;
+                UpdateCrouch(dt);
+                UpdateState(0f);
+                return;
+            }
             UpdateCrouch(dt);
             UpdateStepOffset();
             if (IsCrouching != _wasCrouchingEvent)

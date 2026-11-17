@@ -45,6 +45,10 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<bool> FlashOn = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public readonly NetworkVariable<byte> FlashFocus = new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public readonly NetworkVariable<bool> Reviving = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>Lobby seat index the player sits on (-1 = standing).</summary>
+        public readonly NetworkVariable<sbyte> Seat = new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>Lobby "ready" flag (server-written via <see cref="SetReadyRpc"/>).</summary>
+        public readonly NetworkVariable<bool> Ready = new();
 
         public string Nick => NickVar.Value.ToString();
         public bool IsHider => Role.Value == PlayerRole.Hider;
@@ -116,6 +120,8 @@ namespace HideAndSeek.Game.Net
             FlashOn.OnValueChanged += (_, v) => { if (!IsOwner && Flashlight != null) Flashlight.SetOn(v, true); };
             FlashFocus.OnValueChanged += (_, v) => { if (!IsOwner && Flashlight != null) Flashlight.SetFocus(v / 255f); };
             Reviving.OnValueChanged += (_, v) => ApplyReviving(v);
+            Seat.OnValueChanged += (_, v) => ApplySeat(v);
+            ApplySeat(Seat.Value);
 
             ApplyLife(Life.Value, false);
             ApplyHeld(Held.Value);
@@ -332,6 +338,20 @@ namespace HideAndSeek.Game.Net
             if (!on && _reviveLoop != null) { GameAudio.StopLoop(_reviveLoop); _reviveLoop = null; }
         }
 
+        private void ApplySeat(sbyte seat)
+        {
+            (Actions as BlockyCharacterActions)?.SetSitting(seat >= 0);
+            if (IsOwner) Motor.Seated = seat >= 0;
+        }
+
+        [Rpc(SendTo.Server)]
+        public void SetReadyRpc(bool ready)
+        {
+            var mm = MatchManager.Instance;
+            if (mm != null && mm.Phase.Value != MatchPhase.Lobby) return;
+            Ready.Value = ready;
+        }
+
         private void StopLoops()
         {
             GameAudio.StopLoop(_heartbeat, 0f);
@@ -368,7 +388,11 @@ namespace HideAndSeek.Game.Net
 
         /// <summary>Local feedback for round events (role reveal etc.).</summary>
         [Rpc(SendTo.Owner)]
-        public void ToastRpc(FixedString128Bytes text, float seconds) => GameHud.Toast(text.ToString(), seconds);
+        public void ToastRpc(FixedString128Bytes text, float seconds)
+        {
+            Debug.Log("[Toast] " + text);
+            GameHud.Toast(text.ToString(), seconds);
+        }
 
         // ================================================================ owner -> server requests
 

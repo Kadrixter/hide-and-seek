@@ -74,7 +74,7 @@ namespace HideAndSeek.Game.UI
                     Voice.VoiceChat.Instance?.Restart();
                 });
             Row(parent, "Wzmocnienie mikrofonu", 0.5f, 4f, LocalProfile.MicGain, v => LocalProfile.MicGain = v, v => $"{v:0.0}x");
-            Row(parent, "Próg aktywacji głosem", 0.02f, 0.5f, LocalProfile.MicThreshold, v => LocalProfile.MicThreshold = v, Pct);
+            Row(parent, "Próg aktywacji głosem", 0.05f, 0.8f, LocalProfile.MicThreshold, v => LocalProfile.MicThreshold = v, Pct);
             Row(parent, "Głośność innych graczy", 0f, 2f, LocalProfile.ChatVolume, v => LocalProfile.ChatVolume = v, Pct);
 
             var meter = UiKit.Label("Meter", parent, "", 22, TextAnchor.MiddleLeft, UiKit.TextDim);
@@ -131,13 +131,11 @@ namespace HideAndSeek.Game.UI
             if (Label == null) return;
             if (vc == null || !Net.LocalProfile.VoiceEnabled) { Label.text = "Mikrofon: wyłączony"; return; }
             if (!vc.MicAvailable) { Label.text = "Nie wykryto mikrofonu"; return; }
-            int bars = UnityEngine.Mathf.RoundToInt(vc.MicLevel * 30f);
-            int thr = UnityEngine.Mathf.RoundToInt(Net.LocalProfile.MicThreshold * 30f);
-            var sb = new System.Text.StringBuilder("Poziom: ");
-            for (int i = 0; i < 30; i++) sb.Append(i < bars ? '|' : (i == thr ? ':' : '.'));
-            if (vc.Transmitting) sb.Append("  nadajesz");
-            else if (!Net.LocalProfile.VoiceOpenMic) sb.Append("  (przytrzymaj V)");
-            Label.text = sb.ToString();
+            Label.supportRichText = true;
+            string meter = Game.GameHud.MeterText(vc.MicLevel, 30).Replace("MÓWISZ  ", "Poziom: ");
+            if (vc.Transmitting) meter += "  nadajesz";
+            else if (!Net.LocalProfile.VoiceOpenMic) meter += "  (przytrzymaj V)";
+            Label.text = meter;
         }
     }
 }

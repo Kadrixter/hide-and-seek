@@ -194,6 +194,18 @@ namespace HideAndSeek.Characters
             hitSide = Rand01() < 0.5f ? -1f : 1f;
         }
 
+        bool sitting;
+        float sitW;
+
+        /// <summary>Sit on a seat (root on the floor in front of the seat, seat top ~0.45 m). Blends in/out over 0.35 s.</summary>
+        public void SetSitting(bool value)
+        {
+            EnsureInit();
+            sitting = value;
+        }
+
+        public bool IsSitting => sitting;
+
         public void SetReviving(bool value)
         {
             EnsureInit();
@@ -321,6 +333,14 @@ namespace HideAndSeek.Characters
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
 
+            // 3b. Sitting (full body, head keeps looking around from the base pose).
+            if (sitW > 0.001f)
+            {
+                var sp = SitPose();
+                sp.Head = p.Head;
+                p = CharacterPose.Lerp(p, sp, ActionTimeline.SmoothStep01(sitW));
+            }
+
             // 4. One-shot full-body actions.
             if (action == ActionKind.KnifeAttack)
             {
@@ -404,6 +424,8 @@ namespace HideAndSeek.Characters
             // Revive weight + pump clock.
             bool canRevive = reviving && VisualLifeState == LifeState.Alive && action != ActionKind.StabbedReaction;
             reviveW = Mathf.MoveTowards(reviveW, canRevive ? 1f : 0f, dt / 0.3f);
+            bool canSit = sitting && VisualLifeState == LifeState.Alive && action == ActionKind.None;
+            sitW = Mathf.MoveTowards(sitW, canSit ? 1f : 0f, dt / 0.35f);
             reviveTime += dt;
 
             // Springs.

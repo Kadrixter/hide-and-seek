@@ -119,7 +119,7 @@ namespace HideAndSeek.Game.Net
         public static float ChatVolume { get => Get("hns.voice.vol2", 1f); set => PlayerPrefs.SetFloat("hns.voice.vol2", value); }
         public static float MicGain { get => Get("hns.voice.gain", 1.5f); set => PlayerPrefs.SetFloat("hns.voice.gain", value); }
         /// <summary>Voice-activation level 0..1 (open mic).</summary>
-        public static float MicThreshold { get => Get("hns.voice.thr", 0.12f); set => PlayerPrefs.SetFloat("hns.voice.thr", value); }
+        public static float MicThreshold { get => Get("hns.voice.thr2", 0.35f); set => PlayerPrefs.SetFloat("hns.voice.thr2", value); }
 
         public static bool Occlusion
         {

@@ -164,9 +164,24 @@ namespace HideAndSeek.Game.Net
         {
             if (Phase.Value != MatchPhase.Lobby) return;
             var starter = NetPlayer.FindByClient(p.Receive.SenderClientId);
+            if (p.Receive.SenderClientId != NetworkManager.ServerClientId)
+            {
+                starter?.ToastRpc("Tylko właściciel pokoju może rozpocząć grę.", 3f);
+                return;
+            }
             if (NetPlayer.All.Count < GameSettings.MinPlayers)
             {
                 starter?.ToastRpc("Potrzeba co najmniej 2 graczy.", 3f);
+                return;
+            }
+            var notReady = new List<string>();
+            foreach (var pl in NetPlayer.All)
+                if (pl != null && pl.OwnerClientId != NetworkManager.ServerClientId && !pl.Ready.Value) notReady.Add(pl.Nick);
+            if (notReady.Count > 0)
+            {
+                string list = string.Join(", ", notReady);
+                if (list.Length > 70) list = list.Substring(0, 70) + "...";
+                starter?.ToastRpc("Nie są gotowi: " + list, 4f);
                 return;
             }
             StartMatch();
@@ -214,6 +229,7 @@ namespace HideAndSeek.Game.Net
             pl.Busy.Value = false;
             pl.DownedUntil.Value = 0;
             pl.NextHintAt.Value = 0;
+            pl.Ready.Value = false;
         }
 
         private void OnSceneLoaded(string sceneName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)

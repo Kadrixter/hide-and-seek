@@ -17,7 +17,12 @@ namespace HideAndSeek.Game.Voice
     public class VoiceChat : MonoBehaviour
     {
         public const string Message = "hns.voice";
-        public const float HearRange = 35f;
+        public const float HearRange = 60f;
+        /// <summary>Shouting (level in the red zone) carries across the whole garage.</summary>
+        public const float ShoutRange = 250f;
+        /// <summary>Meter level (0..1) from which speech counts as a shout: end of the yellow zone.</summary>
+        public const float ShoutLevel = 0.8f;
+        public const float YellowLevel = 0.55f;
         public const float LobbyRange = 60f;
 
         public static VoiceChat Instance { get; private set; }
@@ -83,6 +88,7 @@ namespace HideAndSeek.Game.Voice
         }
 
         private bool _wantMic;
+        private float _frameLevel;
         private string _deviceArg;
 
         // ================================================================ loop
@@ -166,7 +172,11 @@ namespace HideAndSeek.Game.Voice
                 sum += v * v;
             }
             float rms = Mathf.Sqrt(sum / _frame.Length);
-            MicLevel = Mathf.Clamp01(rms * 6f);
+            // dB meter: -50 dBFS = 0, -5 dBFS = 1 (normal speech ~0.4-0.6, shouting > 0.8).
+            float db = 20f * Mathf.Log10(Mathf.Max(rms, 1e-5f));
+            float level = Mathf.Clamp01((db + 50f) / 45f);
+            MicLevel = Mathf.Max(level, MicLevel * 0.85f); // fast attack, slower release for the HUD
+            _frameLevel = level;
 
             bool menu = LocalPlayerController.MenuOpen;
             bool send;
@@ -188,10 +198,11 @@ namespace HideAndSeek.Game.Voice
 
             for (int i = 0; i < _frame.Length; i++) _encoded[i] = VoiceCodec.Encode(_frame[i]);
 
-            if (nm.IsServer) Relay(nm, nm.LocalClientId, _encoded, _encoded.Length);
+            if (nm.IsServer) Relay(nm, nm.LocalClientId, (byte)Mathf.RoundToInt(_frameLevel * 255f), _encoded, _encoded.Length);
             else
             {
                 using var writer = new FastBufferWriter(_encoded.Length + 8, Allocator.Temp);
+                writer.WriteValueSafe((byte)Mathf.RoundToInt(_frameLevel * 255f));
                 writer.WriteValueSafe((ushort)_encoded.Length);
                 writer.WriteBytesSafe(_encoded, _encoded.Length);
                 nm.CustomMessagingManager.SendNamedMessage(Message, NetworkManager.ServerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
@@ -207,23 +218,25 @@ namespace HideAndSeek.Game.Voice
             if (nm.IsServer && sender != NetworkManager.ServerClientId)
             {
                 // Client -> server: relay to listeners in range.
+                reader.ReadValueSafe(out byte lvl);
                 reader.ReadValueSafe(out ushort len);
                 if (len > _rx.Length) return;
                 reader.ReadBytesSafe(ref _rx, len);
-                Relay(nm, sender, _rx, len);
+                Relay(nm, sender, lvl, _rx, len);
             }
             else
             {
                 // Server -> client: play.
                 reader.ReadValueSafe(out ulong speaker);
+                reader.ReadValueSafe(out byte lvl);
                 reader.ReadValueSafe(out ushort len);
                 if (len > _rx.Length) return;
                 reader.ReadBytesSafe(ref _rx, len);
-                Play(speaker, _rx, len);
+                Play(speaker, lvl, _rx, len);
             }
         }
 
-        private void Relay(NetworkManager nm, ulong speakerId, byte[] data, int len)
+        private void Relay(NetworkManager nm, ulong speakerId, byte level, byte[] data, int len)
         {
             var speaker = NetPlayer.FindByClient(speakerId);
             if (speaker == null) return;
@@ -233,7 +246,9 @@ namespace HideAndSeek.Game.Voice
 
             using var writer = new FastBufferWriter(len + 16, Allocator.Temp);
             writer.WriteValueSafe(speakerId);
+            writer.WriteValueSafe(level);
             writer.WriteValueSafe((ushort)len);
+            bool shout = level / 255f >= ShoutLevel;
             writer.WriteBytesSafe(data, len);
 
             foreach (var listener in NetPlayer.All)
@@ -243,20 +258,20 @@ namespace HideAndSeek.Game.Voice
                 bool hears;
                 if (lobby) hears = true;
                 else if (speakerDead) hears = listenerDead;
-                else hears = listenerDead || Vector3.Distance(listener.transform.position, speaker.transform.position) <= HearRange + 5f;
+                else hears = listenerDead || Vector3.Distance(listener.transform.position, speaker.transform.position) <= (shout ? ShoutRange : HearRange) + 5f;
                 if (!hears) continue;
 
-                if (listener.OwnerClientId == nm.LocalClientId) Play(speakerId, data, len); // host listens locally
+                if (listener.OwnerClientId == nm.LocalClientId) Play(speakerId, level, data, len); // host listens locally
                 else nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
             }
         }
 
-        private static void Play(ulong speakerId, byte[] data, int len)
+        private static void Play(ulong speakerId, byte level, byte[] data, int len)
         {
             if (Instance != null) Instance._rxPackets++;
             var p = NetPlayer.FindByClient(speakerId);
             if (p == null || p.IsOwner) return;
-            VoicePlayback.For(p).Push(data, len);
+            VoicePlayback.For(p).Push(data, len, level / 255f);
         }
 
         /// <summary>True if the given remote player is currently heard talking.</summary>

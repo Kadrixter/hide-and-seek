@@ -17,6 +17,7 @@ namespace HideAndSeek.Game.Net
         Pickup,     // E on a medkit
         Button,     // E on the lobby start button
         Settings,   // E on the lobby settings board
+        Seat,       // E on a sofa / pouf
     }
 
     /// <summary>
@@ -91,6 +92,35 @@ namespace HideAndSeek.Game.Net
                 _p.TeleportLocal(from, Quaternion.LookRotation(new Vector3(dir.x, 0f, dir.z)).eulerAngles.y);
                 _p.Motor.SetLook(_p.Motor.LookYaw, Mathf.Atan2(dir.y, new Vector2(dir.x, dir.z).magnitude) * Mathf.Rad2Deg);
             }
+            if (TestMirror && !_testPlaced && phase == MatchPhase.Lobby && Time.timeSinceLevelLoad > 1.5f)
+            {
+                var mirror = FindFirstObjectByType<PlanarMirror>();
+                if (mirror != null)
+                {
+                    _testPlaced = true;
+                    Vector3 mp = mirror.transform.position;
+                    _p.TeleportLocal(new Vector3(mp.x + 0.4f, 0.02f, mp.z + 2.3f), 180f);
+                    _p.Motor.SetLook(200f, -5f);
+                }
+            }
+            if (TestReady && !_testReadyDone && phase == MatchPhase.Lobby && Time.timeSinceLevelLoad > 6f)
+            {
+                _testReadyDone = true;
+                _p.SetReadyRpc(true);
+            }
+            if (TestPull && phase == MatchPhase.Lobby && LobbyButton.Instance != null &&
+                ((!_pull1 && Time.timeSinceLevelLoad > 4f) || (!_pull2 && Time.timeSinceLevelLoad > 9f)))
+            {
+                if (!_pull1) _pull1 = true; else _pull2 = true;
+                Debug.Log("[Test] pulling lever");
+                LobbyButton.Instance.Press();
+            }
+            if (TestSit && !_testPlaced && phase == MatchPhase.Lobby && Time.timeSinceLevelLoad > 2f && LobbySeat.All.Count > 0)
+            {
+                _testPlaced = true;
+                PromptWorld = LobbySeat.All[0].AimPoint;
+                SitNearest();
+            }
             if (TestBoardDist > 0f && !_testPlaced && LobbySettingsBoard.Instance != null && phase == MatchPhase.Lobby && Time.timeSinceLevelLoad > 1.5f)
             {
                 _testPlaced = true;
@@ -116,6 +146,16 @@ namespace HideAndSeek.Game.Net
                           $"eye={_p.Motor.EyeHeight:0.00} crouch={_p.Motor.CrouchAmount:0.00} pos={transform.position} cam={(_p.Camera != null ? _p.Camera.transform.position.ToString() : "-")}");
             }
 
+            _ignoreEThisFrame = false;
+
+            // ---- R = ready / not ready in the lobby (the room owner starts with the lever)
+            var kbr = Keyboard.current;
+            if (phase == MatchPhase.Lobby && kbr != null && !MenuOpen && kbr.rKey.wasPressedThisFrame && !NetworkManager.Singleton.IsServer)
+            {
+                _p.SetReadyRpc(!_p.Ready.Value);
+                GameAudio.Play2D(GameSfx.UiClick, 0.8f);
+            }
+
             // ---- input locks
             bool dead = _p.Life.Value == LifeState.Dead;
             bool blind = _p.IsSeeker && (phase == MatchPhase.Hiding || phase == MatchPhase.Loading);
@@ -130,10 +170,24 @@ namespace HideAndSeek.Game.Net
                 exhausted = downedFor >= Tuning.CrawlTime;
             }
             CrawlExhausted = exhausted;
-            _p.Motor.MovementEnabled = !locked && !exhausted;
+            // Seated: no walking; E, Space or any movement key stands up. Never seated outside the lobby.
+            bool seated = _p.Seat.Value >= 0;
+            if (seated)
+            {
+                var kbs = Keyboard.current;
+                bool standKey = kbs != null && !MenuOpen && (kbs.eKey.wasPressedThisFrame || kbs.spaceKey.wasPressedThisFrame ||
+                                kbs.wKey.wasPressedThisFrame || kbs.sKey.wasPressedThisFrame || kbs.aKey.wasPressedThisFrame || kbs.dKey.wasPressedThisFrame);
+                if (standKey || phase != MatchPhase.Lobby || dead)
+                {
+                    StandUp();
+                    _ignoreEThisFrame = true;
+                }
+            }
+            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0;
             _p.Motor.LookEnabled = !locked;
             var cc = _p.GetComponent<CharacterController>();
-            if (cc != null && cc.enabled == dead) cc.enabled = !dead;
+            bool ccOn = !dead && _p.Seat.Value < 0;
+            if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;
             if (_p.Flashlight != null)
             {
                 bool glockOut = _p.Held.Value == HeldItem.Glock;
@@ -258,7 +312,7 @@ namespace HideAndSeek.Game.Net
                 }
             }
 
-            if (phase == MatchPhase.Lobby)
+            if (phase == MatchPhase.Lobby && _p.Seat.Value < 0)
             {
                 var button = LobbyButton.Instance;
                 if (button != null)
@@ -266,7 +320,29 @@ namespace HideAndSeek.Game.Net
                     Vector3 bp = button.AimPoint;
                     float d = Vector3.Distance(eye, bp);
                     if (d <= Tuning.ButtonRange && InView(eye, fwd, bp, 40f, button.transform))
-                        Offer(PromptKind.Button, bp + Vector3.up * 0.2f, "E  START", d);
+                    {
+                        bool host = NetworkManager.Singleton.IsServer;
+                        int ready = 0, need = 0;
+                        foreach (var o in NetPlayer.All)
+                        {
+                            if (o == null || o.OwnerClientId == NetworkManager.ServerClientId) continue;
+                            need++;
+                            if (o.Ready.Value) ready++;
+                        }
+                        string text = !host ? "E  (tylko właściciel pokoju)"
+                            : need == 0 ? "E  start (potrzeba 2 graczy)"
+                            : ready < need ? $"E  start (gotowi {ready}/{need})"
+                            : "E  START";
+                        Offer(PromptKind.Button, bp + Vector3.up * 0.15f, text, d);
+                    }
+                }
+                foreach (var seat in LobbySeat.All)
+                {
+                    if (seat == null || SeatTaken(seat.Index)) continue;
+                    Vector3 sp = seat.AimPoint;
+                    float d = Vector3.Distance(eye, sp);
+                    if (d <= 2.4f && InView(eye, fwd, sp, 30f, seat.transform.parent))
+                        Offer(PromptKind.Seat, sp, "E  usiądź", d + 0.3f);
                 }
                 var board = LobbySettingsBoard.Instance;
                 if (board != null)
@@ -280,6 +356,46 @@ namespace HideAndSeek.Game.Net
         }
 
         private int _pickupId;
+        private bool _ignoreEThisFrame;
+        private Vector3 _standPos;
+
+        private bool SeatTaken(int index)
+        {
+            foreach (var o in NetPlayer.All) if (o != null && o.Seat.Value == index) return true;
+            return false;
+        }
+
+        private void SitNearest()
+        {
+            LobbySeat best = null;
+            float bd = float.MaxValue;
+            foreach (var s in LobbySeat.All)
+            {
+                if (s == null || SeatTaken(s.Index)) continue;
+                float d = Vector3.Distance(s.AimPoint, PromptWorld);
+                if (d < bd) { bd = d; best = s; }
+            }
+            if (best == null) return;
+            _standPos = transform.position;
+            var cc = GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false; // must be off before we land inside the sofa collider
+            _p.TeleportLocal(best.transform.position, best.transform.eulerAngles.y);
+            _p.Seat.Value = (sbyte)best.Index;
+        }
+
+        private void StandUp()
+        {
+            var seat = LobbySeat.Get(_p.Seat.Value);
+            _p.Seat.Value = -1;
+            if (seat != null)
+            {
+                // Step forward off the seat so the capsule does not end up inside the furniture.
+                Vector3 off = seat.transform.position + seat.transform.forward * 0.6f;
+                var cc = GetComponent<CharacterController>();
+                if (cc != null) cc.enabled = true;
+                _p.TeleportLocal(off, seat.transform.eulerAngles.y);
+            }
+        }
         private float _nextDebug;
         private static readonly bool ForceFlashlight = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-flashlight") >= 0;
         private bool _testPlaced;
@@ -290,6 +406,11 @@ namespace HideAndSeek.Game.Net
             return i >= 0 && i + 1 < a.Length && float.TryParse(a[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float v) ? v : 0f;
         }
         private static readonly float TestBoardDist = ArgF("-testboard");
+        private static readonly bool TestMirror = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testmirror") >= 0;
+        private static readonly bool TestReady = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testready") >= 0;
+        private static readonly bool TestPull = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testpull") >= 0;
+        private bool _testReadyDone, _pull1, _pull2;
+        private static readonly bool TestSit = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testsit") >= 0;
         private static readonly float TestBoardSide = ArgF("-testboardside");
         private static readonly bool TestButton = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testbutton") >= 0;
         private static readonly bool DebugPos = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-debugpos") >= 0;
@@ -337,7 +458,10 @@ namespace HideAndSeek.Game.Net
                     if (kb.eKey.wasPressedThisFrame) _p.RequestPickupRpc(_pickupId);
                     break;
                 case PromptKind.Button:
-                    if (kb.eKey.wasPressedThisFrame) LobbyButton.Instance.Press();
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) LobbyButton.Instance.Press();
+                    break;
+                case PromptKind.Seat:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) SitNearest();
                     break;
                 case PromptKind.Settings:
                     if (kb.eKey.wasPressedThisFrame) GameHud.OpenSettingsPanel();

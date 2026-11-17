@@ -1,4 +1,4 @@
-﻿using HideAndSeek.Core;
+using HideAndSeek.Core;
 using UnityEngine;
 
 namespace HideAndSeek.Characters
@@ -137,6 +137,19 @@ namespace HideAndSeek.Characters
         // ================================================================== static poses
 
         static Vector3 TorsoDir(in CharacterPose p, float x, float y, float z) => p.TorsoRoot * new Vector3(x, y, z);
+
+        /// <summary>Seated on a ~0.45 m seat behind the root: thighs forward, shins down, hands resting on the knees.</summary>
+        static CharacterPose SitPose()
+        {
+            var p = CharacterPose.Identity;
+            p.PelvisPos = new Vector3(0f, 0.5f, -0.12f);
+            p.Torso = Quaternion.Euler(-6f, 0f, 0f);
+            p.SolveLeg(0, new Vector3(0.13f, 0.06f, 0.3f), new Vector3(0f, 0.4f, 1f));
+            p.SolveLeg(1, new Vector3(-0.13f, 0.06f, 0.3f), new Vector3(0f, 0.4f, 1f));
+            p.SolveArm(0, new Vector3(0.17f, 0.56f, 0.2f), new Vector3(1f, -0.3f, -0.6f));
+            p.SolveArm(1, new Vector3(-0.17f, 0.56f, 0.2f), new Vector3(-1f, -0.3f, -0.6f));
+            return p;
+        }
 
         /// <summary>Both knees on the floor, hands on the belly. <paramref name="curl"/> adds a forward slump.</summary>
         static CharacterPose KneelPose(float curl, float z)
