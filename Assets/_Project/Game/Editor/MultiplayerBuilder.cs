@@ -374,7 +374,8 @@ namespace HideAndSeek.Game.Editor
             glow.intensity = 1.6f;
             var label = new GameObject("Label").AddComponent<TextMesh>();
             label.transform.SetParent(buttonRoot, false);
-            label.transform.localPosition = new Vector3(0, 0.62f, -0.36f);
+            label.transform.localPosition = new Vector3(0, 0.62f, 0.36f);
+            label.transform.localRotation = Quaternion.Euler(0, 180, 0);
             label.text = "START";
             label.characterSize = 0.05f;
             label.fontSize = 64;
@@ -397,7 +398,7 @@ namespace HideAndSeek.Game.Editor
             var bt = new GameObject("BoardText").AddComponent<TextMesh>();
             bt.transform.SetParent(boardGo.transform.parent, false);
             bt.transform.position = new Vector3(3.2f, 1.75f, D / 2 - 0.09f);
-            bt.transform.rotation = Quaternion.Euler(0, 180, 0);
+            bt.transform.rotation = Quaternion.identity;
             bt.characterSize = 0.022f;
             bt.fontSize = 60;
             bt.anchor = TextAnchor.MiddleCenter;
@@ -423,11 +424,11 @@ namespace HideAndSeek.Game.Editor
                 sp.transform.rotation = Quaternion.LookRotation(new Vector3(5.2f - x, 0f, 0.5f - z));
             }
 
-            var reverb = new GameObject("RoomReverb").AddComponent<AudioReverbZone>();
-            reverb.reverbPreset = AudioReverbPreset.Livingroom;
-            reverb.minDistance = 30f;
-            reverb.maxDistance = 40f;
-
+            var lobbyAudio = new GameObject("GameSceneAudio").AddComponent<GameSceneAudio>();
+            var lao = new SerializedObject(lobbyAudio);
+            lao.FindProperty("kind").enumValueIndex = (int)HideAndSeek.Audio.AudioEnvironmentKind.SmallRoom;
+            lao.FindProperty("populateEmitters").boolValue = false;
+            lao.ApplyModifiedPropertiesWithoutUndo();
             EditorSceneManager.SaveScene(scene, LobbyScenePath);
         }
 

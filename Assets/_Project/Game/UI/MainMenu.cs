@@ -28,7 +28,7 @@ namespace HideAndSeek.Game.UI
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             LocalProfile.ApplyAudio();
-            GameAudio.SetBed(AmbientId.MenuMusic, 2f);
+            AudioEnvironment.Apply(AudioEnvironmentKind.Menu, true);
 
             _canvas = UiKit.CreateCanvas("MenuCanvas", 0);
             var root = _canvas.transform;

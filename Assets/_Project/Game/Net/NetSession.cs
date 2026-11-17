@@ -81,6 +81,17 @@ namespace HideAndSeek.Game.Net
             if (Has("-host")) Host();
             else if (Arg("-join") is string ip) Join(ip);
             if (Has("-autostart")) StartCoroutine(AutoStart());
+            if (Arg("-shots") is string dir) StartCoroutine(Shots(dir));
+        }
+
+        private System.Collections.IEnumerator Shots(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            for (int i = 0; i < 12; i++)
+            {
+                yield return new WaitForSeconds(i == 0 ? 2.5f : 5f);
+                ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"{LocalProfile.Nick}_{i:00}.png"));
+            }
         }
 
         private System.Collections.IEnumerator AutoStart()
