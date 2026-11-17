@@ -50,6 +50,8 @@ namespace HideAndSeek.Map.Editor
             OilStain();
             Grate();
             Glyphs();
+            Tarp();
+            Flood();
 
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             foreach (var (path, kind) in Written)
@@ -698,6 +700,48 @@ namespace HideAndSeek.Map.Editor
                 px[y * n + x] = c;
             }
             Save("Grate", n, n, px, Kind.Albedo);
+        }
+
+        /// <summary>256px = 1.5 m. Plastic tarp with folds and creases.</summary>
+        private static void Tarp()
+        {
+            const int n = 256;
+            var nz = new TileNoise(1919);
+            var px = new Color[n * n];
+            var h = new float[n * n];
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float u = (x + 0.5f) / n, v = (y + 0.5f) / n;
+                float folds = nz.Fbm(u, v, 3, 6, 3);
+                float crease = Mathf.Abs(nz.Fbm(u + 0.3f, v, 5, 2, 2) - 0.5f) * 2f;
+                int i = y * n + x;
+                h[i] = folds * 1.5f - Mathf.Pow(1f - crease, 8f) * 0.4f;
+                float t = 0.8f + (folds - 0.5f) * 0.35f - nz.Fbm(u, v, 8, 3) * 0.12f;
+                if ((x % 128) < 2 || (y % 128) < 2) t *= 0.85f;
+                px[i] = new Color(t, t, t, 1f);
+            }
+            Save("Tarp", n, n, px, Kind.Albedo);
+            Save("Tarp_N", n, n, NormalFromHeight(h, n, n, 4f), Kind.Normal);
+        }
+
+        /// <summary>512px clamp. Large standing-water sheet: mostly opaque with a lobed, soft shoreline.</summary>
+        private static void Flood()
+        {
+            const int n = 512;
+            var nz = new TileNoise(2020);
+            var px = new Color[n * n];
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float u = (x + 0.5f) / n, v = (y + 0.5f) / n;
+                float dx = (u - 0.5f) * 2f, dy = (v - 0.5f) * 2f;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float shape = 1f - d * 1.15f + (nz.Fbm(u, v, 3, 4) - 0.5f) * 0.55f;
+                float a = Smooth(0f, 0.1f, shape) * (0.82f + 0.12f * nz.Fbm(u, v, 24, 2));
+                px[y * n + x] = new Color(1f, 1f, 1f, a);
+            }
+            Save("Flood", n, n, px, Kind.AlbedoAlphaClamp);
         }
 
         private static void Glyphs()

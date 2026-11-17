@@ -10,14 +10,17 @@ using Object = UnityEngine.Object;
 
 namespace HideAndSeek.Map.Editor
 {
-    /// <summary>Editor entry points: build the parking garage scene and render preview screenshots.</summary>
+    /// <summary>Editor entry points: build the parking garage scene, validate it and render preview screenshots.</summary>
     public static class ParkingGarageBuilderMenu
     {
         public const string MapFolder = "Assets/_Project/Map";
         public const string ScenePath = MapFolder + "/Scenes/ParkingGarage.unity";
-        public const string MeshAssetPath = MapFolder + "/Meshes/ParkingGarageMeshes.asset";
+        public const string MeshFolder = MapFolder + "/Meshes";
         public const string LightingPath = MapFolder + "/Scenes/ParkingGarageLighting.lighting";
         public const string PreviewFolder = "docs/previews/map";
+
+        /// <summary>Bake Umbra occlusion data after building (three stacked floors benefit a lot).</summary>
+        public static bool BakeOcclusion = true;
 
         [MenuItem("HideAndSeek/Map/Build Parking Garage")]
         public static void BuildMenu()
@@ -79,29 +82,65 @@ namespace HideAndSeek.Map.Editor
             var lib = MaterialLibrary.CreateAll();
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            AssetDatabase.DeleteAsset(MeshAssetPath);
+            foreach (var guid in AssetDatabase.FindAssets("t:Mesh", new[] { MeshFolder }))
+                AssetDatabase.DeleteAsset(AssetDatabase.GUIDToAssetPath(guid));
+            foreach (var file in Directory.GetFiles(GarageTextures.FullPath(MeshFolder), "*.asset"))
+                AssetDatabase.DeleteAsset(MeshFolder + "/" + Path.GetFileName(file));
 
-            var meshes = new List<Mesh>();
-            var builder = new ParkingGarageBuilder(lib, meshes);
+            var store = new Dictionary<string, List<Mesh>>();
+            var builder = new ParkingGarageBuilder(lib, store);
             builder.Build();
 
-            SaveMeshes(meshes);
+            SaveMeshes(store);
             ApplyLighting();
-            Validate();
+            Validate(builder);
 
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
                 throw new InvalidOperationException("Failed to save scene " + ScenePath);
+
+            if (BakeOcclusion)
+            {
+                var t0 = DateTime.Now;
+                StaticOcclusionCulling.smallestOccluder = 3f;
+                StaticOcclusionCulling.smallestHole = 0.25f;
+                StaticOcclusionCulling.backfaceThreshold = 100f;
+                bool ok = StaticOcclusionCulling.Compute();
+                Debug.Log($"[ParkingGarage] Occlusion bake {(ok ? "OK" : "FAILED")} in {(DateTime.Now - t0).TotalSeconds:0.0}s");
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene, ScenePath);
+            }
+            else
+            {
+                StaticOcclusionCulling.Clear();
+            }
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+            ReportFileSizes();
         }
 
-        private static void SaveMeshes(List<Mesh> meshes)
+        private static void SaveMeshes(Dictionary<string, List<Mesh>> store)
         {
-            if (meshes.Count == 0) return;
-            AssetDatabase.CreateAsset(meshes[0], MeshAssetPath);
-            for (int i = 1; i < meshes.Count; i++)
-                AssetDatabase.AddObjectToAsset(meshes[i], meshes[0]);
+            foreach (var kv in store.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                if (kv.Value.Count == 0) continue;
+                string path = $"{MeshFolder}/{kv.Key}.asset";
+                AssetDatabase.CreateAsset(kv.Value[0], path);
+                for (int i = 1; i < kv.Value.Count; i++)
+                    AssetDatabase.AddObjectToAsset(kv.Value[i], kv.Value[0]);
+            }
             AssetDatabase.SaveAssets();
+        }
+
+        private static void ReportFileSizes()
+        {
+            var files = Directory.GetFiles(GarageTextures.FullPath(MapFolder), "*", SearchOption.AllDirectories)
+                .Where(f => !f.EndsWith(".meta")).Select(f => new FileInfo(f)).OrderByDescending(f => f.Length).ToList();
+            long total = files.Sum(f => f.Length);
+            Debug.Log($"[ParkingGarage] Map folder: {files.Count} files, {total / 1048576f:0.0} MB total. Largest:\n" +
+                      string.Join("\n", files.Take(6).Select(f => $"  {f.Length / 1048576f:0.00} MB  {f.Name}")));
+            const long limit = 50L * 1024 * 1024;
+            if (files.Count > 0 && files[0].Length > limit)
+                throw new InvalidOperationException($"{files[0].Name} exceeds the 50 MB limit");
         }
 
         private static void ApplyLighting()
@@ -132,69 +171,89 @@ namespace HideAndSeek.Map.Editor
         // ================================================================== validation
 
         /// <summary>
-        /// Physics sanity checks: walkable surfaces along stairs and ramps, and every spawn point
-        /// standing on ground with a free capsule above it.
+        /// Physics sanity checks: every stair flight and ramp segment is a continuous walkable surface,
+        /// every spawn point stands on ground with a free capsule above it.
         /// </summary>
-        private static void Validate()
+        private static void Validate(ParkingGarageBuilder builder)
         {
             Physics.SyncTransforms();
             var errors = new List<string>();
 
-            float GroundAt(float x, float yFrom, float z)
-            {
-                return Physics.Raycast(new Vector3(x, yFrom, z), Vector3.down, out var hit, 6f) ? hit.point.y : float.NaN;
-            }
+            float GroundAt(float x, float yFrom, float z) =>
+                Physics.Raycast(new Vector3(x, yFrom, z), Vector3.down, out var hit, 4f) ? hit.point.y : float.NaN;
 
-            // stairwells: the surface must descend monotonically from 0 to -3.4 without big steps
-            foreach (float x in new[] { -37f, 14f })
+            int flights = 0, rampSegments = 0;
+            foreach (var s in ParkingGarageBuilder.Stairs)
             {
-                float prev = 0.05f;
-                for (float z = 21.5f; z <= 29.8f; z += 0.1f)
+                for (int k = 0; k < ParkingGarageBuilder.Levels - 1; k++)
                 {
-                    float y = GroundAt(x, 2.5f, z);
-                    if (float.IsNaN(y)) { errors.Add($"Stair x={x} z={z:0.0}: no ground"); break; }
-                    if (y > prev + 0.02f || prev - y > 0.12f) errors.Add($"Stair x={x} z={z:0.0}: jump {prev:0.00}->{y:0.00}");
-                    prev = y;
+                    flights++;
+                    float yTop = ParkingGarageBuilder.FloorY(k);
+                    float x = s.X0 + 1f;
+                    float zEnd = Mathf.Min(s.ZIn, ParkingGarageBuilder.HZ) - 0.2f;
+                    for (float z = s.Zf + 0.4f; z <= zEnd; z += 0.1f)
+                    {
+                        float expected = yTop - 3.4f * Mathf.Clamp01((z - s.ZA) / (s.ZB - ParkingGarageBuilder.Run - s.ZA));
+                        float y = GroundAt(x, expected + 1.0f, z);
+                        if (float.IsNaN(y) || Mathf.Abs(y - expected) > 0.2f)
+                        {
+                            errors.Add($"Stair x0={s.X0} flight {k} z={z:0.0}: ground {y:0.00}, expected {expected:0.00}");
+                            break;
+                        }
+                    }
                 }
-                if (prev > -3.3f) errors.Add($"Stair x={x}: bottom at {prev:0.00}");
             }
-            // ramps
-            foreach (var (x, z0, z1, zTop) in new[] { (-42f, -24f, 3f, -22f), (42f, 24f, -3f, 22f) })
+            foreach (var r in ParkingGarageBuilder.Ramps)
             {
-                float prev = 0.05f;
-                int steps = 54;
-                for (int i = 0; i <= steps; i++)
+                float zc = (r.Z0 + r.Z1) * 0.5f;
+                float dir = Mathf.Sign(r.XBot - r.XTop);
+                for (int k = 0; k < ParkingGarageBuilder.Levels - 1; k++)
                 {
-                    float z = Mathf.Lerp(z0, z1, i / (float)steps);
-                    float expected = -3.4f * Mathf.Clamp01((z - zTop) / (0f - zTop));
-                    float y = GroundAt(x, expected + 1.2f, z);
-                    if (float.IsNaN(y)) { errors.Add($"Ramp x={x} z={z:0.0}: no ground"); break; }
-                    if (y > prev + 0.02f || prev - y > 0.2f) errors.Add($"Ramp x={x} z={z:0.0}: jump {prev:0.00}->{y:0.00}");
-                    prev = y;
+                    rampSegments++;
+                    float yTop = ParkingGarageBuilder.FloorY(k);
+                    for (float t = -3f; t <= Mathf.Abs(r.XBot - r.XTop) + 3f; t += 0.5f)
+                    {
+                        float x = r.XTop + dir * t;
+                        float expected = yTop - 3.4f * Mathf.Clamp01(t / Mathf.Abs(r.XBot - r.XTop));
+                        foreach (float z in new[] { zc - 2f, zc, zc + 2f })
+                        {
+                            float y = GroundAt(x, expected + 1.2f, z);
+                            if (float.IsNaN(y) || Mathf.Abs(y - expected) > 0.15f)
+                                errors.Add($"Ramp xTop={r.XTop} seg {k} x={x:0.0} z={z:0.0}: ground {y:0.00}, expected {expected:0.00}");
+                        }
+                    }
                 }
-                if (prev > -3.3f) errors.Add($"Ramp x={x}: bottom at {prev:0.00}");
             }
-            // spawn points
             var root = GameObject.Find("ParkingGarage");
             var spawns = root.transform.Find(HideAndSeek.Core.GameLayers.SpawnPointsRoot);
             int tagged = 0;
+            var perLevel = new int[ParkingGarageBuilder.Levels];
             foreach (Transform t in spawns)
             {
-                if (t.CompareTag(HideAndSeek.Core.GameLayers.SpawnPointTag)) tagged++;
                 var p = t.position;
+                if (t.CompareTag(HideAndSeek.Core.GameLayers.SpawnPointTag))
+                {
+                    tagged++;
+                    perLevel[Mathf.Clamp(Mathf.RoundToInt(-p.y / 3.4f), 0, perLevel.Length - 1)]++;
+                }
                 float g = GroundAt(p.x, p.y + 1f, p.z);
                 if (float.IsNaN(g) || Mathf.Abs(g - (p.y - 0.05f)) > 0.1f) errors.Add($"Spawn {t.name}: ground at {g:0.00}");
                 if (Physics.CheckCapsule(p + Vector3.up * 0.45f, p + Vector3.up * 1.55f, 0.4f))
                     errors.Add($"Spawn {t.name}: capsule blocked");
             }
-            if (tagged < 12) errors.Add($"Only {tagged} tagged spawn points");
-            if (spawns.Find("SeekerSpawn") == null) errors.Add("SeekerSpawn missing");
+            if (tagged < 36) errors.Add($"Only {tagged} tagged spawn points");
+            if (perLevel.Any(c => c < 10)) errors.Add("Spawn points not spread over all levels: " + string.Join(",", perLevel));
+            var seeker = spawns.Find("SeekerSpawn");
+            if (seeker == null) errors.Add("SeekerSpawn missing");
+            else if (seeker.CompareTag(HideAndSeek.Core.GameLayers.SpawnPointTag)) errors.Add("SeekerSpawn must be untagged");
 
             int lights = Object.FindObjectsByType<Light>().Length;
-            int cars = root.transform.Find("Cars").GetComponentsInChildren<MeshRenderer>().Length;
-            Debug.Log($"[ParkingGarage] Validation: {tagged} spawn points, {cars} cars, {lights} realtime lights");
+            if (lights > 25) errors.Add($"Too many realtime lights: {lights}");
+            int renderers = Object.FindObjectsByType<MeshRenderer>().Length;
+            Debug.Log($"[ParkingGarage] Validation: {tagged} spawn points ({string.Join("/", perLevel)}), {builder.CarCount} cars, " +
+                      $"{lights} realtime lights, {flights} stair flights, {rampSegments} ramp segments, {renderers} renderers");
             if (errors.Count > 0)
-                throw new InvalidOperationException("Garage validation failed:\n" + string.Join("\n", errors));
+                throw new InvalidOperationException("Garage validation failed:\n" + string.Join("\n", errors.Take(40)));
         }
 
         // ================================================================== previews
@@ -207,19 +266,25 @@ namespace HideAndSeek.Map.Editor
             public Func<Renderer, bool> Hide;
         }
 
+        private static Shot S(string name, float px, float py, float pz, float tx, float ty, float tz, float fov = 70f,
+            Func<Renderer, bool> hide = null) =>
+            new Shot { Name = name, Pos = new Vector3(px, py, pz), Target = new Vector3(tx, ty, tz), Fov = fov, Hide = hide };
+
         private static void CapturePreviewsInternal()
         {
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             string outDir = GarageTextures.FullPath(PreviewFolder);
             Directory.CreateDirectory(outDir);
+            foreach (var old in Directory.GetFiles(outDir, "*.png")) File.Delete(old);
 
             var camGo = new GameObject("PreviewCamera");
             var cam = camGo.AddComponent<Camera>();
             cam.nearClipPlane = 0.05f;
-            cam.farClipPlane = 300f;
+            cam.farClipPlane = 400f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = Color.black;
             cam.allowHDR = false;
+            cam.useOcclusionCulling = false;
 
             var flashGo = new GameObject("Flashlight");
             flashGo.transform.SetParent(camGo.transform, false);
@@ -234,13 +299,20 @@ namespace HideAndSeek.Map.Editor
             flash.shadows = LightShadows.Soft;
 
             // --- true darkness (scene lighting as saved)
-            Render(cam, outDir, new Shot { Name = "dark_flashlight_L1", Pos = new V(-24f, 1.6f, -5.25f), Target = new V(-10f, 0.7f, -9.5f), Fov = 65f });
-            Render(cam, outDir, new Shot { Name = "dark_flashlight_L2", Pos = new V(4f, -1.8f, -21.75f), Target = new V(14f, -2.7f, -16f), Fov = 65f });
-            Render(cam, outDir, new Shot { Name = "dark_flashlight_cages", Pos = new V(-25f, 1.6f, 21.5f), Target = new V(-27f, 0.8f, 28f), Fov = 65f });
-            Render(cam, outDir, new Shot { Name = "dark_flashlight_puddle_L2", Pos = new V(-42f, -1.8f, 9f), Target = new V(-42f, -3.4f, 2.5f), Fov = 65f });
+            foreach (var s in new[]
+                     {
+                         S("dark_flashlight_L1", -52f, 1.6f, -11.75f, -38f, 0.7f, -16f, 65f),
+                         S("dark_flashlight_L1_carwash", -20f, 1.6f, -12f, -20f, 0.6f, 0f, 65f),
+                         S("dark_flashlight_L2_ev", -45f, -1.8f, -28.25f, -62f, -2.8f, -23f, 65f),
+                         S("dark_flashlight_L2_cages", -20f, -1.8f, -11f, -22f, -2.6f, 0f, 65f),
+                         S("dark_flashlight_L3_flood", 30f, -5.2f, -28.25f, 48f, -6.8f, -38f, 65f),
+                         S("dark_flashlight_L3_construction", -40f, -5.2f, 11.75f, -58f, -6.2f, 19f, 65f),
+                         S("dark_flashlight_tunnel_L3", -40f, -5.2f, -58.1f, -20f, -5.6f, -58.1f, 65f),
+                     })
+                Render(cam, outDir, s);
             flash.enabled = false;
-            Render(cam, outDir, new Shot { Name = "dark_ambient_L1", Pos = new V(-1f, 1.6f, -5.25f), Target = new V(-30f, 1.6f, -5.25f), Fov = 65f });
-            Render(cam, outDir, new Shot { Name = "dark_ambient_stairs_L2", Pos = new V(-20f, -1.8f, 12f), Target = new V(-36f, -1.6f, 21f), Fov = 65f });
+            Render(cam, outDir, S("dark_ambient_L3_flicker", -75f, -5.2f, -11.75f, -40f, -5.2f, -11.75f, 65f));
+            Render(cam, outDir, S("dark_ambient_L1_security", 64f, 1.6f, -14f, 80f, 1.2f, -6f, 65f));
 
             // --- bright inspection rig
             RenderSettings.fog = false;
@@ -253,26 +325,47 @@ namespace HideAndSeek.Map.Editor
             sun.shadows = LightShadows.None;
             sunGo.transform.rotation = Quaternion.Euler(52f, -35f, 0f);
 
-            bool HideAboveL1(Renderer r) => r.name == "Roof" || r.name.StartsWith("CeilingServices_Level-1") ||
-                                            r.name.StartsWith("FlickeringLamp") || r.name.StartsWith("ExitSign_Hanging") && r.bounds.center.y > 0f;
-            bool HideAboveL2(Renderer r) => r.bounds.center.y > -0.9f || r.name.StartsWith("CeilingServices_Level-2") ||
-                                            r.name == "Slab_Level-1" || r.name.StartsWith("ExitSign_Hanging");
+            Func<Renderer, bool> HideAbove(int lv)
+            {
+                float threshold = ParkingGarageBuilder.FloorY(lv) + 2.2f;
+                string tag = "_L" + (lv + 1);
+                return r => r.name.StartsWith("Roof") || r.name.StartsWith("CeilingServices" + tag) ||
+                            r.name.StartsWith("FlickeringLamp" + tag) || r.name.StartsWith("ExitSign_Hanging" + tag) ||
+                            (lv > 0 && (r.bounds.center.y > threshold || r.name.StartsWith("Ramps_L" + lv + "-") || r.name.StartsWith("Steps_L" + lv + "-")));
+            }
 
-            Render(cam, outDir, new Shot { Name = "overview_L1", Pos = new V(0f, 62f, -52f), Target = new V(0f, 0f, 3f), Fov = 55f, Hide = HideAboveL1 });
-            Render(cam, outDir, new Shot { Name = "overview_L2", Pos = new V(0f, 58.6f, -52f), Target = new V(0f, -3.4f, 3f), Fov = 55f, Hide = HideAboveL2 });
-            Render(cam, outDir, new Shot { Name = "overview_L1_north", Pos = new V(-10f, 22f, 2f), Target = new V(-8f, 0f, 24f), Fov = 60f, Hide = HideAboveL1 });
+            for (int lv = 0; lv < ParkingGarageBuilder.Levels; lv++)
+            {
+                float y = ParkingGarageBuilder.FloorY(lv);
+                Render(cam, outDir, S($"overview_L{lv + 1}", 0f, y + 128f, -104f, 0f, y, 6f, 55f, HideAbove(lv)));
+            }
+            Render(cam, outDir, S("aerial_L1_center", -14f, 32f, -32f, -6f, 0f, 2f, 60f, HideAbove(0)));
+            Render(cam, outDir, S("aerial_L1_north", -50f, 30f, 25f, -45f, 0f, 55f, 60f, HideAbove(0)));
+            Render(cam, outDir, S("aerial_L2_center", 0f, -3.4f + 32f, -32f, 5f, -3.4f, 2f, 60f, HideAbove(1)));
+            Render(cam, outDir, S("aerial_L3_west", -45f, -6.8f + 34f, -22f, -40f, -6.8f, 12f, 60f, HideAbove(2)));
+            Render(cam, outDir, S("aerial_L3_flood", 50f, -6.8f + 30f, -12f, 52f, -6.8f, -40f, 60f, HideAbove(2)));
 
-            Render(cam, outDir, new Shot { Name = "L1_aisle", Pos = new V(-36f, 1.7f, -5.25f), Target = new V(0f, 1.0f, -7f), Fov = 70f });
-            Render(cam, outDir, new Shot { Name = "L1_ramp_top", Pos = new V(-42f, 1.8f, -29f), Target = new V(-42f, -1.2f, -10f), Fov = 70f });
-            Render(cam, outDir, new Shot { Name = "L1_north_rooms", Pos = new V(-24f, 1.7f, 12f), Target = new V(-17f, 1.0f, 25f), Fov = 70f });
-            Render(cam, outDir, new Shot { Name = "L1_lobby", Pos = new V(0f, 1.6f, 16f), Target = new V(0f, 1.3f, 30f), Fov = 70f });
-            Render(cam, outDir, new Shot { Name = "L1_stairwell", Pos = new V(-34.6f, 1.65f, 21.6f), Target = new V(-37f, -2.2f, 28.5f), Fov = 75f });
-            Render(cam, outDir, new Shot { Name = "L1_cars_closeup", Pos = new V(-12f, 1.4f, -20f), Target = new V(-6f, 0.5f, -15f), Fov = 65f });
-            Render(cam, outDir, new Shot { Name = "L1_ceiling", Pos = new V(8f, 1.4f, -4f), Target = new V(16f, 3.2f, -10f), Fov = 75f });
-            Render(cam, outDir, new Shot { Name = "L2_aisle", Pos = new V(36f, -1.7f, -21.75f), Target = new V(0f, -2.4f, -16f), Fov = 70f });
-            Render(cam, outDir, new Shot { Name = "L2_ramp_bottom", Pos = new V(-42f, -1.7f, 14f), Target = new V(-42f, -2.2f, -12f), Fov = 70f });
-            Render(cam, outDir, new Shot { Name = "L2_storage", Pos = new V(-20f, -1.7f, 16f), Target = new V(-27f, -2.4f, 27f), Fov = 70f });
-            Render(cam, outDir, new Shot { Name = "L2_corridor", Pos = new V(37.5f, -1.8f, 28.7f), Target = new V(20f, -2.2f, 28.7f), Fov = 75f });
+            foreach (var s in new[]
+                     {
+                         S("L1_aisle", -72f, 1.7f, -28.25f, 0f, 1.0f, -30f),
+                         S("L1_carwash", -20f, 1.6f, -13f, -20f, 1.0f, 2f),
+                         S("L1_motorbikes", 19f, 1.6f, -14f, 19f, 0.4f, 0f),
+                         S("L1_security_gate", 68f, 1.7f, -13f, 82f, 1.0f, -3f),
+                         S("L1_loading_dock", -66f, 1.8f, 46f, -78f, 1.0f, 57f),
+                         S("L1_lobby_central", 0f, 1.6f, -14f, 0f, 1.3f, 0f),
+                         S("L1_stairwell", -30.6f, 1.65f, -4.0f, -33f, -2.2f, 3f, 75f),
+                         S("L1_ramp_top", -36f, 1.7f, -4f, -60f, -1.6f, -4f),
+                         S("L2_ev_bays", -45f, -1.7f, -28.25f, -70f, -2.4f, -22f),
+                         S("L2_cages", -20f, -1.7f, -11.75f, -20f, -2.4f, 0f),
+                         S("L2_electrical", 19f, -1.7f, -4.3f, 19f, -2.5f, 3f, 80f),
+                         S("L2_ramps_stacked", -38f, -1.7f, -4f, -60f, -4.5f, -4f),
+                         S("L3_construction", -40f, -5.1f, 11.75f, -60f, -6.0f, 20f),
+                         S("L3_flood", 30f, -5.1f, -28.25f, 55f, -6.6f, -42f),
+                         S("L3_collapsed", 19f, -5.1f, -14f, 19f, -6.2f, 2f),
+                         S("L3_tunnel", -40f, -5.1f, -58.1f, 0f, -5.5f, -58.1f, 75f),
+                         S("L3_aisle", 72f, -5.1f, 28.25f, 0f, -5.8f, 26f),
+                     })
+                Render(cam, outDir, s);
 
             Object.DestroyImmediate(camGo);
             Object.DestroyImmediate(sunGo);
@@ -305,13 +398,6 @@ namespace HideAndSeek.Map.Editor
             Object.DestroyImmediate(tex);
 
             foreach (var r in hidden) r.enabled = true;
-        }
-
-        private struct V
-        {
-            private readonly Vector3 _v;
-            public V(float x, float y, float z) { _v = new Vector3(x, y, z); }
-            public static implicit operator Vector3(V v) => v._v;
         }
     }
 }
