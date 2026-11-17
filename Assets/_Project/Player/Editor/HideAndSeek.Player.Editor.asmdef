@@ -1,0 +1,20 @@
+{
+    "name": "HideAndSeek.Player.Editor",
+    "rootNamespace": "HideAndSeek.Player.Editor",
+    "references": [
+        "HideAndSeek.Player",
+        "HideAndSeek.Core",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

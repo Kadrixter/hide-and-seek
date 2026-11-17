@@ -1,0 +1,17 @@
+{
+    "name": "HideAndSeek.Player",
+    "rootNamespace": "HideAndSeek.Player",
+    "references": [
+        "HideAndSeek.Core",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
