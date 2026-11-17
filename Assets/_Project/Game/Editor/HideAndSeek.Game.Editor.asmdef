@@ -1,0 +1,12 @@
+{
+    "name": "HideAndSeek.Game.Editor",
+    "rootNamespace": "HideAndSeek.Game.Editor",
+    "references": [
+        "HideAndSeek.Core",
+        "HideAndSeek.Game"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}

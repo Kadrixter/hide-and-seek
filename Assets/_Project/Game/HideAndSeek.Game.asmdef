@@ -1,0 +1,12 @@
+{
+    "name": "HideAndSeek.Game",
+    "rootNamespace": "HideAndSeek.Game",
+    "references": [
+        "HideAndSeek.Core",
+        "HideAndSeek.Map",
+        "HideAndSeek.Characters",
+        "HideAndSeek.Player",
+        "Unity.InputSystem"
+    ],
+    "autoReferenced": true
+}
