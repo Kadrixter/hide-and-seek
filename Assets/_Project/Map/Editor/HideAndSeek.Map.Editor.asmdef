@@ -1,0 +1,19 @@
+{
+    "name": "HideAndSeek.Map.Editor",
+    "rootNamespace": "HideAndSeek.Map.Editor",
+    "references": [
+        "HideAndSeek.Map",
+        "HideAndSeek.Core"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
