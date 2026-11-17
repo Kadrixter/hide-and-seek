@@ -91,6 +91,14 @@ namespace HideAndSeek.Game.Net
                 _p.TeleportLocal(from, Quaternion.LookRotation(new Vector3(dir.x, 0f, dir.z)).eulerAngles.y);
                 _p.Motor.SetLook(_p.Motor.LookYaw, Mathf.Atan2(dir.y, new Vector2(dir.x, dir.z).magnitude) * Mathf.Rad2Deg);
             }
+            if (TestBoardDist > 0f && !_testPlaced && LobbySettingsBoard.Instance != null && phase == MatchPhase.Lobby && Time.timeSinceLevelLoad > 1.5f)
+            {
+                _testPlaced = true;
+                Vector3 bp = LobbySettingsBoard.Instance.transform.position;
+                Vector3 from = new Vector3(bp.x + TestBoardSide, 0.02f, bp.z - TestBoardDist);
+                _p.TeleportLocal(from, 0f);
+                _p.Motor.SetLook(0f, Mathf.Atan2(bp.y - 1.64f, TestBoardDist) * Mathf.Rad2Deg);
+            }
             if ((DebugPos || TestButton) && Time.time >= _nextDebug)
             {
                 _nextDebug = Time.time + 1f;
@@ -275,6 +283,14 @@ namespace HideAndSeek.Game.Net
         private float _nextDebug;
         private static readonly bool ForceFlashlight = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-flashlight") >= 0;
         private bool _testPlaced;
+        private static float ArgF(string name)
+        {
+            var a = System.Environment.GetCommandLineArgs();
+            int i = System.Array.IndexOf(a, name);
+            return i >= 0 && i + 1 < a.Length && float.TryParse(a[i + 1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float v) ? v : 0f;
+        }
+        private static readonly float TestBoardDist = ArgF("-testboard");
+        private static readonly float TestBoardSide = ArgF("-testboardside");
         private static readonly bool TestButton = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testbutton") >= 0;
         private static readonly bool DebugPos = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-debugpos") >= 0;
 

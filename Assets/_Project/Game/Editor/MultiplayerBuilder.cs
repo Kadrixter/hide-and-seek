@@ -396,7 +396,7 @@ namespace HideAndSeek.Game.Editor
             label.anchor = TextAnchor.MiddleCenter;
             label.color = new Color(0.9f, 0.9f, 0.85f);
             label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.GetComponent<MeshRenderer>().sharedMaterial = label.font.material;
+            AddWorldText(label, new Vector2(0.55f, 0.22f));
             buttonRoot.position = new Vector3(5.2f, 0f, 0.5f);
             buttonRoot.rotation = Quaternion.Euler(0, -90, 0);
             var lb = buttonRoot.gameObject.AddComponent<LobbyButton>();
@@ -420,7 +420,7 @@ namespace HideAndSeek.Game.Editor
             bt.color = new Color(0.85f, 0.95f, 0.85f);
             bt.text = "USTAWIENIA RUNDY";
             bt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            bt.GetComponent<MeshRenderer>().sharedMaterial = bt.font.material;
+            AddWorldText(bt, new Vector2(2.3f, 1.45f));
             var sb = boardGo.AddComponent<LobbySettingsBoard>();
             var sbo = new SerializedObject(sb);
             sbo.FindProperty("text").objectReferenceValue = bt;
@@ -444,6 +444,26 @@ namespace HideAndSeek.Game.Editor
             lao.FindProperty("populateEmitters").boolValue = false;
             lao.ApplyModifiedPropertiesWithoutUndo();
             EditorSceneManager.SaveScene(scene, LobbyScenePath);
+        }
+
+        /// <summary>Depth-tested text material + auto-fit (see WorldText).</summary>
+        private static void AddWorldText(TextMesh tm, Vector2 fit)
+        {
+            string path = $"{LobbyArtDir}/WorldText.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("HideAndSeek/WorldText"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.mainTexture = tm.font.material.mainTexture;
+            EditorUtility.SetDirty(mat);
+            tm.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            var wt = tm.gameObject.AddComponent<WorldText>();
+            var so = new SerializedObject(wt);
+            so.FindProperty("material").objectReferenceValue = mat;
+            so.FindProperty("fitSize").vector2Value = fit;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void Sofa(Transform root, Vector3 pos, float yaw, Material fabric, Material wood)
