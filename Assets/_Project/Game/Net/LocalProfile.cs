@@ -85,6 +85,32 @@ namespace HideAndSeek.Game.Net
         public static float AmbientVolume { get => Get("hns.ambient", 1f); set { PlayerPrefs.SetFloat("hns.ambient", value); ApplyAudio(); } }
         public static float UiVolume { get => Get("hns.ui", 0.8f); set { PlayerPrefs.SetFloat("hns.ui", value); ApplyAudio(); } }
 
+        // ---------------------------------------------------------------- voice chat
+
+        public static bool VoiceEnabled
+        {
+            get => PlayerPrefs.GetInt("hns.voice.on", 1) == 1;
+            set => PlayerPrefs.SetInt("hns.voice.on", value ? 1 : 0);
+        }
+
+        /// <summary>false = push-to-talk (V), true = open mic with voice activation.</summary>
+        public static bool VoiceOpenMic
+        {
+            get => PlayerPrefs.GetInt("hns.voice.open", 0) == 1;
+            set => PlayerPrefs.SetInt("hns.voice.open", value ? 1 : 0);
+        }
+
+        public static string MicDevice
+        {
+            get => PlayerPrefs.GetString("hns.voice.device", "");
+            set => PlayerPrefs.SetString("hns.voice.device", value ?? "");
+        }
+
+        public static float ChatVolume { get => Get("hns.voice.vol", 1f); set => PlayerPrefs.SetFloat("hns.voice.vol", value); }
+        public static float MicGain { get => Get("hns.voice.gain", 1.5f); set => PlayerPrefs.SetFloat("hns.voice.gain", value); }
+        /// <summary>Voice-activation level 0..1 (open mic).</summary>
+        public static float MicThreshold { get => Get("hns.voice.thr", 0.12f); set => PlayerPrefs.SetFloat("hns.voice.thr", value); }
+
         public static bool Occlusion
         {
             get => PlayerPrefs.GetInt("hns.occlusion", 1) == 1;

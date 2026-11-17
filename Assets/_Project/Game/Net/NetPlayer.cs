@@ -35,6 +35,8 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<double> DownedUntil = new();
         public readonly NetworkVariable<bool> Busy = new();
         public readonly NetworkVariable<int> Kills = new();
+        /// <summary>Server time of this hider's next hint (visible to the owner only).</summary>
+        public readonly NetworkVariable<double> NextHintAt = new(0, NetworkVariableReadPermission.Owner, NetworkVariableWritePermission.Server);
 
         // ---- owner-written state
         public readonly NetworkVariable<MotionPack> Motion = new(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);

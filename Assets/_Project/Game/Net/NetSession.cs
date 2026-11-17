@@ -62,6 +62,7 @@ namespace HideAndSeek.Game.Net
             Manager.OnClientDisconnectCallback += OnClientDisconnect;
             Manager.OnServerStopped += _ => LanDiscovery.StopResponder();
             GameHud.EnsureExists();
+            Voice.VoiceChat.EnsureExists();
             HandleCommandLine();
         }
 

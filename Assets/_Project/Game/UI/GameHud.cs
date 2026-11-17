@@ -36,6 +36,7 @@ namespace HideAndSeek.Game
         private float _toastUntil;
         private RectTransform _escMenu, _settingsPanel;
         private Minimap _minimap;
+        private Text _voice;
         private SpectatorCamera _spectator;
         private float _hurtLevel;
 
@@ -350,9 +351,29 @@ namespace HideAndSeek.Game
                 if (me.Wounded.Value) st.Append("<color=#f66>Ranny</color> - kolejne złapanie = śmierć\n");
                 if (me.MedkitCount.Value > 0) st.Append($"Apteczki: {me.MedkitCount.Value}" + (me.Wounded.Value ? "  (przytrzymaj G)\n" : "  (H na rannym, G na sobie)\n"));
             }
+            if (phase == MatchPhase.Seeking && me.IsHider && me.Life.Value != LifeState.Dead && mm != null &&
+                mm.Settings.Value.HintMode != 0 && me.NextHintAt.Value > 0)
+            {
+                double left = me.NextHintAt.Value - mm.Now;
+                bool soundHint = (mm.Settings.Value.HintMode & 1) != 0;
+                string what = soundHint ? "Wydasz dźwięk za" : "Pokażesz się na mapie za";
+                st.Append(left <= 5 ? $"<color=#ff7060>{what} {UiKit.FormatTime(left)}</color>\n" : $"{what} {UiKit.FormatTime(left)}\n");
+            }
             if (inGame && me.IsSeeker && phase == MatchPhase.Seeking)
                 st.Append("Kółko myszy - skupienie latarki\n");
             _status.text = st.ToString();
+
+            // ---- voice indicator
+            var vc = Voice.VoiceChat.Instance;
+            if (_voice == null)
+            {
+                _voice = UiKit.Label("VoiceInd", _canvas.transform, "", 24, TextAnchor.LowerLeft, new Color(0.5f, 1f, 0.55f));
+                _voice.rectTransform.Place(Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(24, 330), new Vector2(500, 34));
+                _voice.AddOutline();
+            }
+            _voice.text = vc != null && vc.Transmitting ? "MÓWISZ  " + new string('|', Mathf.RoundToInt(vc.MicLevel * 20f))
+                : (vc != null && LocalProfile.VoiceEnabled && !LocalProfile.VoiceOpenMic && phase == MatchPhase.Lobby ? "<color=#9a9a9a>V - mów</color>" : "");
+            _voice.supportRichText = true;
 
             // ---- prompt
             UpdatePrompt();
@@ -382,7 +403,8 @@ namespace HideAndSeek.Game
             foreach (var p in list)
             {
                 if (p == null) continue;
-                string nick = p.Nick + (p.IsOwner ? " (ty)" : "");
+                bool talking = p.IsOwner ? (Voice.VoiceChat.Instance != null && Voice.VoiceChat.Instance.Transmitting) : Voice.VoiceChat.IsSpeaking(p);
+                string nick = p.Nick + (p.IsOwner ? " (ty)" : "") + (talking ? "  <color=#7dff8a>((mówi))</color>" : "");
                 if (phase == MatchPhase.Lobby || phase == MatchPhase.Loading || p.Role.Value == PlayerRole.None)
                 {
                     sb.Append(p.OwnerClientId == NetworkManager.ServerClientId ? "<color=#ffd75e>[host]</color> " : "  ").Append(nick).Append('\n');
@@ -450,7 +472,8 @@ namespace HideAndSeek.Game
                     tag.rectTransform.localScale = Vector3.one * scale;
                     string color = p.IsSeeker ? "#ff6655" : p.Life.Value == LifeState.Downed ? "#ff9a8a" : p.Life.Value == LifeState.Dead ? "#999999" : "#ffffff";
                     string suffix = !lobby && p.Life.Value == LifeState.Downed ? "  (złapany)" : !lobby && p.Wounded.Value ? "  (ranny)" : "";
-                    tag.text = $"<color={color}>{p.Nick}{suffix}</color>";
+                    string mic = Voice.VoiceChat.IsSpeaking(p) ? "<color=#7dff8a>((</color> " : "";
+                    tag.text = $"{mic}<color={color}>{p.Nick}{suffix}</color>";
                     var c = tag.color;
                     c.a = Mathf.Clamp01((35f - dist) / 8f);
                     tag.color = c;
@@ -552,13 +575,14 @@ namespace HideAndSeek.Game
 
         private void ShowEscMenu()
         {
-            _escMenu = MenuPanel("EscMenu", new Vector2(600, 640));
+            _escMenu = MenuPanel("EscMenu", new Vector2(600, 710));
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "MENU", 44, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(64);
             UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(66);
             SettingsUi.SensitivitySlider(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.MouseSensitivity = v; });
             SettingsUi.DisplayModeButton(panel);
             UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
+            UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 28).Height(60);
             string leave = NetworkManager.Singleton.IsServer ? "Zamknij serwer" : "Rozłącz";
             UiKit.Button("Leave", panel, leave, () =>
             {
@@ -575,6 +599,23 @@ namespace HideAndSeek.Game
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "DŹWIĘK", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(54);
             SettingsUi.BuildAudio(panel);
+            UiKit.Button("Back", panel, "Wróć", () =>
+            {
+                PlayerPrefs.Save();
+                Destroy(_escMenu.gameObject);
+                _escMenu = null;
+                ShowEscMenu();
+            }, 28).Height(58);
+        }
+
+        private void ShowVoiceMenu()
+        {
+            if (_escMenu != null) Destroy(_escMenu.gameObject);
+            _escMenu = MenuPanel("VoiceMenu", new Vector2(760, 720));
+            var panel = _escMenu.Find("Panel");
+            UiKit.Label("Title", panel, "CZAT GŁOSOWY", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(54);
+            SettingsUi.BuildVoice(panel);
+            UiKit.Label("Info", panel, "Słychać cię z bliska (do 35 m), za ścianami ciszej. Szukający też cię usłyszy.", 20, TextAnchor.MiddleCenter, UiKit.TextDim).Height(30);
             UiKit.Button("Back", panel, "Wróć", () =>
             {
                 PlayerPrefs.Save();

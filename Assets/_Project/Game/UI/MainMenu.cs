@@ -15,7 +15,7 @@ namespace HideAndSeek.Game.UI
         [SerializeField] private Transform previewRoot;
 
         private Canvas _canvas;
-        private RectTransform _main, _browser, _options, _audio, _connecting;
+        private RectTransform _main, _browser, _options, _audio, _voicePage, _connecting;
         private Text _message, _skinLabel, _serverList, _connectingText;
         private InputField _nick, _ip;
         private RectTransform _listRoot;
@@ -49,6 +49,7 @@ namespace HideAndSeek.Game.UI
             _browser = BuildBrowser(side.transform);
             _options = BuildOptions(side.transform);
             _audio = BuildAudio(side.transform);
+            _voicePage = BuildVoice(side.transform);
             _connecting = BuildConnecting(root);
             Show(_main);
 
@@ -65,7 +66,7 @@ namespace HideAndSeek.Game.UI
 
         private void Show(RectTransform page)
         {
-            foreach (var p in new[] { _main, _browser, _options, _audio }) p.gameObject.SetActive(p == page);
+            foreach (var p in new[] { _main, _browser, _options, _audio, _voicePage }) p.gameObject.SetActive(p == page);
             if (page == _browser) LanDiscovery.StartSearch();
             else LanDiscovery.StopSearch();
         }
@@ -134,8 +135,21 @@ namespace HideAndSeek.Game.UI
             SettingsUi.SensitivitySlider(page);
             SettingsUi.DisplayModeButton(page);
             UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 28).Height(60);
+            UiKit.Button("Voice", page, "Czat głosowy", () => Show(_voicePage), 28).Height(60);
             UiKit.Rect("Gap", page).Height(20);
             UiKit.Button("Back", page, "Wróć", () => { PlayerPrefs.Save(); Show(_main); }, 28).Height(60);
+            return page;
+        }
+
+        private RectTransform BuildVoice(Transform parent)
+        {
+            var page = UiKit.Rect("Voice", parent);
+            page.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), new Vector2(0, -70), new Vector2(-120, -280));
+            UiKit.VStack(page, 6);
+            UiKit.Label("T", page, "CZAT GŁOSOWY", 34, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(42);
+            SettingsUi.BuildVoice(page);
+            UiKit.Label("Info", page, "Mikrofon działa po wejściu na serwer.", 20, TextAnchor.MiddleLeft, UiKit.TextDim).Height(28);
+            UiKit.Button("Back", page, "Wróć", () => { PlayerPrefs.Save(); Show(_options); }, 26).Height(52);
             return page;
         }
 

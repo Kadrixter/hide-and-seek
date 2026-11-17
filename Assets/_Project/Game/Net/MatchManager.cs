@@ -27,7 +27,9 @@ namespace HideAndSeek.Game.Net
         /// <summary>Raised on every client for hint pings (seeker minimap). Args: world position.</summary>
         public static event System.Action<Vector3> HintPinged;
 
-        private double _nextHint;
+        private float CurrentHintInterval => GlockPhase.Value
+            ? Mathf.Min(Settings.Value.HintInterval, Tuning.GlockHintInterval)
+            : Settings.Value.HintInterval;
         private ulong _lastSeekerClient = ulong.MaxValue;
         private readonly Dictionary<ulong, double> _lastShot = new();
         private readonly HashSet<ulong> _reloading = new();
@@ -211,6 +213,7 @@ namespace HideAndSeek.Game.Net
             pl.SpareMags.Value = 0;
             pl.Busy.Value = false;
             pl.DownedUntil.Value = 0;
+            pl.NextHintAt.Value = 0;
         }
 
         private void OnSceneLoaded(string sceneName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)
@@ -320,7 +323,10 @@ namespace HideAndSeek.Game.Net
                     {
                         Phase.Value = MatchPhase.Seeking;
                         PhaseEnd.Value = now + s.SeekTime;
-                        _nextHint = now + s.HintStart;
+                        // Every hider gets an own, randomly offset schedule so hints never fire all at once.
+                        foreach (var pl in NetPlayer.All)
+                            if (pl != null && pl.IsHider)
+                                pl.NextHintAt.Value = now + s.HintStart + Random.Range(0f, Mathf.Max(5f, s.HintInterval));
                         foreach (var pl in NetPlayer.All) if (pl != null && pl.IsSeeker) pl.Held.Value = HeldItem.Knife;
                     }
                     break;
@@ -328,13 +334,7 @@ namespace HideAndSeek.Game.Net
                 case MatchPhase.Seeking:
                     UpdateDowned(now);
                     if (s.Glock && !GlockPhase.Value && PhaseEnd.Value - now <= Tuning.GlockAtRemaining) GiveGlock();
-                    if (s.HintMode != 0 && now >= _nextHint)
-                    {
-                        // Glock phase (last 2 minutes): hints come much more often.
-                        float interval = GlockPhase.Value ? Mathf.Min(s.HintInterval, Tuning.GlockHintInterval) : s.HintInterval;
-                        _nextHint = now + Mathf.Max(5f, interval);
-                        SendHints(s);
-                    }
+                    if (s.HintMode != 0) UpdateHints(now, s);
                     if (CheckWin(out var w)) EndMatch(w);
                     else if (now >= PhaseEnd.Value) EndMatch(MatchWinner.Hiders);
                     break;
@@ -354,14 +354,18 @@ namespace HideAndSeek.Game.Net
             }
         }
 
-        private void SendHints(NetSettings s)
+        /// <summary>Per-hider hint timers: each fires on its own, next one after the interval +-30 % (Glock phase: ~20 s).</summary>
+        private void UpdateHints(double now, NetSettings s)
         {
             bool sound = (s.HintMode & (byte)HintMode.Sound) != 0;
             bool pin = (s.HintMode & (byte)HintMode.Minimap) != 0;
+            float interval = Mathf.Max(5f, CurrentHintInterval);
             foreach (var pl in NetPlayer.All)
             {
                 if (pl == null || !pl.IsHider || pl.Life.Value == LifeState.Dead) continue;
+                if (pl.NextHintAt.Value <= 0 || now < pl.NextHintAt.Value) continue;
                 HintRpc(pl.ChestPosition, pl.NetworkObjectId, Random.Range(0, 1000), sound, pin);
+                pl.NextHintAt.Value = now + interval * Random.Range(0.7f, 1.3f);
             }
         }
 
@@ -370,7 +374,10 @@ namespace HideAndSeek.Game.Net
         private void GiveGlock()
         {
             GlockPhase.Value = true;
-            _nextHint = System.Math.Min(_nextHint, Now + 5);
+            // Glock phase: everybody's next hint comes soon, still spread out.
+            foreach (var pl in NetPlayer.All)
+                if (pl != null && pl.IsHider)
+                    pl.NextHintAt.Value = System.Math.Min(pl.NextHintAt.Value, Now + Random.Range(3f, Tuning.GlockHintInterval));
             foreach (var pl in NetPlayer.All)
             {
                 if (pl == null || !pl.IsSeeker) continue;
