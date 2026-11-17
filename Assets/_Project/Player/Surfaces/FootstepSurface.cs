@@ -79,6 +79,7 @@ namespace HideAndSeek.Player
         /// <summary>
         /// Keyword matching used for physics-material and render-material names (case-insensitive).
         /// Metal: metal, grate, steel, iron, grid, drain. Water: puddle, water, wet, flood.
+        /// Wood: wood, plank, floorboard, parquet, timber. Carpet: carpet, rug, mat (whole words for rug/mat).
         /// </summary>
         public static bool TryParseName(string name, out SurfaceType surface)
         {
@@ -96,6 +97,32 @@ namespace HideAndSeek.Player
                 surface = SurfaceType.Metal;
                 return true;
             }
+            if (n.Contains("wood") || n.Contains("plank") || n.Contains("floorboard") || n.Contains("parquet") ||
+                n.Contains("timber"))
+            {
+                surface = SurfaceType.Wood;
+                return true;
+            }
+            if (n.Contains("carpet") || HasToken(n, "rug") || HasToken(n, "rugs") || HasToken(n, "mat") || HasToken(n, "mats"))
+            {
+                surface = SurfaceType.Carpet;
+                return true;
+            }
+            return false;
+        }
+
+        // Whole-word match ("mat" must not match "material" or "format").
+        private static bool HasToken(string n, string token)
+        {
+            int i = 0;
+            while ((i = n.IndexOf(token, i, System.StringComparison.Ordinal)) >= 0)
+            {
+                bool startOk = i == 0 || !char.IsLetter(n[i - 1]);
+                int end = i + token.Length;
+                bool endOk = end >= n.Length || !char.IsLetter(n[end]);
+                if (startOk && endOk) return true;
+                i = end;
+            }
             return false;
         }
 
@@ -108,6 +135,8 @@ namespace HideAndSeek.Player
             Gizmos.matrix = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);
             Gizmos.color = type == SurfaceType.Water ? new Color(0.2f, 0.5f, 1f, 0.35f)
                          : type == SurfaceType.Metal ? new Color(0.8f, 0.8f, 0.9f, 0.35f)
+                         : type == SurfaceType.Wood ? new Color(0.6f, 0.4f, 0.2f, 0.35f)
+                         : type == SurfaceType.Carpet ? new Color(0.6f, 0.2f, 0.25f, 0.35f)
                          : new Color(0.6f, 0.6f, 0.6f, 0.35f);
             Gizmos.DrawCube(Vector3.zero, zoneSize);
             Gizmos.DrawWireCube(Vector3.zero, zoneSize);

@@ -91,6 +91,9 @@ namespace HideAndSeek.Player.Editor.Audio
                 sets.Add(set);
             }
             lib.surfaces = sets.ToArray();
+            // Generated (ElevenLabs) footsteps from the Audio module replace the synthesised ones where present.
+            var audioBuilder = Type.GetType("HideAndSeek.Audio.Editor.GameAudioBuilder, HideAndSeek.Audio.Editor");
+            audioBuilder?.GetMethod("ApplyGeneratedFootsteps")?.Invoke(null, new object[] { lib });
             lib.jump = WriteList("Jump", bank.Jump);
             lib.landLight = WriteList("LandLight", bank.LandLight);
             lib.landHeavy = WriteList("LandHeavy", bank.LandHeavy);

@@ -1,0 +1,21 @@
+{
+    "name": "HideAndSeek.Audio.Editor",
+    "rootNamespace": "HideAndSeek.Audio.Editor",
+    "references": [
+        "HideAndSeek.Core",
+        "HideAndSeek.Audio",
+        "HideAndSeek.Player",
+        "HideAndSeek.Player.Surfaces"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

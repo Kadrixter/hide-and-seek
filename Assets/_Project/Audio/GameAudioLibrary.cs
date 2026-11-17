@@ -15,6 +15,8 @@ namespace HideAndSeek.Audio
         public float range = 25f;
         [Tooltip("Adds an echo (AudioEchoFilter) for loud sounds in big spaces.")]
         public bool echo;
+        [Tooltip("Send into the global reverb (AudioEnvironment). 0 = dry, 1 = full, up to 1.1.")]
+        [Range(0f, 1.1f)] public float reverbMix = 1f;
     }
 
     [Serializable]
@@ -24,6 +26,8 @@ namespace HideAndSeek.Audio
         public AudioClip clip;
         [Range(0f, 1f)] public float volume = 0.5f;
         public float range = 15f;
+        [Tooltip("Random pitch +- fraction for 3D emitters (so neighbouring lamps/vents do not phase).")]
+        [Range(0f, 0.2f)] public float pitchJitter = 0.04f;
     }
 
     /// <summary>All gameplay sounds. Lives at Resources/GameAudioLibrary.asset.</summary>
