@@ -9,6 +9,8 @@ namespace HideAndSeek.Player
         Concrete = 0,
         Metal = 1,
         Water = 2,
+        Wood = 3,
+        Carpet = 4,
     }
 
     /// <summary>

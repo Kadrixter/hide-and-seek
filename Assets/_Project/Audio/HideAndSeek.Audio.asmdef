@@ -1,0 +1,8 @@
+{
+    "name": "HideAndSeek.Audio",
+    "rootNamespace": "HideAndSeek.Audio",
+    "references": [
+        "HideAndSeek.Core"
+    ],
+    "autoReferenced": true
+}
