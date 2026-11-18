@@ -181,7 +181,7 @@ namespace HideAndSeek.Map.Editor
 
         // ================================================================== lobbies
 
-        private void ElevatorDoors(int lv, float ex, float zFace, float s, bool lit)
+        private void ElevatorDoors(int lv, float ex, float zFace, float s, bool lit, bool functional = false)
         {
             // s = +1 when the face looks towards +z, -1 towards -z
             var b = _walls[lv];
@@ -193,9 +193,18 @@ namespace HideAndSeek.Map.Editor
             Bx(ex - 1.0f, y0, zFace, ex - 0.85f, y0 + 2.35f, z1, M("Metal_Steel"));
             Bx(ex + 0.85f, y0, zFace, ex + 1.0f, y0 + 2.35f, z1, M("Metal_Steel"));
             Bx(ex - 1.0f, y0 + 2.2f, zFace, ex + 1.0f, y0 + 2.45f, z1, M("Metal_Steel"));
-            Bx(ex - 0.85f, y0, zd0, ex - 0.006f, y0 + 2.2f, zd1, M("Metal_Steel"));
-            Bx(ex + 0.006f, y0, zd0, ex + 0.85f, y0 + 2.2f, zd1, M("Metal_Steel"));
-            Bx(ex - 0.006f, y0, zd0, ex + 0.006f, y0 + 2.2f, zd1, M("Plastic_Black"));
+            if (!functional)
+            {
+                // Decorative (closed) doors; working elevators get sliding doors at runtime (Game: ElevatorSystem).
+                Bx(ex - 0.85f, y0, zd0, ex - 0.006f, y0 + 2.2f, zd1, M("Metal_Steel"));
+                Bx(ex + 0.006f, y0, zd0, ex + 0.85f, y0 + 2.2f, zd1, M("Metal_Steel"));
+                Bx(ex - 0.006f, y0, zd0, ex + 0.006f, y0 + 2.2f, zd1, M("Plastic_Black"));
+            }
+            else
+            {
+                // Lintel between the door header and the ceiling, flush with the shaft face.
+                Bx(ex - 1.05f, y0 + 2.2f, zFace - s * 0.12f, ex + 1.05f, CeilY(lv), zFace, M("Metal_Steel"));
+            }
             var n = new Vector3(0, 0, s);
             _signs[lv].Box(new Vector3(ex, y0 + 2.62f, zFace + s * 0.03f), new Vector3(0.5f, 0.2f, 0.06f), M("Sign_Dark"));
             if (lit) _signs[lv].Text(LevelName(lv), new Vector3(ex, y0 + 2.62f, zFace + s * 0.065f), n, Vector3.up, 0.14f, M("Text_GlowRed"));
@@ -203,6 +212,30 @@ namespace HideAndSeek.Map.Editor
             // call buttons next to the doors
             b.Box(new Vector3(ex + 1.25f, y0 + 1.15f, zFace + s * 0.03f), new Vector3(0.14f, 0.3f, 0.06f), M("Metal_Steel"));
             b.Box(new Vector3(ex + 1.25f, y0 + 1.15f, zFace + s * 0.065f), new Vector3(0.05f, 0.05f, 0.02f), M("Plastic_Black"));
+        }
+
+        /// <summary>Cabin interior (lining, ceiling with light panel, handrails) + marker for the Game elevator system.</summary>
+        private void ElevatorCabin(int lv, int car, float ex)
+        {
+            float y0 = FloorY(lv);
+            var b = _walls[lv];
+            const float hw = 1.05f, hd = 1.28f;
+            // ceiling of the cabin
+            b.BoxMinMax(new Vector3(ex - hw, y0 + 2.55f, -1.4f), new Vector3(ex + hw, CeilY(lv), 1.4f), M("Metal_Steel"));
+            // brushed steel side linings
+            b.BoxMinMax(new Vector3(ex - hw, y0, -hd), new Vector3(ex - hw + 0.04f, y0 + 2.55f, hd), M("Metal_Steel"));
+            b.BoxMinMax(new Vector3(ex + hw - 0.04f, y0, -hd), new Vector3(ex + hw, y0 + 2.55f, hd), M("Metal_Steel"));
+            // handrails
+            b.BoxMinMax(new Vector3(ex - hw + 0.04f, y0 + 0.92f, -0.9f), new Vector3(ex - hw + 0.09f, y0 + 0.97f, 0.9f), M("Metal_Steel"));
+            b.BoxMinMax(new Vector3(ex + hw - 0.09f, y0 + 0.92f, -0.9f), new Vector3(ex + hw - 0.04f, y0 + 0.97f, 0.9f), M("Metal_Steel"));
+            // light panel
+            _signs[lv].Box(new Vector3(ex, y0 + 2.53f, 0f), new Vector3(1.2f, 0.02f, 1.6f), M("Text_White"));
+            // floor plate
+            _decals[lv].FloorQuad(ex - hw, ex + hw, -1.4f, 1.4f, y0 + 0.007f, M("Metal_Steel"));
+            // marker for the runtime elevator (position = cabin floor centre)
+            var marker = new GameObject($"ElevatorCar_{car}_L{lv}");
+            marker.transform.SetParent(_tPropsLv[lv], false);
+            marker.transform.position = new Vector3(ex, y0, 0f);
         }
 
         private void BuildLobbyNorth(int lv)
@@ -227,12 +260,16 @@ namespace HideAndSeek.Map.Editor
             LevelWall(lv, -8f, 8f, 4.8f, 5f, new Opening(-2f, 2f, 2.5f));
             LevelWall(lv, -8f, -7.8f, -4.8f, 4.8f);
             LevelWall(lv, 7.8f, 8f, -4.8f, 4.8f);
-            // elevator core (solid shaft block) with doors on both sides
-            LevelWall(lv, -5.5f, 5.5f, -1.4f, 1.4f);
-            foreach (float ex in new[] { -2.6f, 2.6f })
+            // elevator core: two walk-through cabins (doors on both sides), solid blocks between them.
+            LevelWall(lv, -5.5f, -3.65f, -1.4f, 1.4f);
+            LevelWall(lv, -1.55f, 1.55f, -1.4f, 1.4f);
+            LevelWall(lv, 3.65f, 5.5f, -1.4f, 1.4f);
+            for (int car = 0; car < 2; car++)
             {
-                ElevatorDoors(lv, ex, -1.4f, -1f, ex < 0 && lv != 2);
-                ElevatorDoors(lv, ex, 1.4f, 1f, ex > 0);
+                float ex = car == 0 ? -2.6f : 2.6f;
+                ElevatorDoors(lv, ex, -1.4f, -1f, ex < 0 && lv != 2, true);
+                ElevatorDoors(lv, ex, 1.4f, 1f, ex > 0, true);
+                ElevatorCabin(lv, car, ex);
             }
             var tile = M(lv == 2 ? "Floor_Concrete_Old" : "Tile_Floor");
             _decals[lv].FloorQuad(-7.8f, 7.8f, -4.8f, -1.4f, y0 + 0.004f, tile);

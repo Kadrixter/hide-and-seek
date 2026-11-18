@@ -54,6 +54,12 @@ namespace HideAndSeek.Audio
         HintWhistle = 60,        // fallback hint sound when Voice/*.mp3 is empty
         FlashlightClick = 61,
         FlashlightAdjust = 62,   // seeker zooms the beam (mouse wheel)
+
+        // Elevators
+        ElevatorDing = 70,
+        ElevatorDoor = 71,
+        ElevatorMove = 72,       // loop: cabin hum while travelling
+        ElevatorButton = 73,
     }
 
     /// <summary>Looping ambient beds.</summary>

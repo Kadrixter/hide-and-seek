@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace HideAndSeek.Player
@@ -97,6 +97,8 @@ namespace HideAndSeek.Player
 
         public Light SpotLight => spotLight;
         public bool ListenToInput { get => listenToInput; set => listenToInput = value; }
+        /// <summary>Light position relative to the camera (e.g. right shoulder).</summary>
+        public Vector3 HoldOffset { get => holdOffset; set => holdOffset = value; }
         public float Range => range;
         public float SpotAngle => spotAngle;
 

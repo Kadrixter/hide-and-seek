@@ -18,6 +18,8 @@ namespace HideAndSeek.Game.Net
         Button,     // E on the lobby start button
         Settings,   // E on the lobby settings board
         Seat,       // E on a sofa / pouf
+        ElevatorCall,  // E on the call button next to elevator doors
+        ElevatorPanel, // E on a level button inside the cabin
     }
 
     /// <summary>
@@ -114,6 +116,12 @@ namespace HideAndSeek.Game.Net
                 if (!_pull1) _pull1 = true; else _pull2 = true;
                 Debug.Log("[Test] pulling lever");
                 LobbyButton.Instance.Press();
+            }
+            if (TestElevator && !_elevTestStarted && (phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) &&
+                ElevatorSystem.Instance != null && ElevatorSystem.Instance.Cars.Count > 0 && MatchManager.Instance.Elevators.Count > 0)
+            {
+                _elevTestStarted = true;
+                StartCoroutine(ElevatorTest());
             }
             if (TestSit && !_testPlaced && phase == MatchPhase.Lobby && Time.timeSinceLevelLoad > 2f && LobbySeat.All.Count > 0)
             {
@@ -290,6 +298,45 @@ namespace HideAndSeek.Game.Net
                 }
             }
 
+            // Elevators (game map).
+            var es = ElevatorSystem.Instance;
+            if (es != null && MatchManager.Instance != null && MatchManager.Instance.Elevators.Count > 0 && _p.Life.Value != LifeState.Dead)
+            {
+                foreach (var car in es.Cars)
+                {
+                    for (int fi = 0; fi < car.Floors.Count; fi++)
+                    {
+                        var fl = car.Floors[fi];
+                        if (Mathf.Abs(eye.y - (fl.Y + 1.5f)) > 1.6f) continue;
+                        for (int face = 0; face < 2; face++)
+                        {
+                            Vector3 bp = es.CallButtonPos(car, fl, face);
+                            float d = Vector3.Distance(eye, bp);
+                            if (d <= 2.2f && d < best && InView(eye, fwd, bp, 30f))
+                            {
+                                _elevCar = car.Index;
+                                _elevFloor = fi;
+                                Offer(PromptKind.ElevatorCall, bp, "E  przywołaj windę", d);
+                            }
+                        }
+                        if (!es.InCabin(car, fi, transform.position)) continue;
+                        for (int t = 0; t < car.Floors.Count; t++)
+                        {
+                            Vector3 bp = es.PanelButtonPos(car, fl, t);
+                            Vector3 to = bp - eye;
+                            float ang = Vector3.Angle(fwd, to);
+                            float score = to.magnitude + ang * 0.03f;
+                            if (to.magnitude <= 1.9f && ang < 14f && score < best)
+                            {
+                                _elevCar = car.Index;
+                                _elevFloor = t;
+                                Offer(PromptKind.ElevatorPanel, bp, t == fi ? $"E  poziom {car.Floors[t].Name} (otwórz)" : $"E  jedź na poziom {car.Floors[t].Name}", score);
+                            }
+                        }
+                    }
+                }
+            }
+
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
             {
@@ -357,6 +404,7 @@ namespace HideAndSeek.Game.Net
 
         private int _pickupId;
         private bool _ignoreEThisFrame;
+        private int _elevCar, _elevFloor;
         private Vector3 _standPos;
 
         private bool SeatTaken(int index)
@@ -409,7 +457,32 @@ namespace HideAndSeek.Game.Net
         private static readonly bool TestMirror = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testmirror") >= 0;
         private static readonly bool TestReady = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testready") >= 0;
         private static readonly bool TestPull = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testpull") >= 0;
-        private bool _testReadyDone, _pull1, _pull2;
+        private bool _testReadyDone, _pull1, _pull2, _elevTestStarted;
+        private static readonly bool TestElevator = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testelevator") >= 0;
+
+        private System.Collections.IEnumerator ElevatorTest()
+        {
+            var es = ElevatorSystem.Instance;
+            var mm = MatchManager.Instance;
+            var car = es.Cars[0];
+            var f0 = car.Floors[0];
+            int last = car.Floors.Count - 1;
+            _p.TeleportLocal(new Vector3(car.X, f0.Y + 0.05f, -2.9f), 0f);
+            _p.Motor.SetLook(0f, 5f);
+            yield return new WaitForSeconds(1.5f);
+            Debug.Log($"[ElevTest] call at level {f0.Name}, car state floor={mm.Elevators[0].Floor} mode={mm.Elevators[0].Mode}");
+            mm.ElevatorRequestRpc(0, 0);
+            yield return new WaitForSeconds(8f);
+            Debug.Log($"[ElevTest] after call: floor={mm.Elevators[0].Floor} mode={mm.Elevators[0].Mode} open={ElevatorSystem.DoorOpen(mm.Elevators[0], mm.Now):0.00}");
+            _p.TeleportLocal(new Vector3(car.X, f0.Y + 0.05f, -0.3f), 90f);
+            _p.Motor.SetLook(90f, 0f);
+            yield return new WaitForSeconds(1f);
+            Debug.Log($"[ElevTest] ride to level {car.Floors[last].Name}");
+            mm.ElevatorRequestRpc(0, (sbyte)last);
+            yield return new WaitForSeconds(1.2f + ElevatorSystem.DoorTime + ElevatorSystem.TravelBase + ElevatorSystem.TravelPerFloor * last + 2f);
+            Debug.Log($"[ElevTest] arrived: my y={transform.position.y:0.00} (level {car.Floors[last].Name} y={car.Floors[last].Y:0.00}), floor={mm.Elevators[0].Floor} mode={mm.Elevators[0].Mode}");
+            _p.Motor.SetLook(180f, 0f);
+        }
         private static readonly bool TestSit = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testsit") >= 0;
         private static readonly float TestBoardSide = ArgF("-testboardside");
         private static readonly bool TestButton = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testbutton") >= 0;
@@ -459,6 +532,14 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.Button:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) LobbyButton.Instance.Press();
+                    break;
+                case PromptKind.ElevatorCall:
+                case PromptKind.ElevatorPanel:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame && MatchManager.Instance != null)
+                    {
+                        GameAudio.PlayAt(GameSfx.ElevatorButton, PromptWorld, 0.8f);
+                        MatchManager.Instance.ElevatorRequestRpc((byte)_elevCar, (sbyte)_elevFloor);
+                    }
                     break;
                 case PromptKind.Seat:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) SitNearest();

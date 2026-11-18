@@ -10,6 +10,12 @@ namespace HideAndSeek.Game
         [SerializeField] private AudioEnvironmentKind kind = AudioEnvironmentKind.Garage;
         [SerializeField] private bool populateEmitters = true;
 
+        private void Awake()
+        {
+            // Maps with working elevators (markers ElevatorCar_*).
+            if (populateEmitters && GetComponent<ElevatorSystem>() == null) gameObject.AddComponent<ElevatorSystem>();
+        }
+
         private void Start()
         {
             AudioEnvironment.Apply(kind, true);

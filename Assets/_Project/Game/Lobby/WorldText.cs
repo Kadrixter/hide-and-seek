@@ -34,6 +34,24 @@ namespace HideAndSeek.Game
 
         private void OnDestroy() => Font.textureRebuilt -= OnFontRebuilt;
 
+        /// <summary>Runtime setup for text created from code (depth-tested shader, optional fit box).</summary>
+        public static WorldText Setup(TextMesh tm, Vector2 fit = default)
+        {
+            var wt = tm.gameObject.AddComponent<WorldText>();
+            var shader = Shader.Find("HideAndSeek/WorldText");
+            if (shader == null) return wt;
+            wt._text = tm;
+            wt._renderer = tm.GetComponent<MeshRenderer>();
+            wt._baseScale = tm.transform.localScale;
+            wt.fitSize = fit;
+            wt._instance = new Material(shader);
+            wt._renderer.sharedMaterial = wt._instance;
+            wt.RefreshTexture();
+            Font.textureRebuilt -= wt.OnFontRebuilt;
+            Font.textureRebuilt += wt.OnFontRebuilt;
+            return wt;
+        }
+
         private void OnFontRebuilt(Font f)
         {
             if (_text != null && f == _text.font) RefreshTexture();
@@ -41,6 +59,7 @@ namespace HideAndSeek.Game
 
         private void RefreshTexture()
         {
+            if (_text == null) return;
             if (_instance != null && _text.font != null) _instance.mainTexture = _text.font.material.mainTexture;
         }
 

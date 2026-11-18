@@ -68,6 +68,7 @@ namespace HideAndSeek.Game.Net
         private AudioSource _heartbeat, _crawlLoop, _reviveLoop;
         private float _nextMotionSend;
         private Transform _chestFallback;
+        private ShoulderLamp _shoulderLamp;
 
         /// <summary>Chest-height world point for interaction icons.</summary>
         public Vector3 ChestPosition
@@ -107,6 +108,8 @@ namespace HideAndSeek.Game.Net
             }
 
             BuildCharacter();
+            _shoulderLamp = ShoulderLamp.Attach(Character);
+            if (Flashlight != null) Flashlight.HoldOffset = ShoulderLamp.EyeOffset;
             if (_steps != null) _steps.MasterVolume = LocalProfile.FootstepVolume;
             if (IsOwner) SetupLocal();
             else SetupRemote();
@@ -245,6 +248,7 @@ namespace HideAndSeek.Game.Net
             }
             if (InputReader != null) InputReader.enabled = true;
             Character.SetFirstPersonMode(true);
+            _shoulderLamp?.SetFirstPerson(true);
             Character.SetLayer(PlayerAvatarBinder.LocalBodyLayer);
             foreach (var l in GetComponentsInChildren<Light>(true))
                 l.cullingMask &= ~(1 << PlayerAvatarBinder.LocalBodyLayer);
@@ -281,6 +285,7 @@ namespace HideAndSeek.Game.Net
         private void Update()
         {
             if (!IsSpawned) return;
+            if (_shoulderLamp != null && Flashlight != null) _shoulderLamp.SetOn(Flashlight.Level > 0.05f);
             if (IsOwner)
             {
                 if (Time.unscaledTime >= _nextMotionSend)
@@ -315,6 +320,7 @@ namespace HideAndSeek.Game.Net
                 if (life != LifeState.Downed && _heartbeat != null) { GameAudio.StopLoop(_heartbeat, 1f); _heartbeat = null; }
                 if (life == LifeState.Dead) Character.SetFirstPersonMode(false);
                 else Character.SetFirstPersonMode(true);
+                _shoulderLamp?.SetFirstPerson(life != LifeState.Dead);
                 ViewModel?.SetVisible(life == LifeState.Alive);
             }
             if (changed)

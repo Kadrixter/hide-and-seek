@@ -74,7 +74,9 @@ namespace HideAndSeek.Game
             // Show the local player's own body (normally shadow-only in first person).
             var local = NetPlayer.Local;
             bool restoreFp = local != null && local.Character != null && local.Character.IsFirstPerson;
+            var lamp = restoreFp ? local.Character.GetComponentInChildren<ShoulderLamp>() : null;
             if (restoreFp) local.Character.SetFirstPersonMode(false);
+            lamp?.SetFirstPerson(false);
 
             _rendering = true;
             GL.invertCulling = true;
@@ -83,6 +85,7 @@ namespace HideAndSeek.Game
             _rendering = false;
 
             if (restoreFp) local.Character.SetFirstPersonMode(true);
+            lamp?.SetFirstPerson(true);
         }
 
         private static Vector4 CameraSpacePlane(Camera cam, Vector3 pos, Vector3 normal)

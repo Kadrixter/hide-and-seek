@@ -83,6 +83,11 @@ namespace HideAndSeek.Audio.Editor
             { GameSfx.HintWhistle, new Def(1f, 0.03f, 60f, echo: true) },
             { GameSfx.FlashlightClick, new Def(0.6f, 0.05f, 8f) },
             { GameSfx.FlashlightAdjust, new Def(0.5f, 0.05f, 6f) },
+            // elevators (the chime carries through the lobby, the hum is heard inside / right next to the cabin)
+            { GameSfx.ElevatorDing, new Def(0.9f, 0.02f, 30f, echo: true) },
+            { GameSfx.ElevatorDoor, new Def(0.8f, 0.05f, 18f) },
+            { GameSfx.ElevatorMove, new Def(0.7f, 0f, 10f, loop: true) },
+            { GameSfx.ElevatorButton, new Def(0.6f, 0.06f, 6f) },
         };
 
         private static readonly Dictionary<AmbientId, (float volume, float range, bool bed)> AmbientDefs = new Dictionary<AmbientId, (float, float, bool)>

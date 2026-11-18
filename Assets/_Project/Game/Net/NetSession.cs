@@ -110,6 +110,7 @@ namespace HideAndSeek.Game.Net
             while (MatchManager.Instance == null || NetPlayer.All.Count < 2) yield return new WaitForSeconds(0.5f);
             yield return new WaitForSeconds(3f);
             Debug.Log("[NetSession] autostart");
+            foreach (var p in NetPlayer.All) if (p != null) p.Ready.Value = true; // test helper: everyone ready
             string[] a = Environment.GetCommandLineArgs();
             int hi = Array.IndexOf(a, "-hidetime");
             if (hi >= 0 && hi + 1 < a.Length && float.TryParse(a[hi + 1], out float ht))

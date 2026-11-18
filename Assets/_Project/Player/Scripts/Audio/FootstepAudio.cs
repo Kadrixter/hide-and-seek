@@ -193,11 +193,13 @@ namespace HideAndSeek.Player
                 var go = new GameObject("Step" + i);
                 go.transform.SetParent(poolRoot, false);
                 _pool[i] = go.AddComponent<AudioSource>();
+                _pool[i].playOnAwake = false;
             }
             var clothGo = new GameObject("ClothRustle");
             clothGo.transform.SetParent(poolRoot, false);
             clothGo.transform.localPosition = new Vector3(0f, 1.0f, 0f);
             _cloth = clothGo.AddComponent<AudioSource>();
+            _cloth.playOnAwake = false;
             ConfigureSources();
         }
 

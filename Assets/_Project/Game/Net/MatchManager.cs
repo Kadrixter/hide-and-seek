@@ -23,6 +23,7 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<MatchWinner> Winner = new();
         public readonly NetworkVariable<bool> GlockPhase = new();
         public NetworkList<MedkitState> Medkits;
+        public NetworkList<ElevatorState> Elevators;
 
         /// <summary>Raised on every client for hint pings (seeker minimap). Args: world position.</summary>
         public static event System.Action<Vector3> HintPinged;
@@ -58,6 +59,7 @@ namespace HideAndSeek.Game.Net
         private void Awake()
         {
             Medkits = new NetworkList<MedkitState>();
+            Elevators = new NetworkList<ElevatorState>();
         }
 
         public override void OnNetworkSpawn()
@@ -187,6 +189,13 @@ namespace HideAndSeek.Game.Net
             StartMatch();
         }
 
+        /// <summary>Call button / cabin panel: send the car to a level.</summary>
+        [Rpc(SendTo.Server)]
+        public void ElevatorRequestRpc(byte car, sbyte floor)
+        {
+            ElevatorSystem.Instance?.ServerRequest(this, car, floor, Now);
+        }
+
         [Rpc(SendTo.Everyone)]
         public void ButtonPressedRpc(Vector3 pos)
         {
@@ -238,6 +247,9 @@ namespace HideAndSeek.Game.Net
             {
                 PlacePlayersInMap();
                 SpawnMedkits();
+                Elevators.Clear();
+                if (ElevatorSystem.Instance != null)
+                    foreach (var e in ElevatorSystem.Instance.InitialStates()) Elevators.Add(e);
                 Phase.Value = MatchPhase.Hiding;
                 PhaseEnd.Value = Now + Settings.Value.HideTime;
                 SceneBedRpc((byte)AmbientId.GarageBed);
@@ -330,6 +342,7 @@ namespace HideAndSeek.Game.Net
         {
             UpdateMedkitViews();
             if (!IsServer) return;
+            if (ElevatorSystem.Instance != null && Elevators.Count > 0) ElevatorSystem.Instance.ServerTick(this, Now);
             double now = Now;
             var s = Settings.Value;
             switch (Phase.Value)
@@ -443,6 +456,7 @@ namespace HideAndSeek.Game.Net
                 ResetPlayer(pl);
             }
             Medkits.Clear();
+            Elevators.Clear();
             GlockPhase.Value = false;
             Phase.Value = MatchPhase.Lobby;
             NetworkManager.SceneManager.LoadScene(NetSession.LobbyScene, LoadSceneMode.Single);
