@@ -123,7 +123,7 @@ namespace HideAndSeek.Characters.Editor
                     {
                         if (t >= 0.3f && t < 0.3f + RecDt) md.Actions.SetReviving(true);
                         if (t >= 3.6f && t < 3.6f + RecDt) { md.Actions.SetReviving(false); p.Actions.SetLifeState(LifeState.Alive); }
-                    }, t => Orbit(new Vector3(-0.2f, 0.45f, -0.3f), 20f + 40f * (t / 5.2f), 3.0f, 0.8f), pa, ma);
+                    }, t => Orbit(new Vector3(-0.2f, 0.5f, -0.3f), 110f - 40f * (t / 5.2f), 3.4f, 0.55f), pa, ma);
                     Kill(p);
                     Kill(md);
                     break;

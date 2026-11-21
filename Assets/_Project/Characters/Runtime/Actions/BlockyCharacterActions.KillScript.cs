@@ -102,10 +102,16 @@ namespace HideAndSeek.Characters
             if (intro != KillIntro.None && t < c0 + PhaseBlend)
             {
                 var ip = IntroSeekerPose(intro, current, Mathf.Min(t, c0));
-                if (t < c0) return ip;
-                return LerpKeepProp(ip, CoreSeekerPose(current, t - c0), Seg(t, c0, c0 + PhaseBlend));
+                if (t >= c0) ip = LerpKeepProp(ip, CoreSeekerPose(current, t - c0), Seg(t, c0, c0 + PhaseBlend));
+                AvoidHeads(ref ip, VictimHead(new Vector3(0f, 4f * Px, 0f)));
+                return ip;
             }
-            if (outro == KillOutro.None || t < o0) return CoreSeekerPose(current, t - c0);
+            if (outro == KillOutro.None || t < o0)
+            {
+                var cp = CoreSeekerPose(current, t - c0);
+                if (outro != KillOutro.None || t < KillMoves.FallTime(killMove)) AvoidHeads(ref cp, VictimHead(new Vector3(0f, 4f * Px, 0f)));
+                return cp;
+            }
             var end = CoreSeekerPose(current, o0 - c0);
             var op = OutroSeekerPose(outro, end, t - o0);
             return LerpKeepProp(end, op, Seg(t, o0, o0 + PhaseBlend));
@@ -128,8 +134,36 @@ namespace HideAndSeek.Characters
                 var end = CoreVictimPose(o0 - c0, propR);
                 p = CharacterPose.Lerp(end, OutroVictimPose(outro, end, t - o0), Seg(t, o0, o0 + 0.25f));
             }
+            if (t < KillMoves.FallTime(killMove))
+                AvoidHeads(ref p, KillerBone(3, new Vector3(0f, 4f * Px, 0f), new Vector3(0f, 1.57f, 0.02f)));
             p.PropR = propR;
             return p;
+        }
+
+        /// <summary>
+        /// Close clinch: when the two heads come nearer than ~0.5 m, lean the upper body and the head to the own left
+        /// (both characters do it, so the heads pass cheek by cheek instead of through each other). The hands are
+        /// solved back onto the same points (elbow direction and weapon orientation kept), so grips stay in place.
+        /// </summary>
+        void AvoidHeads(ref CharacterPose p, Vector3 otherHead)
+        {
+            Vector3 neck = p.TorsoPoint(BlockyCharacter.NeckRest);
+            Vector3 head = neck + p.TorsoRoot * (p.Head * new Vector3(0f, 4f * Px, 0f));
+            Vector3 d = head - otherHead;
+            d.y *= 0.6f;
+            const float Want = 0.5f;
+            float dist = d.magnitude;
+            if (dist >= Want) return;
+            float k = Mathf.Clamp01((Want - dist) / 0.28f);
+            Vector3 h0 = p.HandPos(0), h1 = p.HandPos(1);
+            Vector3 pole0 = p.ElbowPos(0) - (p.ShoulderPos(0) + h0) * 0.5f;
+            Vector3 pole1 = p.ElbowPos(1) - (p.ShoulderPos(1) + h1) * 0.5f;
+            Quaternion prop = p.ForearmRoot(0) * p.PropR;
+            p.Torso = p.Torso * Quaternion.Euler(0f, -6f * k, 10f * k);
+            p.Head = p.Head * Quaternion.Euler(0f, -24f * k, 16f * k);
+            p.SolveArm(0, h0, pole0);
+            p.SolveArm(1, h1, pole1);
+            p.PropR = Quaternion.Inverse(p.ForearmRoot(0)) * prop;
         }
 
         /// <summary>Lerp that blends the prop too (grip changes between the parts).</summary>

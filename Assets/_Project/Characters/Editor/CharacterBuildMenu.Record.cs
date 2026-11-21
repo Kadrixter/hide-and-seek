@@ -145,7 +145,8 @@ namespace HideAndSeek.Characters.Editor
                     v.Actions.SetLifeState(KillMoves.EndsDead(move) ? LifeState.Dead : LifeState.Downed);
                 }
                 float x = t / len;
-                Orbit(mid, Mathf.Lerp(62f, 118f, x), glock ? 4.4f : 3.3f, 0.65f, glock ? 38f : 36f);
+                if (float.TryParse(Environment.GetEnvironmentVariable("HNS_REC_YAW"), out float yaw)) Orbit(mid, yaw, 2.6f, 1.6f, 40f);
+                else Orbit(mid, Mathf.Lerp(62f, 118f, x), glock ? 4.4f : 3.3f, 0.65f, glock ? 38f : 36f);
                 clip.Shot(recCam);
             }
             int want = KillMoves.Events(move).Length;
