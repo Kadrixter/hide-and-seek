@@ -22,7 +22,7 @@ namespace HideAndSeek.Game.Net
             if (has("-cratewatch")) StartCoroutine(CrateWatch());
         }
 
-        private static IEnumerator WaitSeeking()
+        private static IEnumerator WaitSeekingRoom()
         {
             var mm = MatchManager.Instance;
             while (mm == null || mm.Phase.Value != MatchPhase.Seeking || NetPlayer.Local == null || SecurityRooms.Instance == null) { mm = MatchManager.Instance; yield return null; }
@@ -38,7 +38,7 @@ namespace HideAndSeek.Game.Net
 
         private IEnumerator RoomDarkTest()
         {
-            yield return WaitSeeking();
+            yield return WaitSeekingRoom();
             var me = NetPlayer.Local;
             string dir = ArgOr("-roomshots", "");
             var views = new (string name, Vector3 pos, float yaw, float pitch)[]
@@ -94,7 +94,7 @@ namespace HideAndSeek.Game.Net
 
         private IEnumerator CrateCycleTest()
         {
-            yield return WaitSeeking();
+            yield return WaitSeekingRoom();
             var me = NetPlayer.Local;
             var lpc = LocalPlayerController.Instance;
             string dir = ArgOr("-crateshots", "");
@@ -148,7 +148,7 @@ namespace HideAndSeek.Game.Net
 
         private IEnumerator CrateSawTest()
         {
-            yield return WaitSeeking();
+            yield return WaitSeekingRoom();
             var me = NetPlayer.Local;
             var mm = MatchManager.Instance;
             var lpc = LocalPlayerController.Instance;
@@ -201,7 +201,7 @@ namespace HideAndSeek.Game.Net
 
         private IEnumerator CrateWatch()
         {
-            yield return WaitSeeking();
+            yield return WaitSeekingRoom();
             string dir = ArgOr("-crateshots", "");
             var sr = SecurityRooms.Instance;
             var mm = MatchManager.Instance;
