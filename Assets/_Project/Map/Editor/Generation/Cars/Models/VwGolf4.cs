@@ -22,50 +22,75 @@ namespace HideAndSeek.Map.Editor
         protected override RimStyle Rim => RimStyle.FiveSpoke;
         protected override float TubWall => 0.7f;
         protected override float TubFloor => 0.26f;
-        protected override float[] BodyBreaks => new[] { 0.88f, -0.42f, -1.96f };
+        protected override float[] BodyBreaks => new[] { 0.88f, -0.42f, -1.95f };
         protected override int[] SharpRings => new[] { BShoulder };
         protected override float RoofRound => 0.8f;
 
         private const float ZF = 2.075f, ZR = -2.075f;
 
+        // reference outlines from the real car (4.15 x 1.73 x 1.44 m, wheelbase 2.51, overhangs 0.86 / 0.78)
+        public override Vector2[] RefSide => new[]
+        {
+            new Vector2(1.98f, 0.21f), new Vector2(2.04f, 0.26f), new Vector2(2.075f, 0.4f), new Vector2(2.075f, 0.5f), new Vector2(2.06f, 0.56f),
+            new Vector2(2.02f, 0.66f), new Vector2(1.98f, 0.74f), new Vector2(1.6f, 0.83f), new Vector2(1.2f, 0.89f), new Vector2(0.95f, 0.95f),
+            new Vector2(0.05f, 1.425f), new Vector2(-0.4f, 1.44f), new Vector2(-1.2f, 1.43f), new Vector2(-1.6f, 1.405f), new Vector2(-1.84f, 1.35f),
+            new Vector2(-1.95f, 1.0f), new Vector2(-2.04f, 0.7f), new Vector2(-2.075f, 0.55f), new Vector2(-2.075f, 0.42f), new Vector2(-2.04f, 0.27f),
+            new Vector2(-2.0f, 0.25f),
+        };
+        public override Vector2[] RefTop => new[]
+        {
+            new Vector2(2.075f, 0f), new Vector2(2.075f, 0.55f), new Vector2(2.05f, 0.68f), new Vector2(2.0f, 0.77f), new Vector2(1.9f, 0.83f),
+            new Vector2(1.6f, 0.86f), new Vector2(-1.6f, 0.865f), new Vector2(-1.9f, 0.84f), new Vector2(-2.0f, 0.79f), new Vector2(-2.05f, 0.72f),
+            new Vector2(-2.075f, 0.62f), new Vector2(-2.075f, 0f),
+        };
+        public override Vector2[] RefFront => new[]
+        {
+            new Vector2(0f, 1.44f), new Vector2(0.58f, 1.43f), new Vector2(0.65f, 1.38f), new Vector2(0.77f, 0.99f), new Vector2(0.84f, 0.94f),
+            new Vector2(0.865f, 0.8f), new Vector2(0.865f, 0.5f), new Vector2(0.84f, 0.24f), new Vector2(0.75f, 0.19f),
+        };
+
         private static BodyKey K(float z, float yBot, float wBot, float wMax, float yMax, float wSh, float ySh, float yTop,
             float tub = 0f, float round = 0.55f) => new BodyKey(z, yBot, wBot, wMax, yMax, wSh, ySh, yTop, round, tub);
 
+        // short, slightly sloping bonnet; the tail is a steep tailgate face (glass above, panel below) over the bumper
         protected override BodyKey[] BodyKeys() => new[]
         {
-            K(ZF, 0.3f, 0.6f, 0.62f, 0.42f, 0.6f, 0.5f, 0.52f, 0f, 1f),
-            K(2.055f, 0.24f, 0.72f, 0.74f, 0.43f, 0.7f, 0.6f, 0.62f, 0f, 1f),
-            K(2.0f, 0.21f, 0.78f, 0.8f, 0.45f, 0.765f, 0.69f, 0.71f),
-            K(1.94f, 0.2f, 0.81f, 0.83f, 0.47f, 0.79f, 0.74f, 0.765f),
-            K(1.85f, 0.19f, 0.83f, 0.845f, 0.5f, 0.81f, 0.775f, 0.8f),
-            K(1.6f, 0.18f, 0.845f, 0.86f, 0.53f, 0.83f, 0.82f, 0.845f),
-            K(1.205f, 0.18f, 0.85f, 0.865f, 0.55f, 0.835f, 0.88f, 0.9f),
+            K(ZF, 0.35f, 0.56f, 0.575f, 0.45f, 0.55f, 0.5f, 0.52f, 0f, 1f),
+            K(2.06f, 0.26f, 0.68f, 0.695f, 0.45f, 0.67f, 0.57f, 0.59f, 0f, 1f),
+            K(2.02f, 0.22f, 0.76f, 0.775f, 0.47f, 0.75f, 0.66f, 0.68f, 0f, 0.8f),
+            K(1.98f, 0.21f, 0.8f, 0.815f, 0.48f, 0.79f, 0.73f, 0.745f),
+            K(1.9f, 0.2f, 0.825f, 0.84f, 0.5f, 0.81f, 0.77f, 0.79f),
+            K(1.6f, 0.18f, 0.845f, 0.86f, 0.53f, 0.83f, 0.82f, 0.84f),
+            K(1.205f, 0.18f, 0.85f, 0.865f, 0.55f, 0.835f, 0.88f, 0.895f),
             K(0.95f, 0.18f, 0.85f, 0.865f, 0.56f, 0.835f, 0.93f, 0.95f),
             K(0.82f, 0.18f, 0.85f, 0.865f, 0.56f, 0.835f, 0.94f, 0.955f, 1f),
             K(-1.2f, 0.18f, 0.85f, 0.865f, 0.57f, 0.83f, 0.985f, 0.98f, 1f),
             K(-1.34f, 0.18f, 0.85f, 0.865f, 0.57f, 0.83f, 0.99f, 0.99f),
-            K(-1.8f, 0.21f, 0.835f, 0.85f, 0.57f, 0.8f, 0.99f, 1.0f),
-            K(-1.97f, 0.24f, 0.795f, 0.81f, 0.58f, 0.76f, 0.995f, 1.0f),
-            K(-2.04f, 0.28f, 0.72f, 0.74f, 0.58f, 0.7f, 0.985f, 0.99f, 0f, 1f),
-            K(ZR, 0.32f, 0.62f, 0.64f, 0.58f, 0.6f, 0.97f, 0.975f, 0f, 1f),
+            K(-1.8f, 0.21f, 0.835f, 0.85f, 0.57f, 0.8f, 0.995f, 1.0f),
+            K(-1.95f, 0.24f, 0.8f, 0.815f, 0.58f, 0.765f, 0.99f, 0.995f),
+            K(-2.0f, 0.26f, 0.77f, 0.785f, 0.58f, 0.73f, 0.86f, 0.87f, 0f, 0.8f),
+            K(-2.045f, 0.28f, 0.72f, 0.735f, 0.57f, 0.68f, 0.7f, 0.71f, 0f, 1f),
+            K(ZR, 0.33f, 0.64f, 0.655f, 0.5f, 0.6f, 0.56f, 0.57f, 0f, 1f),
         };
 
+        // nearly flat roof right to the back, then the steep (about 15 degrees off vertical) tailgate glass
         protected override CabinKey[] CabinKeys() => new[]
         {
             new CabinKey(0.95f, 0.95f, 0.77f, 0.95f, 0.63f),
-            new CabinKey(0.1f, 0.975f, 0.785f, 1.43f, 0.65f),
-            new CabinKey(-0.6f, 0.985f, 0.785f, 1.44f, 0.65f),
-            new CabinKey(-1.3f, 0.995f, 0.775f, 1.415f, 0.64f),
-            new CabinKey(-1.6f, 1.0f, 0.755f, 1.36f, 0.62f),
-            new CabinKey(-1.99f, 1.0f, 0.7f, 1.0f, 0.58f),
+            new CabinKey(0.05f, 0.975f, 0.785f, 1.425f, 0.65f),
+            new CabinKey(-0.4f, 0.985f, 0.785f, 1.44f, 0.65f),
+            new CabinKey(-1.2f, 0.995f, 0.778f, 1.43f, 0.643f),
+            new CabinKey(-1.6f, 1.0f, 0.765f, 1.405f, 0.628f),
+            new CabinKey(-1.84f, 1.0f, 0.74f, 1.345f, 0.6f),
+            new CabinKey(-1.95f, 1.0f, 0.7f, 1.0f, 0.57f),
         };
 
-        protected override float[] CabinBreaks => new[] { 0.12f, -0.42f, -0.47f, -1.02f, 0.9f, -1.62f, -1.66f };
+        protected override float[] CabinBreaks => new[] { 0.08f, -0.42f, -0.47f, -1.3f, 0.9f, -1.84f, -1.86f, -1.93f };
 
-        // door glass to the B-pillar, small quarter light, then the wide C-pillar (its slanted edge is an overlay)
+        // door glass to the B-pillar, then the quarter light; behind it the very wide C-pillar (arched edge = overlay)
         protected override Material CabinMat(int seg, float z)
         {
-            bool glass = (z > -0.42f && z < 0.92f) || (z < -0.47f && z > -1.02f);
+            bool glass = (z > -0.42f && z < 0.92f) || (z < -0.47f && z > -1.3f);
             switch (seg)
             {
                 case 0: return Trim;
@@ -74,8 +99,8 @@ namespace HideAndSeek.Map.Editor
                 case 3: return glass ? Trim : Paint;
                 case 4: return Paint;
                 default:
-                    if (z > 0.12f) return z > 0.88f || z < 0.16f ? Trim : Glass;
-                    if (z < -1.62f) return z < -1.94f || z > -1.66f ? Trim : Glass; // tailgate glass
+                    if (z > 0.08f) return z > 0.88f || z < 0.12f ? Trim : Glass;
+                    if (z < -1.84f) return z < -1.93f || z > -1.86f ? Trim : Glass; // steep tailgate glass
                     return Paint;
             }
         }
@@ -104,27 +129,28 @@ namespace HideAndSeek.Map.Editor
         private void Front()
         {
             // one smooth clear cover per side over a chrome reflector bowl with two round lamps, indicator at the end
-            var unit = new[] { new Vector2(0.29f, 0.578f), new Vector2(0.6f, 0.572f), new Vector2(0.7f, 0.59f), new Vector2(0.748f, 0.635f),
-                new Vector2(0.742f, 0.696f), new Vector2(0.29f, 0.703f) };
-            var amber = new[] { new Vector2(0.684f, 0.602f), new Vector2(0.735f, 0.636f), new Vector2(0.73f, 0.685f), new Vector2(0.684f, 0.685f) };
+            // shaped lens: straight top edge along the bonnet, lower edge sagging, outer end wrapping the corner
+            var unit = new[] { new Vector2(0.28f, 0.6f), new Vector2(0.4f, 0.582f), new Vector2(0.55f, 0.576f), new Vector2(0.68f, 0.59f),
+                new Vector2(0.755f, 0.62f), new Vector2(0.785f, 0.665f), new Vector2(0.77f, 0.706f), new Vector2(0.28f, 0.706f) };
+            var amber = new[] { new Vector2(0.715f, 0.603f), new Vector2(0.765f, 0.628f), new Vector2(0.783f, 0.665f), new Vector2(0.77f, 0.7f), new Vector2(0.715f, 0.7f) };
             foreach (float s in new[] { -1f, 1f })
             {
                 Body.ProjectedLamp(Mb, unit, 1f, s, Lib["Car_Reflector"], Seam);
-                foreach (var (x, r) in new[] { (0.385f, 0.056f), (0.56f, 0.05f) })
-                    if (Body.Project(s * x, 0.638f, 1f, out var lp, out var ln))
+                foreach (var (x, r) in new[] { (0.38f, 0.054f), (0.57f, 0.05f) })
+                    if (Body.Project(s * x, 0.645f, 1f, out var lp, out var ln))
                     {
                         CarKit.Lamp(Mb, lp + ln * 0.004f, ln, Vector3.right * s, CarKit.Circle(r + 0.008f, 20), Plastic, Plastic, 0.002f, 0.004f);
                         CarKit.RoundLamp(Mb, lp + ln * 0.006f, ln, r, Chrome, Lens);
                     }
                 Body.ProjectedPatch(Mb, amber, 1f, s, 0.009f, Amber);
-                if (Body.Project(s * 0.708f, 0.643f, 1f, out var ap, out var an)) Pm.Blinkers.Add(new Blinker(ap + an * 0.009f, an, new Vector2(0.05f, 0.08f)));
+                if (Body.Project(s * 0.745f, 0.655f, 1f, out var ap, out var an)) Pm.Blinkers.Add(new Blinker(ap + an * 0.009f, an, new Vector2(0.05f, 0.08f)));
                 Body.ProjectedPatch(Mb, unit, 1f, s, 0.026f, Glass);
                 // bumper: lower grille, fog lamps in black surrounds, slim rubbing strip round the corner
                 Body.ProjectedLamp(Mb, CarLoft.PolyAt(0f, 0.31f, new Vector2(0f, -0.05f), new Vector2(0.34f, -0.05f), new Vector2(0.38f, 0.05f), new Vector2(0f, 0.05f)), 1f, s, Grille, Seam, 0.008f, 0.002f);
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.18f, 0.31f, 0.36f, 0.012f, 0.004f), 1f, s, 0.006f, Plastic, 2);
                 Body.ProjectedLamp(Mb, CarLoft.RectAt(0.55f, 0.335f, 0.15f, 0.1f, 0.045f), 1f, s, Plastic, Seam, 0.008f, 0.003f);
                 if (Body.Project(s * 0.55f, 0.335f, 1f, out var fp, out var fn)) CarKit.RoundLamp(Mb, fp + fn * 0.004f, fn, 0.042f, Chrome, Lens);
-                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.42f, 0.455f, 0.84f, 0.022f, 0.008f), 1f, s, 0.004f, Plastic, 3);
+                // (no rubbing strip on the front bumper)
                 var (rp, rn) = Side(1.6f, 0.72f, s);
                 CarKit.Lamp(Mb, rp, rn, Vector3.forward, CarKit.Rect(0.045f, 0.025f, 0.01f), Amber, Plastic, 0.004f, 0.02f);
                 Pm.Blinkers.Add(new Blinker(rp + rn * 0.004f, rn, new Vector2(0.05f, 0.025f)));
@@ -149,7 +175,9 @@ namespace HideAndSeek.Map.Editor
             SeamSide(0.88f, 0.22f, 0.94f);
             SeamSide(-0.42f, 0.22f, 0.98f);
             // wide C-pillar: its front edge leans forward towards the roof (quarter light shaped like a sail)
-            GlassOverlay(-1.02f, -0.86f, t => new Vector2(t, 1.02f), Paint);
+            // very wide C-pillar; the quarter light ends in an arc in front of it
+            // (the side glass ends in a sweep that runs from the roof above the rear wheel down and forward to the belt)
+            GlassOverlay(-1.3f, -0.85f, t => new Vector2(-0.02f, Mathf.Sqrt(Mathf.Max(0f, 1f - t * t))), Paint, 20);
             foreach (float s in new[] { -1f, 1f })
             {
                 Body.PatchY(Mb, s, -0.92f, 0.86f, t => new Vector2(0.5f, 0.525f), BLip, BShoulder, 0.004f, Plastic, 12, 2);
@@ -172,15 +200,16 @@ namespace HideAndSeek.Map.Editor
                 Body.ProjectedLamp(Mb, tail, -1f, s, Lib["Car_TailDark"], Seam, 0.008f, 0.004f, 0.3f);
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.6f, 0.862f, 0.3f, 0.065f, 0.02f), -1f, s, 0.006f, Tail, 4, 0.3f);
                 // the cluster continues round the corner onto the wing
-                Body.PatchY(Mb, s, -2.0f, -1.86f, t => new Vector2(Mathf.Lerp(0.805f, 0.83f, t), Mathf.Lerp(0.915f, 0.9f, t)), BLip, BShoulder, 0.004f, Lib["Car_TailDark"], 6, 4);
-                Body.PatchY(Mb, s, -1.99f, -1.9f, t => new Vector2(0.835f, 0.89f), BLip, BShoulder, 0.0055f, Tail, 4, 3);
+                Body.PatchY(Mb, s, -1.975f, -1.87f, t => new Vector2(Mathf.Lerp(0.805f, 0.83f, t), Mathf.Lerp(0.9f, 0.89f, t)), BLip, BShoulder, 0.004f, Lib["Car_TailDark"], 6, 4);
+                Body.PatchY(Mb, s, -1.965f, -1.9f, t => new Vector2(0.835f, 0.88f), BLip, BShoulder, 0.0055f, Tail, 4, 3);
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.5f, 0.862f, 0.07f, 0.06f, 0.012f), -1f, s, 0.007f, s > 0 ? Lib["Car_Reverse"] : Tail);
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.72f, 0.862f, 0.07f, 0.06f, 0.012f), -1f, s, 0.008f, Amber, 4, 0.3f);
 
                 if (Body.Project(s * 0.72f, 0.862f, -1f, out var bp, out var bn)) Pm.Blinkers.Add(new Blinker(bp + bn * 0.008f, bn, new Vector2(0.07f, 0.06f)));
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.38f, 0.37f, 0.76f, 0.1f, 0.02f), -1f, s, 0.003f, Plastic, 3); // lower bumper
                 // gap between the tailgate and the bumper
-                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.38f, 0.555f, 0.76f, 0.005f, 0.001f), -1f, s, 0.0015f, Seam, 2);
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.38f, 0.585f, 0.76f, 0.005f, 0.001f), -1f, s, 0.0015f, Seam, 2);
+
             }
             Body.Project(0f, 0.86f, -1f, out var bc, out var bcn);
             CarBadges.Vw(Mb, bc + bcn * 0.004f, bcn, 0.06f);
@@ -191,7 +220,7 @@ namespace HideAndSeek.Map.Editor
             CarKit.Plate(Mb, pc + pn * 0.006f, pn, "WA 1J4GT", 0.95f);
             CarKit.Exhaust(Mb, new Vector3(-0.5f, 0.27f, ZR + 0.1f), 0.035f, 0.2f);
             // roof spoiler lip over the tailgate glass
-            CarBlob.Blob(Mb, new Vector3(0, 1.38f, -1.63f), Quaternion.Euler(-12f, 0, 0), new Vector3(0.6f, 0.018f, 0.06f), 0.35f, Paint, 0.5f, 1f, 16, 8);
+            CarBlob.Blob(Mb, new Vector3(0, 1.365f, -1.835f), Quaternion.Euler(-20f, 0, 0), new Vector3(0.58f, 0.016f, 0.055f), 0.35f, Paint, 0.5f, 1f, 16, 8);
         }
     }
 }

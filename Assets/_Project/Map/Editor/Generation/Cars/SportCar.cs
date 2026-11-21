@@ -49,6 +49,15 @@ namespace HideAndSeek.Map.Editor
         protected virtual Material FrontCap => Paint;
         protected virtual Material RearCap => Paint;
 
+        /// <summary>Reference outlines from real dimensions, drawn as guides in the studio only (not in the mesh):
+        /// side (z, y), plan (z, half width), front (half width, y). Null = no guide.</summary>
+        public virtual Vector2[] RefSide => null;
+        public virtual Vector2[] RefTop => null;
+        public virtual Vector2[] RefFront => null;
+        public Arch RefFrontArch => FrontArch;
+        public Arch RefRearArch => RearArch;
+        public float RefTireRadius => TireRadius;
+
         /// <summary>Greenhouse cell material by ring segment (see CarShapes.C*) and z.</summary>
         protected abstract Material CabinMat(int seg, float z);
         protected abstract void Interior();

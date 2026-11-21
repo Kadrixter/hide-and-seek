@@ -48,6 +48,7 @@ namespace HideAndSeek.Map.Editor
             var props = new PropFactory(lib, store);
 
             var floorMat = new Material(Shader.Find("Standard")) { color = new Color(0.36f, 0.36f, 0.37f) };
+            var lineMat = new Material(Shader.Find("Unlit/Color")) { color = new Color(0.1f, 0.95f, 1f) };
             floorMat.SetFloat("_Glossiness", 0.2f);
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
             floor.transform.localScale = new Vector3(6, 1, 6);
@@ -115,6 +116,9 @@ namespace HideAndSeek.Map.Editor
                     ("interior", new Vector3(-1.6f, H + 0.35f, c.z + 0.2f), new Vector3(0.1f, H * 0.45f, c.z + 0.1f), 50f),
                     ("dark front", c + new Vector3(2.8f, 1.0f, 4.0f), c, 55f),
                     ("dark alarm", c + new Vector3(-3.2f, 1.0f, -3.8f), c, 55f),
+                    ("ortho side", new Vector3(12f, 0.7f, 0f), new Vector3(0f, 0.7f, 0f), 1.32f),
+                    ("ortho top", new Vector3(0f, 12f, 0f), Vector3.zero, 1.32f),
+                    ("ortho front", new Vector3(0f, 0.7f, 12f), new Vector3(0f, 0.7f, 0f), 0.82f),
                 };
                 int rows = (views.Count + Cols - 1) / Cols;
                 var sheet = new Texture2D(TileW * Cols, TileH * rows, TextureFormat.RGB24, false);
@@ -124,10 +128,16 @@ namespace HideAndSeek.Map.Editor
                     bool dark = name.StartsWith("dark");
                     Studio(dark, key, fill, flash, cam);
                     foreach (var a in anchors) a.SetActive(name == "dark alarm");
-                    cam.fieldOfView = fov;
+                    bool ortho = name.StartsWith("ortho");
+                    cam.orthographic = ortho;
+                    if (ortho) cam.orthographicSize = fov; else cam.fieldOfView = fov;
                     cam.transform.position = pos;
-                    cam.transform.LookAt(target);
+                    if (name == "ortho top") cam.transform.rotation = Quaternion.LookRotation(Vector3.down, Vector3.left);
+                    else cam.transform.LookAt(target);
+                    var guides = ortho ? Guides(car, name, lineMat) : null;
                     Blit(cam, sheet, (v % Cols) * TileW, (rows - 1 - v / Cols) * TileH);
+                    if (guides != null) Object.DestroyImmediate(guides);
+                    cam.orthographic = false;
                 }
                 File.WriteAllBytes(Path.Combine(dir, car.Name + ".png"), sheet.EncodeToPNG());
                 Object.DestroyImmediate(sheet);
@@ -135,6 +145,52 @@ namespace HideAndSeek.Map.Editor
                 Object.DestroyImmediate(go);
                 Debug.Log($"[CarShowroom] {car.Name}: {pm.Mesh.vertexCount} verts, {pm.Mesh.subMeshCount} materials, bounds {bnd.size}, colliders {pm.Colliders.Count}, blinkers {pm.Blinkers.Count}");
             }
+        }
+
+        /// <summary>Reference guides for an orthographic view: real-size outline, wheels, ground and the L x H box.</summary>
+        private static GameObject Guides(SportCar car, string view, Material m)
+        {
+            var root = new GameObject("Guides");
+            void Line(Vector3 a, Vector3 b)
+            {
+                var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.DestroyImmediate(g.GetComponent<Collider>());
+                g.transform.SetParent(root.transform, false);
+                g.transform.position = (a + b) * 0.5f;
+                g.transform.rotation = Quaternion.LookRotation(b - a == Vector3.zero ? Vector3.forward : b - a);
+                g.transform.localScale = new Vector3(0.012f, 0.012f, (b - a).magnitude + 0.012f);
+                g.GetComponent<Renderer>().sharedMaterial = m;
+            }
+            void Poly(Vector2[] pts, System.Func<Vector2, Vector3> map, bool mirror = false)
+            {
+                if (pts == null) return;
+                for (int i = 0; i < pts.Length - 1; i++)
+                {
+                    Line(map(pts[i]), map(pts[i + 1]));
+                    if (mirror) Line(map(new Vector2(pts[i].x, -pts[i].y)), map(new Vector2(pts[i + 1].x, -pts[i + 1].y)));
+                }
+            }
+            float L = car.Length * 0.5f;
+            if (view == "ortho side")
+            {
+                System.Func<Vector2, Vector3> S = p => new Vector3(1.4f, p.y, p.x);
+                Poly(car.RefSide, S);
+                Poly(new[] { new Vector2(-L - 0.3f, 0f), new Vector2(L + 0.3f, 0f) }, S);
+                foreach (var a in new[] { car.RefFrontArch, car.RefRearArch })
+                {
+                    var circle = new Vector2[25];
+                    for (int i = 0; i <= 24; i++) circle[i] = new Vector2(a.Z + Mathf.Cos(i * Mathf.PI / 12f) * car.RefTireRadius, car.RefTireRadius + Mathf.Sin(i * Mathf.PI / 12f) * car.RefTireRadius);
+                    Poly(circle, S);
+                    Poly(new[] { new Vector2(a.Z, 0f), new Vector2(a.Z, 1.6f) }, S);
+                }
+            }
+            else if (view == "ortho top")
+                Poly(car.RefTop, p => new Vector3(p.y, 2.0f, p.x), true);
+            else
+                Poly(car.RefFront, p => new Vector3(p.x, p.y, 3f), false);
+            if (view == "ortho front" && car.RefFront != null)
+                Poly(System.Array.ConvertAll(car.RefFront, p => new Vector2(-p.x, p.y)), p => new Vector3(p.x, p.y, 3f));
+            return root;
         }
 
         private static void Studio(bool dark, Light key, Light fill, Light flash, Camera cam)
