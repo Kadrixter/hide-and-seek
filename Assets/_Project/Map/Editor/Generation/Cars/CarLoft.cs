@@ -167,6 +167,42 @@ namespace HideAndSeek.Map.Editor
             return n;
         }
 
+        /// <summary>Normal at (z, s) interpolated from the mesh's own vertex normals, so patches shade like the panel.</summary>
+        public Vector3 SmoothNormal(float z, float s, float side = 1f)
+        {
+            Faces();
+            int j = 0;
+            while (j < Stations - 2 && z > Z[j + 1]) j++;
+            float h = Z[j + 1] - Z[j];
+            float tz = h < 1e-6f ? 0f : Mathf.Clamp01((z - Z[j]) / h);
+            Vector3 VN(int sj, int si)
+            {
+                Vector3 sum = Vector3.zero;
+                for (int gj = sj - 1; gj <= sj; gj++)
+                for (int gi = si - 1; gi <= si; gi++)
+                    if (gj >= 0 && gi >= 0 && gj < Stations - 1 && gi < Ring - 1) sum += _fn[gj, gi];
+                if (S[sj][si].x < 1e-4f) sum.x = 0f;
+                return sum.sqrMagnitude > 1e-14f ? sum.normalized : Vector3.up;
+            }
+            Vector3 OnStation(int sj)
+            {
+                var sec = S[sj];
+                float total = 0f;
+                for (int i = 0; i < Ring - 1; i++) total += (sec[i + 1] - sec[i]).magnitude;
+                float target = Mathf.Clamp01(s) * total, acc = 0f;
+                for (int i = 0; i < Ring - 1; i++)
+                {
+                    float l = (sec[i + 1] - sec[i]).magnitude;
+                    if (acc + l >= target && l > 1e-7f) return Vector3.Lerp(VN(sj, i), VN(sj, i + 1), (target - acc) / l);
+                    acc += l;
+                }
+                return VN(sj, Ring - 1);
+            }
+            Vector3 n = Vector3.Lerp(OnStation(j), OnStation(j + 1), tz).normalized;
+            n.x *= side;
+            return n;
+        }
+
         /// <summary>
         /// A panel laid on the surface: rows from z0 to z1, each spanning arc fractions range(t) (t = 0..1 along z),
         /// lifted by <paramref name="lift"/> along the normal. Used for lamps, grilles, vents, seams, stripes.
@@ -184,7 +220,7 @@ namespace HideAndSeek.Map.Editor
                 for (int b = 0; b <= ns; b++)
                 {
                     float s = Mathf.Lerp(r.x, r.y, b / (float)ns);
-                    var n = Normal(z, s, side);
+                    var n = SmoothNormal(z, s, side);
                     nrm[a, b] = flip ? -n : n;
                     pts[a, b] = Point(z, s, side) + n * lift;
                 }

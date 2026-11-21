@@ -27,7 +27,8 @@ namespace HideAndSeek.Map.Editor
 
         private const float ZF = 2.1425f, ZR = -2.1425f;
         protected override float RoofDip => 0.022f;
-        protected override int[] SharpRings => new[] { BShoulder, BMax };
+        protected override int[] SharpRings => new[] { BShoulder, BMax, BDeck1 };
+        protected override float ArchLipBead => 0.026f;
 
         // reference outlines from the real car (4.29 x 1.76 x 1.23 m, wheelbase 2.43)
         public override Vector2[] RefSide => new[]
@@ -57,20 +58,20 @@ namespace HideAndSeek.Map.Editor
         {
             K(ZF, 0.25f, 0.2f, 0.21f, 0.33f, 0.19f, 0.4f, 0.41f, 0f, 0.6f),
             K(2.13f, 0.2f, 0.32f, 0.39f, 0.34f, 0.37f, 0.45f, 0.455f, 0f, 0.5f),
-            K(2.11f, 0.17f, 0.38f, 0.46f, 0.35f, 0.44f, 0.5f, 0.5f, 0f, 0.45f),
-            K(2.05f, 0.145f, 0.5f, 0.61f, 0.37f, 0.585f, 0.575f, 0.545f, 0f, 0.4f),
-            K(1.95f, 0.135f, 0.62f, 0.72f, 0.4f, 0.69f, 0.63f, 0.58f),
+            K(2.11f, 0.17f, 0.38f, 0.46f, 0.35f, 0.44f, 0.5f, 0.485f, 0f, 0.45f),
+            K(2.05f, 0.145f, 0.5f, 0.61f, 0.37f, 0.585f, 0.575f, 0.53f, 0f, 0.4f),
+            K(1.95f, 0.135f, 0.62f, 0.72f, 0.4f, 0.69f, 0.63f, 0.565f),
             K(1.8f, 0.13f, 0.71f, 0.8f, 0.42f, 0.77f, 0.685f, 0.605f),
             // flanks: undercut from below (narrower at the sill), wheel flares standing out past the doors, a crease at
             // the widest line falling towards the rear, doors drawn in between the crease and the shoulder
-            K(1.6f, 0.13f, 0.76f, 0.86f, 0.5f, 0.82f, 0.73f, 0.625f),
-            K(1.19f, 0.13f, 0.79f, 0.885f, 0.5f, 0.845f, 0.785f, 0.665f),
-            K(0.8f, 0.13f, 0.75f, 0.855f, 0.49f, 0.825f, 0.8f, 0.745f, 0f, 0.5f, 0.01f),
-            K(0.5f, 0.13f, 0.74f, 0.84f, 0.48f, 0.815f, 0.82f, 0.815f, 0f, 0.5f, 0.025f),
-            K(0.4f, 0.13f, 0.74f, 0.84f, 0.48f, 0.815f, 0.825f, 0.82f, 1f, 0.5f, 0.025f),
-            K(-0.62f, 0.13f, 0.745f, 0.845f, 0.46f, 0.82f, 0.86f, 0.86f, 1f, 0.5f, 0.025f),
-            K(-0.75f, 0.13f, 0.76f, 0.855f, 0.455f, 0.825f, 0.87f, 0.88f, 0f, 0.5f, 0.015f),
-            K(-1.235f, 0.13f, 0.79f, 0.89f, 0.45f, 0.83f, 0.9f, 0.9f),
+            K(1.6f, 0.13f, 0.74f, 0.855f, 0.5f, 0.815f, 0.73f, 0.615f),
+            K(1.19f, 0.13f, 0.77f, 0.885f, 0.5f, 0.84f, 0.785f, 0.655f),
+            K(0.8f, 0.13f, 0.7f, 0.82f, 0.49f, 0.8f, 0.8f, 0.74f, 0f, 0.5f, 0.02f),
+            K(0.5f, 0.13f, 0.69f, 0.8f, 0.48f, 0.785f, 0.82f, 0.815f, 0f, 0.5f, 0.03f),
+            K(0.4f, 0.13f, 0.69f, 0.8f, 0.48f, 0.785f, 0.825f, 0.82f, 1f, 0.5f, 0.03f),
+            K(-0.62f, 0.13f, 0.695f, 0.805f, 0.46f, 0.79f, 0.86f, 0.86f, 1f, 0.5f, 0.03f),
+            K(-0.75f, 0.13f, 0.72f, 0.83f, 0.455f, 0.8f, 0.87f, 0.88f, 0f, 0.5f, 0.02f),
+            K(-1.235f, 0.13f, 0.79f, 0.895f, 0.45f, 0.83f, 0.9f, 0.9f),
             K(-1.8f, 0.16f, 0.78f, 0.865f, 0.47f, 0.79f, 0.9f, 0.905f, 0f, 0.8f),
             K(-2.0f, 0.2f, 0.72f, 0.79f, 0.5f, 0.73f, 0.875f, 0.885f, 0f, 1f),
 
@@ -152,10 +153,10 @@ namespace HideAndSeek.Map.Editor
                 Body.ProjectedPatch(Mb, CarLoft.PolyAt(0f, 0f, new Vector2(0.44f, 0.325f), new Vector2(0.64f, 0.318f), new Vector2(0.69f, 0.36f), new Vector2(0.46f, 0.39f)), 1f, s, 0.007f, Amber);
                 Body.ProjectedPatch(Mb, CarLoft.PolyAt(0f, 0f, new Vector2(0.47f, 0.225f), new Vector2(0.57f, 0.225f), new Vector2(0.6f, 0.255f), new Vector2(0.48f, 0.26f)), 1f, s, 0.007f, Lens);
                 if (Body.Project(s * 0.55f, 0.347f, 1f, out var ap, out var an)) Pm.Blinkers.Add(new Blinker(ap + an * 0.008f, an, new Vector2(0.13f, 0.03f)));
-                foreach (float x in new[] { 0.5f, 0.68f })
-                    Body.PatchX(Mb, s, 1.55f, 1.9f, t => new Vector2(x - 0.0035f, x + 0.0035f), BShoulder, BCentre, 0.0012f, Seam, 8, 1);
-                foreach (float z in new[] { 1.55f, 1.9f })
-                    Body.PatchX(Mb, s, z - 0.0035f, z + 0.0035f, t => new Vector2(0.5f, 0.68f), BShoulder, BCentre, 0.0012f, Seam, 1, 6);
+                // closed pop-up lid: a slightly proud panel with a dark gap all round
+                Body.PatchX(Mb, s, 1.545f, 1.905f, t => new Vector2(0.495f, 0.685f), BShoulder, BCentre, 0.0012f, Seam, 10, 6);
+                Body.PatchX(Mb, s, 1.552f, 1.898f, t => new Vector2(0.502f, 0.678f), BShoulder, BCentre, 0.0035f, Paint, 10, 6);
+
                 var (sm, smn) = Side(1.75f, 0.42f, s);
                 CarKit.Lamp(Mb, sm, smn, Vector3.forward, CarKit.Rect(0.07f, 0.02f, 0.008f), Amber, Plastic, 0.003f, 0.02f);
                 Pm.Blinkers.Add(new Blinker(sm + smn * 0.003f, smn, new Vector2(0.07f, 0.02f)));

@@ -24,6 +24,9 @@ namespace HideAndSeek.Map.Editor
         protected override float TubFloor => 0.26f;
         protected override float[] BodyBreaks => new[] { 0.88f, -0.42f, -1.95f };
         protected override float SideFullness => 0.6f;
+        // two soft bonnet creases from the A-pillars towards the lamps, gone before the lamp face
+        protected override float DeckRidge(float z) => 0.014f * Mathf.Clamp01((z - 0.95f) / 0.1f) * Mathf.Clamp01((1.92f - z) / 0.12f);
+        protected override int[] SharpRings => new[] { BDeck1 };
         protected override float RoofRound => 0.8f;
 
         private const float ZF = 2.075f, ZR = -2.075f;
@@ -55,10 +58,13 @@ namespace HideAndSeek.Map.Editor
         // short, slightly sloping bonnet; the tail is a steep tailgate face (glass above, panel below) over the bumper
         protected override BodyKey[] BodyKeys() => new[]
         {
-            K(ZF, 0.35f, 0.56f, 0.575f, 0.45f, 0.55f, 0.5f, 0.52f, 0f, 1f),
-            K(2.06f, 0.26f, 0.68f, 0.695f, 0.45f, 0.67f, 0.57f, 0.59f, 0f, 1f),
-            K(2.02f, 0.22f, 0.76f, 0.775f, 0.47f, 0.75f, 0.66f, 0.68f, 0f, 0.8f),
-            K(1.98f, 0.21f, 0.8f, 0.815f, 0.48f, 0.79f, 0.73f, 0.745f),
+            // bumper stands proud of the lamp / grille face: a short shelf at its top edge
+            K(ZF, 0.33f, 0.6f, 0.615f, 0.42f, 0.59f, 0.48f, 0.495f, 0f, 1f),
+            K(2.068f, 0.27f, 0.68f, 0.695f, 0.43f, 0.67f, 0.51f, 0.525f, 0f, 0.6f),
+            K(2.052f, 0.24f, 0.735f, 0.75f, 0.44f, 0.72f, 0.525f, 0.54f, 0f, 0.4f),
+            K(2.04f, 0.23f, 0.76f, 0.775f, 0.46f, 0.745f, 0.59f, 0.61f, 0f, 0.6f),
+            K(2.0f, 0.215f, 0.795f, 0.81f, 0.48f, 0.78f, 0.715f, 0.735f),
+            K(1.96f, 0.21f, 0.81f, 0.825f, 0.49f, 0.8f, 0.745f, 0.765f),
             K(1.9f, 0.2f, 0.825f, 0.84f, 0.5f, 0.81f, 0.77f, 0.79f),
             K(1.6f, 0.18f, 0.845f, 0.86f, 0.53f, 0.83f, 0.82f, 0.84f),
             K(1.205f, 0.18f, 0.85f, 0.865f, 0.55f, 0.835f, 0.88f, 0.895f),
@@ -131,7 +137,7 @@ namespace HideAndSeek.Map.Editor
         {
             // one smooth clear cover per side over a chrome reflector bowl with two round lamps, indicator at the end
             // shaped lens: straight top edge along the bonnet, lower edge sagging, outer end wrapping the corner
-            var unit = new[] { new Vector2(0.28f, 0.6f), new Vector2(0.4f, 0.582f), new Vector2(0.55f, 0.576f), new Vector2(0.68f, 0.59f),
+            var unit = new[] { new Vector2(0.28f, 0.606f), new Vector2(0.4f, 0.59f), new Vector2(0.55f, 0.586f), new Vector2(0.68f, 0.597f),
                 new Vector2(0.755f, 0.62f), new Vector2(0.785f, 0.665f), new Vector2(0.77f, 0.706f), new Vector2(0.28f, 0.706f) };
             var amber = new[] { new Vector2(0.715f, 0.603f), new Vector2(0.765f, 0.628f), new Vector2(0.783f, 0.665f), new Vector2(0.77f, 0.7f), new Vector2(0.715f, 0.7f) };
             foreach (float s in new[] { -1f, 1f })
@@ -145,9 +151,12 @@ namespace HideAndSeek.Map.Editor
                     }
                 Body.ProjectedPatch(Mb, amber, 1f, s, 0.009f, Amber);
                 if (Body.Project(s * 0.745f, 0.655f, 1f, out var ap, out var an)) Pm.Blinkers.Add(new Blinker(ap + an * 0.009f, an, new Vector2(0.05f, 0.08f)));
-                Body.ProjectedPatch(Mb, unit, 1f, s, 0.026f, Glass);
+                Body.ProjectedPatch(Mb, unit, 1f, s, 0.011f, Glass);
                 // bumper: lower grille, fog lamps in black surrounds, slim rubbing strip round the corner
-                Body.ProjectedLamp(Mb, CarLoft.PolyAt(0f, 0.31f, new Vector2(0f, -0.05f), new Vector2(0.34f, -0.05f), new Vector2(0.38f, 0.05f), new Vector2(0f, 0.05f)), 1f, s, Grille, Seam, 0.008f, 0.002f);
+                Body.ProjectedLamp(Mb, CarLoft.PolyAt(0f, 0.31f, new Vector2(0f, -0.065f), new Vector2(0.42f, -0.065f), new Vector2(0.46f, 0.06f), new Vector2(0f, 0.06f)), 1f, s, Grille, Seam, 0.008f, 0.002f);
+                // shut lines: bonnet edge over the lamps and grille, bumper top under them
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.4f, 0.713f, 0.8f, 0.005f, 0.001f), 1f, s, 0.0015f, Seam, 2);
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.4f, 0.515f, 0.8f, 0.005f, 0.001f), 1f, s, 0.0015f, Seam, 2);
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.18f, 0.31f, 0.36f, 0.012f, 0.004f), 1f, s, 0.006f, Plastic, 2);
                 Body.ProjectedLamp(Mb, CarLoft.RectAt(0.55f, 0.335f, 0.15f, 0.1f, 0.045f), 1f, s, Plastic, Seam, 0.008f, 0.003f);
                 if (Body.Project(s * 0.55f, 0.335f, 1f, out var fp, out var fn)) CarKit.RoundLamp(Mb, fp + fn * 0.004f, fn, 0.042f, Chrome, Lens);
@@ -195,11 +204,16 @@ namespace HideAndSeek.Map.Editor
         private const float QB = -0.47f, QA = -0.85f, QE = -1.3f, Recess = 0.012f;
 
         /// <summary>Glass-height fraction (0 belt .. 1 top) where the arched rear edge crosses z.</summary>
+        private const float EdgePow = 2.2f;
+
+        /// <summary>The arch leaves the roof line tangentially and meets the belt at about 60 degrees.</summary>
         private static float EdgeH(float z)
         {
             float t = Mathf.InverseLerp(QE, QA, z);
-            return Mathf.Sqrt(Mathf.Max(0f, 1f - t * t));
+            return 1f - Mathf.Pow(t, EdgePow);
         }
+
+        private static float EdgeZ(float h) => Mathf.Lerp(QE, QA, Mathf.Pow(Mathf.Clamp01(1f - h), 1f / EdgePow));
 
         private Vector2 YAt(float z, float h0, float h1)
         {
@@ -217,29 +231,42 @@ namespace HideAndSeek.Map.Editor
             foreach (float s in new[] { -1f, 1f })
             {
                 System.Func<float, float> zA = t => Mathf.Lerp(QE, QA, t), zB = t => Mathf.Lerp(QA, QB, t);
-                Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), 0f, EdgeH(zA(t))), CSeal, CGlassTop, 0f, Paint, 24, 8);
-                Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), 0f, EdgeH(zA(t))), CSeal, CGlassTop, -0.02f, lining, 24, 8, true);
+                Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), 0f, EdgeH(zA(t))), CSeal, CGlassTop, 0f, Paint, 72, 8);
+                Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), 0f, EdgeH(zA(t))), CSeal, CGlassTop, -0.02f, lining, 72, 8, true);
                 foreach (bool inner in new[] { false, true })
                 {
-                    Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), EdgeH(zA(t)), 1f), CSeal, CGlassTop, -Recess, Glass, 24, 4, inner);
+                    Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), EdgeH(zA(t)), 1f), CSeal, CGlassTop, -Recess, Glass, 72, 4, inner);
                     Cabin.PatchY(Mb, s, QA, QB, t => YAt(zB(t), 0f, 1f), CSeal, CGlassTop, -Recess, Glass, 8, 4, inner);
                 }
                 // opening perimeter (z, h): top edge, arch, belt, B-pillar
                 var rim = new System.Collections.Generic.List<Vector2>();
                 for (int i = 0; i <= 10; i++) rim.Add(new Vector2(Mathf.Lerp(QB, QE, i / 10f), 0.995f));
-                for (int i = 1; i <= 24; i++) { float z = zA(i / 24f); rim.Add(new Vector2(z, Mathf.Min(0.995f, EdgeH(z)))); }
+                for (int i = 1; i <= 48; i++) { float h = 1f - i / 48f; rim.Add(new Vector2(EdgeZ(h), Mathf.Clamp(h, 0.005f, 0.995f))); }
                 for (int i = 1; i <= 8; i++) rim.Add(new Vector2(zB(i / 8f), 0.005f));
                 for (int i = 1; i <= 6; i++) rim.Add(new Vector2(QB, Mathf.Lerp(0.005f, 0.995f, i / 6f)));
                 var (cp, _) = Cabin.OnSideAtY(-0.75f, YAt(-0.75f, 0.5f, 0.5f).x, CSeal, CGlassTop, s);
-                for (int i = 0; i < rim.Count - 1; i++)
+                int m = rim.Count;
+                var P = new Vector3[m];
+                var N = new Vector3[m];
+                var W = new Vector3[m];
+                for (int i = 0; i < m; i++)
+                    (P[i], N[i]) = Cabin.OnSideAtY(rim[i].x, YAt(rim[i].x, rim[i].y, rim[i].y).x, CSeal, CGlassTop, s);
+                for (int i = 0; i < m; i++)
                 {
-                    var (pa, na) = Cabin.OnSideAtY(rim[i].x, YAt(rim[i].x, rim[i].y, rim[i].y).x, CSeal, CGlassTop, s);
-                    var (pb, nb) = Cabin.OnSideAtY(rim[i + 1].x, YAt(rim[i + 1].x, rim[i + 1].y, rim[i + 1].y).x, CSeal, CGlassTop, s);
-                    Vector3 mid = (pa + pb) * 0.5f, n = (na + nb).normalized;
-                    Vector3 w = cp - mid;
-                    w -= n * Vector3.Dot(w, n);
-                    w.Normalize();
-                    Mb.Quad(pa, pb, pb - nb * Recess, pa - na * Recess, w, w, w, w, Trim);
+                    // inward direction on the skin, perpendicular to the edge, smoothed per point
+                    Vector3 tan = P[Mathf.Min(i + 1, m - 1)] - P[Mathf.Max(i - 1, 0)];
+                    Vector3 w = Vector3.Cross(N[i], tan).normalized;
+                    if (Vector3.Dot(w, cp - P[i]) < 0f) w = -w;
+                    W[i] = w;
+                }
+                var seal = Lib["Car_Seam"];
+                for (int i = 0; i < m - 1; i++)
+                {
+                    Vector3 wa = W[i], wb = W[i + 1];
+                    Mb.Quad(P[i], P[i + 1], P[i + 1] - N[i + 1] * Recess, P[i] - N[i] * Recess, wa, wb, wb, wa, seal);
+                    // matt rubber seal laid over the joint along the curve (covers the row steps of skin and glass)
+                    Mb.Quad(P[i] - wa * 0.006f + N[i] * 0.0015f, P[i + 1] - wb * 0.006f + N[i + 1] * 0.0015f,
+                        P[i + 1] + wb * 0.008f + N[i + 1] * 0.0015f, P[i] + wa * 0.008f + N[i] * 0.0015f, N[i], N[i + 1], N[i + 1], N[i], seal);
                 }
             }
         }

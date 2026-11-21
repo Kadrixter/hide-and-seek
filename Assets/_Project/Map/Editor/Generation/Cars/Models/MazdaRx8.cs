@@ -44,10 +44,15 @@ namespace HideAndSeek.Map.Editor
             K(-0.98f, 0.15f, 0.865f, 0.885f, 0.6f, 0.83f, 0.94f, 0.94f, 1f),
             K(-1.12f, 0.15f, 0.87f, 0.885f, 0.6f, 0.83f, 0.95f, 0.96f),
             K(-1.345f, 0.15f, 0.87f, 0.885f, 0.61f, 0.82f, 0.96f, 0.97f),
-            K(-1.9f, 0.18f, 0.83f, 0.85f, 0.62f, 0.77f, 0.975f, 0.99f),
-            K(-2.08f, 0.22f, 0.74f, 0.76f, 0.62f, 0.68f, 0.98f, 1.0f),
-            K(-2.17f, 0.26f, 0.64f, 0.66f, 0.62f, 0.58f, 0.96f, 0.99f, 0f, 1f),
-            K(ZR, 0.3f, 0.52f, 0.54f, 0.6f, 0.47f, 0.9f, 0.93f, 0f, 1f),
+            // boot lid dished (centre below the sides), the boot face stands back from a bumper with a shelf on top
+            K(-1.9f, 0.18f, 0.83f, 0.85f, 0.62f, 0.77f, 0.975f, 0.965f),
+            K(-2.06f, 0.22f, 0.75f, 0.77f, 0.62f, 0.69f, 0.985f, 0.972f),
+            K(-2.12f, 0.24f, 0.69f, 0.71f, 0.6f, 0.63f, 0.97f, 0.98f, 0f, 0.8f),
+            K(-2.165f, 0.26f, 0.62f, 0.64f, 0.58f, 0.57f, 0.88f, 0.9f, 0f, 1f),
+            K(-2.185f, 0.27f, 0.58f, 0.6f, 0.56f, 0.53f, 0.72f, 0.73f, 0f, 0.6f),
+            K(-2.2f, 0.28f, 0.55f, 0.57f, 0.5f, 0.5f, 0.69f, 0.7f, 0f, 0.4f),
+            K(ZR, 0.31f, 0.5f, 0.52f, 0.48f, 0.46f, 0.66f, 0.67f, 0f, 0.8f),
+
         };
 
         protected override CabinKey[] CabinKeys() => new[]
@@ -160,40 +165,45 @@ namespace HideAndSeek.Map.Editor
 
         private void Rear()
         {
-            // silver housings with big round red lamps, clear cover, boot lid with an upturned edge, diffuser, two pipes
-            var housing = new[] { new Vector2(0.28f, 0.77f), new Vector2(0.6f, 0.74f), new Vector2(0.68f, 0.78f), new Vector2(0.68f, 0.87f), new Vector2(0.3f, 0.885f) };
+            // silver housings with big round red lamps, wrapping round the corner onto the wing
+            var housing = new[] { new Vector2(0.26f, 0.775f), new Vector2(0.58f, 0.75f), new Vector2(0.71f, 0.785f), new Vector2(0.73f, 0.87f), new Vector2(0.28f, 0.885f) };
             foreach (float s in new[] { -1f, 1f })
             {
-                Body.ProjectedLamp(Mb, housing, -1f, s, Lib["Car_RimSilver"], Seam);
-                foreach (var (x, r, m) in new[] { (0.58f, 0.055f, Tail), (0.42f, 0.05f, s > 0 ? Amber : Tail) })
+                Body.ProjectedLamp(Mb, housing, -1f, s, Lib["Car_RimSilver"], Seam, 0.008f, 0.004f, 0.1f);
+                foreach (var (x, r, m) in new[] { (0.55f, 0.055f, Tail), (0.4f, 0.05f, s > 0 ? Amber : Tail) })
                     if (Body.Project(s * x, 0.818f, -1f, out var lp, out var ln))
                     {
                         CarKit.Lamp(Mb, lp + ln * 0.004f, ln, Vector3.right * s, CarKit.Circle(r + 0.01f, 22), Plastic, Plastic, 0.002f, 0.004f);
                         CarKit.RoundLamp(Mb, lp + ln * 0.006f, ln, r, Chrome, m);
                     }
-                if (Body.Project(s * 0.42f, 0.818f, -1f, out var bp, out var bn)) Pm.Blinkers.Add(new Blinker(bp + bn * 0.022f, bn, new Vector2(0.08f, 0.08f)));
-                Body.ProjectedPatch(Mb, housing, -1f, s, 0.026f, Glass);
-                // boot lid shut line under the lamps, red reflectors in the bumper corners
-                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.15f, 0.705f, 0.3f, 0.005f, 0.001f), -1f, s, 0.0015f, Seam, 2);
-                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.3f, 0.75f, 0.005f, 0.09f, 0.001f), -1f, s, 0.0015f, Seam, 2);
-                Body.ProjectedLamp(Mb, CarLoft.RectAt(0.6f, 0.47f, 0.12f, 0.03f, 0.008f), -1f, s, Lib["Car_TailDark"], Seam, 0.004f, 0.003f);
-                // diffuser with fins and the pipes
-                Body.ProjectedLamp(Mb, CarLoft.RectAt(0.33f, 0.33f, 0.66f, 0.1f, 0.03f), -1f, s, Plastic, Seam, 0.006f, 0.004f);
+                if (Body.Project(s * 0.4f, 0.818f, -1f, out var bp, out var bn)) Pm.Blinkers.Add(new Blinker(bp + bn * 0.022f, bn, new Vector2(0.08f, 0.08f)));
+                Body.ProjectedPatch(Mb, housing, -1f, s, 0.012f, Glass, 4, 0.1f);
+                // boot lid / bumper split along the shelf, crease across the bumper
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.33f, 0.707f, 0.66f, 0.005f, 0.001f), -1f, s, 0.0015f, Seam, 2);
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.38f, 0.455f, 0.76f, 0.004f, 0.001f), -1f, s, 0.0012f, Seam, 2);
+                // reflector set in a black recess at each bumper corner
+                Body.ProjectedLamp(Mb, CarLoft.RectAt(0.54f, 0.5f, 0.16f, 0.05f, 0.015f), -1f, s, Plastic, Seam, 0.006f, 0.002f);
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(0.54f, 0.5f, 0.13f, 0.028f, 0.01f), -1f, s, 0.005f, Lib["Car_TailDark"], 2);
+                // black diffuser reaching up into the bumper
+                Body.ProjectedLamp(Mb, CarLoft.RectAt(0.3f, 0.35f, 0.6f, 0.15f, 0.03f), -1f, s, Plastic, Seam, 0.006f, 0.004f);
             }
-            Body.Project(0f, 0.33f, -1f, out var dc, out _);
+            Body.Project(0f, 0.35f, -1f, out var dc, out _);
             for (int i = -3; i <= 3; i++)
-                Mb.Box(new Vector3(i * 0.16f, 0.33f, dc.z - 0.02f), new Vector3(0.012f, 0.09f, 0.08f), Plastic);
+                Mb.Box(new Vector3(i * 0.15f, 0.36f, dc.z - 0.015f), new Vector3(0.012f, 0.1f, 0.06f), Plastic);
             foreach (float s in new[] { -1f, 1f })
-                CarKit.Exhaust(Mb, new Vector3(s * 0.4f, 0.32f, dc.z + 0.03f), 0.045f, 0.14f);
-            Body.Project(0f, 0.62f, -1f, out var pc, out var pn);
-            CarKit.Lamp(Mb, pc, pn, Vector3.right, CarKit.Rect(0.56f, 0.15f, 0.03f), Paint, Seam, 0.001f, 0.02f);
-            CarKit.Plate(Mb, pc + pn * 0.006f, pn, "WX RX8 03", 0.95f);
+                CarKit.Exhaust(Mb, new Vector3(s * 0.4f, 0.31f, dc.z + 0.03f), 0.045f, 0.14f);
+            // plate in a recess with two plate lamps over it
+            Body.Project(0f, 0.585f, -1f, out var pc, out var pn);
+            CarKit.Lamp(Mb, pc, pn, Vector3.right, CarKit.Rect(0.56f, 0.15f, 0.03f), Plastic, Seam, 0.001f, 0.025f);
+            CarKit.Plate(Mb, pc + pn * 0.004f, pn, "WX RX8 03", 0.95f);
+            foreach (float x in new[] { -0.15f, 0.15f })
+                CarKit.Lamp(Mb, pc + pn * 0.003f + new Vector3(x, 0.066f, 0f), pn, Vector3.right, CarKit.Rect(0.05f, 0.012f, 0.004f), Lens, Plastic, 0.002f, 0.004f);
             Body.Project(0f, 0.8f, -1f, out var mc, out var mn);
             CarBadges.Mazda(Mb, mc + mn * 0.004f, mn, 0.035f);
-            Body.Project(0.45f, 0.7f, -1f, out var tp, out _);
-            Mb.Text("RX-8", new Vector3(-0.45f, 0.7f, tp.z - 0.004f), Vector3.back, Vector3.up, 0.035f, Lib["Text_White"]);
-            // upturned boot edge
-            CarBlob.Blob(Mb, new Vector3(0, 1.0f, -2.1f), Quaternion.Euler(8f, 0, 0), new Vector3(0.62f, 0.014f, 0.07f), 0.35f, Paint, 0.5f, 1f, 16, 8);
+            Body.Project(0.45f, 0.73f, -1f, out var tp, out _);
+            Mb.Text("RX-8", new Vector3(-0.45f, 0.735f, tp.z - 0.004f), Vector3.back, Vector3.up, 0.03f, Lib["Text_White"]);
+            // boot lid dished in the middle, its trailing edge turned up into a lip spoiler
+            CarBlob.Blob(Mb, new Vector3(0, 0.99f, -2.12f), Quaternion.Euler(10f, 0, 0), new Vector3(0.6f, 0.016f, 0.06f), 0.35f, Paint, 0.5f, 1f, 16, 8);
             SeamAcross(-1.6f, 0.66f);
             SeamTop(-2.1f, -1.6f, t => 0.66f);
         }

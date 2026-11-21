@@ -50,7 +50,7 @@ namespace HideAndSeek.Map.Editor
         public const int CBelt = 0, CSeal = 1, CGlassMid = 2, CGlassTop = 3, CFrame = 4, CRoofEdge = 5, CRoof = 6, CCentre = 7;
 
         public static CarLoft Body(IList<BodyKey> keys, IList<Arch> arches, float wellInset, float tubWall, float tubFloor,
-            IEnumerable<float> breaks, float step = 0.035f)
+            IEnumerable<float> breaks, float step = 0.035f, System.Func<float, float> deckRidge = null)
         {
             var k = keys.OrderBy(q => q.Z).ToArray();
             float[] xs = k.Select(q => q.Z).ToArray();
@@ -84,7 +84,8 @@ namespace HideAndSeek.Map.Editor
                 p[BShoulder] = new Vector2(wSh, Mathf.Max(ySh, aY + 0.08f));
                 float yS = p[BShoulder].y;
                 var r9 = new Vector2(wSh - 0.012f - 0.05f * round, yS + Mathf.Max(0.004f, crown * 0.22f + 0.022f * round));
-                var d1 = new Vector2(wSh * 0.7f, yS + crown * 0.78f + 0.012f * round);
+                // deckRidge > 0 lifts the deck line at 70 % width: two soft bonnet creases (sharp ring BDeck1)
+                var d1 = new Vector2(wSh * 0.7f, yS + crown * 0.78f + 0.012f * round + (deckRidge != null ? deckRidge(z) : 0f));
                 var d2 = new Vector2(wSh * 0.36f, yS + crown * 0.97f + 0.004f * round);
                 var c = new Vector2(0f, yTop + 0.004f * round);
                 // cabin tub: door top, inner door panel, floor
@@ -136,8 +137,11 @@ namespace HideAndSeek.Map.Editor
                 secs.Add(p);
             }
             var loft = new CarLoft(zs, secs);
-            loft.SharpRing.Add(CSeal);
-            loft.SharpRing.Add(CGlassTop);
+            if (sideFullness <= 0f) // a full (rounded) side flows from the belt into the roof without creases
+            {
+                loft.SharpRing.Add(CSeal);
+                loft.SharpRing.Add(CGlassTop);
+            }
             return loft;
         }
 

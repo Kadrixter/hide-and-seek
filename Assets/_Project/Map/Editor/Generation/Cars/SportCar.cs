@@ -45,6 +45,10 @@ namespace HideAndSeek.Map.Editor
         protected virtual float RoofRound => 1f;
         protected virtual float RoofDip => 0f;
         protected virtual float SideFullness => 0f;
+        /// <summary>Lift of the deck line at 70 % width along z (soft bonnet creases); 0 = none.</summary>
+        protected virtual float DeckRidge(float z) => 0f;
+        /// <summary>Radius of a rolled lip round the wheel arches (0 = none).</summary>
+        protected virtual float ArchLipBead => 0f;
         /// <summary>Extra crease lines of the body (ring indices, e.g. a crisp shoulder).</summary>
         protected virtual int[] SharpRings => new int[0];
         protected virtual Material FrontCap => Paint;
@@ -79,7 +83,7 @@ namespace HideAndSeek.Map.Editor
             _tubZ = BKeys.OrderBy(k => k.Z).Select(k => k.Z).ToArray();
             _tubV = BKeys.OrderBy(k => k.Z).Select(k => k.Tub).ToArray();
             var arches = new[] { FrontArch, RearArch };
-            Body = CarShapes.Body(BKeys, arches, WellInset, TubWall, TubFloor, BodyBreaks);
+            Body = CarShapes.Body(BKeys, arches, WellInset, TubWall, TubFloor, BodyBreaks, 0.035f, DeckRidge);
             foreach (int r in SharpRings) Body.SharpRing.Add(r);
             Body.Emit(mb, BodyMat);
             if (FrontCap != null) Body.Cap(mb, Body.Stations - 1, 1f, FrontCap);
@@ -93,6 +97,8 @@ namespace HideAndSeek.Map.Editor
                 foreach (float s in new[] { -1f, 1f })
                 {
                     CarWheels.Well(mb, a, yBot, xIn, xOut, s);
+                    if (ArchLipBead > 0f)
+                        CarWheels.ArchLip(mb, a, yBot, sec[CarShapes.BRocker].x - ArchLipBead * 0.2f, s, Paint, ArchLipBead);
                     CarWheels.Wheel(mb, new Vector3(s * wx, TireRadius, a.Z), s, TireRadius, TireWidth, RimRadius, Rim, RimMat, Caliper);
                 }
             }
