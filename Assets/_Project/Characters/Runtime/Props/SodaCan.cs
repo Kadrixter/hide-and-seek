@@ -12,7 +12,7 @@ namespace HideAndSeek.Characters
     {
         public const float Height = 0.122f, Radius = 0.033f;
         const float LidY = 0.0585f, LidR = 0.0285f;
-        const int Seg = 40;
+        const int Seg = 48;
 
         /// <summary>Optional template material (Built-in Standard); set by the game from a scene material.</summary>
         public static Material Template;
@@ -31,7 +31,43 @@ namespace HideAndSeek.Characters
         public void SetCrush(float amount)
         {
             float c = Mathf.Clamp01(amount);
-            transform.localScale = baseScale * new Vector3(1f + 0.18f * c, 1f - 0.34f * c, 1f + 0.1f * c);
+            transform.localScale = baseScale * new Vector3(1f, 1f - 0.3f * c, 1f);
+            if (Mathf.Abs(c - crushDone) < 0.03f && !(c == 0f && crushDone != 0f)) return;
+            crushDone = c;
+            if (c <= 0f) { body.GetComponent<MeshFilter>().sharedMesh = bodyMesh; return; }
+            if (crushed == null) { crushed = Instantiate(bodyMesh); crushed.name = "SodaCanCrushed"; crushSeed = Random.Range(0f, 6.28f); }
+            var src = bodyMesh.vertices;
+            var dst = new Vector3[src.Length];
+            for (int i = 0; i < src.Length; i++) dst[i] = Crumple(src[i], c, crushSeed);
+            crushed.vertices = dst;
+            crushed.RecalculateNormals();
+            crushed.RecalculateTangents();
+            crushed.RecalculateBounds();
+            body.GetComponent<MeshFilter>().sharedMesh = crushed;
+        }
+
+        Mesh crushed;
+        float crushDone, crushSeed;
+
+        void OnDestroy()
+        {
+            if (crushed != null) Destroy(crushed);
+        }
+
+        /// <summary>Squeezed in a fist: pinched waist, irregular dents and folds, squashed oval; ends stay round.</summary>
+        static Vector3 Crumple(Vector3 p, float c, float seed)
+        {
+            float h = Mathf.InverseLerp(-0.061f, 0.061f, p.y);
+            float bump = Mathf.Sin(Mathf.PI * Mathf.Clamp01((h - 0.1f) / 0.75f));
+            float r = new Vector2(p.x, p.z).magnitude;
+            if (r < 1e-5f) return p;
+            float a = Mathf.Atan2(p.z, p.x);
+            float dent = 0.14f * Mathf.Sin(5f * a + seed + h * 6f) + 0.09f * Mathf.Sin(9f * a - seed * 2f + h * 22f)
+                         + 0.05f * Mathf.Sin(17f * a + h * 40f);
+            float k = 1f + c * bump * (dent - 0.24f);
+            float x = Mathf.Cos(a) * r * k * (1f + 0.22f * c * bump), z = Mathf.Sin(a) * r * k * (1f - 0.28f * c * bump);
+            float y = p.y + c * bump * 0.005f * Mathf.Sin(7f * a + seed);
+            return new Vector3(x, y, z);
         }
 
         public int Brand
@@ -141,7 +177,9 @@ namespace HideAndSeek.Characters
         static Mesh BuildBody()
         {
             // (y, r) profile rings. Printed section = submesh 0, aluminium (bottom dome, neck, rim) = submesh 1.
-            var printed = new[] { new Vector2(-0.057f, Radius), new Vector2(0.045f, Radius) };
+            // Printed section in 14 rings, so the body can be crumpled.
+            var printed = new Vector2[14];
+            for (int i = 0; i < printed.Length; i++) printed[i] = new Vector2(Mathf.Lerp(-0.057f, 0.045f, i / 13f), Radius);
             var bottom = new[] { new Vector2(-0.0585f, 0.02f), new Vector2(-0.061f, 0.0255f), new Vector2(-0.0605f, 0.029f), new Vector2(-0.059f, 0.0318f), new Vector2(-0.057f, Radius) };
             var neck = new[] { new Vector2(0.045f, Radius), new Vector2(0.051f, 0.0318f), new Vector2(0.0565f, 0.0292f), new Vector2(0.0595f, 0.0286f), new Vector2(0.0608f, 0.0298f), new Vector2(0.0614f, 0.0291f), new Vector2(0.0605f, 0.0280f), new Vector2(LidY, LidR) };
             var v = new List<Vector3>();
@@ -204,7 +242,7 @@ namespace HideAndSeek.Characters
             {
                 float a = j * Mathf.PI * 2f / Seg, x = Mathf.Cos(a), z = Mathf.Sin(a);
                 v.Add(new Vector3(x * r, y, z * r));
-                uv.Add(new Vector2(0.5f + x * 0.5f, 0.5f - z * 0.5f)); // +V on the lid texture = -Z (front)
+                uv.Add(new Vector2(0.5f + x * 0.5f, 0.5f + z * 0.5f)); // lid texture reads upright from the front; opening at -V = -Z
                 if (j > 0) { if (up) { t.Add(0); t.Add(j + 1); t.Add(j); } else { t.Add(0); t.Add(j); t.Add(j + 1); } }
             }
             var m = new Mesh { name = "SodaCanLid" };
@@ -228,28 +266,63 @@ namespace HideAndSeek.Characters
             return m;
         }
 
-        /// <summary>Pull tab: nose over the opening (-Z), rivet at the origin, finger ring towards +Z.</summary>
+        /// <summary>
+        /// Pull tab cut from an outline: rounded nose over the opening (-Z), rivet pad at the origin, finger ring with a
+        /// rounded hole towards +Z. Sampled on a fine grid and extruded (top, bottom and boundary walls), slightly domed.
+        /// </summary>
         static Mesh BuildTab()
         {
+            const float cell = 0.0005f, th = 0.0007f;
+            const int nx = 30, nz = 60;           // 15 mm x 30 mm
+            const float x0 = -0.0075f, z0 = -0.009f;
+            static float Capsule(float x, float z, float zA, float zB, float r)
+            {
+                float cz = Mathf.Clamp(z, zA, zB);
+                return Mathf.Sqrt(x * x + (z - cz) * (z - cz)) - r;
+            }
+            bool Solid(int i, int k)
+            {
+                if (i < 0 || k < 0 || i >= nx || k >= nz) return false;
+                float x = x0 + (i + 0.5f) * cell, z = z0 + (k + 0.5f) * cell;
+                bool outer = Capsule(x, z, -0.004f, 0.0155f, 0.0062f) < 0f;
+                bool hole = Capsule(x, z, 0.0085f, 0.0145f, 0.0037f) < 0f;
+                return outer && !hole;
+            }
             var v = new List<Vector3>();
             var t = new List<int>();
-            void Box(Vector3 min, Vector3 max)
+            float Dome(float x, float z) => 0.0004f * (1f - Mathf.Clamp01((x * x) / (0.0062f * 0.0062f)));
+            void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
             {
-                int s = v.Count;
-                for (int i = 0; i < 8; i++) v.Add(new Vector3((i & 1) == 0 ? min.x : max.x, (i & 2) == 0 ? min.y : max.y, (i & 4) == 0 ? min.z : max.z));
-                int[] q = { 0, 2, 3, 1, 4, 5, 7, 6, 0, 1, 5, 4, 2, 6, 7, 3, 0, 4, 6, 2, 1, 3, 7, 5 };
-                for (int f = 0; f < 6; f++)
-                {
-                    int a = s + q[f * 4], b = s + q[f * 4 + 1], c = s + q[f * 4 + 2], d = s + q[f * 4 + 3];
-                    t.Add(a); t.Add(b); t.Add(c); t.Add(a); t.Add(c); t.Add(d);
-                }
+                int s0 = v.Count;
+                v.Add(a); v.Add(b); v.Add(c); v.Add(d);
+                t.Add(s0); t.Add(s0 + 1); t.Add(s0 + 2); t.Add(s0); t.Add(s0 + 2); t.Add(s0 + 3);
             }
-            const float th = 0.0008f;
-            Box(new Vector3(-0.0055f, 0f, -0.007f), new Vector3(0.0055f, th, 0.003f));   // nose + rivet plate
-            Box(new Vector3(-0.0065f, 0f, 0.003f), new Vector3(-0.0035f, th, 0.019f));   // ring sides
-            Box(new Vector3(0.0035f, 0f, 0.003f), new Vector3(0.0065f, th, 0.019f));
-            Box(new Vector3(-0.0065f, 0f, 0.016f), new Vector3(0.0065f, th, 0.0205f));   // ring end
+            for (int i = 0; i < nx; i++)
+            for (int k = 0; k < nz; k++)
+            {
+                if (!Solid(i, k)) continue;
+                float xa = x0 + i * cell, xb = xa + cell, za = z0 + k * cell, zb = za + cell;
+                float ya = Dome(xa, za), yb = Dome(xb, za);
+                // Top (+Y) and bottom (-Y).
+                Quad(new Vector3(xa, th + ya, za), new Vector3(xa, th + ya, zb), new Vector3(xb, th + yb, zb), new Vector3(xb, th + yb, za));
+                Quad(new Vector3(xa, ya, za), new Vector3(xb, yb, za), new Vector3(xb, yb, zb), new Vector3(xa, ya, zb));
+                // Walls on the outline.
+                if (!Solid(i - 1, k)) Quad(new Vector3(xa, ya, za), new Vector3(xa, ya, zb), new Vector3(xa, th + ya, zb), new Vector3(xa, th + ya, za));
+                if (!Solid(i + 1, k)) Quad(new Vector3(xb, yb, zb), new Vector3(xb, yb, za), new Vector3(xb, th + yb, za), new Vector3(xb, th + yb, zb));
+                if (!Solid(i, k - 1)) Quad(new Vector3(xb, yb, za), new Vector3(xa, ya, za), new Vector3(xa, th + ya, za), new Vector3(xb, th + yb, za));
+                if (!Solid(i, k + 1)) Quad(new Vector3(xa, ya, zb), new Vector3(xb, yb, zb), new Vector3(xb, th + yb, zb), new Vector3(xa, th + ya, zb));
+            }
+            // Rivet head on the pad.
+            int c0 = v.Count;
+            v.Add(new Vector3(0f, th + 0.0011f, 0f));
+            for (int j = 0; j <= 16; j++)
+            {
+                float a = j * Mathf.PI * 2f / 16f;
+                v.Add(new Vector3(Mathf.Cos(a) * 0.0022f, th + 0.0004f, Mathf.Sin(a) * 0.0022f));
+                if (j > 0) { t.Add(c0); t.Add(c0 + j + 1); t.Add(c0 + j); }
+            }
             var m = new Mesh { name = "SodaCanTab" };
+            m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
             return m;
         }

@@ -10,7 +10,7 @@ namespace HideAndSeek.Characters
     public static class SodaCanArt
     {
         public const int BrandCount = 8;
-        const int LW = 512, LH = 256, LidN = 128;
+        const int LW = 512, LH = 256, LidN = 512;
 
         struct Brand
         {
@@ -91,13 +91,13 @@ namespace HideAndSeek.Characters
             // Front (u = 0.75): logo, embossed.
             int front = LW * 3 / 4;
             int sxName = Mathf.Clamp(150 / Mathf.Max(1, CanFont.Width(br.Name, 1)), 2, 5);
-            Text(br.Name, front, 118, sxName, sxName * 2 + 2, br.Ink, 1f, br.Accent * 0.35f + Color.black * 0.65f);
-            Text(br.Sub, front, 96, 2, 3, br.Ink, 0.7f);
-            Rect(front - 48, 88, front + 48, 90, br.Ink, 0.5f);
-            Text(br.Flavour, front, 70, 1, 2, br.Accent, 0.4f);
+            Text(br.Name, front, 124, sxName, sxName * 2 + 2, br.Ink, 1f, br.Accent * 0.35f + Color.black * 0.65f);
+            Text(br.Sub, front, 90, 2, 3, br.Ink, 0.7f);
+            Rect(front - 48, 84, front + 48, 86, br.Ink, 0.5f);
+            Text(br.Flavour, front, 64, 1, 2, br.Accent, 0.4f);
             Text("330 ML", front, 24, 2, 2, br.Ink, 0.6f);
             // Small round seal "NOWOSC" / "ORYGINAL" next to the logo.
-            int sealX = front + 70, sealY = 224;
+            int sealX = front - 72, sealY = 44;
             for (int y = -16; y <= 16; y++) for (int x = -16; x <= 16; x++)
             {
                 float d = Mathf.Sqrt(x * x + y * y);
@@ -248,31 +248,48 @@ namespace HideAndSeek.Characters
             for (int x = 0; x < LidN; x++)
             {
                 float dx = (x - c) / c, dy = (y - c) / c, r = Mathf.Sqrt(dx * dx + dy * dy);
-                float g = 0.74f + 0.04f * Mathf.Sin(r * 60f) + 0.02f * Mathf.PerlinNoise(x * 0.3f, y * 0.3f);
+                float g = 0.76f + 0.012f * Mathf.Sin(r * 140f) + 0.03f * Mathf.PerlinNoise(x * 0.22f, y * 0.012f);
                 float height = r > 0.93f ? 1f : r > 0.86f ? 0.2f : 0.55f;  // rolled rim, countersink, panel
                 if (Mathf.Abs(r - 0.62f) < 0.012f) height -= 0.25f;        // engraved ring
                 // Score line of the opening (towards +V = front of the can), engraved.
-                float ox = dx / 0.3f, oy = (dy - 0.42f) / 0.36f;
+                float ox = dx / 0.3f, oy = (dy + 0.42f) / 0.36f;
                 float oval = Mathf.Sqrt(ox * ox + oy * oy);
                 if (Mathf.Abs(oval - 1f) < 0.06f) height -= 0.35f;
                 px[y * LidN + x] = new Color(g, g + 0.01f, g + 0.02f, 1f);
                 h[y * LidN + x] = height;
             }
-            void Engrave(string s, int cy)
+            // Text engraved along an arc between the engraved ring and the countersink (letters' tops point outwards).
+            void EngraveArc(string s, float centreDeg, float radius)
             {
-                int x0 = LidN / 2 - CanFont.Width(s, 1) / 2;
-                CanFont.Draw(s, x0, cy, 1, 1, (x, y) =>
+                const int sc = 2;
+                float step = (CanFont.W + 1) * sc / radius * Mathf.Rad2Deg;
+                float start = centreDeg + step * (s.Length - 1) * 0.5f;
+                for (int i = 0; i < s.Length; i++)
                 {
-                    if (x < 0 || y < 0 || x >= LidN || y >= LidN) return;
-                    h[y * LidN + x] -= 0.3f;
-                    px[y * LidN + x] *= 0.78f;
-                });
+                    float ang = (start - i * step) * Mathf.Deg2Rad;
+                    Vector2 rad = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)), tan = new Vector2(Mathf.Sin(ang), -Mathf.Cos(ang));
+                    for (int gy = CanFont.MarkTop; gy <= CanFont.MarkBottom; gy++)
+                    for (int gx = 0; gx < CanFont.W; gx++)
+                    {
+                        if (!CanFont.On(s[i], gx, gy)) continue;
+                        for (int a2 = 0; a2 < sc; a2++)
+                        for (int b2 = 0; b2 < sc; b2++)
+                        {
+                            float tx = (gx - CanFont.W * 0.5f) * sc + a2, ty = (CanFont.H - 1 - gy - CanFont.H * 0.5f) * sc + b2;
+                            Vector2 q = new Vector2(c, c) + rad * (radius + ty) + tan * tx;
+                            int x = Mathf.RoundToInt(q.x), y = Mathf.RoundToInt(q.y);
+                            if (x < 0 || y < 0 || x >= LidN || y >= LidN) continue;
+                            h[y * LidN + x] -= 0.35f;
+                            px[y * LidN + x] *= 0.8f;
+                        }
+                    }
+                }
             }
-            Engrave("RECYKLING", 30);
-            Engrave("330ML", 20);
-            Engrave("OTWÓRZ", 98);
+            // Left and right of the tab, readable from the outside of the rim.
+            EngraveArc("RECYKLING", 180f, c * 0.74f);
+            EngraveArc("330 ML", 0f, c * 0.74f);
             lid = Make(px, LidN, LidN, "CanLid", false);
-            lidNormal = NormalFrom(h, LidN, LidN, 3f, false, "CanLidN");
+            lidNormal = NormalFrom(h, LidN, LidN, 5f, false, "CanLidN");
         }
 
         // ------------------------------------------------------------------ helpers

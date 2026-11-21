@@ -36,19 +36,33 @@ namespace HideAndSeek.Characters
             [':'] = "00000 01100 01100 00000 01100 01100 00000", ['*'] = "00000 10101 01110 11111 01110 10101 00000",
         };
 
-        /// <summary>True when pixel (x, y) of the glyph is set; y = 0 is the top row.</summary>
+        /// <summary>True when pixel (x, y) of the glyph is set; y = 0 is the top row (may be -2..8 for Polish marks).</summary>
         public static bool On(char c, int x, int y)
         {
-            if (!Glyphs.TryGetValue(char.ToUpperInvariant(Fold(c)), out var g)) return false;
+            char u = char.ToUpperInvariant(c);
+            if (Marks.TryGetValue(u, out var m))
+                foreach (var p in m) if (p.x == x && p.y == y) return true;
+            if (y < 0 || y >= H || x < 0 || x >= W) return false;
+            if (!Glyphs.TryGetValue(Fold(u), out var g)) return false;
             return g[y * 6 + x] == '1';
         }
 
-        /// <summary>Polish letters printed without the diacritic (the font is 5x7).</summary>
+        /// <summary>Polish letters: base glyph + diacritic pixels (acute / dot above, ogonek below, stroke).</summary>
         static char Fold(char c) => c switch
         {
-            'ą' or 'Ą' => 'A', 'ć' or 'Ć' => 'C', 'ę' or 'Ę' => 'E', 'ł' or 'Ł' => 'L', 'ń' or 'Ń' => 'N',
-            'ó' or 'Ó' => 'O', 'ś' or 'Ś' => 'S', 'ź' or 'Ź' or 'ż' or 'Ż' => 'Z', _ => c,
+            'Ą' => 'A', 'Ć' => 'C', 'Ę' => 'E', 'Ł' => 'L', 'Ń' => 'N', 'Ó' => 'O', 'Ś' => 'S', 'Ź' or 'Ż' => 'Z', _ => c,
         };
+
+        static readonly (int x, int y)[] Acute = { (2, -2), (3, -3) };
+        static readonly Dictionary<char, (int x, int y)[]> Marks = new Dictionary<char, (int x, int y)[]>
+        {
+            ['Ą'] = new[] { (4, 7), (3, 8), (4, 8) }, ['Ę'] = new[] { (4, 7), (3, 8), (4, 8) },
+            ['Ć'] = Acute, ['Ń'] = Acute, ['Ó'] = Acute, ['Ś'] = Acute, ['Ź'] = Acute,
+            ['Ż'] = new[] { (2, -2) }, ['Ł'] = new[] { (1, 3), (2, 2) },
+        };
+
+        /// <summary>Rows a glyph may use above (negative) and below the 7-row cell.</summary>
+        public const int MarkTop = -3, MarkBottom = 8;
 
         /// <summary>Width in pixels of <paramref name="text"/> at <paramref name="scale"/> (1 px gap between glyphs).</summary>
         public static int Width(string text, int scale) => text.Length == 0 ? 0 : (text.Length * (W + 1) - 1) * scale;
@@ -63,7 +77,7 @@ namespace HideAndSeek.Characters
             {
                 char c = text[i];
                 int ox = x + i * (W + 1) * sx;
-                for (int gy = 0; gy < H; gy++)
+                for (int gy = MarkTop; gy <= MarkBottom; gy++)
                 for (int gx = 0; gx < W; gx++)
                 {
                     if (!On(c, gx, gy)) continue;
