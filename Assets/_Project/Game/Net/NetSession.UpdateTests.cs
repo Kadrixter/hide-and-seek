@@ -26,6 +26,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testrace")) StartCoroutine(RaceTest());
             if (has("-testpush")) StartCoroutine(PushTest());
             if (has("-testglockfin")) StartCoroutine(GlockFinisherTest());
+            StartCrateTests(has);
         }
 
         private static void Shot(string dir, string name)

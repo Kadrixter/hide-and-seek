@@ -708,28 +708,6 @@ namespace HideAndSeek.Game.Net
             seeker.ToastRpc("Kurz w oczach! Nic nie widzisz.", 3f);
         }
 
-        /// <summary>A player pushes the crate away from the security room door (level <paramref name="lv"/>).</summary>
-        public void ServerPushCrate(NetPlayer pl, byte lv)
-        {
-            if (pl == null || lv > 2 || SecurityRooms.Instance == null) return;
-            if (Phase.Value != MatchPhase.Hiding && Phase.Value != MatchPhase.Seeking) return;
-            if (pl.Life.Value != LifeState.Alive || pl.Busy.Value || (SecurityCrates.Value & (1 << lv)) != 0) return;
-            if (!SecurityRooms.IsNearCrate(pl.transform.position, lv)) return;
-            SecurityCrates.Value = (byte)(SecurityCrates.Value | (1 << lv));
-            StartCoroutine(PushCrateRoutine(pl, lv));
-        }
-
-        private IEnumerator PushCrateRoutine(NetPlayer pl, byte lv)
-        {
-            pl.Busy.Value = true;
-            ServerRcForcePark(pl);
-            pl.TeleportRpc(SecurityRooms.PushStand(lv), SecurityRooms.PushYaw);
-            yield return new WaitForSeconds(0.05f);
-            pl.CratePushRpc(lv);
-            yield return new WaitForSeconds(SecurityRooms.CratePushTime);
-            if (pl != null && pl.IsSpawned) pl.Busy.Value = false;
-        }
-
         /// <summary>A player pressed a level button in a security room.</summary>
         public void ServerSecurityFloor(NetPlayer pl, byte floor)
         {

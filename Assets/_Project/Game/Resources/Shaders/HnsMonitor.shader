@@ -8,6 +8,7 @@ Shader "HideAndSeek/Monitor"
         _Glitch ("Glitch", Float) = 0
         _Alarm ("Alarm", Float) = 0
         _Snow ("Snow", Float) = 0
+        _Osd ("OSD overlay", 2D) = "black" {}
     }
     SubShader
     {
@@ -18,7 +19,7 @@ Shader "HideAndSeek/Monitor"
             #pragma vertex vert
             #pragma fragment frag
             #include "UnityCG.cginc"
-            sampler2D _MainTex;
+            sampler2D _MainTex, _Osd;
             float _Gain, _Glitch, _Alarm, _Snow;
             fixed4 _Tint;
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; };
@@ -42,6 +43,9 @@ Shader "HideAndSeek/Monitor"
                 l *= saturate(1.2 - dot(d, d) * 1.4);
                 fixed3 col = l * _Tint.rgb;
                 col = lerp(col, col * float3(1.4, 0.5, 0.5), _Alarm * (0.5 + 0.5 * sin(_Time.y * 9.0)) * 0.5);
+                // On-screen display (camera name, time, REC, motion), burnt in like a real recorder's overlay.
+                fixed4 osd = tex2D(_Osd, i.uv);
+                col = lerp(col, osd.rgb * (0.9 + 0.1 * sin(i.uv.y * 360.0)), osd.a);
                 return fixed4(col, 1);
             }
             ENDCG

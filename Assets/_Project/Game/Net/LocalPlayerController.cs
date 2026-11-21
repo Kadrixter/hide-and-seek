@@ -574,12 +574,22 @@ namespace HideAndSeek.Game.Net
                 }
             }
 
-            // Security room door: crate to push aside.
-            if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && SecurityRooms.Instance != null && _p.Life.Value == LifeState.Alive &&
-                SecurityRooms.Instance.TryFindCrate(eye, fwd, out var cratePos, out int crateLv, out float crateD))
+            // Security room door: hiders push / pull the crate, the seeker cuts it with the chainsaw.
+            if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && SecurityRooms.Instance != null && _p.Life.Value == LifeState.Alive && !_p.Busy.Value &&
+                SecurityRooms.Instance.TryFindCrateAction(transform.position, eye, fwd, _p.IsSeeker,
+                    _p.IsSeeker && phase == MatchPhase.Seeking && _p.Held.Value == HeldItem.Chainsaw && _p.HasChainsaw.Value,
+                    out var crateAct, out int crateLv, out var cratePos, out float crateD))
             {
                 _crateLevel = crateLv;
-                Offer(PromptKind.SecurityCrate, cratePos, "E  przepchnij skrzynię", crateD);
+                _crateAct = crateAct;
+                Offer(PromptKind.SecurityCrate, cratePos, crateAct switch
+                {
+                    CrateAction.CloseOutside => "E  zasuń skrzynię przed drzwi",
+                    CrateAction.OpenInside => "E  odepchnij skrzynię",
+                    CrateAction.CloseInside => "E  zasuń skrzynię za sobą",
+                    CrateAction.Saw => "F  rozpiłuj skrzynię",
+                    _ => "E  przepchnij skrzynię",
+                }, crateD);
             }
 
             // Security room: buttons choosing which level the cameras show.
@@ -774,6 +784,7 @@ namespace HideAndSeek.Game.Net
 
         private int _pickupId;
         private int _crateLevel;
+        private CrateAction _crateAct;
         private int _rcSlotPrompt;
         private int _outletIdx;
         private bool _wasArcade;
@@ -912,7 +923,8 @@ namespace HideAndSeek.Game.Net
                     if (kb.eKey.wasPressedThisFrame) _p.RequestPickupChainsawRpc();
                     break;
                 case PromptKind.SecurityCrate:
-                    if (kb.eKey.wasPressedThisFrame) _p.RequestPushCrateRpc((byte)_crateLevel);
+                    if (_crateAct == CrateAction.Saw ? kb.fKey.wasPressedThisFrame : kb.eKey.wasPressedThisFrame)
+                        _p.RequestCrateActionRpc((byte)_crateLevel, (byte)_crateAct);
                     break;
                 case PromptKind.SecurityButton:
                     if (kb.eKey.wasPressedThisFrame && SecurityRooms.Instance != null) _p.RequestSecurityFloorRpc((byte)_secFloor);

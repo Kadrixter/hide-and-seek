@@ -988,28 +988,41 @@ namespace HideAndSeek.Game.Net
         [Rpc(SendTo.Server)]
         public void RequestSecurityFloorRpc(byte floor) => MatchManager.Instance?.ServerSecurityFloor(this, floor);
 
+        /// <summary>Asks the server to push / pull / cut the crate of a security room (<see cref="CrateAction"/>).</summary>
         [Rpc(SendTo.Server)]
-        public void RequestPushCrateRpc(byte level) => MatchManager.Instance?.ServerPushCrate(this, level);
+        public void RequestCrateActionRpc(byte level, byte action) => MatchManager.Instance?.ServerCrateAction(this, level, action);
 
-        /// <summary>Everybody: this player leans into the crate and pushes it aside (the owner walks along with it).</summary>
+        /// <summary>Old name kept for tests: push the crate aside from outside.</summary>
+        public void RequestPushCrateRpc(byte level) => RequestCrateActionRpc(level, (byte)CrateAction.OpenOutside);
+
+        /// <summary>Everybody: this player pushes / drags the crate (the owner walks along) or cuts it with the chainsaw.</summary>
         [Rpc(SendTo.Everyone)]
-        public void CratePushRpc(byte level)
+        public void CrateActionRpc(byte level, byte action)
         {
-            SecurityRooms.Instance?.BeginPush(level);
-            (Actions as BlockyCharacterActions)?.PlayPush(SecurityRooms.CratePushTime);
-            if (IsOwner) StartCoroutine(PushWalk(level));
+            var act = (CrateAction)action;
+            SecurityRooms.Instance?.BeginCrateAction(level, act);
+            var bca = Actions as BlockyCharacterActions;
+            if (act == CrateAction.Saw) bca?.PlayCrateSaw();
+            else bca?.PlayPush(SecurityRooms.CratePushTime, SecurityRooms.ModeOf(act), SecurityRooms.CrateShift);
+            if (IsOwner) StartCoroutine(CrateWalk(level, act));
         }
 
-        private IEnumerator PushWalk(byte level)
+        private IEnumerator CrateWalk(byte level, CrateAction act)
         {
-            Vector3 a = SecurityRooms.PushStand(level), b = SecurityRooms.PushEnd(level);
-            float t0 = Time.time;
-            while (Time.time - t0 < SecurityRooms.CratePushTime)
+            bool walks = SecurityRooms.WalksAlong(act, level, out var a, out var b);
+            SecurityRooms.ActionStand(level, act, out float yaw);
+            float t0 = Time.time, total = act == CrateAction.Saw ? BlockyCharacterActions.CrateSawTime : SecurityRooms.CratePushTime;
+            float lastSlide = 0f;
+            while (Time.time - t0 < total)
             {
-                float k = Mathf.InverseLerp(0.35f, 1.6f, Time.time - t0);
-                k = k * k * (3f - 2f * k);
-                if (Motor != null) Motor.Teleport(Vector3.Lerp(a, b, k) + Vector3.up * 0.02f, SecurityRooms.PushYaw, Motor.LookPitch);
-                if (IsOwner && Time.time - t0 > 0.35f && Time.time - t0 < 1.6f) GameHud.Kick();
+                float t = Time.time - t0;
+                if (walks && Motor != null) Motor.Teleport(Vector3.Lerp(a, b, BlockyCharacterActions.CrateProgress(t)) + Vector3.up * 0.02f, yaw, Motor.LookPitch);
+                // Camera jolt at the start of every shove, rattle while the saw bites.
+                float slide = act == CrateAction.Saw ? 0f : BlockyCharacterActions.CrateSlide(t);
+                if (slide > 0.3f && lastSlide <= 0.3f) GameHud.Kick();
+                lastSlide = slide;
+                if (act == CrateAction.Saw && t > BlockyCharacterActions.CrateSawBiteStart && t < BlockyCharacterActions.CrateSawBreakTime && Time.frameCount % 9 == 0) GameHud.Kick();
+                if (act == CrateAction.Saw && Mathf.Abs(t - BlockyCharacterActions.CrateSawBreakTime) < Time.deltaTime) GameHud.Kick();
                 yield return null;
             }
         }
