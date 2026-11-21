@@ -17,7 +17,7 @@ namespace HideAndSeek.Game
         static void Boot()
         {
             var a = System.Environment.GetCommandLineArgs();
-            if (System.Array.IndexOf(a, "-vendingtest") < 0 && System.Array.IndexOf(a, "-vendingshots") < 0) return;
+            if (System.Array.IndexOf(a, "-vendingtest") < 0 && System.Array.IndexOf(a, "-vendingshots") < 0 && System.Array.IndexOf(a, "-vendingwatch") < 0) return;
             var g = new GameObject("VendingNetworkProbe");
             DontDestroyOnLoad(g);
             g.AddComponent<VendingNetworkProbe>();
@@ -30,6 +30,8 @@ namespace HideAndSeek.Game
             var args = System.Environment.GetCommandLineArgs();
             int si = System.Array.IndexOf(args, "-vendingshots");
             if (si >= 0 && si + 1 < args.Length) { yield return Shots(args[si + 1]); yield break; }
+            int wi = System.Array.IndexOf(args, "-vendingwatch");
+            if (wi >= 0 && wi + 1 < args.Length) { yield return Watch(args[wi + 1]); yield break; }
             yield return new WaitForSeconds(1);
             p.Motor.Teleport(LobbyVending.Instance.transform.TransformPoint(new Vector3(-0.98f, 0f, 0.08f)), 90f);
             yield return new WaitForSeconds(1);
@@ -43,6 +45,34 @@ namespace HideAndSeek.Game
                 if (stage != last) { Debug.Log("[VendingProbe] count=" + mm.VendingCans.Count + " stage=" + stage + " time=" + mm.Now + " position=" + (stage < 0 ? Vector3.zero : mm.VendingCans[0].Position)); last = stage; }
                 yield return new WaitForSeconds(.25f);
             }
+        }
+
+        /// <summary>-vendingwatch &lt;folder&gt;: a second player stands beside the machine and photographs someone else's purchase.</summary>
+        IEnumerator Watch(string dir)
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            var p = NetPlayer.Local;
+            var vend = LobbyVending.Instance;
+            yield return new WaitForSeconds(1);
+            Vector3 spot = vend.transform.TransformPoint(new Vector3(-1.2f, 0f, -1.6f));
+            Vector3 look = vend.transform.TransformPoint(new Vector3(-0.9f, 1.0f, 0.1f)) - (spot + Vector3.up * 1.6f);
+            float yaw = Mathf.Atan2(look.x, look.z) * Mathf.Rad2Deg;
+            float pitch = -Mathf.Atan2(look.y, new Vector2(look.x, look.z).magnitude) * Mathf.Rad2Deg;
+            p.Motor.Teleport(spot, yaw);
+            p.Motor.SetLook(yaw, pitch);
+            var mm = MatchManager.Instance;
+            while (mm.VendingCans.Count == 0) { p.Motor.SetLook(yaw, pitch); yield return null; }
+            float start = Time.time;
+            int n = 0;
+            while (Time.time - start < 13f)
+            {
+                p.Motor.SetLook(yaw, pitch);
+                ScreenCapture.CaptureScreenshot(dir + "/watch_" + n.ToString("00") + ".png");
+                n++;
+                yield return new WaitForSeconds(0.6f);
+            }
+            Debug.Log("[VendingProbe] watch saved " + n);
+            Application.Quit();
         }
 
         IEnumerator Shots(string dir)
