@@ -23,7 +23,7 @@ namespace HideAndSeek.Map.Editor
         protected override float TubWall => 0.7f;
         protected override float TubFloor => 0.26f;
         protected override float[] BodyBreaks => new[] { 0.88f, -0.42f, -1.95f };
-        protected override int[] SharpRings => new[] { BShoulder };
+        protected override float SideFullness => 0.6f;
         protected override float RoofRound => 0.8f;
 
         private const float ZF = 2.075f, ZR = -2.075f;
@@ -79,10 +79,11 @@ namespace HideAndSeek.Map.Editor
             new CabinKey(0.95f, 0.95f, 0.77f, 0.95f, 0.63f),
             new CabinKey(0.05f, 0.975f, 0.785f, 1.425f, 0.65f),
             new CabinKey(-0.4f, 0.985f, 0.785f, 1.44f, 0.65f),
-            new CabinKey(-1.2f, 0.995f, 0.778f, 1.43f, 0.643f),
-            new CabinKey(-1.6f, 1.0f, 0.765f, 1.405f, 0.628f),
-            new CabinKey(-1.84f, 1.0f, 0.74f, 1.345f, 0.6f),
-            new CabinKey(-1.95f, 1.0f, 0.7f, 1.0f, 0.57f),
+            new CabinKey(-0.95f, 0.99f, 0.8f, 1.437f, 0.648f),
+            new CabinKey(-1.3f, 0.993f, 0.828f, 1.43f, 0.643f),
+            new CabinKey(-1.6f, 0.997f, 0.815f, 1.405f, 0.628f),
+            new CabinKey(-1.84f, 0.998f, 0.79f, 1.345f, 0.6f),
+            new CabinKey(-1.95f, 0.99f, 0.762f, 1.0f, 0.57f),
         };
 
         protected override float[] CabinBreaks => new[] { 0.08f, -0.42f, -0.47f, -1.3f, 0.9f, -1.84f, -1.86f, -1.93f };
@@ -90,13 +91,13 @@ namespace HideAndSeek.Map.Editor
         // door glass to the B-pillar, then the quarter light; behind it the very wide C-pillar (arched edge = overlay)
         protected override Material CabinMat(int seg, float z)
         {
-            bool glass = (z > -0.42f && z < 0.92f) || (z < -0.47f && z > -1.3f);
+            bool door = z > -0.42f && z < 0.92f, quarter = z < QB && z > QE;
             switch (seg)
             {
-                case 0: return Trim;
+                case 0: return door || (z < QB && z > QA) ? Trim : Paint;   // belt seal only under glass
                 case 1:
-                case 2: return glass ? Glass : (z > -0.47f ? Trim : Paint);
-                case 3: return glass ? Trim : Paint;
+                case 2: return door ? Glass : quarter ? null : (z > QB ? Trim : Paint); // quarter light + C-pillar: QuarterLight()
+                case 3: return door || (quarter && z > -1.0f) ? Trim : Paint;
                 case 4: return Paint;
                 default:
                     if (z > 0.08f) return z > 0.88f || z < 0.12f ? Trim : Glass;
@@ -176,8 +177,7 @@ namespace HideAndSeek.Map.Editor
             SeamSide(-0.42f, 0.22f, 0.98f);
             // wide C-pillar: its front edge leans forward towards the roof (quarter light shaped like a sail)
             // very wide C-pillar; the quarter light ends in an arc in front of it
-            // (the side glass ends in a sweep that runs from the roof above the rear wheel down and forward to the belt)
-            GlassOverlay(-1.3f, -0.85f, t => new Vector2(-0.02f, Mathf.Sqrt(Mathf.Max(0f, 1f - t * t))), Paint, 20);
+            QuarterLight();
             foreach (float s in new[] { -1f, 1f })
             {
                 Body.PatchY(Mb, s, -0.92f, 0.86f, t => new Vector2(0.5f, 0.525f), BLip, BShoulder, 0.004f, Plastic, 12, 2);
@@ -191,7 +191,61 @@ namespace HideAndSeek.Map.Editor
             CarWheels.Lathe(Mb, fp + fn * 0.0013f, fn, new[] { new Vector2(0.058f, 0f), new Vector2(0f, 0f) }, 18, Paint);
         }
 
+        // quarter light: B-pillar at QB, the arched rear edge runs from the roof at QE down and forward to the belt at QA
+        private const float QB = -0.47f, QA = -0.85f, QE = -1.3f, Recess = 0.012f;
+
+        /// <summary>Glass-height fraction (0 belt .. 1 top) where the arched rear edge crosses z.</summary>
+        private static float EdgeH(float z)
+        {
+            float t = Mathf.InverseLerp(QE, QA, z);
+            return Mathf.Sqrt(Mathf.Max(0f, 1f - t * t));
+        }
+
+        private Vector2 YAt(float z, float h0, float h1)
+        {
+            var g = GlassY(z);
+            return new Vector2(Mathf.Lerp(g.x, g.y, h0), Mathf.Lerp(g.x, g.y, h1));
+        }
+
+        /// <summary>
+        /// The wide C-pillar is real body skin (the greenhouse surface itself, with its own curvature into the roof and
+        /// the wing); the quarter glass sits 12 mm inside it and a black rubber return lines the whole opening.
+        /// </summary>
+        private void QuarterLight()
+        {
+            var lining = Lib["Car_Headliner"];
+            foreach (float s in new[] { -1f, 1f })
+            {
+                System.Func<float, float> zA = t => Mathf.Lerp(QE, QA, t), zB = t => Mathf.Lerp(QA, QB, t);
+                Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), 0f, EdgeH(zA(t))), CSeal, CGlassTop, 0f, Paint, 24, 8);
+                Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), 0f, EdgeH(zA(t))), CSeal, CGlassTop, -0.02f, lining, 24, 8, true);
+                foreach (bool inner in new[] { false, true })
+                {
+                    Cabin.PatchY(Mb, s, QE, QA, t => YAt(zA(t), EdgeH(zA(t)), 1f), CSeal, CGlassTop, -Recess, Glass, 24, 4, inner);
+                    Cabin.PatchY(Mb, s, QA, QB, t => YAt(zB(t), 0f, 1f), CSeal, CGlassTop, -Recess, Glass, 8, 4, inner);
+                }
+                // opening perimeter (z, h): top edge, arch, belt, B-pillar
+                var rim = new System.Collections.Generic.List<Vector2>();
+                for (int i = 0; i <= 10; i++) rim.Add(new Vector2(Mathf.Lerp(QB, QE, i / 10f), 0.995f));
+                for (int i = 1; i <= 24; i++) { float z = zA(i / 24f); rim.Add(new Vector2(z, Mathf.Min(0.995f, EdgeH(z)))); }
+                for (int i = 1; i <= 8; i++) rim.Add(new Vector2(zB(i / 8f), 0.005f));
+                for (int i = 1; i <= 6; i++) rim.Add(new Vector2(QB, Mathf.Lerp(0.005f, 0.995f, i / 6f)));
+                var (cp, _) = Cabin.OnSideAtY(-0.75f, YAt(-0.75f, 0.5f, 0.5f).x, CSeal, CGlassTop, s);
+                for (int i = 0; i < rim.Count - 1; i++)
+                {
+                    var (pa, na) = Cabin.OnSideAtY(rim[i].x, YAt(rim[i].x, rim[i].y, rim[i].y).x, CSeal, CGlassTop, s);
+                    var (pb, nb) = Cabin.OnSideAtY(rim[i + 1].x, YAt(rim[i + 1].x, rim[i + 1].y, rim[i + 1].y).x, CSeal, CGlassTop, s);
+                    Vector3 mid = (pa + pb) * 0.5f, n = (na + nb).normalized;
+                    Vector3 w = cp - mid;
+                    w -= n * Vector3.Dot(w, n);
+                    w.Normalize();
+                    Mb.Quad(pa, pb, pb - nb * Recess, pa - na * Recess, w, w, w, w, Trim);
+                }
+            }
+        }
+
         private void Rear()
+
         {
             // dark horizontal tail lamps running from the tailgate onto the wings
             var tail = new[] { new Vector2(0.44f, 0.8f), new Vector2(0.76f, 0.8f), new Vector2(0.8f, 0.83f), new Vector2(0.8f, 0.915f), new Vector2(0.44f, 0.925f) };

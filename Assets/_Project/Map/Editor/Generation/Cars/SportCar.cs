@@ -44,6 +44,7 @@ namespace HideAndSeek.Map.Editor
         protected virtual float[] CabinBreaks => new float[0];
         protected virtual float RoofRound => 1f;
         protected virtual float RoofDip => 0f;
+        protected virtual float SideFullness => 0f;
         /// <summary>Extra crease lines of the body (ring indices, e.g. a crisp shoulder).</summary>
         protected virtual int[] SharpRings => new int[0];
         protected virtual Material FrontCap => Paint;
@@ -99,7 +100,7 @@ namespace HideAndSeek.Map.Editor
             CKeys = CabinKeys();
             if (CKeys != null)
             {
-                Cabin = CarShapes.Cabin(CKeys, CabinBreaks, RoofRound, 0.03f, RoofDip);
+                Cabin = CarShapes.Cabin(CKeys, CabinBreaks, RoofRound, 0.03f, RoofDip, SideFullness);
                 Cabin.Emit(mb, (i, j) => CabinMat(i, Mid(Cabin, j)));
                 Cabin.Emit(mb, (i, j) => CabinInner(i, Mid(Cabin, j)), inner: true);
             }

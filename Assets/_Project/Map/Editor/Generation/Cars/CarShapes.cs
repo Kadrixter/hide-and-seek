@@ -7,11 +7,14 @@ namespace HideAndSeek.Map.Editor
     /// <summary>Lower body profile at one z: widths and heights of the cross-section (half widths, metres).</summary>
     internal struct BodyKey
     {
-        public float Z, YBot, WBot, WMax, YMax, WSh, YSh, YTop, Round, Tub;
+        public float Z, YBot, WBot, WMax, YMax, WSh, YSh, YTop, Round, Tub, Concave;
+        /// <param name="concave">how far the flank between the crease (YMax) and the shoulder is pulled in (doors set
+        /// back from the wheel flares)</param>
         public BodyKey(float z, float yBot, float wBot, float wMax, float yMax, float wSh, float ySh, float yTop,
-            float round = 1f, float tub = 0f)
+            float round = 1f, float tub = 0f, float concave = 0f)
         {
             Z = z; YBot = yBot; WBot = wBot; WMax = wMax; YMax = yMax; WSh = wSh; YSh = ySh; YTop = yTop; Round = round; Tub = tub;
+            Concave = concave;
         }
     }
 
@@ -61,6 +64,7 @@ namespace HideAndSeek.Map.Editor
                 float yBot = F(q => q.YBot, z), wBot = F(q => q.WBot, z), wMax = F(q => q.WMax, z), yMax = F(q => q.YMax, z);
                 float wSh = F(q => q.WSh, z), ySh = F(q => q.YSh, z), yTop = F(q => q.YTop, z), round = F(q => q.Round, z);
                 float tub = Mathf.Clamp01(F(q => q.Tub, z));
+                float concave = F(q => q.Concave, z);
                 float aY = yBot;
                 foreach (var a in arches) aY = Mathf.Max(aY, a.Top(z));
                 float inX = wBot - wellInset;
@@ -69,11 +73,14 @@ namespace HideAndSeek.Map.Editor
                 p[BUnder] = new Vector2(0f, yBot);
                 p[BWellIn] = new Vector2(inX, yBot);
                 p[BWellTop] = new Vector2(inX, aY);
-                p[BLip] = new Vector2(wBot - 0.022f, aY);
-                p[BRocker] = new Vector2(wBot, aY + 0.012f);
-                p[BLower] = new Vector2(Mathf.Lerp(wBot, wMax, 0.72f), Mathf.Max(Mathf.Lerp(yBot, yMax, 0.45f), aY + 0.03f));
+                // over a wheel the arch lip sits out at the widest line: an undercut body gets flared arches
+                float archF = Mathf.Clamp01((aY - yBot) / Mathf.Max(0.01f, yMax - yBot));
+                float lipW = Mathf.Lerp(wBot, Mathf.Max(wBot, wMax - 0.008f), archF);
+                p[BLip] = new Vector2(lipW - 0.022f, aY);
+                p[BRocker] = new Vector2(lipW, aY + 0.012f);
+                p[BLower] = new Vector2(Mathf.Max(Mathf.Lerp(wBot, wMax, 0.72f), lipW), Mathf.Max(Mathf.Lerp(yBot, yMax, 0.45f), aY + 0.03f));
                 p[BMax] = new Vector2(wMax, Mathf.Max(yMax, aY + 0.05f));
-                p[BUpper] = new Vector2(Mathf.Lerp(wMax, wSh, 0.55f), Mathf.Max(Mathf.Lerp(yMax, ySh, 0.6f), aY + 0.065f));
+                p[BUpper] = new Vector2(Mathf.Lerp(wMax, wSh, 0.55f) - concave, Mathf.Max(Mathf.Lerp(yMax, ySh, 0.6f), aY + 0.065f));
                 p[BShoulder] = new Vector2(wSh, Mathf.Max(ySh, aY + 0.08f));
                 float yS = p[BShoulder].y;
                 var r9 = new Vector2(wSh - 0.012f - 0.05f * round, yS + Mathf.Max(0.004f, crown * 0.22f + 0.022f * round));
@@ -100,7 +107,7 @@ namespace HideAndSeek.Map.Editor
         }
 
         public static CarLoft Cabin(IList<CabinKey> keys, IEnumerable<float> breaks, float roofRound = 1f, float step = 0.03f,
-            float roofDip = 0f)
+            float roofDip = 0f, float sideFullness = 0f)
         {
             var k = keys.OrderBy(q => q.Z).ToArray();
             float[] xs = k.Select(q => q.Z).ToArray();
@@ -115,9 +122,10 @@ namespace HideAndSeek.Map.Editor
                 float wTop = wR + 0.012f * roofRound;
                 var p = new Vector2[8];
                 p[CBelt] = new Vector2(wB, yB);
-                p[CSeal] = new Vector2(Mathf.Lerp(wB, wTop, seal / Mathf.Max(h, 1e-4f)), yB + seal);
+                // sideFullness > 0: the side rises near-vertically from the belt and rounds over into the roof
+                p[CSeal] = new Vector2(Mathf.Lerp(wB, wTop, (1f - sideFullness) * seal / Mathf.Max(h, 1e-4f)), yB + seal);
                 float yTopGlass = yR - edge - frame;
-                p[CGlassMid] = new Vector2(Mathf.Lerp(wB, wTop, 0.55f) + 0.012f * Mathf.Clamp01(h / 0.3f), Mathf.Lerp(yB + seal, yTopGlass, 0.55f));
+                p[CGlassMid] = new Vector2(Mathf.Lerp(wB, wTop, 0.55f - 0.3f * sideFullness) + 0.012f * Mathf.Clamp01(h / 0.3f), Mathf.Lerp(yB + seal, yTopGlass, 0.55f));
                 p[CGlassTop] = new Vector2(wTop, yTopGlass);
                 p[CFrame] = new Vector2(wTop - 0.004f, yR - edge);
                 p[CRoofEdge] = new Vector2(wR - 0.03f * roofRound, yR - 0.002f);

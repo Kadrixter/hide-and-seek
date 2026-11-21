@@ -27,7 +27,7 @@ namespace HideAndSeek.Map.Editor
 
         private const float ZF = 2.1425f, ZR = -2.1425f;
         protected override float RoofDip => 0.022f;
-        protected override int[] SharpRings => new[] { BShoulder };
+        protected override int[] SharpRings => new[] { BShoulder, BMax };
 
         // reference outlines from the real car (4.29 x 1.76 x 1.23 m, wheelbase 2.43)
         public override Vector2[] RefSide => new[]
@@ -50,7 +50,7 @@ namespace HideAndSeek.Map.Editor
         };
 
         private static BodyKey K(float z, float yBot, float wBot, float wMax, float yMax, float wSh, float ySh, float yTop,
-            float tub = 0f, float round = 0.5f) => new BodyKey(z, yBot, wBot, wMax, yMax, wSh, ySh, yTop, round, tub);
+            float tub = 0f, float round = 0.5f, float concave = 0f) => new BodyKey(z, yBot, wBot, wMax, yMax, wSh, ySh, yTop, round, tub, concave);
 
         // pointed oval nose in plan, low nose tip, long low bonnet sunk between the wing humps, set-back short cabin
         protected override BodyKey[] BodyKeys() => new[]
@@ -61,16 +61,19 @@ namespace HideAndSeek.Map.Editor
             K(2.05f, 0.145f, 0.5f, 0.61f, 0.37f, 0.585f, 0.575f, 0.545f, 0f, 0.4f),
             K(1.95f, 0.135f, 0.62f, 0.72f, 0.4f, 0.69f, 0.63f, 0.58f),
             K(1.8f, 0.13f, 0.71f, 0.8f, 0.42f, 0.77f, 0.685f, 0.605f),
-            K(1.6f, 0.13f, 0.79f, 0.855f, 0.44f, 0.82f, 0.73f, 0.625f),
-            K(1.19f, 0.13f, 0.83f, 0.88f, 0.46f, 0.845f, 0.785f, 0.665f),
-            K(0.8f, 0.13f, 0.82f, 0.87f, 0.47f, 0.835f, 0.8f, 0.745f),
-            K(0.5f, 0.13f, 0.855f, 0.865f, 0.45f, 0.825f, 0.82f, 0.815f),
-            K(0.4f, 0.13f, 0.855f, 0.865f, 0.45f, 0.825f, 0.825f, 0.82f, 1f),
-            K(-0.62f, 0.13f, 0.865f, 0.875f, 0.48f, 0.83f, 0.86f, 0.86f, 1f),
-            K(-0.75f, 0.13f, 0.87f, 0.88f, 0.48f, 0.83f, 0.87f, 0.88f),
-            K(-1.235f, 0.13f, 0.875f, 0.885f, 0.48f, 0.82f, 0.9f, 0.9f),
-            K(-1.8f, 0.16f, 0.85f, 0.86f, 0.5f, 0.79f, 0.9f, 0.905f, 0f, 0.8f),
-            K(-2.0f, 0.2f, 0.78f, 0.79f, 0.52f, 0.73f, 0.875f, 0.885f, 0f, 1f),
+            // flanks: undercut from below (narrower at the sill), wheel flares standing out past the doors, a crease at
+            // the widest line falling towards the rear, doors drawn in between the crease and the shoulder
+            K(1.6f, 0.13f, 0.76f, 0.86f, 0.5f, 0.82f, 0.73f, 0.625f),
+            K(1.19f, 0.13f, 0.79f, 0.885f, 0.5f, 0.845f, 0.785f, 0.665f),
+            K(0.8f, 0.13f, 0.75f, 0.855f, 0.49f, 0.825f, 0.8f, 0.745f, 0f, 0.5f, 0.01f),
+            K(0.5f, 0.13f, 0.74f, 0.84f, 0.48f, 0.815f, 0.82f, 0.815f, 0f, 0.5f, 0.025f),
+            K(0.4f, 0.13f, 0.74f, 0.84f, 0.48f, 0.815f, 0.825f, 0.82f, 1f, 0.5f, 0.025f),
+            K(-0.62f, 0.13f, 0.745f, 0.845f, 0.46f, 0.82f, 0.86f, 0.86f, 1f, 0.5f, 0.025f),
+            K(-0.75f, 0.13f, 0.76f, 0.855f, 0.455f, 0.825f, 0.87f, 0.88f, 0f, 0.5f, 0.015f),
+            K(-1.235f, 0.13f, 0.79f, 0.89f, 0.45f, 0.83f, 0.9f, 0.9f),
+            K(-1.8f, 0.16f, 0.78f, 0.865f, 0.47f, 0.79f, 0.9f, 0.905f, 0f, 0.8f),
+            K(-2.0f, 0.2f, 0.72f, 0.79f, 0.5f, 0.73f, 0.875f, 0.885f, 0f, 1f),
+
             K(-2.1f, 0.25f, 0.66f, 0.67f, 0.54f, 0.62f, 0.84f, 0.85f, 0f, 1f),
             K(ZR, 0.29f, 0.52f, 0.53f, 0.55f, 0.5f, 0.75f, 0.76f, 0f, 1f),
         };
@@ -178,6 +181,17 @@ namespace HideAndSeek.Map.Editor
             foreach (float s in new[] { -1f, 1f })
             {
                 Body.PatchY(Mb, s, -0.62f, 0.5f, t => new Vector2(0.255f, 0.26f), BLip, BShoulder, 0.0012f, Seam, 10, 1);
+                // dark sill strip along the bottom between the wheels
+                Body.PatchY(Mb, s, -0.84f, 0.8f, t => new Vector2(0.142f, 0.205f), BLip, BShoulder, 0.006f, Plastic, 16, 3);
+                // air outlet behind the front wheel: dark slot with three slats
+                Body.PatchY(Mb, s, 0.6f, 0.76f, t => new Vector2(Mathf.Lerp(0.5f, 0.46f, t), Mathf.Lerp(0.6f, 0.64f, t)), BLip, BShoulder, 0.0015f, Well, 6, 4);
+                for (int i = 0; i < 3; i++)
+                {
+                    float y = Mathf.Lerp(0.51f, 0.59f, i / 2f);
+                    var (vp, vn) = Side(0.68f, y + 0.02f, s);
+                    Mb.Box(vp + vn * 0.003f, new Vector3(0.006f, 0.008f, 0.15f), Plastic, Quaternion.LookRotation(Vector3.forward, Vector3.up) * Quaternion.Euler(-14f, 0, 0));
+                }
+
                 var (hp, hn) = Side(-0.5f, 0.75f, s);
                 CarKit.Handle(Mb, hp, hn, Paint, 0.11f);
                 var (mp, _) = Side(0.42f, 0.8f, s);

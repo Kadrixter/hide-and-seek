@@ -172,7 +172,7 @@ namespace HideAndSeek.Map.Editor
         /// lifted by <paramref name="lift"/> along the normal. Used for lamps, grilles, vents, seams, stripes.
         /// </summary>
         public void Patch(MeshBuilder mb, float side, float z0, float z1, Func<float, Vector2> range, float lift, Material m,
-            int nz = 6, int ns = 6)
+            int nz = 6, int ns = 6, bool flip = false)
         {
             var pts = new Vector3[nz + 1, ns + 1];
             var nrm = new Vector3[nz + 1, ns + 1];
@@ -185,7 +185,7 @@ namespace HideAndSeek.Map.Editor
                 {
                     float s = Mathf.Lerp(r.x, r.y, b / (float)ns);
                     var n = Normal(z, s, side);
-                    nrm[a, b] = n;
+                    nrm[a, b] = flip ? -n : n;
                     pts[a, b] = Point(z, s, side) + n * lift;
                 }
             }
@@ -197,13 +197,13 @@ namespace HideAndSeek.Map.Editor
 
         /// <summary>Patch whose rows are bounded by heights y0..y1 on the ring part [i0, i1] (sides, fascias).</summary>
         public void PatchY(MeshBuilder mb, float side, float z0, float z1, Func<float, Vector2> yRange, int i0, int i1,
-            float lift, Material m, int nz = 6, int ns = 4) =>
+            float lift, Material m, int nz = 6, int ns = 4, bool flip = false) =>
             Patch(mb, side, z0, z1, t =>
             {
                 var sec = SectionAt(Mathf.Lerp(z0, z1, t));
                 var y = yRange(t);
                 return new Vector2(ArcWhere(sec, 1, y.x, i0, i1), ArcWhere(sec, 1, y.y, i0, i1));
-            }, lift, m, nz, ns);
+            }, lift, m, nz, ns, flip);
 
         /// <summary>Patch whose rows are bounded by |x| = x0..x1 on the ring part [i0, i1] (hoods, decks, roofs).</summary>
         public void PatchX(MeshBuilder mb, float side, float z0, float z1, Func<float, Vector2> xRange, int i0, int i1,
