@@ -17,7 +17,7 @@ namespace HideAndSeek.Game.Net
     /// first-person player or a remote proxy, and plays action effects (knife, gun, rescue) on every client.
     /// </summary>
     [DefaultExecutionOrder(-40)]
-    public class NetPlayer : NetworkBehaviour
+    public partial class NetPlayer : NetworkBehaviour
     {
         public static readonly List<NetPlayer> All = new();
         public static NetPlayer Local { get; private set; }
@@ -1029,7 +1029,8 @@ namespace HideAndSeek.Game.Net
             StartCoroutine(KnifeSequence(victim, (KillMove)move, showAll));
         }
 
-        private float _holdAnimT, _lastHoldAnimT;
+        private float _holdAnimT, _lastHoldAnimT, _bandageUntil;
+        private bool _wasHurt;
         private HoldAnim _lastHoldAnim;
 
         /// <summary>
@@ -1040,7 +1041,8 @@ namespace HideAndSeek.Game.Net
         {
             var bca = Actions as BlockyCharacterActions;
             var mode = (HoldAnim)HoldAnimVar.Value;
-            float dur = mode == HoldAnim.Inject ? HealTimeline.InjectDuration : mode == HoldAnim.SelfHeal ? HealTimeline.SelfHealDuration : 0f;
+            float dur = mode == HoldAnim.Inject ? HealTimeline.InjectDuration : mode == HoldAnim.SelfHeal ? HealTimeline.SelfHealDuration
+                : HealTimeline.IsMedkit(mode) ? HealTimeline.MedkitDuration : 0f;
             float target;
             var lpc = IsOwner ? LocalPlayerController.Instance : null;
             if (lpc != null && mode != HoldAnim.None && lpc.HoldKind != PromptKind.None) target = lpc.HoldProgress * dur;
@@ -1048,14 +1050,25 @@ namespace HideAndSeek.Game.Net
             if (mode != _lastHoldAnim) { _holdAnimT = 0f; _lastHoldAnimT = 0f; }
             _holdAnimT = IsOwner ? target : Mathf.MoveTowards(_holdAnimT, target, Time.deltaTime * 1.5f + Mathf.Abs(target - _holdAnimT) * 0.2f);
             Vector3? chest = null;
+            NetPlayer patient = mode == HoldAnim.HealOther ? Find(ReviveTarget.Value) : null;
             if (mode == HoldAnim.Inject)
             {
                 var victim = Find(ReviveTarget.Value);
                 if (victim != null) chest = victim.ChestPosition;
             }
+            if (patient != null && patient != this)
+            {
+                chest = patient.ChestPosition;
+                (patient.Actions as BlockyCharacterActions)?.SetPatient(_holdAnimT);
+            }
             bca?.SetHoldAnimation(mode, _holdAnimT, chest);
             if (IsOwner) (ViewModel as FirstPersonViewModel)?.SetHoldAnimation(mode, _holdAnimT, chest);
-            bca?.SetBandaged(Wounded.Value && IsHider ? 1f : 0f);
+            // A fresh bandage stays on the belly for a while after the wound was treated (medkit).
+            bool hurt = (Wounded.Value || Limping.Value) && IsHider && Life.Value == LifeState.Alive;
+            if (_wasHurt && !hurt && Life.Value == LifeState.Alive) _bandageUntil = Time.time + 90f;
+            if (Life.Value != LifeState.Alive) _bandageUntil = 0f;
+            _wasHurt = hurt;
+            bca?.SetBandaged((Wounded.Value && IsHider) || Time.time < _bandageUntil ? 1f : 0f);
             bool hop = IsHider && Life.Value == LifeState.Alive && (Severed.Value & Limb.Legs) != 0;
             bool limp = !hop && (Limping.Value || Wounded.Value) && IsHider && Life.Value == LifeState.Alive;
             bca?.SetLimp(limp ? 1f : 0f);
@@ -1069,11 +1082,20 @@ namespace HideAndSeek.Game.Net
             }
             if (IsOwner && Motor != null)
             {
-                Motor.ForceCrouch = mode == HoldAnim.Inject;
+                Motor.ForceCrouch = mode == HoldAnim.Inject || HealTimeline.IsMedkit(mode);
                 Motor.DownedSitting = mode == HoldAnim.SelfHeal;
                 // Guide the view: down to the own belly while bandaging, onto the chest while injecting.
                 float wantPitch = float.NaN;
                 if (mode == HoldAnim.SelfHeal) wantPitch = -58f;
+                else if (mode == HoldAnim.HealSelf) wantPitch = -55f;
+                else if (mode == HoldAnim.HealOther && chest.HasValue)
+                {
+                    // Turn to the treated hider and look at the wound.
+                    Vector3 d = chest.Value + Vector3.down * 0.3f - Motor.transform.position - Vector3.up * Motor.EyeHeight;
+                    float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+                    Motor.SetLook(Mathf.MoveTowardsAngle(Motor.LookYaw, yaw, Time.deltaTime * 240f), Motor.LookPitch);
+                    wantPitch = Mathf.Clamp(-Mathf.Atan2(-d.y, new Vector2(d.x, d.z).magnitude) * Mathf.Rad2Deg, -45f, 10f);
+                }
                 else if (mode == HoldAnim.Inject && chest.HasValue)
                 {
                     Vector3 d = chest.Value - Motor.transform.position - Vector3.up * Motor.EyeHeight;
@@ -1094,6 +1116,14 @@ namespace HideAndSeek.Game.Net
                 Find(ReviveTarget.Value)?.Actions?.PlayHitReaction(); // the body jolts when the needle goes in
             if (mode == HoldAnim.SelfHeal && a < HealTimeline.HealSitEnd && b >= HealTimeline.HealSitEnd)
                 GameAudio.PlayAttached(GameSfx.BandageWrap, transform, 1f);
+            if (HealTimeline.IsMedkit(mode) && a < HealTimeline.MedKitOpen && b >= HealTimeline.MedKitOpen)
+                GameAudio.PlayAttached(GameSfx.MedkitPickup, transform, 0.6f);
+            if (HealTimeline.IsMedkit(mode) && a < HealTimeline.MedPad && b >= HealTimeline.MedPad)
+            {
+                var who = mode == HoldAnim.HealOther && patient != null ? patient : this;
+                GameAudio.PlayAttached(GameSfx.BandageWrap, who.transform, 1f);
+                GameAudio.PlayAttached(GameSfx.HiderPain, who.transform, 0.45f);
+            }
             _lastHoldAnimT = b;
             _lastHoldAnim = mode;
         }
@@ -1126,145 +1156,6 @@ namespace HideAndSeek.Game.Net
             if (IsOwner) (ViewModel as FirstPersonViewModel)?.SetRevving(rev);
         }
 
-        private IEnumerator KnifeSequence(NetPlayer victim, KillMove move, bool showAll)
-        {
-            bool saw = KillMoves.IsSaw(move);
-            var bca = Actions as BlockyCharacterActions;
-            if (move == KillMove.Stabs)
-            {
-                if (bca != null && victim != null) bca.PlayKnifeAttack(victim.Character);
-                else Actions?.PlayKnifeAttack();
-                victim?.Actions?.PlayStabbedReaction();
-                if (IsOwner) ViewModel?.PlayKnifeAttack();
-                if (victim != null && victim.IsOwner) GameHud.BeginVictimView(this, Tuning.KnifeSequenceDuration);
-            }
-            else
-            {
-                bca?.PlayKill(move, victim != null ? victim.Character : null);
-                (victim?.Actions as BlockyCharacterActions)?.PlayKillReaction(move);
-                // Third-person cinematic: the two players for a normal variant, everybody for the finisher.
-                bool involved = IsOwner || (victim != null && victim.IsOwner);
-                if (victim != null && (showAll || involved))
-                    KillCam.Play(this, victim, KillMoves.SequenceDuration(move), showAll, KillMoves.IsFinisher(move), showAll ? "WYKOŃCZENIE" : "");
-                if (showAll) GameAudio.Play2D(GameSfx.SeekerReleased, 0.8f);
-            }
-            if (saw)
-            {
-                BloodySaw();
-                if (GoreWindow(move, out float gs, out float ge)) StartCoroutine(ChainsawGore(victim, gs, ge));
-                if (victim != null) GameAudio.PlayAttached(GameSfx.HiderScream, victim.transform, 1f);
-            }
-            else if (move != KillMove.GlockFinisher) GameAudio.PlayAttached(GameSfx.KnifeDraw, transform, 0.8f);
-
-            var hits = KillMoves.HitTimes(move);
-            float t = 0f;
-            for (int i = 0; i < hits.Length; i++)
-            {
-                yield return new WaitForSeconds(hits[i] - t);
-                t = hits[i];
-                if (victim == null) yield break;
-                Vector3 chest = victim.ChestPosition;
-                if (KillMoves.IsBlunt(move, i))
-                {
-                    GameAudio.PlayAt(GameSfx.BodyFall, chest, 0.55f);
-                    GameAudio.PlayAttached(GameSfx.HiderPain, victim.transform, 1f);
-                    if (victim.IsOwner) GameHud.Hurt(0.6f);
-                    continue;
-                }
-                if (move == KillMove.GlockFinisher)
-                {
-                    // Leg, shoulder, head.
-                    Transform muzzle = Actions?.MuzzlePoint;
-                    Vector3 from = muzzle != null ? muzzle.position : EyePosition + transform.forward * 0.5f;
-                    Vector3 target = i == 0 ? victim.transform.position + Vector3.up * 0.45f
-                        : i == 1 ? chest + victim.transform.right * 0.15f + Vector3.up * 0.15f
-                        : victim.ChestPosition + Vector3.up * 0.42f;
-                    if (muzzle != null) MuzzleFlash.Spawn(muzzle, false);
-                    ShotFx.Play(from, target, muzzle, false, muzzle == null);
-                    GameAudio.PlayAt(GameSfx.GlockShot, from, 1f);
-                    GameAudio.PlayAt(GameSfx.GlockShotDistant, from, 0.8f);
-                    GameAudio.PlayAt(GameSfx.ShellCasing, transform.position + transform.right * 0.4f, 0.5f);
-                    Vector3 sd = (target - from).normalized;
-                    bool headShot = i == hits.Length - 1;
-                    BloodFx.Spray(target, (sd + Vector3.up * (headShot ? 0.35f : 0.1f)).normalized, headShot ? 2.4f : 1.3f);
-                    if (headShot)
-                    {
-                        BloodFx.WallSplash(target, sd, 3.5f, 0.9f);
-                        BloodFx.Pool(victim.transform.position - victim.transform.forward * 0.9f, 1.0f, 12f);
-                    }
-                    GameAudio.PlayAttached(headShot ? GameSfx.HiderPain : GameSfx.HiderScream, victim.transform, 1f);
-                    if (victim.IsOwner) GameHud.Hurt(1f);
-                    if (IsOwner || victim.IsOwner) GameHud.Kick();
-                    continue;
-                }
-                if (saw)
-                {
-                    GameAudio.PlayAt(GameSfx.ChainsawCut, chest, 1f);
-                    GameAudio.PlayAttached(i % 2 == 0 ? GameSfx.HiderScream : GameSfx.HiderPain, victim.transform, 1f);
-                    if (victim.IsOwner) GameHud.Hurt(1f);
-                    if (move != KillMove.Chainsaw)
-                    {
-                        Vector3 sd = (victim.transform.position - transform.position).normalized;
-                        BloodFx.Spray(chest, (sd + Vector3.up * 0.3f).normalized, 2f);
-                        if (IsOwner || victim.IsOwner) GameHud.Kick();
-                    }
-                    int cut = move == KillMove.SawFinisher && bca != null ? bca.SawFinisherLimb(i) : KillMoves.SeveredAtHit(move, i);
-                    if (cut != 0) victim.SeverLocal(cut, transform.position);
-                    continue;
-                }
-                bool slash = KillMoves.IsSlash(move, i);
-                GameAudio.PlayAt(GameSfx.KnifeSwing, chest, slash ? 1f : 0.6f);
-                GameAudio.PlayAt(GameSfx.KnifeStab, chest);
-                GameAudio.PlayAttached(i == 0 || slash ? GameSfx.HiderScream : GameSfx.HiderPain, victim.transform, i == 0 || slash ? 1f : 0.8f);
-                Vector3 dir = (victim.transform.position - transform.position).normalized;
-                BloodFx.Spray(slash ? victim.ChestPosition + Vector3.up * 0.25f : chest, dir, slash ? 1.4f : 1f);
-                if (slash) BloodFx.Spray(victim.ChestPosition + Vector3.up * 0.2f, Vector3.Cross(Vector3.up, dir));
-                if (victim.IsOwner) GameHud.Hurt(slash ? 1f : 0.8f);
-            }
-            float fall = KillMoves.FallTime(move);
-            if (fall > t) yield return new WaitForSeconds(fall - t);
-            t = Mathf.Max(t, fall);
-            if (victim != null) GameAudio.PlayAt(GameSfx.BodyFall, victim.transform.position);
-
-            if (move == KillMove.Chainsaw && showAll)
-            {
-                yield return new WaitForSeconds(Mathf.Max(0f, 3.0f - t));
-                GameAudio.Play2D(GameSfx.WinSting, 0.9f);
-            }
-            if (move == KillMove.GlockFinisher)
-            {
-                yield return new WaitForSeconds(Mathf.Max(0f, KillMoves.GlockFinisherTauntTime + 0.3f - t));
-                GameAudio.PlayAt(GameSfx.GlockEquip, transform.position + Vector3.up * 1.5f, 0.6f);
-                GameAudio.Play2D(GameSfx.WinSting, 0.9f);
-                var mz = Actions?.MuzzlePoint;
-                if (mz != null) DustFx.Puff(mz.position, Vector3.up, 10, 0.25f, 0.05f);
-            }
-            if (move == KillMove.SawFinisher)
-            {
-                yield return new WaitForSeconds(Mathf.Max(0f, KillMoves.SawFinisherTauntTime - t));
-                GameAudio.Play2D(GameSfx.WinSting, 0.9f);
-            }
-            if (move == KillMove.Finisher)
-            {
-                yield return new WaitForSeconds(KillMoves.FinisherFlipTime - t);
-                GameAudio.PlayAt(GameSfx.KnifeSwing, transform.position + Vector3.up * 1.2f, 0.7f);
-                yield return new WaitForSeconds(KillMoves.FinisherTauntTime - KillMoves.FinisherFlipTime);
-                GameAudio.Play2D(GameSfx.WinSting, 0.9f);
-            }
-        }
-
-        /// <summary>Time window (s) in which blood keeps spraying while the saw works.</summary>
-        private static bool GoreWindow(KillMove move, out float start, out float end)
-        {
-            switch (move)
-            {
-                case KillMove.Chainsaw: start = KillMoves.ChainsawGrindStart; end = KillMoves.ChainsawGrindEnd + 0.3f; return true;
-                case KillMove.SawChop: start = 0.85f; end = 1.8f; return true;
-                case KillMove.SawUpper: start = 0.65f; end = 1.75f; return true;
-                case KillMove.SawNeck: start = 0.85f; end = 1.4f; return true;
-                default: start = end = 0f; return false;
-            }
-        }
 
         /// <summary>Cuts a limb off (local visual: the part flies away, blood) on this client.</summary>
         public void SeverLocal(int limb, Vector3 awayFrom)
@@ -1431,14 +1322,16 @@ namespace HideAndSeek.Game.Net
             for (int bit = 1; bit <= Limb.Head; bit <<= 1)
             {
                 if ((mask & bit) == 0) continue;
-                var joint = Character.LimbJoint(bit);
-                if (joint == null) continue;
-                bool head = bit == Limb.Head;
-                // The neck stump sits under the head pivot, the others at the hip / shoulder pivot.
-                Vector3 size = head ? new Vector3(0.2f, 0.05f, 0.2f) : new Vector3(0.13f, 0.06f, 0.13f);
-                var parent = head ? joint.parent : joint;
-                _stumps.Add(BloodFx.Stump(parent, joint.position + (head ? Vector3.zero : -joint.up * 0.02f), joint.rotation, size));
-                if (fresh) BloodFx.Spurt(parent, head ? joint.up : -joint.up, head ? 6f : Random.Range(4.5f, 7f));
+                // Flat cap on the pelvis / torso (not on the hidden limb's joint, which keeps animating).
+                var cap = LimbStumps.Create(Character, bit, BloodFx.StumpMaterial);
+                if (cap == null) continue;
+                _stumps.Add(cap);
+                if (!fresh) continue;
+                var anchor = new GameObject("StumpSpurt").transform;
+                anchor.SetParent(cap.transform.parent, false);
+                anchor.localPosition = cap.transform.localPosition;
+                _stumps.Add(anchor.gameObject);
+                BloodFx.Spurt(anchor, LimbStumps.SpurtDirection(Character, bit), bit == Limb.Head ? 6f : Random.Range(4.5f, 7f));
             }
         }
 

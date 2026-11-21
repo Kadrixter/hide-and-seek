@@ -212,7 +212,7 @@ namespace HideAndSeek.Characters
                 SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -0.4f, -0.5f));
                 return true;
             }
-            return false;
+            return MedkitHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft);
         }
 
         /// <summary>Rotation from the body frame (camera yaw only, level) to rig space (camera space).</summary>
@@ -226,7 +226,8 @@ namespace HideAndSeek.Characters
 
         void UpdateVmKit()
         {
-            bool on = holdAnim == HoldAnim.SelfHeal && holdTime >= HealTimeline.HealSitEnd && holdTime < HealTimeline.HealTieEnd + 0.3f;
+            bool med = MedkitOnFloor(out var medPos, out var medRot);
+            bool on = (holdAnim == HoldAnim.SelfHeal && holdTime >= HealTimeline.HealSitEnd && holdTime < HealTimeline.HealTieEnd + 0.3f) || med;
             if (on && vmKit == null)
             {
                 vmKit = BlockyProps.Create(HeldItem.Medkit, rig, Layer);
@@ -237,8 +238,8 @@ namespace HideAndSeek.Characters
             if (on)
             {
                 var toRig = BodyToRig();
-                vmKit.transform.localPosition = toRig * new Vector3(0.42f, -0.72f, 0.52f);
-                vmKit.transform.localRotation = toRig * Quaternion.Euler(0f, 25f, 90f);
+                vmKit.transform.localPosition = med ? medPos : toRig * new Vector3(0.42f, -0.72f, 0.52f);
+                vmKit.transform.localRotation = med ? medRot : toRig * Quaternion.Euler(0f, 25f, 90f);
             }
         }
 

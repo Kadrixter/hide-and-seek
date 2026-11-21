@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using HideAndSeek.Characters;
@@ -147,6 +147,7 @@ namespace HideAndSeek.Game.Net
             }));
             if (Arg("-shots") is string dir) StartCoroutine(Shots(dir));
             StartUpdateTests(Has);
+            StartAnimTests(Has);
         }
 
         private System.Collections.IEnumerator Shots(string dir)
@@ -1111,7 +1112,7 @@ namespace HideAndSeek.Game.Net
             mm.ServerChainsaw(seeker, me);
             yield return new WaitForSeconds(2.5f);
             if (!string.IsNullOrEmpty(rd)) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(rd, "saw_kill.png"));
-            yield return new WaitForSeconds(6f);
+            yield return new WaitForSeconds(HideAndSeek.Characters.KillMoves.SequenceDuration(HideAndSeek.Characters.KillMove.SawFinisher) - 1.5f);
             Debug.Log($"[SawLegTest] hit 2: life={me.Life.Value} severed={me.Severed.Value}");
         }
 

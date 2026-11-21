@@ -1,4 +1,4 @@
-using HideAndSeek.Audio;
+﻿using HideAndSeek.Audio;
 using HideAndSeek.Core;
 using HideAndSeek.Game.UI;
 using Unity.Netcode;
@@ -389,7 +389,7 @@ namespace HideAndSeek.Game.Net
         private bool _rcLights = true;
 
         // ---- test hooks (scripted tests drive the same code path as the keyboard)
-        public static bool TestSix, TestHoldG, TestShoot;
+        public static bool TestSix, TestHoldG, TestShoot, TestHoldH;
         public static Vector2 TestRcInput;
         public static bool TestRcBoost, TestRcHorn, TestRcActive;
 
@@ -974,7 +974,7 @@ namespace HideAndSeek.Game.Net
             // Hold H (rescue / heal other), hold G (heal self).
             PromptKind wantHold = PromptKind.None;
             NetPlayer target2 = null;
-            if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && kb.hKey.isPressed)
+            if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && (kb.hKey.isPressed || TestHoldH))
             {
                 wantHold = Prompt;
                 target2 = Nearest(o => o.IsHider && (Prompt == PromptKind.Rescue ? o.Life.Value == LifeState.Downed : (o.Wounded.Value || o.Limping.Value)));
@@ -1023,9 +1023,15 @@ namespace HideAndSeek.Game.Net
                 {
                     _p.HoldAnimVar.Value = (byte)HideAndSeek.Characters.HoldAnim.SelfHeal;
                 }
+                else if (wantHold == PromptKind.Heal)
+                {
+                    // Medkit on a wound: animated on every client (own belly or the other hider's waist).
+                    _p.ReviveTarget.Value = target2.NetworkObjectId;
+                    _p.HoldAnimVar.Value = (byte)(target2 == _p ? HideAndSeek.Characters.HoldAnim.HealSelf : HideAndSeek.Characters.HoldAnim.HealOther);
+                }
             }
             _holdTimer += Time.deltaTime;
-            if (_holdKind == PromptKind.Rescue || _holdKind == PromptKind.Resurrect || _holdKind == PromptKind.SelfRevive)
+            if (_holdKind == PromptKind.Rescue || _holdKind == PromptKind.Resurrect || _holdKind == PromptKind.SelfRevive || _holdKind == PromptKind.Heal)
             {
                 byte prog = (byte)Mathf.Clamp(Mathf.RoundToInt(HoldProgress * 255f), 0, 255);
                 if (prog != _p.ReviveProgress.Value) _p.ReviveProgress.Value = prog;
@@ -1042,7 +1048,7 @@ namespace HideAndSeek.Game.Net
 
         private void CancelHold()
         {
-            if (_holdKind != PromptKind.None && _holdKind != PromptKind.Heal && _p != null && _p.IsSpawned)
+            if (_holdKind != PromptKind.None && _p != null && _p.IsSpawned)
             {
                 if (_p.Reviving.Value) _p.Reviving.Value = false;
                 _p.ReviveTarget.Value = ulong.MaxValue;

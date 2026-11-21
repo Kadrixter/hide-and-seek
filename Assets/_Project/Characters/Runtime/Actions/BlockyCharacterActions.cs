@@ -413,6 +413,9 @@ namespace HideAndSeek.Characters
                 p.PropR = ip.PropR;
             }
 
+            // 3d'. Medkit on a wound (own / someone else's) and being treated.
+            ApplyMedkitLayers(ref p, visual);
+
             // 3e. RC car: putting it down, sitting with the transmitter, standing up.
             if (rcW > 0.001f)
             {
@@ -615,12 +618,16 @@ namespace HideAndSeek.Characters
             float h = hit;
             if (Mathf.Abs(h) > 0.001f)
             {
+                // Knocked back and twisted to one side, head snaps, arms jerk up and out, knees give a little.
                 float k = standing ? 1f : 0.4f;
-                p.Torso = p.Torso * Quaternion.Euler(-10f * h * k, 8f * h * hitSide * k, 5f * h * hitSide * k);
-                p.Head = p.Head * Quaternion.Euler(-12f * h * k, -6f * h * hitSide * k, 0f);
-                p.ShoulderR = Quaternion.Euler(0f, 0f, 9f * h * k) * p.ShoulderR;
-                p.ShoulderL = Quaternion.Euler(0f, 0f, -9f * h * k) * p.ShoulderL;
-                if (standing) p.PelvisPos += new Vector3(0f, -0.02f * Mathf.Abs(h), -0.025f * h);
+                p.Pelvis = Quaternion.Euler(-4f * h * k, 5f * h * hitSide * k, 0f) * p.Pelvis;
+                p.Torso = p.Torso * Quaternion.Euler(-17f * h * k, 15f * h * hitSide * k, 8f * h * hitSide * k);
+                p.Head = p.Head * Quaternion.Euler(-22f * h * k, -12f * h * hitSide * k, 6f * h * hitSide * k);
+                p.ShoulderR = Quaternion.Euler(-12f * h * k, 0f, 20f * h * k) * p.ShoulderR;
+                p.ShoulderL = Quaternion.Euler(-12f * h * k, 0f, -20f * h * k) * p.ShoulderL;
+                p.ElbowR = p.ElbowR * Quaternion.Euler(-22f * Mathf.Max(0f, h) * k, 0f, 0f);
+                p.ElbowL = p.ElbowL * Quaternion.Euler(-22f * Mathf.Max(0f, h) * k, 0f, 0f);
+                if (standing) p.PelvisPos += new Vector3(0.012f * h * hitSide, -0.02f * Mathf.Abs(h), -0.04f * h);
             }
 
             if (Mathf.Abs(recoil) > 0.001f && standing)

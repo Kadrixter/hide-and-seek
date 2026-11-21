@@ -5,7 +5,7 @@ namespace HideAndSeek.Characters
     /// <summary>Kill variants. Values are sent over the network - append only.</summary>
     public enum KillMove : byte
     {
-        /// <summary>Classic: 4 stabs into the belly (first-person view for the seeker).</summary>
+        /// <summary>Classic: 4 stabs into the belly.</summary>
         Stabs = 0,
         /// <summary>Grab the shoulder, slash across the throat, one stab into the chest.</summary>
         ThroatSlit = 1,
@@ -42,9 +42,62 @@ namespace HideAndSeek.Characters
         public const int All = Legs | Arms | Head;
     }
 
+    /// <summary>Struggle before the killing blows (both players move: grabs, escape attempts, blows).</summary>
+    public enum KillIntro : byte
+    {
+        None,
+        /// <summary>Knife raised, the victim catches the knife wrist with both hands, tug of war, headbutt breaks the grip.</summary>
+        WristLock,
+        /// <summary>The victim turns and runs, the seeker grabs the collar, yanks them back and spins them round; the victim tries to pry the hand off.</summary>
+        Flee,
+        /// <summary>The victim shoves the seeker away and throws a punch; the seeker blocks it, twists the arm and pulls them in.</summary>
+        Shove,
+        /// <summary>Chainsaw: the victim backs off, then grabs the seeker's arms to push the saw away; a front kick ends it.</summary>
+        SawGrab,
+        /// <summary>Chainsaw: the victim runs, a kick into the back of the knee drops them, the seeker drags them up by the collar.</summary>
+        SawTrip,
+        /// <summary>Glock: the victim tries to run, a warning shot into the floor, hands up, slowly turns back.</summary>
+        GlockStandoff,
+    }
+
+    /// <summary>Aftermath once the victim is on the floor.</summary>
+    public enum KillOutro : byte
+    {
+        None,
+        /// <summary>Downed victim reaches for the seeker's boot; the seeker shakes it off, stomps on the hand, wipes the blade.</summary>
+        StompHand,
+        /// <summary>Dying victim lifts a trembling hand, it drops, last spasms; the seeker revs the saw / steps back.</summary>
+        Throes,
+    }
+
+    /// <summary>What happens at a kill event (sound / blood / camera shake).</summary>
+    public enum KillHitKind : byte
+    {
+        Stab,
+        Slash,
+        Blunt,
+        Saw,
+        Shot,
+        /// <summary>Glock shot that misses on purpose (into the floor).</summary>
+        ShotMiss,
+        /// <summary>Rough grab / yank (cloth, grunt), no blood.</summary>
+        Grab,
+    }
+
+    public struct KillEvent
+    {
+        public float Time;
+        public KillHitKind Kind;
+        /// <summary>Limbs cut off at this event (fixed moves).</summary>
+        public int Severs;
+        /// <summary>Saw finisher: which limb slot (0..3) is cut here, -1 = none (see BlockyCharacterActions.SawFinisherLimb).</summary>
+        public int SawSlot;
+    }
+
     /// <summary>
-    /// Shared timing table of the kill variants (seconds from the start). Third person
-    /// (<see cref="BlockyCharacterActions.PlayKill"/>) and the game's sound / blood events read the same values.
+    /// Shared timing table of the kill variants (seconds from the start of the whole sequence). Third person
+    /// (<see cref="BlockyCharacterActions.PlayKill"/>), the server (blocking, death) and the game's sound / blood events
+    /// read the same values. A sequence = <see cref="IntroOf"/> + core (<see cref="KillCore"/>) + <see cref="OutroOf"/>.
     /// </summary>
     public static class KillMoves
     {
@@ -53,145 +106,196 @@ namespace HideAndSeek.Characters
         /// <summary>Normal chainsaw kills.</summary>
         public static readonly KillMove[] SawPool = { KillMove.Chainsaw, KillMove.SawChop, KillMove.SawSweep, KillMove.SawUpper, KillMove.SawNeck };
 
-        static readonly float[] ThroatHits = { 0.82f, 1.65f };
-        static readonly float[] OverheadHits = { 0.88f, 1.55f };
-        static readonly float[] GutHits = { 0.68f, 1.45f, 2.05f };
-        static readonly float[] FinisherHits = { 0.6f, 0.95f, 1.3f, 2.75f };
-        static readonly float[] ChainsawHits = { 0.5f, 1.1f, 1.7f, 2.3f };
-        static readonly float[] ImpaleHits = { 0.8f, 1.4f };
-        static readonly float[] ChopHits = { 0.85f, 1.2f, 1.55f };
-        static readonly float[] SweepHits = { 0.85f, 1.8f };
-        static readonly float[] UpperHits = { 0.7f, 1.0f, 1.3f, 1.6f };
-        static readonly float[] NeckHits = { 0.85f, 1.2f };
-        static readonly float[] SawFinisherHits = { 1.0f, 2.1f, 3.2f, 4.3f };
-        static readonly float[] GlockFinisherHits = { 0.75f, 1.9f, 3.6f };
-
-        /// <summary>Glock finisher: victim dead / gun lowered / smoke blown off the muzzle.</summary>
-        public const float GlockFinisherVictimDead = 4.5f;
-        public const float GlockFinisherLowerTime = 4.3f;
-        public const float GlockFinisherTauntTime = 4.9f;
-
-        /// <summary>Chainsaw: grinding (blood spraying continuously) between these times.</summary>
-        public const float ChainsawGrindStart = 0.5f, ChainsawGrindEnd = 2.35f;
-        public const float ChainsawVictimDead = 3.7f;
-
-        /// <summary>Finisher: victim lies dead from this moment, the seeker's flourish starts at <see cref="FinisherTauntTime"/>.</summary>
-        public const float FinisherVictimDead = 4.7f;
-        public const float FinisherFlipTime = 4.3f;
-        public const float FinisherTauntTime = 5.1f;
-
-        /// <summary>Saw finisher: victim dead / saw raised.</summary>
-        public const float SawFinisherVictimDead = 5.9f;
-        public const float SawFinisherTauntTime = 5.5f;
-
         public static bool IsSaw(KillMove m) => m == KillMove.Chainsaw || m == KillMove.SawChop || m == KillMove.SawSweep ||
                                                m == KillMove.SawUpper || m == KillMove.SawNeck || m == KillMove.SawFinisher;
 
         /// <summary>Played for the last hider (shown to everybody with the cinematic camera).</summary>
         public static bool IsFinisher(KillMove m) => m == KillMove.Finisher || m == KillMove.SawFinisher || m == KillMove.GlockFinisher;
 
-        public static float[] HitTimes(KillMove m) => m switch
-        {
-            KillMove.ThroatSlit => ThroatHits,
-            KillMove.Overhead => OverheadHits,
-            KillMove.GutKnee => GutHits,
-            KillMove.Finisher => FinisherHits,
-            KillMove.Chainsaw => ChainsawHits,
-            KillMove.Impale => ImpaleHits,
-            KillMove.SawChop => ChopHits,
-            KillMove.SawSweep => SweepHits,
-            KillMove.SawUpper => UpperHits,
-            KillMove.SawNeck => NeckHits,
-            KillMove.SawFinisher => SawFinisherHits,
-            KillMove.GlockFinisher => GlockFinisherHits,
-            _ => ActionTimeline.KnifeStabTimes,
-        };
-
-        /// <summary>Seeker animation length.</summary>
-        public static float SeekerDuration(KillMove m) => m switch
-        {
-            KillMove.ThroatSlit => 2.6f,
-            KillMove.Overhead => 2.5f,
-            KillMove.GutKnee => 2.8f,
-            KillMove.Finisher => 7.6f,
-            KillMove.Chainsaw => 4.4f,
-            KillMove.Impale => 2.7f,
-            KillMove.SawChop => 3.6f,
-            KillMove.SawSweep => 3.4f,
-            KillMove.SawUpper => 3.6f,
-            KillMove.SawNeck => 3.4f,
-            KillMove.SawFinisher => 7.6f,
-            KillMove.GlockFinisher => 6.9f,
-            _ => ActionTimeline.KnifeAttackDuration,
-        };
-
-        /// <summary>Victim reaction length (normal knife kills end in the downed pose, the rest in the dead pose).</summary>
-        public static float VictimDuration(KillMove m) => m switch
-        {
-            KillMove.ThroatSlit => 3.4f,
-            KillMove.Overhead => 3.3f,
-            KillMove.GutKnee => 3.4f,
-            KillMove.Finisher => FinisherVictimDead,
-            KillMove.Chainsaw => ChainsawVictimDead,
-            KillMove.Impale => 3.5f,
-            KillMove.SawChop => 3.3f,
-            KillMove.SawSweep => 3.3f,
-            KillMove.SawUpper => 3.2f,
-            KillMove.SawNeck => 3.4f,
-            KillMove.SawFinisher => SawFinisherVictimDead,
-            KillMove.GlockFinisher => GlockFinisherVictimDead,
-            _ => ActionTimeline.StabbedReactionDuration,
-        };
-
-        /// <summary>Whole sequence on the server (both animations done).</summary>
-        public static float SequenceDuration(KillMove m) => Mathf.Max(SeekerDuration(m), VictimDuration(m)) + 0.1f;
-
         /// <summary>The victim ends dead (not downed) - finishers and every chainsaw kill.</summary>
         public static bool EndsDead(KillMove m) => m == KillMove.Finisher || m == KillMove.GlockFinisher || IsSaw(m);
 
-        /// <summary>Blunt hit (knee) - no blade sound / blood.</summary>
-        public static bool IsBlunt(KillMove m, int hit) => m == KillMove.GutKnee && hit == 0;
+        // ------------------------------------------------------------------ structure
 
-        /// <summary>Slash across the throat (bigger blood spray).</summary>
-        public static bool IsSlash(KillMove m, int hit) => (m == KillMove.ThroatSlit && hit == 0) || (m == KillMove.Finisher && hit == 3);
-
-        /// <summary>Limbs removed by hit <paramref name="hit"/> of this move (0 = none). Finisher slots are resolved by the caller.</summary>
-        public static int SeveredAtHit(KillMove m, int hit) => m switch
+        public static KillIntro IntroOf(KillMove m) => m switch
         {
-            KillMove.SawNeck => hit == 0 ? Limb.Head : 0,
-            KillMove.Chainsaw => hit == 3 ? Limb.ArmR : 0,
-            KillMove.SawChop => hit == 2 ? Limb.ArmL : 0,
-            KillMove.SawSweep => hit == 1 ? Limb.ArmR : 0,
-            KillMove.SawUpper => hit == 3 ? Limb.ArmL : 0,
+            KillMove.Stabs => KillIntro.Flee,
+            KillMove.ThroatSlit => KillIntro.WristLock,
+            KillMove.Overhead => KillIntro.Shove,
+            KillMove.GutKnee => KillIntro.Flee,
+            KillMove.Impale => KillIntro.WristLock,
+            KillMove.Finisher => KillIntro.Flee,
+            KillMove.Chainsaw => KillIntro.SawGrab,
+            KillMove.SawChop => KillIntro.SawTrip,
+            KillMove.SawSweep => KillIntro.SawTrip,
+            KillMove.SawUpper => KillIntro.SawGrab,
+            KillMove.SawNeck => KillIntro.SawTrip,
+            KillMove.SawFinisher => KillIntro.SawGrab,
+            KillMove.GlockFinisher => KillIntro.GlockStandoff,
+            _ => KillIntro.None,
+        };
+
+        public static KillOutro OutroOf(KillMove m)
+        {
+            if (IsFinisher(m)) return KillOutro.None; // the core already ends with the taunt
+            return EndsDead(m) ? KillOutro.Throes : KillOutro.StompHand;
+        }
+
+        public static float IntroLength(KillIntro i) => i switch
+        {
+            KillIntro.WristLock => 2.9f,
+            KillIntro.Flee => 2.9f,
+            KillIntro.Shove => 2.8f,
+            KillIntro.SawGrab => 2.8f,
+            KillIntro.SawTrip => 2.8f,
+            KillIntro.GlockStandoff => 2.6f,
+            _ => 0f,
+        };
+
+        public static float OutroLength(KillOutro o) => o switch
+        {
+            KillOutro.StompHand => 2.7f,
+            KillOutro.Throes => 2.5f,
+            _ => 0f,
+        };
+
+        /// <summary>Start of the killing blows (= length of the struggle).</summary>
+        public static float CoreStart(KillMove m) => IntroLength(IntroOf(m));
+
+        /// <summary>Start of the aftermath.</summary>
+        public static float OutroStart(KillMove m) => CoreStart(m) + KillCore.Length(m);
+
+        /// <summary>Whole sequence on one side (seeker and victim have the same length).</summary>
+        public static float Duration(KillMove m) => OutroStart(m) + OutroLength(OutroOf(m));
+
+        public static float SeekerDuration(KillMove m) => Duration(m);
+        public static float VictimDuration(KillMove m) => Duration(m);
+
+        /// <summary>Whole sequence on the server (both animations done).</summary>
+        public static float SequenceDuration(KillMove m) => Duration(m) + 0.1f;
+
+        // ------------------------------------------------------------------ events
+
+        static readonly KillEvent[][] Cache = new KillEvent[16][];
+
+        static void Add(System.Collections.Generic.List<KillEvent> list, float t, KillHitKind k, int severs = 0, int slot = -1) =>
+            list.Add(new KillEvent { Time = t, Kind = k, Severs = severs, SawSlot = slot });
+
+        /// <summary>Every event of a kill in time order (struggle blows, killing blows, aftermath).</summary>
+        public static KillEvent[] Events(KillMove m)
+        {
+            int idx = (int)m;
+            if (idx < Cache.Length && Cache[idx] != null) return Cache[idx];
+            var list = new System.Collections.Generic.List<KillEvent>();
+            switch (IntroOf(m))
+            {
+                case KillIntro.WristLock: Add(list, 2.15f, KillHitKind.Blunt); break;
+                case KillIntro.Flee: Add(list, 0.92f, KillHitKind.Grab); break;
+                case KillIntro.Shove: Add(list, 0.3f, KillHitKind.Grab); Add(list, 1.42f, KillHitKind.Blunt); break;
+                case KillIntro.SawGrab: Add(list, 0.95f, KillHitKind.Grab); Add(list, 1.78f, KillHitKind.Blunt); break;
+                case KillIntro.SawTrip: Add(list, 0.98f, KillHitKind.Blunt); Add(list, 1.85f, KillHitKind.Grab); break;
+                case KillIntro.GlockStandoff: Add(list, 0.95f, KillHitKind.ShotMiss); break;
+            }
+
+            float c = CoreStart(m);
+            var hits = KillCore.HitTimes(m);
+            for (int i = 0; i < hits.Length; i++)
+                Add(list, c + hits[i], CoreKind(m, i), CoreSevers(m, i), m == KillMove.SawFinisher ? i : -1);
+
+            float o = OutroStart(m);
+            if (OutroOf(m) == KillOutro.StompHand) Add(list, o + 1.5f, KillHitKind.Blunt);
+
+            var arr = list.ToArray();
+            if (idx < Cache.Length) Cache[idx] = arr;
+            return arr;
+        }
+
+        static KillHitKind CoreKind(KillMove m, int i)
+        {
+            if (IsSaw(m)) return KillHitKind.Saw;
+            if (m == KillMove.GlockFinisher) return KillHitKind.Shot;
+            if (m == KillMove.GutKnee && i == 0) return KillHitKind.Blunt;
+            if ((m == KillMove.ThroatSlit && i == 0) || (m == KillMove.Finisher && i == 3)) return KillHitKind.Slash;
+            return KillHitKind.Stab;
+        }
+
+        static int CoreSevers(KillMove m, int i) => m switch
+        {
+            KillMove.SawNeck => i == 0 ? Limb.Head : 0,
+            KillMove.Chainsaw => i == 3 ? Limb.ArmR : 0,
+            KillMove.SawChop => i == 2 ? Limb.ArmL : 0,
+            KillMove.SawSweep => i == 1 ? Limb.ArmR : 0,
+            KillMove.SawUpper => i == 3 ? Limb.ArmL : 0,
             _ => 0,
         };
+
+        /// <summary>Times of all events (index = event index).</summary>
+        public static float[] HitTimes(KillMove m)
+        {
+            var ev = Events(m);
+            var t = new float[ev.Length];
+            for (int i = 0; i < ev.Length; i++) t[i] = ev[i].Time;
+            return t;
+        }
+
+        /// <summary>Blunt hit (knee, kick, headbutt, stomp) - no blade sound / blood.</summary>
+        public static bool IsBlunt(KillMove m, int hit) => Kind(m, hit) == KillHitKind.Blunt;
+
+        /// <summary>Slash across the throat (bigger blood spray).</summary>
+        public static bool IsSlash(KillMove m, int hit) => Kind(m, hit) == KillHitKind.Slash;
+
+        public static KillHitKind Kind(KillMove m, int hit)
+        {
+            var ev = Events(m);
+            return hit >= 0 && hit < ev.Length ? ev[hit].Kind : KillHitKind.Stab;
+        }
+
+        /// <summary>Limbs removed by event <paramref name="hit"/> of this move (0 = none). Saw finisher slots: <see cref="SawSlot"/>.</summary>
+        public static int SeveredAtHit(KillMove m, int hit)
+        {
+            var ev = Events(m);
+            return hit >= 0 && hit < ev.Length ? ev[hit].Severs : 0;
+        }
+
+        /// <summary>Saw finisher: limb slot cut at event <paramref name="hit"/>, -1 = none.</summary>
+        public static int SawSlot(KillMove m, int hit)
+        {
+            var ev = Events(m);
+            return hit >= 0 && hit < ev.Length ? ev[hit].SawSlot : -1;
+        }
 
         /// <summary>Everything a kill variant cuts off (the server stores it once the victim is dead).</summary>
         public static int SeveredTotal(KillMove m)
         {
             if (m == KillMove.SawFinisher) return Limb.Legs | Limb.Arms;
             int mask = 0;
-            for (int i = 0; i < HitTimes(m).Length; i++) mask |= SeveredAtHit(m, i);
+            foreach (var e in Events(m)) mask |= e.Severs;
             return mask;
         }
 
+        // ------------------------------------------------------------------ absolute marks
+
         /// <summary>When the victim hits the floor (body fall sound).</summary>
-        public static float FallTime(KillMove m) => m switch
+        public static float FallTime(KillMove m) => CoreStart(m) + KillCore.FallTime(m);
+
+        /// <summary>Finishers: start of the seeker's taunt (hero shot, sting); -1 for the others.</summary>
+        public static float TauntTime(KillMove m) => m switch
         {
-            KillMove.ThroatSlit => 3.05f,
-            KillMove.Overhead => 2.75f,
-            KillMove.GutKnee => 2.95f,
-            KillMove.Finisher => 4.15f,
-            KillMove.Chainsaw => 3.2f,
-            KillMove.Impale => 3.0f,
-            KillMove.SawChop => 2.7f,
-            KillMove.SawSweep => 2.8f,
-            KillMove.SawUpper => 2.6f,
-            KillMove.SawNeck => 2.6f,
-            KillMove.SawFinisher => 5.2f,
-            KillMove.GlockFinisher => 4.25f,
-            _ => ActionTimeline.StabbedReactionDuration - 0.3f,
+            KillMove.Finisher => CoreStart(m) + KillCore.FinisherTauntTime,
+            KillMove.SawFinisher => CoreStart(m) + KillCore.SawFinisherTauntTime,
+            KillMove.GlockFinisher => CoreStart(m) + KillCore.GlockFinisherTauntTime,
+            _ => -1f,
         };
+
+        /// <summary>Knife finisher: the knife flip (whoosh).</summary>
+        public static float FinisherFlipTime => CoreStart(KillMove.Finisher) + KillCore.FinisherFlipTime;
+        public static float FinisherTauntTime => TauntTime(KillMove.Finisher);
+        public static float SawFinisherTauntTime => TauntTime(KillMove.SawFinisher);
+        public static float GlockFinisherTauntTime => TauntTime(KillMove.GlockFinisher);
+
+        /// <summary>Chainsaw (grind): blood sprays continuously between these absolute times.</summary>
+        public static float ChainsawGrindStart => CoreStart(KillMove.Chainsaw) + KillCore.ChainsawGrindStart;
+        public static float ChainsawGrindEnd => CoreStart(KillMove.Chainsaw) + KillCore.ChainsawGrindEnd;
 
         public static string DisplayName(KillMove m) => m switch
         {

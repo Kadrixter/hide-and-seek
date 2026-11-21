@@ -360,11 +360,12 @@ namespace HideAndSeek.Characters.Editor
                 s.Actions.KillHit += i =>
                 {
                     hits++;
-                    int cut = move == KillMove.SawFinisher ? seekerChar.Actions.SawFinisherLimb(i) : KillMoves.SeveredAtHit(move, i);
+                    int slot = KillMoves.SawSlot(move, i);
+                    int cut = slot >= 0 ? seekerChar.Actions.SawFinisherLimb(slot) : KillMoves.SeveredAtHit(move, i);
                     if (cut != 0) victimChar.Sever(cut, new Vector3(0f, 2f, -1.5f));
                 };
                 s.Actions.PlayKill(move, v);
-                v.Actions.PlayKillReaction(move);
+                v.Actions.PlayKillReaction(move, s);
                 v.Actions.SetLifeState(KillMoves.EndsDead(move) ? LifeState.Dead : LifeState.Downed);
                 float len = KillMoves.SequenceDuration(move);
                 int count = KillMoves.IsFinisher(move) ? 12 : 8;

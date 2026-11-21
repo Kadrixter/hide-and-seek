@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HideAndSeek.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -193,7 +193,7 @@ namespace HideAndSeek.Game.Net
         public const float KnifeStandOff = 0.85f;      // victim distance during the animation
         public static readonly float[] StabTimes = HideAndSeek.Characters.ActionTimeline.KnifeStabTimes;
         public const float KnifeAttackDuration = HideAndSeek.Characters.ActionTimeline.KnifeAttackDuration;
-        public const float KnifeSequenceDuration = HideAndSeek.Characters.ActionTimeline.StabbedReactionDuration + 0.1f; // incl. victim collapse
+        public static float KnifeSequenceDuration => HideAndSeek.Characters.KillMoves.SequenceDuration(HideAndSeek.Characters.KillMove.Stabs); // incl. struggle and aftermath
 
         // RC car
         public const float RcRange = 60f;              // radio range from the driver's body
@@ -219,7 +219,7 @@ namespace HideAndSeek.Game.Net
         public const float CrawlTime = 20f;              // downed players can crawl only this long
         public const float RescueRange = 2.2f;
         public const float RescueHoldTime = 3f;
-        public const float HealHoldTime = 1.5f;
+        public const float HealHoldTime = HideAndSeek.Characters.HealTimeline.MedkitDuration; // medkit on a wound (animated)
         public const float PickupRange = 2.0f;
         public const int MaxMedkits = 3;
         public const int MaxSyringes = 2;

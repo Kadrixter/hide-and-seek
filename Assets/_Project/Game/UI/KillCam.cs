@@ -22,24 +22,29 @@ namespace HideAndSeek.Game.UI
         private bool _finisher, _hero;
         private string _titleText;
         private Camera _cam, _hidden;
-        private float _orbitStart, _orbitSpan;
+        private float _orbitStart, _orbitSpan, _heroAt;
+        private int _shot = -1;
+        private int[] _shots;
+        private Vector3 _smoothMid;
         private RectTransform _barTop, _barBottom;
         private Text _title, _sub;
         private CanvasGroup _titleGroup;
         private Vector3 _smoothPos;
-        private bool _hasPos;
+        private bool _hasPos, _hasTarget;
+        private Vector3 _smoothTarget;
         private readonly RaycastHit[] _hits = new RaycastHit[16];
         private Light _key, _fill;
 
         /// <param name="showcase">Big show for everybody (last hider): wider orbit, title, red light.</param>
         /// <param name="heroShot">End on the seeker's taunt (knife finisher).</param>
-        public static void Play(NetPlayer seeker, NetPlayer victim, float duration, bool showcase, bool heroShot, string title)
+        public static void Play(NetPlayer seeker, NetPlayer victim, float duration, bool showcase, bool heroShot, string title, float heroAt = -1f)
         {
             if (seeker == null || victim == null) return;
             if (_current != null) _current.Stop();
             var go = new GameObject(showcase ? "KillCam (finisher)" : "KillCam");
             var kc = go.AddComponent<KillCam>();
-            kc._hero = heroShot;
+            kc._hero = heroShot && heroAt > 0f;
+            kc._heroAt = heroAt;
             kc._titleText = title ?? "";
             kc.Begin(seeker, victim, duration, showcase);
         }
@@ -74,6 +79,9 @@ namespace HideAndSeek.Game.UI
             float sgn = Vector3.Dot(from, side) >= 0f ? 1f : -1f;
             _orbitStart = Mathf.Atan2(side.x * sgn, side.z * sgn) * Mathf.Rad2Deg;
             _orbitSpan = (finisher ? 75f : 40f) * (Random.value < 0.5f ? -1f : 1f);
+            // Cut between a few shots (long sequences): 0 orbit, 1 over the seeker's shoulder, 2 over the victim's
+            // shoulder, 3 low from the side (the victim on the floor), 4 high three-quarter.
+            _shots = finisher ? new[] { 0, 1, 2, 3, 4, 0 } : (Random.value < 0.5f ? new[] { 1, 0, 2, 3, 4 } : new[] { 2, 1, 0, 3, 4 });
 
             // The garage is pitch dark: a soft key light from the camera side and a dim fill from above the pair.
             _key = new GameObject("KillCamKey").AddComponent<Light>();
@@ -123,6 +131,40 @@ namespace HideAndSeek.Game.UI
             return (a + b) * 0.5f + Vector3.up * 0.95f;
         }
 
+        /// <summary>Between the two chests: follows the victim down to the floor.</summary>
+        private Vector3 ChestMid()
+        {
+            if (_seeker == null || _victim == null) return Mid();
+            Vector3 m = (_seeker.ChestPosition + _victim.ChestPosition) * 0.5f;
+            m.y = Mathf.Max(m.y - 0.1f, _victim.transform.position.y + 0.45f);
+            return m;
+        }
+
+        /// <summary>Camera position of shot <paramref name="kind"/> (target = <paramref name="look"/>).</summary>
+        private Vector3 ShotPos(int kind, Vector3 mid, float x, out Vector3 look)
+        {
+            Vector3 axis = Axis();
+            Vector3 side = Vector3.Cross(Vector3.up, axis) * Mathf.Sign(_orbitSpan);
+            Vector3 s = _seeker.transform.position, v = _victim.transform.position;
+            look = mid;
+            switch (kind)
+            {
+                case 1: // over the seeker's shoulder, onto the victim's face
+                    look = Vector3.Lerp(mid, _victim.ChestPosition + Vector3.up * 0.25f, 0.6f);
+                    return s - axis * 1.6f + side * 0.95f + Vector3.up * 1.78f;
+                case 2: // over the victim's shoulder, onto the seeker
+                    look = Vector3.Lerp(mid, _seeker.ChestPosition + Vector3.up * 0.2f, 0.6f);
+                    return v + axis * 1.6f - side * 0.95f + Vector3.up * 1.65f;
+                case 3: // low from the side
+                    look = mid + Vector3.down * 0.15f;
+                    return mid + side * 2.0f - axis * 0.3f + Vector3.up * (0.35f - (mid.y - s.y - 0.95f) * 0.5f);
+                case 4: // high three-quarter
+                    return mid - side * 1.5f + axis * 1.2f + Vector3.up * 1.5f;
+                default:
+                    return OrbitPos(mid, x);
+            }
+        }
+
         /// <summary>Horizontal direction seeker -> victim.</summary>
         private Vector3 Axis()
         {
@@ -142,28 +184,34 @@ namespace HideAndSeek.Game.UI
             _t += Time.deltaTime;
             float x = Mathf.Clamp01(_t / _duration);
 
-            Vector3 mid = Mid();
-            Vector3 target = mid;
-            Vector3 desired;
-            if (_hero && _t >= KillMoves.FinisherTauntTime - 0.6f)
+            Vector3 cm = ChestMid();
+            if (!_hasPos) _smoothMid = cm;
+            _smoothMid = Vector3.Lerp(_smoothMid, cm, 1f - Mathf.Exp(-Time.deltaTime * 4f));
+            Vector3 mid = _smoothMid;
+            int idx = Mathf.Min(_shots.Length - 1, Mathf.FloorToInt(_t / Mathf.Max(2.2f, _duration / _shots.Length)));
+            bool cut = idx != _shot;
+            _shot = idx;
+            Vector3 desired = ShotPos(_shots[idx], mid, x, out Vector3 target);
+            if (_hero && _t >= _heroAt - 0.6f)
             {
                 // Hero shot: low, in front of the seeker, slightly off-axis.
-                float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((_t - (KillMoves.FinisherTauntTime - 0.6f)) / 1.2f));
+                float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((_t - (_heroAt - 0.6f)) / 1.2f));
                 Vector3 s = _seeker.transform.position;
                 Vector3 fwd = _seeker.transform.forward;
                 Vector3 right = _seeker.transform.right;
                 Vector3 hero = s + fwd * 2.3f + right * 0.8f + Vector3.up * 0.75f;
-                Vector3 orbit = OrbitPos(mid, x);
-                desired = Vector3.Lerp(orbit, hero, k);
-                target = Vector3.Lerp(mid, s + Vector3.up * 1.35f, k);
+                desired = Vector3.Lerp(desired, hero, k);
+                target = Vector3.Lerp(target, s + Vector3.up * 1.35f, k);
+                cut = false;
             }
-            else desired = OrbitPos(mid, x);
-
+            if (cut) _hasPos = false;
             desired = AvoidWalls(target, desired);
             if (!_hasPos) { _smoothPos = desired; _hasPos = true; }
             _smoothPos = Vector3.Lerp(_smoothPos, desired, 1f - Mathf.Exp(-Time.deltaTime * 6f));
             transform.position = _smoothPos;
-            transform.rotation = Quaternion.LookRotation(target - _smoothPos);
+            _smoothTarget = cut || !_hasTarget ? target : Vector3.Lerp(_smoothTarget, target, 1f - Mathf.Exp(-Time.deltaTime * 6f));
+            _hasTarget = true;
+            transform.rotation = Quaternion.LookRotation(_smoothTarget - _smoothPos);
             if (_key != null) _key.transform.rotation = Quaternion.LookRotation(target - _key.transform.position);
             if (_fill != null) _fill.transform.position = mid + Vector3.up * 1.4f - Axis() * 0.6f;
 
@@ -177,7 +225,7 @@ namespace HideAndSeek.Game.UI
             if (_finisher)
                 _titleGroup.alpha = _hero
                     ? Mathf.Clamp01((_t - 0.3f) / 0.5f) * Mathf.Clamp01((2.6f - _t) / 0.6f)
-                      + Mathf.Clamp01((_t - KillMoves.FinisherTauntTime) / 0.4f) * Mathf.Clamp01((_duration - 0.3f - _t) / 0.5f)
+                      + Mathf.Clamp01((_t - _heroAt) / 0.4f) * Mathf.Clamp01((_duration - 0.3f - _t) / 0.5f)
                     : Mathf.Clamp01((_t - 0.3f) / 0.5f) * Mathf.Clamp01((_duration - 0.3f - _t) / 0.5f);
 
             if (_t >= _duration) Stop();

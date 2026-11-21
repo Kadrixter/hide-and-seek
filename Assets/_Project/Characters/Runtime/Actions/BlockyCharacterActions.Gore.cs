@@ -172,7 +172,7 @@ namespace HideAndSeek.Characters
             if (t < 2.15f) return CharacterPose.Lerp(stand, kneel, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 1.8f, 2.15f)));
             var side = SidePose();
             if (t < 2.55f) return CharacterPose.Lerp(kneel, side, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.15f, 2.55f)));
-            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 2.55f, KillMoves.VictimDuration(KillMove.SawChop))));
+            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 2.55f, KillCore.VictimDuration(KillMove.SawChop))));
         }
 
         // ================================================================== saw: sweep (through the waist)
@@ -222,7 +222,7 @@ namespace HideAndSeek.Characters
             if (t < 2.35f) return CharacterPose.Lerp(p, fours, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 1.95f, 2.35f)));
             var side = SidePose();
             if (t < 2.75f) return CharacterPose.Lerp(fours, side, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.35f, 2.75f)));
-            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 2.75f, KillMoves.VictimDuration(KillMove.SawSweep))));
+            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 2.75f, KillCore.VictimDuration(KillMove.SawSweep))));
         }
 
         // ================================================================== saw: uppercut (groin to chest, lift, throw)
@@ -269,7 +269,7 @@ namespace HideAndSeek.Characters
             if (t < 2.3f) return p;
             // Flung backwards onto the back.
             var dead = DeadPose();
-            return CharacterPose.Lerp(p, dead, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.3f, KillMoves.VictimDuration(KillMove.SawUpper))));
+            return CharacterPose.Lerp(p, dead, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.3f, KillCore.VictimDuration(KillMove.SawUpper))));
         }
 
         // ================================================================== saw: neck (head flies off)
@@ -320,17 +320,17 @@ namespace HideAndSeek.Characters
             if (t < 2.0f) return CharacterPose.Lerp(stand, kneel, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 1.6f, 2.0f)));
             var side = SidePose();
             if (t < 2.5f) return CharacterPose.Lerp(kneel, side, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.0f, 2.5f)));
-            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 2.5f, KillMoves.VictimDuration(KillMove.SawNeck))));
+            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 2.5f, KillCore.VictimDuration(KillMove.SawNeck))));
         }
 
         // ================================================================== saw finisher (all limbs)
 
         CharacterPose SeekerSawFinisher(in CharacterPose current, float t)
         {
-            var hits = KillMoves.HitTimes(KillMove.SawFinisher);
+            var hits = KillCore.HitTimes(KillMove.SawFinisher);
             float e = Seg(t, 0f, 0.3f);
             float approach = Seg(t, 0.25f, 0.75f);
-            float raise = Seg(t, KillMoves.SawFinisherTauntTime, KillMoves.SawFinisherTauntTime + 0.6f) * (1f - Seg(t, 7.0f, 7.5f));
+            float raise = Seg(t, KillCore.SawFinisherTauntTime, KillCore.SawFinisherTauntTime + 0.6f) * (1f - Seg(t, 7.0f, 7.5f));
 
             Vector3 hold = new Vector3(0.2f, 0.38f, 0.5f);
             Vector3 tip = VictimLimbPoint(sawSlots[0], 0.45f);
@@ -377,7 +377,7 @@ namespace HideAndSeek.Characters
             else if (t < 2.1f) pose = CharacterPose.Lerp(kneel, fours, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 1.5f, 1.9f)));
             else if (t < 3.0f) pose = CharacterPose.Lerp(fours, side, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.1f, 2.7f)));
             else if (t < 4.8f) pose = side;
-            else return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 4.8f, KillMoves.SawFinisherVictimDead)));
+            else return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 4.8f, KillCore.SawFinisherVictimDead)));
 
             if (t >= 1.0f)
             {
