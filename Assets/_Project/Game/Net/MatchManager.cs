@@ -746,7 +746,14 @@ namespace HideAndSeek.Game.Net
             return true;
         }
 
-        private IEnumerator KnifeRoutine(NetPlayer seeker, NetPlayer victim, bool chainsaw = false, bool glock = false)
+        /// <summary>Test hook (-testkills): plays one forced kill variant between two players.</summary>
+        public void TestKillMove(NetPlayer seeker, NetPlayer victim, KillMove move)
+        {
+            if (KillMoves.IsSaw(move)) { seeker.HasChainsaw.Value = true; seeker.Held.Value = HeldItem.Chainsaw; }
+            StartCoroutine(KnifeRoutine(seeker, victim, KillMoves.IsSaw(move), move == KillMove.GlockFinisher, move));
+        }
+
+        private IEnumerator KnifeRoutine(NetPlayer seeker, NetPlayer victim, bool chainsaw = false, bool glock = false, KillMove? forced = null)
         {
             seeker.Busy.Value = true;
             victim.Busy.Value = true;
@@ -770,8 +777,9 @@ namespace HideAndSeek.Game.Net
             bool last = true;
             foreach (var pl in NetPlayer.All)
                 if (pl != null && pl != victim && pl.IsAliveHider) { last = false; break; }
-            KillMove move = glock ? KillMove.GlockFinisher
-                : chainsaw ? (last ? KillMove.SawFinisher : PickKillMove(true)) : last ? KillMove.Finisher : PickKillMove(false);
+            KillMove move = forced ?? (glock ? KillMove.GlockFinisher
+                : chainsaw ? (last ? KillMove.SawFinisher : PickKillMove(true)) : last ? KillMove.Finisher : PickKillMove(false));
+            if (forced.HasValue) last = KillMoves.IsFinisher(move);
             if (last) _finisherRunning = true;
             Debug.Log($"[Match] kill {seeker.Nick} -> {victim.Nick}: {move}{(last ? " (last hider, shown to everybody)" : "")}");
             seeker.KnifeSequenceRpc(victim.NetworkObjectId, (byte)move, last);

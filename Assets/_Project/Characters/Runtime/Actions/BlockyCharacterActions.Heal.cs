@@ -12,6 +12,10 @@ namespace HideAndSeek.Characters
         Inject = 1,
         /// <summary>Downed: sit up, open the medkit, wrap a bandage round the belly, tie it off, push up.</summary>
         SelfHeal = 2,
+        /// <summary>Wounded (limping), medkit: kneel, kit on the floor, pad on the wound, bandage round the own belly, tie.</summary>
+        HealSelf = 3,
+        /// <summary>Medkit on a wounded hider: kneel in front of them, pad on the wound, wrap the bandage round their waist.</summary>
+        HealOther = 4,
     }
 
     /// <summary>Timings (seconds from the start of the hold) shared by third person, first person and sound.</summary>
@@ -22,6 +26,15 @@ namespace HideAndSeek.Characters
 
         public const float SelfHealDuration = 5f;
         public const float HealSitEnd = 0.7f, HealKitOpen = 1.1f, HealBandageOut = 1.4f, HealWrapStart = 1.7f, HealWrapEnd = 4.2f, HealTieEnd = 4.7f;
+
+        /// <summary>Medkit on a wounded (limping) hider, own or someone else's: hold time and marks.</summary>
+        public const float MedkitDuration = 3.5f;
+        public const float MedKneel = 0.35f, MedKitDown = 0.7f, MedKitOpen = 0.9f, MedRollOut = 1.1f, MedPad = 1.3f, MedWrapEnd = 2.7f, MedTieEnd = 3.05f;
+
+        /// <summary>0..1 bandage round the belly during a medkit heal.</summary>
+        public static float MedBandage(float t) => ActionTimeline.Remap01(t, MedPad, MedWrapEnd);
+
+        public static bool IsMedkit(HoldAnim m) => m == HoldAnim.HealSelf || m == HoldAnim.HealOther;
 
         /// <summary>Resurrection: violent gasp sitting up from the dead pose, then kneel and stand.</summary>
         public const float GaspDuration = 2.1f;
@@ -52,7 +65,8 @@ namespace HideAndSeek.Characters
             EnsureInit();
             holdAnim = mode;
             if (mode != HoldAnim.None) holdTime = t;
-            if (worldTarget.HasValue)
+            if (worldTarget.HasValue && mode == HoldAnim.HealOther) SetMedTarget(worldTarget);
+            else if (worldTarget.HasValue)
             {
                 // Reachable chest point in front of the kneeling helper.
                 Vector3 l = transform.InverseTransformPoint(worldTarget.Value);
@@ -80,7 +94,8 @@ namespace HideAndSeek.Characters
             bool downed = VisualLifeState == LifeState.Downed;
             healW = Mathf.MoveTowards(healW, holdAnim == HoldAnim.SelfHeal && downed ? 1f : 0f, dt / (holdAnim == HoldAnim.SelfHeal ? 0.2f : 0.35f));
             float wrap = holdAnim == HoldAnim.SelfHeal && downed ? HealTimeline.BandageAmount(holdTime) : 0f;
-            float target = Mathf.Max(bandageExternal, wrap);
+            AdvanceMedkit(dt);
+            float target = Mathf.Max(bandageExternal, Mathf.Max(wrap, medWrap));
             bandageShown = target > bandageShown ? target : Mathf.MoveTowards(bandageShown, target, dt * 2f);
         }
 
@@ -88,6 +103,7 @@ namespace HideAndSeek.Characters
         {
             if (injectW > 0.5f && holdTime >= HealTimeline.InjectShow && holdTime < HealTimeline.InjectHide) return HeldItem.Syringe;
             if (healW > 0.5f && holdTime >= HealTimeline.HealKitOpen + 0.15f && holdTime < HealTimeline.HealWrapEnd + 0.25f) return HeldItem.Bandage;
+            if (medW > 0.5f) return MedkitShownItem();
             return HeldItem.None;
         }
 
@@ -98,7 +114,8 @@ namespace HideAndSeek.Characters
                 syr.SetSyringe(HealTimeline.InjectPress(holdTime), holdTime < HealTimeline.InjectCapOff);
 
             // Medkit on the floor next to the hip while self-healing.
-            bool kit = healW > 0.3f && holdTime >= HealTimeline.HealSitEnd;
+            bool medKit = medW > 0.3f && holdTime >= HealTimeline.MedKitDown - 0.05f && holdTime < HealTimeline.MedTieEnd + 0.15f;
+            bool kit = (healW > 0.3f && holdTime >= HealTimeline.HealSitEnd) || medKit;
             if (kit && floorKit == null)
             {
                 floorKit = BlockyProps.Create(HeldItem.Medkit, transform, gameObject.layer);
@@ -110,8 +127,8 @@ namespace HideAndSeek.Characters
                 if (kit)
                 {
                     // Prop origin = handle; the case hangs 0.37 m below it -> lift so it stands on the floor, lying on its side.
-                    floorKit.transform.localPosition = new Vector3(0.42f, 0.07f, -0.3f);
-                    floorKit.transform.localRotation = Quaternion.Euler(0f, 20f, 90f);
+                    floorKit.transform.localPosition = medKit ? new Vector3(0.36f, 0.07f, 0.3f + (holdAnim == HoldAnim.HealOther ? medStep : 0f)) : new Vector3(0.42f, 0.07f, -0.3f);
+                    floorKit.transform.localRotation = Quaternion.Euler(0f, medKit ? -30f : 20f, 90f);
                 }
             }
 

@@ -27,6 +27,7 @@ namespace HideAndSeek.Characters
             Dead,
             Gasp,
             Breath,
+            Buckle,
         }
 
         enum Ease
@@ -70,15 +71,18 @@ namespace HideAndSeek.Characters
             }
             if (from == LifeState.Alive && to == LifeState.Downed)
             {
-                Key(PoseId.Kneel, 0.3f, Ease.In);
-                Key(PoseId.AllFours, 0.52f, Ease.In);
-                Key(PoseId.Downed, 0.85f, Ease.Out);
+                // Doubles over clutching the wound, knees give, onto the hands, flat on the belly.
+                Key(PoseId.Buckle, 0.32f, Ease.Out);
+                Key(PoseId.Kneel, 0.62f, Ease.In);
+                Key(PoseId.AllFours, 0.92f, Ease.In);
+                Key(PoseId.Downed, 1.3f, Ease.Out);
             }
             else if (from == LifeState.Alive && to == LifeState.Dead)
             {
-                Key(PoseId.Kneel, 0.3f, Ease.In);
-                Key(PoseId.Side, 0.7f, Ease.In);
-                Key(PoseId.Dead, 1.0f, Ease.Out);
+                Key(PoseId.Buckle, 0.26f, Ease.Out);
+                Key(PoseId.Kneel, 0.56f, Ease.In);
+                Key(PoseId.Side, 0.95f, Ease.In);
+                Key(PoseId.Dead, 1.35f, Ease.Out);
             }
             else if (from == LifeState.Downed && to == LifeState.Dead)
             {
@@ -87,9 +91,9 @@ namespace HideAndSeek.Characters
             }
             else if (from == LifeState.Downed && to == LifeState.Alive)
             {
-                Key(PoseId.AllFours, 0.4f, Ease.Smooth);
-                Key(PoseId.Kneel, 0.75f, Ease.Smooth);
-                Key(PoseId.Base, 1.15f, Ease.Smooth);
+                Key(PoseId.AllFours, 0.5f, Ease.Smooth);
+                Key(PoseId.Kneel, 0.95f, Ease.Smooth);
+                Key(PoseId.Base, 1.45f, Ease.Smooth);
             }
             else if (from == LifeState.Dead && to == LifeState.Alive)
             {
@@ -134,6 +138,7 @@ namespace HideAndSeek.Characters
                 case PoseId.Downed: return DownedPose();
                 case PoseId.Gasp: return GaspPose();
                 case PoseId.Breath: return BreathPose();
+                case PoseId.Buckle: return BucklePose();
                 default: return DeadPose();
             }
         }
@@ -173,6 +178,21 @@ namespace HideAndSeek.Characters
             p.SolveLeg(1, new Vector3(-0.12f, 0.11f, z - 0.34f), new Vector3(0f, -0.3f, 1f));
             p.SolveArm(0, p.TorsoPoint(new Vector3(0.07f, 0.24f, 0.24f)), TorsoDir(p, 1f, -1f, -0.6f));
             p.SolveArm(1, p.TorsoPoint(new Vector3(-0.08f, 0.27f, 0.24f)), TorsoDir(p, -1f, -1f, -0.6f));
+            return p;
+        }
+
+        /// <summary>Doubled over on bent knees, both hands pressed on the belly (losing the strength to stand).</summary>
+        static CharacterPose BucklePose()
+        {
+            var p = CharacterPose.Identity;
+            p.PelvisPos = new Vector3(0.02f, 0.55f, -0.07f);
+            p.Pelvis = Quaternion.Euler(6f, 0f, 3f);
+            p.Torso = Quaternion.Euler(30f, -6f, 5f);
+            p.Head = Quaternion.Euler(12f, 8f, 0f);
+            p.SolveLeg(0, new Vector3(0.13f, 0f, 0.06f), new Vector3(0.1f, 0f, 1f));
+            p.SolveLeg(1, new Vector3(-0.14f, 0f, -0.08f), new Vector3(-0.1f, 0f, 1f));
+            p.SolveArm(0, p.TorsoPoint(new Vector3(0.06f, 0.25f, 0.235f)), TorsoDir(p, 1f, -1f, -0.5f));
+            p.SolveArm(1, p.TorsoPoint(new Vector3(-0.08f, 0.28f, 0.235f)), TorsoDir(p, -1f, -1f, -0.5f));
             return p;
         }
 

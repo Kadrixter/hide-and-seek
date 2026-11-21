@@ -24,11 +24,11 @@ namespace HideAndSeek.Characters
 
         CharacterPose SeekerGlockFinisher(in CharacterPose current, float t)
         {
-            var hits = KillMoves.HitTimes(KillMove.GlockFinisher);
-            float raise = Seg(t, 0f, 0.45f);
-            float lower = Seg(t, KillMoves.GlockFinisherLowerTime, KillMoves.GlockFinisherLowerTime + 0.45f);
-            float blow = Seg(t, KillMoves.GlockFinisherTauntTime, KillMoves.GlockFinisherTauntTime + 0.4f) *
-                         (1f - Seg(t, KillMoves.GlockFinisherTauntTime + 1.3f, KillMoves.GlockFinisherTauntTime + 1.7f));
+            var hits = KillCore.HitTimes(KillMove.GlockFinisher);
+            float raise = coreAfterIntro ? 1f : Seg(t, 0f, 0.45f);
+            float lower = Seg(t, KillCore.GlockFinisherLowerTime, KillCore.GlockFinisherLowerTime + 0.45f);
+            float blow = Seg(t, KillCore.GlockFinisherTauntTime, KillCore.GlockFinisherTauntTime + 0.4f) *
+                         (1f - Seg(t, KillCore.GlockFinisherTauntTime + 1.3f, KillCore.GlockFinisherTauntTime + 1.7f));
             float r = Recoil(t, hits);
 
             var p = current;
@@ -71,9 +71,9 @@ namespace HideAndSeek.Characters
 
         CharacterPose VictimGlockFinisher(float t)
         {
-            var hits = KillMoves.HitTimes(KillMove.GlockFinisher);
+            var hits = KillCore.HitTimes(KillMove.GlockFinisher);
             // 1. Standing, hands going up (surrender).
-            float up = Seg(t, 0.05f, 0.5f);
+            float up = coreAfterIntro ? 1f : Seg(t, 0.05f, 0.5f);
             var stand = VictimStand(t, 0f, 0.05f, 0f, -6f * up, 0.15f * up, 0f, 0f,
                 Vector3.Lerp(HandsRestR, new Vector3(0.24f, 0.78f, 0.12f), up), Vector3.Lerp(HandsRestL, new Vector3(-0.26f, 0.78f, 0.12f), up));
             if (t < hits[0]) return stand;
@@ -99,7 +99,7 @@ namespace HideAndSeek.Characters
             snap.Head = Quaternion.Euler(-45f, 0f, 0f);
             snap.Torso = Quaternion.Euler(-25f, 0f, 0f) * kneel.Torso;
             if (t < hits[2] + 0.12f) return CharacterPose.Lerp(kneel, snap, ActionTimeline.Remap01(t, hits[2], hits[2] + 0.12f));
-            return CharacterPose.Lerp(snap, DeadPose(), ActionTimeline.EaseIn(ActionTimeline.Remap01(t, hits[2] + 0.12f, KillMoves.GlockFinisherVictimDead)));
+            return CharacterPose.Lerp(snap, DeadPose(), ActionTimeline.EaseIn(ActionTimeline.Remap01(t, hits[2] + 0.12f, KillCore.GlockFinisherVictimDead)));
         }
     }
 }

@@ -10,75 +10,6 @@ namespace HideAndSeek.Characters
     /// </summary>
     public partial class BlockyCharacterActions
     {
-        KillMove killMove;
-        float killSeekerDuration, killVictimDuration;
-
-        /// <summary>Seeker: fired at every hit of the current kill move (index into <see cref="KillMoves.HitTimes"/>).</summary>
-        public event System.Action<int> KillHit;
-
-        /// <summary>Seeker side of a kill variant. Returns its duration.</summary>
-        public float PlayKill(KillMove move, BlockyCharacter victim)
-        {
-            if (move == KillMove.Stabs) return PlayKnifeAttack(victim);
-            EnsureInit();
-            sawKill = KillMoves.IsSaw(move);
-            glockKill = move == KillMove.GlockFinisher;
-            knifeVictim = victim;
-            if (move == KillMove.SawFinisher) PrepareSawSlots(victim);
-            killMove = move;
-            killSeekerDuration = KillMoves.SeekerDuration(move);
-            StartAction(ActionKind.Kill);
-            return killSeekerDuration;
-        }
-
-        /// <summary>Victim side of a kill variant. Returns the time until the victim lies on the floor.</summary>
-        public float PlayKillReaction(KillMove move)
-        {
-            if (move == KillMove.Stabs) return PlayStabbedReaction();
-            EnsureInit();
-            reviving = false;
-            reviveW = 0f;
-            killMove = move;
-            killVictimDuration = KillMoves.VictimDuration(move);
-            StartAction(ActionKind.KillReaction);
-            return killVictimDuration;
-        }
-
-        public KillMove CurrentKillMove => killMove;
-
-        void AdvanceKill(float prev)
-        {
-            if (action == ActionKind.Kill)
-            {
-                var hits = KillMoves.HitTimes(killMove);
-                while (firedEvents < hits.Length && actionTime >= hits[firedEvents])
-                {
-                    int i = firedEvents++;
-                    try { KillHit?.Invoke(i); }
-                    catch (System.Exception e) { Debug.LogException(e); }
-                }
-                if (actionTime >= killSeekerDuration) EndAction();
-            }
-            else if (action == ActionKind.KillReaction)
-            {
-                if (KillMoves.EndsDead(killMove))
-                {
-                    // Lies dead (holding the pose) until the Dead state arrives; safety timeout.
-                    if (lifeState == LifeState.Dead && actionTime >= killVictimDuration) EndFinisherReaction();
-                    else if (actionTime >= killVictimDuration + 6f) EndFinisherReaction();
-                }
-                else if (actionTime >= killVictimDuration) EndStabbedReaction();
-            }
-        }
-
-        void EndFinisherReaction()
-        {
-            action = ActionKind.None;
-            pendingDowned = false;
-            pathActive = false;
-            if (lifeState != LifeState.Dead) StartLifePath(LifeState.Dead, lifeState);
-        }
-
         // ================================================================== helpers
 
         static float Seg(float t, float a, float b) => ActionTimeline.SmoothStep01(ActionTimeline.Remap01(t, a, b));
@@ -172,10 +103,13 @@ namespace HideAndSeek.Characters
 
         // ================================================================== seeker poses
 
-        CharacterPose KillPose(in CharacterPose current, float t)
+        /// <summary>Seeker pose of the core (killing blows), <paramref name="t"/> = seconds from the start of the core.</summary>
+        CharacterPose CoreSeekerPose(in CharacterPose current, float t)
         {
             switch (killMove)
             {
+                case KillMove.Stabs: return KnifeAttackPose(current, t);
+                case KillMove.Finisher: return SeekerFinisher(current, t);
                 case KillMove.ThroatSlit: return SeekerThroatSlit(current, t);
                 case KillMove.Overhead: return SeekerOverhead(current, t);
                 case KillMove.GutKnee: return SeekerGutKnee(current, t);
@@ -359,8 +293,8 @@ namespace HideAndSeek.Characters
             float slash = sl * sl * (3f - 2f * sl);
             float letGo = Seg(t, 3.45f, 3.75f);
             float stepBack = Seg(t, 3.75f, 4.25f);
-            float flip = ActionTimeline.Remap01(t, KillMoves.FinisherFlipTime, KillMoves.FinisherFlipTime + 0.5f);
-            float taunt = Seg(t, KillMoves.FinisherTauntTime, KillMoves.FinisherTauntTime + 0.4f) * (1f - Seg(t, 6.45f, 7.0f));
+            float flip = ActionTimeline.Remap01(t, KillCore.FinisherFlipTime, KillCore.FinisherFlipTime + 0.5f);
+            float taunt = Seg(t, KillCore.FinisherTauntTime, KillCore.FinisherTauntTime + 0.4f) * (1f - Seg(t, 6.45f, 7.0f));
             float pump = Mathf.Sin(Mathf.PI * ActionTimeline.Remap01(t, 5.55f, 5.85f)) + Mathf.Sin(Mathf.PI * ActionTimeline.Remap01(t, 6.0f, 6.3f));
 
             float bent = follow * (1f - stepBack);
@@ -427,11 +361,13 @@ namespace HideAndSeek.Characters
 
         // ================================================================== victim reactions
 
-        CharacterPose KillReactionPose(float t, Quaternion propR)
+        /// <summary>Victim pose of the core, <paramref name="t"/> = seconds from the start of the core.</summary>
+        CharacterPose CoreVictimPose(float t, Quaternion propR)
         {
             CharacterPose p;
             switch (killMove)
             {
+                case KillMove.Stabs: return StabbedReactionPose(t, propR);
                 case KillMove.ThroatSlit: p = FallToDowned(VictimThroatSlit(Mathf.Min(t, 2.5f)), t, 2.5f, 2.85f, 3.1f, 3.4f); break;
                 case KillMove.Overhead: p = VictimOverhead(t); break;
                 case KillMove.GutKnee: p = FallToDowned(VictimGutKnee(Mathf.Min(t, 2.3f)), t, 2.3f, 2.65f, 2.95f, 3.4f); break;
@@ -573,7 +509,7 @@ namespace HideAndSeek.Characters
             // 3. Topples onto the side, rolls onto the back: dead.
             var side = SidePose();
             if (t < 4.1f) return CharacterPose.Lerp(kneel, side, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 3.7f, 4.1f)));
-            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 4.1f, KillMoves.FinisherVictimDead)));
+            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 4.1f, KillCore.FinisherVictimDead)));
         }
             // ================================================================== chainsaw
 
@@ -599,7 +535,7 @@ namespace HideAndSeek.Characters
             float lift = Seg(t, 0.6f, 2.2f);
             float rip = Seg(t, 2.25f, 2.6f);
             float raise = Seg(t, 2.8f, 3.3f) * (1f - Seg(t, 3.8f, 4.3f));
-            bool grinding = t > KillMoves.ChainsawGrindStart && t < KillMoves.ChainsawGrindEnd;
+            bool grinding = t > KillCore.ChainsawGrindStart && t < KillCore.ChainsawGrindEnd;
             float shake = grinding ? 1f : (t > 2.8f && t < 3.8f ? 0.5f : 0.15f);
             Vector3 jit = new Vector3(Mathf.Sin(t * 83f), Mathf.Sin(t * 67f + 1f), Mathf.Sin(t * 59f + 2f)) * 0.012f * shake;
 
@@ -631,7 +567,7 @@ namespace HideAndSeek.Characters
 
         CharacterPose VictimChainsaw(float t)
         {
-            float grind = t > KillMoves.ChainsawGrindStart && t < KillMoves.ChainsawGrindEnd ? 1f : 0f;
+            float grind = t > KillCore.ChainsawGrindStart && t < KillCore.ChainsawGrindEnd ? 1f : 0f;
             float hit = Pulse(t, 0.5f, 1.6f);
             float raiseHands = Seg(t, 0.05f, 0.35f);
             float grab = Seg(t, 0.5f, 0.7f) * (1f - Seg(t, 2.25f, 2.45f));
@@ -652,7 +588,7 @@ namespace HideAndSeek.Characters
             if (t < 2.75f) return CharacterPose.Lerp(stand, kneel, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.4f, 2.75f)));
             var side = SidePose();
             if (t < 3.2f) return CharacterPose.Lerp(kneel, side, ActionTimeline.EaseIn(ActionTimeline.Remap01(t, 2.75f, 3.2f)));
-            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 3.2f, KillMoves.ChainsawVictimDead)));
+            return CharacterPose.Lerp(side, DeadPose(), ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 3.2f, KillCore.ChainsawVictimDead)));
         }
     }
 }
