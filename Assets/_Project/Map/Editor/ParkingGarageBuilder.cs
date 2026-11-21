@@ -112,6 +112,11 @@ namespace HideAndSeek.Map.Editor
             _store = store;
             if (!_store.ContainsKey("Props")) _store["Props"] = new List<Mesh>();
             _props = new PropFactory(lib, _store["Props"]);
+            _props.StoreFor = key =>
+            {
+                if (!_store.TryGetValue(key, out var list)) _store[key] = list = new List<Mesh>();
+                return list;
+            };
         }
 
         public int LightCount => _lightCount;
@@ -200,11 +205,13 @@ namespace HideAndSeek.Map.Editor
                 EmitChunks(_cages[lv], "Cages_" + t, _tPropsLv[lv], true, false);
             }
             EmitChunks(_roof, "Roof", _tFloors, true, true);
+
             for (int k = 0; k < Levels - 1; k++)
             {
                 EmitChunks(_ramps[k], $"Ramps_{Tag(k)}-{Tag(k + 1)}", _tRamps, true, true);
                 EmitChunks(_steps[k], $"Steps_{Tag(k)}-{Tag(k + 1)}", _tStairs, false, true);
             }
+            ParkSomeCarsCrooked();
             return _root.gameObject;
         }
 
@@ -270,6 +277,15 @@ namespace HideAndSeek.Map.Editor
                     bc.size = b.size;
                 }
             GameObjectUtility.SetStaticEditorFlags(go, DetailFlags);
+            // hazard-light anchors (read by CarAlarms): empty children lying on the lamps, +z = outward normal
+            foreach (var bl in pm.Blinkers)
+            {
+                var a = new GameObject("Blinker").transform;
+                a.SetParent(go.transform, false);
+                a.localPosition = bl.Pos;
+                a.localRotation = Quaternion.LookRotation(bl.Normal, Mathf.Abs(bl.Normal.y) > 0.9f ? Vector3.forward : Vector3.up);
+                a.localScale = new Vector3(bl.Size.x, bl.Size.y, 1f);
+            }
             return go;
         }
 
@@ -666,6 +682,7 @@ namespace HideAndSeek.Map.Editor
                     int j = _rng.Next(i + 1);
                     (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
                 }
+                candidates = candidates.Where(b => !HeroReserved(b.Level, b.Label)).ToList();
                 for (int k = 0; k < targets[lv] && k < candidates.Count; k++)
                 {
                     var bay = candidates[k];
@@ -675,6 +692,7 @@ namespace HideAndSeek.Map.Editor
                     PlaceCar(lv, type, bay.Center, bay.Inward, bay.Depth, bay.Label, _rng.NextDouble() < 0.65);
                 }
             }
+            PlaceHeroCars();
         }
 
         private void PlaceCar(int lv, CarType type, Vector3 bayCenter, Vector3 inward, float depth, string label, bool noseIn,
@@ -691,7 +709,8 @@ namespace HideAndSeek.Map.Editor
             Vector3 pos = bayCenter + inward * (depth * 0.5f - len * 0.5f - 0.35f) + side * R(-0.12f, 0.12f);
             float yaw = Quaternion.LookRotation(noseIn ? inward : -inward).eulerAngles.y + R(-3.5f, 3.5f);
             _carCount++;
-            PlaceProp(pm, $"Car_{_carCount:000}_{type}_{paint.Replace("CarPaint_", "")}_{label}", _tCarsLv[lv], pos, yaw, mats);
+            var go = PlaceProp(pm, $"Car_{_carCount:000}_{type}_{paint.Replace("CarPaint_", "")}_{label}", _tCarsLv[lv], pos, yaw, mats);
+            _parked.Add(new Parked { Go = go, BayCenter = bayCenter, Inward = inward, Depth = depth, Level = lv, Label = label });
         }
 
         public int CarCount => _carCount;

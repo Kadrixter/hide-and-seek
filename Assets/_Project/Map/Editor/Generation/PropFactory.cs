@@ -10,6 +10,15 @@ namespace HideAndSeek.Map.Editor
         public Mesh Mesh;
         public Material[] Materials;
         public readonly List<Bounds> Colliders = new List<Bounds>();
+        /// <summary>Hazard-light spots on the body (local position, outward normal, lamp size) for the car alarm.</summary>
+        public readonly List<Blinker> Blinkers = new List<Blinker>();
+    }
+
+    internal struct Blinker
+    {
+        public Vector3 Pos, Normal;
+        public Vector2 Size;
+        public Blinker(Vector3 pos, Vector3 normal, Vector2 size) { Pos = pos; Normal = normal.normalized; Size = size; }
     }
 
     internal enum CarType { Sedan, Hatchback, Suv, Van }
@@ -29,7 +38,10 @@ namespace HideAndSeek.Map.Editor
 
         private Material M(string n) => _lib[n];
 
-        public PropMesh Get(string key, Action<MeshBuilder, PropMesh> build)
+        /// <summary>Optional: mesh list for a named asset file (big meshes get a file of their own).</summary>
+        public Func<string, List<Mesh>> StoreFor;
+
+        public PropMesh Get(string key, Action<MeshBuilder, PropMesh> build, List<Mesh> store = null)
         {
             if (_cache.TryGetValue(key, out var pm)) return pm;
             pm = new PropMesh();
@@ -38,7 +50,7 @@ namespace HideAndSeek.Map.Editor
             pm.Mesh = mb.ToMesh("Prop_" + key);
             pm.Materials = mb.Materials;
             if (pm.Colliders.Count == 0) pm.Colliders.Add(pm.Mesh.bounds);
-            _store.Add(pm.Mesh);
+            (store ?? _store).Add(pm.Mesh);
             _cache[key] = pm;
             return pm;
         }
@@ -48,6 +60,10 @@ namespace HideAndSeek.Map.Editor
         // ================================================================== cars
 
         public PropMesh Car(CarType type) => Get("Car_" + type, (mb, pm) => BuildCar(mb, pm, type));
+
+        /// <summary>Detailed hero car (one mesh per model, paint in slot 0).</summary>
+        public PropMesh Hero(SportCar car) => Get("Hero_" + car.Name, (mb, pm) => car.Build(mb, pm), StoreFor?.Invoke("HeroCar_" + car.Name));
+
 
         private void BuildCar(MeshBuilder mb, PropMesh pm, CarType type)
         {
@@ -121,6 +137,11 @@ namespace HideAndSeek.Map.Editor
                 mb.Box(new Vector3(xs * (hw - 0.3f), lightY, hl + 0.01f), new Vector3(0.36f, 0.12f, 0.03f), head);
                 mb.Box(new Vector3(xs * (hw - 0.06f), lightY, hl - 0.05f), new Vector3(0.1f, 0.1f, 0.1f), ind);
                 mb.Box(new Vector3(xs * (hw - 0.22f), lightY, -hl - 0.01f), new Vector3(0.32f, 0.13f, 0.03f), tail);
+                // hazard-light spots flush with the lamps (front indicator, outer tail lamp, wing repeater)
+                pm.Blinkers.Add(new Blinker(new Vector3(xs * (hw - 0.06f), lightY, hl + 0.001f), Vector3.forward, new Vector2(0.1f, 0.1f)));
+                pm.Blinkers.Add(new Blinker(new Vector3(xs * (hw - 0.12f), lightY, -hl - 0.026f), Vector3.back, new Vector2(0.11f, 0.12f)));
+                pm.Blinkers.Add(new Blinker(new Vector3(xs * (hw + 0.001f), bodyTop - 0.12f, Mathf.Min(wheelBase + 0.42f, hl - 0.25f)), Vector3.right * xs, new Vector2(0.1f, 0.035f)));
+
                 // mirrors
                 if (type != CarType.Van)
                     mb.Box(new Vector3(xs * (hw + 0.09f), bodyTop + 0.08f, cabinZ + cabinLen * 0.5f - 0.2f), new Vector3(0.16f, 0.1f, 0.08f), paint);

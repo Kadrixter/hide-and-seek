@@ -9,7 +9,7 @@ namespace HideAndSeek.Map.Editor
     /// Creates (or updates in place, keeping GUIDs) every Standard-shader material of the garage and
     /// remembers the world-space tiling size each material expects for its UVs.
     /// </summary>
-    internal sealed class MaterialLibrary
+    internal sealed partial class MaterialLibrary
     {
         public const string Folder = "Assets/_Project/Map/Materials";
 
@@ -135,6 +135,7 @@ namespace HideAndSeek.Map.Editor
             };
             for (int i = 0; i < CarPaints.Length; i++)
                 Make(CarPaints[i], paints[i], null, 1f, 0.55f, 0.78f);
+            BuildDetailedCarMaterials();
         }
 
         private Material Make(string name, Color color, string tex, float tile, float metallic, float smoothness,

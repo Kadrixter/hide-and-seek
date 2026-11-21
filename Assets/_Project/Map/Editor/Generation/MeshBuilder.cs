@@ -75,6 +75,42 @@ namespace HideAndSeek.Map.Editor
             t.Add(b); t.Add(b + 2); t.Add(b + 3);
         }
 
+        /// <summary>
+        /// Free quad a-b-c-d with per-corner normals (smooth shading). The front face is picked from the summed
+        /// normals, so the corner order may be either winding. UVs are planar along the dominant normal axis.
+        /// </summary>
+        public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 na, Vector3 nb, Vector3 nc, Vector3 nd, Material m)
+        {
+            Vector3 fn = na + nb + nc + nd;
+            if (Vector3.Cross(c - a, d - b).sqrMagnitude < 1e-12f) return; // degenerate
+            float tile = _lib.Tile(m);
+            int i = _v.Count;
+            AddV(a, na, fn, tile); AddV(b, nb, fn, tile); AddV(c, nc, fn, tile); AddV(d, nd, fn, tile);
+            var t = Tris(m);
+            AddTriOriented(t, i, i + 1, i + 2, fn);
+            AddTriOriented(t, i, i + 2, i + 3, fn);
+        }
+
+        /// <summary>Free triangle with per-corner normals (see <see cref="Quad"/>).</summary>
+        public void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 na, Vector3 nb, Vector3 nc, Material m)
+        {
+            Vector3 fn = na + nb + nc;
+            if (Vector3.Cross(b - a, c - a).sqrMagnitude < 1e-12f) return;
+            float tile = _lib.Tile(m);
+            int i = _v.Count;
+            AddV(a, na, fn, tile); AddV(b, nb, fn, tile); AddV(c, nc, fn, tile);
+            AddTriOriented(Tris(m), i, i + 1, i + 2, fn);
+        }
+
+        private void AddV(Vector3 p, Vector3 n, Vector3 fn, float tile)
+        {
+            _v.Add(p);
+            _n.Add(n.sqrMagnitude > 1e-12f ? n.normalized : Vector3.up);
+            float ax = Mathf.Abs(fn.x), ay = Mathf.Abs(fn.y), az = Mathf.Abs(fn.z);
+            Vector2 uv = ax >= ay && ax >= az ? new Vector2(p.z, p.y) : ay >= az ? new Vector2(p.x, p.z) : new Vector2(p.x, p.y);
+            _uv.Add(uv / tile);
+        }
+
         [System.Flags]
         public enum Faces
         {
