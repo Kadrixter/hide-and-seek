@@ -97,8 +97,7 @@ namespace HideAndSeek.Map.Editor
                 foreach (float s in new[] { -1f, 1f })
                 {
                     CarWheels.Well(mb, a, yBot, xIn, xOut, s);
-                    if (ArchLipBead > 0f)
-                        CarWheels.ArchLip(mb, a, yBot, sec[CarShapes.BRocker].x - ArchLipBead * 0.2f, s, Paint, ArchLipBead);
+                    if (ArchLipBead > 0f) ArchFlare(a, yBot, s);
                     CarWheels.Wheel(mb, new Vector3(s * wx, TireRadius, a.Z), s, TireRadius, TireWidth, RimRadius, Rim, RimMat, Caliper);
                 }
             }
@@ -161,6 +160,44 @@ namespace HideAndSeek.Map.Editor
                 b.Encapsulate(new Vector3(-p.x, p.y, p.z));
             }
             return b;
+        }
+
+        /// <summary>
+        /// Rolled wheel-arch lip grown out of the wing: starts tangent on the panel ~7 cm from the arch, rises in a
+        /// fillet to a rounded crest standing ArchLipBead proud, rolls under to the arch edge and returns inwards
+        /// (the sheet's thickness, seen from the wheel). Shared normals along the arch, no seam to the panel.
+        /// </summary>
+        private void ArchFlare(Arch a, float yBot, float side)
+        {
+            float lift = ArchLipBead;
+            Vector3 X = Vector3.right * side;
+            const int n = 32;
+            float r0 = a.R + 0.07f;
+            float s0 = Mathf.Asin(Mathf.Clamp((yBot + 0.02f - a.Y) / a.R, -1f, 1f));
+            var P = new Vector3[n + 1, 6];
+            var N = new Vector3[n + 1, 6];
+            for (int i = 0; i <= n; i++)
+            {
+                float th = Mathf.Lerp(s0, Mathf.PI - s0, i / (float)n);
+                Vector3 rad = new Vector3(0f, Mathf.Sin(th), Mathf.Cos(th));
+                Vector2 At(float r) => new Vector2(a.Z + rad.z * r, a.Y + rad.y * r);
+                var (p0, n0) = Side(At(r0).x, At(r0).y, side);
+                var (p1, n1) = Side(At(a.R + 0.04f).x, At(a.R + 0.04f).y, side);
+                var (p2, _) = Side(At(a.R + 0.012f).x, At(a.R + 0.012f).y, side);
+                // the roll fades out towards both lower ends of the arch, where the flank is undercut
+                float f = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((a.Y + rad.y * a.R - yBot - 0.03f) / 0.2f));
+                float crestX = Mathf.Abs(p2.x) + lift * f;
+                Vector3 Ring(float r, float x) { var v = At(r); return new Vector3(x * side, v.y, v.x); }
+                P[i, 0] = p0; N[i, 0] = n0;
+                P[i, 1] = p1 + n1 * (lift * 0.35f * f); N[i, 1] = (n1 + rad * 0.25f * f).normalized;
+                P[i, 2] = Ring(a.R + 0.022f, crestX - 0.004f * f); N[i, 2] = (X + rad * 0.45f).normalized;
+                P[i, 3] = Ring(a.R + 0.008f, crestX); N[i, 3] = (X - rad * 0.35f).normalized;
+                P[i, 4] = Ring(a.R - 0.002f, crestX - 0.014f * f - 0.004f); N[i, 4] = (-rad + X * 0.2f).normalized;
+                P[i, 5] = Ring(a.R + 0.004f, crestX - 0.045f * f - 0.01f); N[i, 5] = (-rad - X * 0.4f).normalized;
+            }
+            for (int i = 0; i < n; i++)
+            for (int k = 0; k < 5; k++)
+                Mb.Quad(P[i, k], P[i + 1, k], P[i + 1, k + 1], P[i, k + 1], N[i, k], N[i + 1, k], N[i + 1, k + 1], N[i, k + 1], Paint);
         }
 
         // ------------------------------------------------------------------ helpers for models

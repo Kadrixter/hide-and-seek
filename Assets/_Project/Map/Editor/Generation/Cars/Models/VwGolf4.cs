@@ -9,7 +9,7 @@ namespace HideAndSeek.Map.Editor
     /// grille with black slats and a chrome bar, bumper with a lower grille and fog lamps, dark horizontal tail
     /// lamps reaching onto the wings. 4.15 x 1.73 x 1.44 m, wheelbase 2.51 m.
     /// </summary>
-    internal sealed class VwGolf4 : SportCar
+    internal sealed partial class VwGolf4 : SportCar
     {
         public override string Name => "VwGolf4";
         public override string DefaultPaint => "CarPaint_ReflexSilver";
@@ -292,16 +292,10 @@ namespace HideAndSeek.Map.Editor
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.38f, 0.585f, 0.76f, 0.005f, 0.001f), -1f, s, 0.0015f, Seam, 2);
 
             }
-            Body.Project(0f, 0.86f, -1f, out var bc, out var bcn);
-            CarBadges.Vw(Mb, bc + bcn * 0.004f, bcn, 0.06f);
+            Tailgate();
             Body.Project(0.42f, 0.72f, -1f, out var tp, out _);
             Mb.Text("GOLF", new Vector3(-0.42f, 0.72f, tp.z - 0.003f), Vector3.back, Vector3.up, 0.035f, Lib["Text_White"]);
-            Body.Project(0f, 0.66f, -1f, out var pc, out var pn);
-            CarKit.Lamp(Mb, pc, pn, Vector3.right, CarKit.Rect(0.56f, 0.15f, 0.03f), Paint, Seam, 0.001f, 0.02f);
-            CarKit.Plate(Mb, pc + pn * 0.006f, pn, "WA 1J4GT", 0.95f);
             CarKit.Exhaust(Mb, new Vector3(-0.5f, 0.27f, ZR + 0.1f), 0.035f, 0.2f);
-            // roof spoiler lip over the tailgate glass
-            CarBlob.Blob(Mb, new Vector3(0, 1.365f, -1.835f), Quaternion.Euler(-20f, 0, 0), new Vector3(0.58f, 0.016f, 0.055f), 0.35f, Paint, 0.5f, 1f, 16, 8);
         }
     }
 }

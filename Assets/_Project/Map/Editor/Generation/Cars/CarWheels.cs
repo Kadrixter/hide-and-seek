@@ -151,36 +151,6 @@ namespace HideAndSeek.Map.Editor
             }
         }
 
-        /// <summary>
-        /// Rolled arch lip: a bead of radius <paramref name="bead"/> following the arch edge at |x| = xLip, so the
-        /// flare has its own rounded edge and throws a shadow under it.
-        /// </summary>
-        public static void ArchLip(MeshBuilder mb, Arch a, float yBot, float xLip, float side, Material m, float bead = 0.022f)
-        {
-            float r = a.R + bead * 0.4f;
-            float s0 = Mathf.Asin(Mathf.Clamp((yBot + bead - a.Y) / r, -1f, 1f));
-            const int n = 28, k = 10;
-            Vector3 X = Vector3.right * side;
-            var P = new Vector3[n + 1, k + 1];
-            var N = new Vector3[n + 1, k + 1];
-            for (int i = 0; i <= n; i++)
-            {
-                float th = Mathf.Lerp(s0, Mathf.PI - s0, i / (float)n);
-                Vector3 rad = new Vector3(0f, Mathf.Sin(th), Mathf.Cos(th));
-                Vector3 c = new Vector3(xLip * side, a.Y, a.Z) + rad * r;
-                for (int j = 0; j <= k; j++)
-                {
-                    float ph = j * Mathf.PI * 2f / k;
-                    Vector3 d = rad * Mathf.Cos(ph) + X * Mathf.Sin(ph);
-                    P[i, j] = c + d * bead;
-                    N[i, j] = d;
-                }
-            }
-            for (int i = 0; i < n; i++)
-            for (int j = 0; j < k; j++)
-                mb.Quad(P[i, j], P[i + 1, j], P[i + 1, j + 1], P[i, j + 1], N[i, j], N[i + 1, j], N[i + 1, j + 1], N[i, j + 1], m);
-        }
-
         /// <summary>Dark wheel-well liner: an arch strip between x0 and x1 (|x|) plus the inner wall, for one side.</summary>
         public static void Well(MeshBuilder mb, Arch a, float yBot, float xIn, float xOut, float side)
         {
