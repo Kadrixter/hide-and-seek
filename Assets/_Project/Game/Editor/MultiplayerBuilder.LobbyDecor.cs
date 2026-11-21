@@ -412,46 +412,16 @@ namespace HideAndSeek.Game.Editor
 
         private static void Vending(Transform p, Vector3 pos, Material metal)
         {
+            // Only the collider stays in the scene; the detailed machine (cabinet, glass door, spirals, cans, keypad,
+            // delivery bin) is built at runtime by Game/Lobby/Vending/VendingMachineModel. The body material is the
+            // Standard template the runtime model copies.
             var v = new GameObject("VendingMachine").transform;
             v.SetParent(p, false);
             v.position = pos;
-            // Against the east wall, front facing west (-X). Local layout uses world axes: depth = x, width = z.
             var body = Mat("LobbyVendingBody", new Color(0.75f, 0.1f, 0.12f), null, 0.5f, Vector2.one, 0.2f);
-            Box("Body", v, pos + new Vector3(0, 0.98f, 0), new Vector3(0.8f, 1.96f, 1.0f), body);
-            float fx = pos.x - 0.405f;
-            // Lit window with cans
-            var backLit = Emissive("LobbyVendingBack", new Color(0.85f, 0.95f, 1f), new Color(0.7f, 0.85f, 1f) * 1.3f);
-            // Lit display case in front of the body: back panel, shelves with cans, frame all around.
-            Deco("Window", v, new Vector3(fx - 0.008f, 1.12f, pos.z - 0.12f), new Vector3(0.016f, 1.3f, 0.62f), backLit);
-            var canCols = new[] { new Color(0.85f, 0.1f, 0.1f), new Color(0.1f, 0.4f, 0.9f), new Color(0.15f, 0.7f, 0.2f), new Color(1f, 0.6f, 0.1f), new Color(0.6f, 0.2f, 0.8f) };
-            for (int r = 0; r < 5; r++)
-            {
-                Deco("ShelfRow", v, new Vector3(fx - 0.07f, 0.58f + r * 0.25f, pos.z - 0.12f), new Vector3(0.12f, 0.012f, 0.6f), metal);
-                for (int c = 0; c < 4; c++)
-                {
-                    var col = canCols[(r + c) % canCols.Length];
-                    Cyl("Can", v, new Vector3(fx - 0.06f, 0.664f + r * 0.25f, pos.z - 0.35f + c * 0.15f), 0.075f, 0.14f,
-                        Mat("LobbyVendCan" + ((r + c) % canCols.Length), col, null, 0.7f, Vector2.one, 0.3f));
-                }
-            }
-            // Glass reflection hint + frame
-            Deco("FrameTop", v, new Vector3(fx - 0.07f, 1.79f, pos.z - 0.12f), new Vector3(0.14f, 0.04f, 0.68f), metal);
-            Deco("FrameBottom", v, new Vector3(fx - 0.07f, 0.45f, pos.z - 0.12f), new Vector3(0.14f, 0.04f, 0.68f), metal);
-            Deco("FrameL", v, new Vector3(fx - 0.07f, 1.12f, pos.z - 0.46f), new Vector3(0.14f, 1.38f, 0.03f), metal);
-            Deco("FrameR", v, new Vector3(fx - 0.07f, 1.12f, pos.z + 0.22f), new Vector3(0.14f, 1.38f, 0.03f), metal);
-            // Logo strip
-            var sign = Emissive("LobbyVendingSign", new Color(1f, 1f, 1f), new Color(1f, 0.95f, 0.85f) * 1.5f);
-            Deco("Sign", v, new Vector3(fx - 0.005f, 1.9f, pos.z), new Vector3(0.02f, 0.12f, 0.9f), sign);
-            Label3D("SignText", v, new Vector3(fx - 0.02f, 1.9f, pos.z), Quaternion.Euler(0, 90, 0), "ZIMNE NAPOJE", new Color(0.75f, 0.05f, 0.05f), 0.016f, new Vector2(0.8f, 0.1f));
-            // Keypad + coin slot + tray
-            var dark = Mat("LobbyVendingPanel", new Color(0.08f, 0.08f, 0.09f), null, 0.5f, Vector2.one);
-            Deco("Keypad", v, new Vector3(fx - 0.005f, 1.25f, pos.z + 0.35f), new Vector3(0.02f, 0.5f, 0.2f), dark);
-            for (int i = 0; i < 9; i++)
-                Deco("Key", v, new Vector3(fx - 0.018f, 1.38f - (i / 3) * 0.07f, pos.z + 0.29f + (i % 3) * 0.06f), new Vector3(0.012f, 0.045f, 0.045f), metalSilver.Value);
-            Deco("Display", v, new Vector3(fx - 0.018f, 1.45f + 0.02f, pos.z + 0.35f), new Vector3(0.01f, 0.05f, 0.15f), Emissive("LobbyVendDisplay", new Color(0.2f, 1f, 0.4f), new Color(0.2f, 1f, 0.4f) * 1.5f));
-            Deco("CoinSlot", v, new Vector3(fx - 0.018f, 1.05f, pos.z + 0.35f), new Vector3(0.012f, 0.08f, 0.03f), metalSilver.Value);
-            Deco("Tray", v, new Vector3(fx - 0.01f, 0.25f, pos.z - 0.12f), new Vector3(0.04f, 0.2f, 0.55f), dark);
-            PointLight("VendingGlow", v, new Vector3(fx - 0.6f, 1.2f, pos.z), new Color(0.65f, 0.85f, 1f), 0.9f, 3f);
+            var box = Box("Body", v, pos + new Vector3(0, 0.98f, 0), new Vector3(0.8f, 1.96f, 1.0f), body);
+            box.isStatic = false;
+            box.GetComponent<MeshRenderer>().enabled = false;
         }
 
         // ================================================================ clock / fan

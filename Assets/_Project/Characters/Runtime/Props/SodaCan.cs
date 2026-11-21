@@ -28,6 +28,18 @@ namespace HideAndSeek.Characters
         float baseScale = 1f;
 
         /// <summary>0 = round, 1 = squeezed flat in the fist before the throw.</summary>
+        /// <summary>Uniform size of the can (1 = real 330 ml can).</summary>
+        public float Scale
+        {
+            get => baseScale;
+            set
+            {
+                if (Mathf.Approximately(value, baseScale)) return;
+                baseScale = value;
+                transform.localScale = baseScale * new Vector3(1f, 1f - 0.3f * crushDone, 1f);
+            }
+        }
+
         public void SetCrush(float amount)
         {
             float c = Mathf.Clamp01(amount);

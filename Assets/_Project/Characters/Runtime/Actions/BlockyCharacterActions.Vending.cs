@@ -14,6 +14,8 @@ namespace HideAndSeek.Characters
     {
         public const float Drop = 1.0f, Land = 1.55f, Grip = 2.7f, Release = 7.85f;
         public const float TabPop = 4.5f, CrushAt = 7.0f;
+        /// <summary>Size of the cans in the machine (the held prop is bigger, see <see cref="BlockyProps.CanScale"/>).</summary>
+        public const float MachineCanScale = 1.6f;
         /// <summary>Gulp sound marks.</summary>
         public static readonly float[] Gulps = { 5.75f, 6.1f, 6.45f };
 
@@ -91,7 +93,7 @@ namespace HideAndSeek.Characters
             Vector3 toMe = new Vector3(-vendButton.x, 0f, -vendButton.z).normalized;
             Vector3 pre = vendButton + toMe * 0.14f, pressed = vendButton - toMe * 0.015f;
             Quaternion hold = VendingTimeline.HoldRotation, grip = VendingTimeline.GripRotation;
-            Vector3 grab = vendTrayCan - grip * new Vector3(0f, 0f, BlockyProps.CanOffset);
+            Vector3 grab = vendTrayCan - grip * new Vector3(0f, 0f, BlockyProps.CanOffset * VendingTimeline.MachineCanScale / BlockyProps.CanScale);
             Vector3 chest = new Vector3(0.1f, 1.08f, 0.36f);
             Vector3 r;
             Quaternion canRot = hold;
@@ -152,6 +154,10 @@ namespace HideAndSeek.Characters
             if (can == null || show != HeldItem.Can) return;
             can.SetCan(vendingBrand, VendingTimeline.Open(vendingTime));
             can.Can.SetCrush(VendingTimeline.Crush(vendingTime));
+            // Picked up at machine size, grows to the hand size while it is lifted (the fist is 22 cm wide).
+            float grow = Mathf.Lerp(VendingTimeline.MachineCanScale / BlockyProps.CanScale, 1f, VendingTimeline.S(vendingTime, 2.75f, 3.4f));
+            can.Can.Scale = BlockyProps.CanScale * grow;
+            can.Can.transform.localPosition = new Vector3(0f, 0f, BlockyProps.CanOffset * grow);
         }
     }
 }

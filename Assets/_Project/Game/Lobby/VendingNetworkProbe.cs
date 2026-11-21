@@ -86,6 +86,33 @@ namespace HideAndSeek.Game
             yield return new WaitForSeconds(1);
             ScreenCapture.CaptureScreenshot(dir + "/fp_before.png");
             yield return new WaitForSeconds(0.3f);
+            // The machine on its own, lit only by the lobby and its own lights (player moved out of the way).
+            {
+                p.Motor.Teleport(vend.transform.TransformPoint(new Vector3(-3.5f, 0f, 3f)), 90f);
+                yield return new WaitForSeconds(0.5f);
+                var mc = new GameObject("MachineCam").AddComponent<Camera>();
+                mc.enabled = false;
+                var mrt = new RenderTexture(1200, 1200, 24) { antiAliasing = 4 };
+                mc.targetTexture = mrt;
+                void View(string name, Vector3 from, Vector3 at, float fov)
+                {
+                    mc.fieldOfView = fov;
+                    mc.transform.position = vend.transform.TransformPoint(from);
+                    mc.transform.LookAt(vend.transform.TransformPoint(at));
+                    mc.Render();
+                    Save(mrt, dir + "/machine_" + name + ".png");
+                }
+                View("front", new Vector3(-2.6f, 1.05f, 0f), new Vector3(0f, 1.0f, 0f), 45f);
+                View("34", new Vector3(-1.9f, 1.35f, -1.5f), new Vector3(0f, 0.95f, 0f), 50f);
+                View("34left", new Vector3(-1.7f, 1.2f, 1.6f), new Vector3(0f, 0.95f, 0f), 50f);
+                View("panel", new Vector3(-0.9f, 1.15f, 0.42f), new Vector3(-0.4f, 1.05f, 0.33f), 40f);
+                View("shelves", new Vector3(-1.0f, 1.2f, -0.25f), new Vector3(-0.2f, 1.05f, -0.15f), 48f);
+                View("bin", new Vector3(-0.95f, 0.55f, -0.3f), new Vector3(-0.42f, 0.25f, -0.1f), 45f);
+                Destroy(mc.gameObject);
+                p.Motor.Teleport(vend.transform.TransformPoint(new Vector3(-0.98f, 0f, 0.08f)), 90f);
+                p.Motor.SetLook(90f, 0f);
+                yield return new WaitForSeconds(0.5f);
+            }
             p.RequestVendingRpc();
             yield return new WaitForSeconds(0.5f);
             var mm = MatchManager.Instance;
@@ -96,7 +123,7 @@ namespace HideAndSeek.Game
             cam.fieldOfView = 52f;
             var light = new GameObject("VendingShotLight").AddComponent<Light>();
             light.type = LightType.Point; light.range = 6f; light.intensity = 1.4f;
-            foreach (float t in new[] { 0.42f, 1.4f, 2.2f, 2.6f, 3.3f, 4.0f, 4.5f, 5.3f, 6.0f, 6.8f, 7.1f, 7.45f, 7.75f })
+            foreach (float t in new[] { 0.42f, 0.8f, 1.0f, 1.12f, 1.3f, 1.5f, 1.75f, 2.0f, 2.2f, 2.6f, 3.3f, 4.0f, 4.5f, 5.3f, 6.0f, 6.8f, 7.1f, 7.45f, 7.75f })
             {
                 if (mm.VendingCans.Count == 0) break;
                 // Hold the clock at t for a moment so the poses settle (weights blend in).
@@ -129,6 +156,17 @@ namespace HideAndSeek.Game
                 cam.Render();
                 Save(rt, dir + "/side_" + tag + ".png");
                 p.Character.SetFirstPersonMode(true);
+                yield return null;
+                // The machine side of the purchase: slot, drop column, bin and flap.
+                if (t < 2.4f)
+                {
+                    var keep = cam.transform.position;
+                    cam.transform.position = vend.transform.TransformPoint(new Vector3(-1.25f, 1.0f, -0.75f));
+                    cam.transform.LookAt(vend.transform.TransformPoint(new Vector3(-0.3f, 0.85f, -0.12f)));
+                    cam.Render();
+                    Save(rt, dir + "/drop_" + tag + ".png");
+                    cam.transform.position = keep;
+                }
                 Debug.Log("[VendingProbe] shot t=" + tag);
             }
             while (mm.VendingCans.Count > 0 && mm.VendingCans[0].Stage == 0) yield return null;

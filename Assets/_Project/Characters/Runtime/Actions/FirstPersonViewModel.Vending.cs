@@ -41,7 +41,7 @@ namespace HideAndSeek.Characters
             // Can lying in the tray (world), seen from the (pitched) camera; gripped from above.
             Quaternion trayRot = Quaternion.Inverse(rig.rotation) * (vendBodyW * VendingTimeline.GripRotation);
             Vector3 trayCan = rig.InverseTransformPoint(vendTrayCanW);
-            Vector3 grab = trayCan - trayRot * new Vector3(0f, 0f, BlockyProps.CanOffset);
+            Vector3 grab = trayCan - trayRot * new Vector3(0f, 0f, BlockyProps.CanOffset * VendingTimeline.MachineCanScale / BlockyProps.CanScale);
 
             // In view: can just right of centre, upright on screen, logo to the camera.
             Quaternion viewHold = Quaternion.LookRotation(new Vector3(-1f, 0f, 0.25f).normalized, Vector3.up);
@@ -108,6 +108,10 @@ namespace HideAndSeek.Characters
             if (can == null || show != HeldItem.Can) return;
             can.SetCan(vendBrand, VendingTimeline.Open(vendT));
             can.Can.SetCrush(VendingTimeline.Crush(vendT));
+            // Picked up at machine size, grows to the hand size while it is lifted (the fist is 22 cm wide).
+            float grow = Mathf.Lerp(VendingTimeline.MachineCanScale / BlockyProps.CanScale, 1f, VendingTimeline.S(vendT, 2.75f, 3.4f));
+            can.Can.Scale = BlockyProps.CanScale * grow;
+            can.Can.transform.localPosition = new Vector3(0f, 0f, BlockyProps.CanOffset * grow);
         }
     }
 }

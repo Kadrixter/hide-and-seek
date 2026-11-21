@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace HideAndSeek.Characters
 {
@@ -20,14 +20,14 @@ namespace HideAndSeek.Characters
 
         static readonly Brand[] Brands =
         {
-            new Brand { Name = "FIZZ", Sub = "COLA", Flavour = "KLASYCZNA", Bg = C(0.78f, 0.06f, 0.07f), Bg2 = C(0.5f, 0.02f, 0.04f), Ink = C(1f, 0.97f, 0.92f), Accent = C(0.1f, 0.08f, 0.08f) },
-            new Brand { Name = "LEMONIX", Sub = "CYTRYNA", Flavour = "Z LIMONKĄ", Bg = C(0.98f, 0.86f, 0.12f), Bg2 = C(0.55f, 0.8f, 0.12f), Ink = C(0.1f, 0.32f, 0.08f), Accent = C(1f, 1f, 0.85f) },
-            new Brand { Name = "NOCNA", Sub = "ZMIANA", Flavour = "ENERGY 32MG", Bg = C(0.05f, 0.05f, 0.06f), Bg2 = C(0.12f, 0.13f, 0.14f), Ink = C(0.45f, 1f, 0.2f), Accent = C(0.45f, 1f, 0.2f) },
-            new Brand { Name = "MALINA", Sub = "GAZOWANA", Flavour = "OWOCOWA", Bg = C(0.92f, 0.3f, 0.55f), Bg2 = C(0.6f, 0.08f, 0.3f), Ink = C(1f, 1f, 1f), Accent = C(1f, 0.75f, 0.85f) },
-            new Brand { Name = "ORANŻ", Sub = "SŁOŃCE", Flavour = "POMARAŃCZA", Bg = C(1f, 0.52f, 0.06f), Bg2 = C(0.95f, 0.78f, 0.12f), Ink = C(0.35f, 0.1f, 0.02f), Accent = C(1f, 0.9f, 0.55f) },
-            new Brand { Name = "MRÓZ", Sub = "ICE MINT", Flavour = "MIĘTA LODOWA", Bg = C(0.55f, 0.88f, 0.95f), Bg2 = C(0.1f, 0.42f, 0.7f), Ink = C(1f, 1f, 1f), Accent = C(0.85f, 0.97f, 1f) },
-            new Brand { Name = "KWAS", Sub = "CHLEBOWY", Flavour = "TRADYCYJNY", Bg = C(0.42f, 0.24f, 0.1f), Bg2 = C(0.25f, 0.13f, 0.05f), Ink = C(0.98f, 0.82f, 0.4f), Accent = C(0.85f, 0.62f, 0.2f) },
-            new Brand { Name = "TURBO", Sub = "WINOGRONO", Flavour = "BEZ CUKRU", Bg = C(0.42f, 0.14f, 0.7f), Bg2 = C(0.2f, 0.05f, 0.38f), Ink = C(1f, 0.92f, 0.2f), Accent = C(1f, 1f, 1f) },
+            new Brand { Name = "FIZZ", Sub = "COLA", Flavour = "CLASSIC", Bg = C(0.78f, 0.06f, 0.07f), Bg2 = C(0.5f, 0.02f, 0.04f), Ink = C(1f, 0.97f, 0.92f), Accent = C(0.1f, 0.08f, 0.08f) },
+            new Brand { Name = "LEMONIX", Sub = "LEMON LIME", Flavour = "ZESTY CITRUS", Bg = C(0.98f, 0.86f, 0.12f), Bg2 = C(0.55f, 0.8f, 0.12f), Ink = C(0.1f, 0.32f, 0.08f), Accent = C(1f, 1f, 0.85f) },
+            new Brand { Name = "VOLTEX", Sub = "NEON RUSH", Flavour = "ENERGY 32MG", Bg = C(0.05f, 0.05f, 0.06f), Bg2 = C(0.12f, 0.13f, 0.14f), Ink = C(0.45f, 1f, 0.2f), Accent = C(0.45f, 1f, 0.2f) },
+            new Brand { Name = "BERRY", Sub = "POP SODA", Flavour = "RASPBERRY", Bg = C(0.92f, 0.3f, 0.55f), Bg2 = C(0.6f, 0.08f, 0.3f), Ink = C(1f, 1f, 1f), Accent = C(1f, 0.75f, 0.85f) },
+            new Brand { Name = "SUNNY", Sub = "ORANGE", Flavour = "SUN ORANGE", Bg = C(1f, 0.52f, 0.06f), Bg2 = C(0.95f, 0.78f, 0.12f), Ink = C(0.35f, 0.1f, 0.02f), Accent = C(1f, 0.9f, 0.55f) },
+            new Brand { Name = "FROST", Sub = "ICE MINT", Flavour = "ARCTIC MINT", Bg = C(0.55f, 0.88f, 0.95f), Bg2 = C(0.1f, 0.42f, 0.7f), Ink = C(1f, 1f, 1f), Accent = C(0.85f, 0.97f, 1f) },
+            new Brand { Name = "MALTY", Sub = "ROOT BEER", Flavour = "OLD FASHIONED", Bg = C(0.42f, 0.24f, 0.1f), Bg2 = C(0.25f, 0.13f, 0.05f), Ink = C(0.98f, 0.82f, 0.4f), Accent = C(0.85f, 0.62f, 0.2f) },
+            new Brand { Name = "TURBO", Sub = "GRAPE", Flavour = "SUGAR FREE", Bg = C(0.42f, 0.14f, 0.7f), Bg2 = C(0.2f, 0.05f, 0.38f), Ink = C(1f, 0.92f, 0.2f), Accent = C(1f, 1f, 1f) },
         };
 
         static Color C(float r, float g, float b) => new Color(r, g, b, 1f);
@@ -96,14 +96,14 @@ namespace HideAndSeek.Characters
             Rect(front - 48, 84, front + 48, 86, br.Ink, 0.5f);
             Text(br.Flavour, front, 64, 1, 2, br.Ink, 0.4f, Color.Lerp(br.Bg2, Color.black, 0.45f));
             Text("330 ML", front, 24, 2, 2, br.Ink, 0.6f);
-            // Small round seal "NOWOSC" / "ORYGINAL" next to the logo.
+            // Small round seal "NEW" / "TOP" next to the logo.
             int sealX = front - 72, sealY = 44;
             for (int y = -16; y <= 16; y++) for (int x = -16; x <= 16; x++)
             {
                 float d = Mathf.Sqrt(x * x + y * y);
                 if (d <= 16f) Plot(sealX + x, sealY + y, d > 13.5f ? br.Ink : br.Accent, d > 13.5f ? 0.8f : 0.5f);
             }
-            Text(b % 2 == 0 ? "NOWY" : "TOP", sealX, sealY - 3, 1, 1, br.Bg2, 0.6f);
+            Text(b % 2 == 0 ? "NEW" : "TOP", sealX, sealY - 3, 1, 1, br.Bg2, 0.6f);
 
             // Side: vertical brand repeat (both sides of the front).
             for (int s = -1; s <= 1; s += 2)
@@ -121,7 +121,7 @@ namespace HideAndSeek.Characters
             Color paper = new Color(0.96f, 0.95f, 0.92f), dark = new Color(0.12f, 0.12f, 0.13f);
             Rect(back - 62, 58, back + 62, 214, paper, 0.15f);
             Rect(back - 62, 212, back + 62, 214, dark, 0.15f);
-            Text("SKŁAD:", back - 34, 200, 1, 1, dark, 0.2f);
+            Text("INGREDIENTS:", back - 20, 200, 1, 1, dark, 0.2f);
             for (int line = 0; line < 7; line++)
             {
                 int x = back - 56;
@@ -134,7 +134,7 @@ namespace HideAndSeek.Characters
                 }
             }
             Text("100 ML: " + (b == 2 ? "46" : (38 + b * 3).ToString()) + " KCAL", back, 128, 1, 1, dark, 0.2f);
-            // Deposit (Polish can deposit): round arrows + KAUCJA 0.50 ZL.
+            // Deposit (can deposit): round arrows + RECYCLE / DEPOSIT.
             for (int a = 0; a < 360; a += 3)
             {
                 if (a % 120 > 100) continue;
@@ -142,8 +142,8 @@ namespace HideAndSeek.Characters
                 for (int t = 0; t < 3; t++)
                     Plot(back - 40 + Mathf.RoundToInt(Mathf.Cos(r) * (9 + t)), 107 + Mathf.RoundToInt(Mathf.Sin(r) * (9 + t)), new Color(0.1f, 0.45f, 0.2f), 0.4f);
             }
-            Text("KAUCJA", back + 10, 110, 1, 1, dark, 0.2f);
-            Text("0.50 ZŁ", back + 10, 100, 1, 1, dark, 0.2f);
+            Text("RECYCLE", back + 10, 110, 1, 1, dark, 0.2f);
+            Text("DEPOSIT", back + 10, 100, 1, 1, dark, 0.2f);
             // Barcode.
             int bx = back - 44;
             while (bx < back + 44)
@@ -153,8 +153,8 @@ namespace HideAndSeek.Characters
                 bx += w + rng.Next(1, 3);
             }
             Text("590" + (1000 + b * 1111) + "0" + (31 + b), back, 62, 1, 1, dark, 0.1f);
-            Text("SCHŁODŹ PRZED PICIEM", back, 36, 1, 1, br.Ink, 0.3f);
-            Text("NAJLEPSZE DO: 11.2027", back, 24, 1, 1, br.Ink, 0.15f);
+            Text("SERVE ICE COLD", back, 36, 1, 1, br.Ink, 0.3f);
+            Text("BEST BEFORE 11.2027", back, 24, 1, 1, br.Ink, 0.15f);
 
             labels[b] = Make(px, LW, LH, "CanLabel_" + br.Name, false);
             normals[b] = NormalFrom(h, LW, LH, 2.2f, true, "CanLabelN_" + br.Name);
@@ -289,7 +289,7 @@ namespace HideAndSeek.Characters
                 }
             }
             // Left and right of the tab, readable from the outside of the rim.
-            EngraveArc("RECYKLING", 180f, c * 0.74f);
+            EngraveArc("RECYCLE", 180f, c * 0.74f);
             EngraveArc("330 ML", 0f, c * 0.74f);
             lid = Make(px, LidN, LidN, "CanLid", false);
             lidNormal = NormalFrom(h, LidN, LidN, 5f, false, "CanLidN");
