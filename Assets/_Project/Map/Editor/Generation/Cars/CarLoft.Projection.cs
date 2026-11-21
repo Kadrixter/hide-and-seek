@@ -66,7 +66,8 @@ namespace HideAndSeek.Map.Editor
         /// Panel whose outline (x/y, right side; mirrored when side = -1) is projected onto the nose (dir 1) or tail
         /// (dir -1), lifted along the normal. Rings from the centroid outwards give a smooth curved lamp face.
         /// </summary>
-        public void ProjectedPatch(MeshBuilder mb, Vector2[] outline, float dir, float side, float lift, Material m, int rings = 4)
+        public void ProjectedPatch(MeshBuilder mb, Vector2[] outline, float dir, float side, float lift, Material m, int rings = 4,
+            float minNz = 0.3f)
         {
             outline = Densify(outline, 0.03f); // long chords would cut under curved panels
             Vector2 c = Vector2.zero;
@@ -86,7 +87,7 @@ namespace HideAndSeek.Map.Editor
                 Vector3 p = Vector3.zero, nn = Vector3.up;
                 bool hit = false;
                 for (int t = 0; t < 40 && !hit; t++)               // off the body or round the corner: pull it inwards
-                    hit = Project(q.x * side * (1f - t * 0.01f), q.y, dir, out p, out nn) && Mathf.Abs(nn.z) >= 0.3f;
+                    hit = Project(q.x * side * (1f - t * 0.01f), q.y, dir, out p, out nn) && Mathf.Abs(nn.z) >= minNz;
                 if (!hit) { ok = false; if (k > 0) { P[k, i] = P[k - 1, i]; N[k, i] = N[k - 1, i]; } continue; }
 
                 P[k, i] = p + nn * lift;
@@ -104,10 +105,10 @@ namespace HideAndSeek.Map.Editor
 
         /// <summary>Projected lamp: dark shut-line rim, then the lens slightly proud.</summary>
         public void ProjectedLamp(MeshBuilder mb, Vector2[] outline, float dir, float side, Material lens, Material rim,
-            float gap = 0.008f, float lift = 0.004f)
+            float gap = 0.008f, float lift = 0.004f, float minNz = 0.3f)
         {
-            if (rim != null) ProjectedPatch(mb, Grow(outline, gap), dir, side, lift * 0.4f, rim);
-            ProjectedPatch(mb, outline, dir, side, lift, lens);
+            if (rim != null) ProjectedPatch(mb, Grow(outline, gap), dir, side, lift * 0.4f, rim, 4, minNz);
+            ProjectedPatch(mb, outline, dir, side, lift, lens, 4, minNz);
         }
 
         /// <summary>Outline with extra points so that no edge is longer than <paramref name="step"/>.</summary>

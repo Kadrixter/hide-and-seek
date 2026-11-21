@@ -99,7 +99,8 @@ namespace HideAndSeek.Map.Editor
             return loft;
         }
 
-        public static CarLoft Cabin(IList<CabinKey> keys, IEnumerable<float> breaks, float roofRound = 1f, float step = 0.03f)
+        public static CarLoft Cabin(IList<CabinKey> keys, IEnumerable<float> breaks, float roofRound = 1f, float step = 0.03f,
+            float roofDip = 0f)
         {
             var k = keys.OrderBy(q => q.Z).ToArray();
             float[] xs = k.Select(q => q.Z).ToArray();
@@ -121,7 +122,8 @@ namespace HideAndSeek.Map.Editor
                 p[CFrame] = new Vector2(wTop - 0.004f, yR - edge);
                 p[CRoofEdge] = new Vector2(wR - 0.03f * roofRound, yR - 0.002f);
                 p[CRoof] = new Vector2(wR * 0.5f, yR + 0.012f * roofRound * Mathf.Clamp01(h / 0.2f));
-                p[CCentre] = new Vector2(0f, yR + 0.015f * roofRound * Mathf.Clamp01(h / 0.2f));
+                // roofDip > 0: a shallow channel down the middle (double-bubble roof)
+                p[CCentre] = new Vector2(0f, yR + (0.015f * roofRound - roofDip) * Mathf.Clamp01(h / 0.2f));
                 if (p[CRoofEdge].x < p[CRoof].x) p[CRoofEdge].x = p[CRoof].x + 0.005f;
                 secs.Add(p);
             }

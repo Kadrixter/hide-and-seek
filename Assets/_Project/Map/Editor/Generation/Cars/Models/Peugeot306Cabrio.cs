@@ -82,6 +82,13 @@ namespace HideAndSeek.Map.Editor
             // folded soft top under a black tonneau behind the rear seats
             foreach (float s in new[] { -1f, 1f })
                 Body.PatchX(Mb, s, -1.24f, -1.0f, t => new Vector2(0f, 0.74f), BShoulder, BCentre, 0.002f, Lib["Car_SoftTop"], 6, 6);
+            // roll-over hoop behind the front seats: padded black bar on two posts
+            var bar = Lib["Car_LeatherBlack"];
+            foreach (float x in new[] { -0.6f, 0.6f })
+                CarBlob.Bar(Mb, new Vector3(x, 0.86f, -0.5f), new Vector3(x * 0.92f, 1.24f, -0.56f), Vector3.forward, 0.07f, 0.06f, bar, 0.5f);
+            CarBlob.Bar(Mb, new Vector3(-0.57f, 1.25f, -0.56f), new Vector3(0.57f, 1.25f, -0.56f), Vector3.up, 0.075f, 0.06f, bar, 0.5f);
+            foreach (float x in new[] { -0.57f, 0.57f })
+                CarBlob.Blob(Mb, new Vector3(x, 1.24f, -0.56f), Quaternion.identity, new Vector3(0.045f, 0.045f, 0.04f), 0.6f, bar);
             CarBlob.Blob(Mb, new Vector3(0, 0.95f, -1.12f), Quaternion.identity, new Vector3(0.73f, 0.07f, 0.15f), 0.25f, Lib["Car_SoftTop"], 0.6f);
         }
 
@@ -155,6 +162,8 @@ namespace HideAndSeek.Map.Editor
             foreach (float s in new[] { -1f, 1f })
             {
                 Body.ProjectedLamp(Mb, tail, -1f, s, Tail, Seam);
+                // smoked band across the upper half of the lamp
+                Body.ProjectedPatch(Mb, CarLoft.PolyAt(0f, 0f, new Vector2(0.3f, 0.77f), new Vector2(0.74f, 0.765f), new Vector2(0.745f, 0.797f), new Vector2(0.3f, 0.807f)), -1f, s, 0.006f, Lib["Car_TailDark"]);
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.36f, 0.755f, 0.09f, 0.08f, 0.01f), -1f, s, 0.007f, s > 0 ? Lib["Car_Reverse"] : Lib["Car_TailDark"]);
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.64f, 0.752f, 0.1f, 0.07f, 0.01f), -1f, s, 0.007f, Amber);
                 if (Body.Project(s * 0.64f, 0.752f, -1f, out var bp, out var bn))

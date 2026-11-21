@@ -43,6 +43,7 @@ namespace HideAndSeek.Map.Editor
         protected virtual float[] BodyBreaks => new float[0];
         protected virtual float[] CabinBreaks => new float[0];
         protected virtual float RoofRound => 1f;
+        protected virtual float RoofDip => 0f;
         /// <summary>Extra crease lines of the body (ring indices, e.g. a crisp shoulder).</summary>
         protected virtual int[] SharpRings => new int[0];
         protected virtual Material FrontCap => Paint;
@@ -89,7 +90,7 @@ namespace HideAndSeek.Map.Editor
             CKeys = CabinKeys();
             if (CKeys != null)
             {
-                Cabin = CarShapes.Cabin(CKeys, CabinBreaks, RoofRound);
+                Cabin = CarShapes.Cabin(CKeys, CabinBreaks, RoofRound, 0.03f, RoofDip);
                 Cabin.Emit(mb, (i, j) => CabinMat(i, Mid(Cabin, j)));
                 Cabin.Emit(mb, (i, j) => CabinInner(i, Mid(Cabin, j)), inner: true);
             }
@@ -115,7 +116,7 @@ namespace HideAndSeek.Map.Editor
         {
             var m = CabinMat(seg, z);
             if (m == null) return null;
-            return m == Glass ? Glass : Lib["Car_Headliner"];
+            return m == Glass || m == Lib["Car_GlassDark"] ? m : Lib["Car_Headliner"];
         }
 
         protected virtual void Colliders()
@@ -174,6 +175,28 @@ namespace HideAndSeek.Map.Editor
         {
             foreach (float s in new[] { -1f, 1f })
                 Body.PatchX(Mb, s, z - width * 0.5f, z + width * 0.5f, t => new Vector2(0f, x1), CarShapes.BShoulder, CarShapes.BCentre, 0.0012f, Seam, 1, 8);
+        }
+
+        /// <summary>Glass band (seal top .. glass top heights) of the greenhouse at z.</summary>
+        protected Vector2 GlassY(float z)
+        {
+            var sec = Cabin.SectionAt(z);
+            return new Vector2(sec[CarShapes.CSeal].y, sec[CarShapes.CGlassTop].y);
+        }
+
+        /// <summary>
+        /// Panel laid over the side glass (pillars, door sails, kinks): rows from z0 to z1, each covering the glass
+        /// height fractions range(t) (0 = bottom of the glass, 1 = top). Both sides.
+        /// </summary>
+        protected void GlassOverlay(float z0, float z1, System.Func<float, Vector2> range, Material m, int nz = 12)
+        {
+            foreach (float s in new[] { -1f, 1f })
+                Cabin.PatchY(Mb, s, z0, z1, t =>
+                {
+                    var g = GlassY(Mathf.Lerp(z0, z1, t));
+                    var r = range(t);
+                    return new Vector2(Mathf.Lerp(g.x, g.y, r.x), Mathf.Lerp(g.x, g.y, r.y));
+                }, CarShapes.CSeal, CarShapes.CGlassTop, 0.0025f, m, nz, 4);
         }
 
         /// <summary>Wipers parked along the screen base, pivots at x (signed), arms pointing to -x (left-hand drive).</summary>

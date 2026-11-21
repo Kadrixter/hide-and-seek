@@ -27,13 +27,16 @@ namespace HideAndSeek.Map.Editor
         private const float ZF = 2.235f, ZR = -2.235f;
 
         private static BodyKey K(float z, float yBot, float wBot, float wMax, float yMax, float wSh, float ySh, float yTop,
-            float tub = 0f, float round = 0.6f) => new BodyKey(z, yBot, wBot, wMax, yMax, wSh, ySh, yTop, round, tub);
+            float tub = 0f, float round = 0.25f) => new BodyKey(z, yBot, wBot, wMax, yMax, wSh, ySh, yTop, round, tub);
+
+        protected override int[] SharpRings => new[] { BShoulder, BMax };
 
         protected override BodyKey[] BodyKeys() => new[]
         {
-            K(ZF, 0.16f, 0.7f, 0.71f, 0.24f, 0.7f, 0.33f, 0.34f, 0, 0.5f),
-            K(2.17f, 0.14f, 0.83f, 0.85f, 0.27f, 0.84f, 0.42f, 0.43f),
-            K(1.98f, 0.13f, 0.91f, 0.935f, 0.3f, 0.91f, 0.52f, 0.5f),
+            K(ZF, 0.15f, 0.72f, 0.73f, 0.22f, 0.72f, 0.27f, 0.275f, 0, 0.2f),
+            K(2.19f, 0.135f, 0.84f, 0.855f, 0.24f, 0.845f, 0.33f, 0.335f, 0, 0.2f),
+            K(2.0f, 0.13f, 0.91f, 0.93f, 0.28f, 0.91f, 0.44f, 0.42f),
+            K(1.7f, 0.13f, 0.94f, 0.96f, 0.33f, 0.94f, 0.58f, 0.53f),
             K(1.22f, 0.13f, 0.95f, 0.975f, 0.38f, 0.95f, 0.72f, 0.66f),
             K(0.66f, 0.13f, 0.95f, 0.98f, 0.42f, 0.94f, 0.79f, 0.76f),
             K(0.5f, 0.13f, 0.95f, 0.98f, 0.43f, 0.94f, 0.8f, 0.78f, 1f),
@@ -102,20 +105,23 @@ namespace HideAndSeek.Map.Editor
             {
                 CarKit.Lamp(Mb, new Vector3(s * 0.55f, 0.235f, ZF - 0.002f), n, Vector3.right * s, CarKit.Poly(
                     new Vector2(-0.08f, -0.045f), new Vector2(0.1f, -0.045f), new Vector2(0.08f, 0.045f), new Vector2(-0.08f, 0.045f)), Grille, Plastic, 0.004f, 0.04f);
-                var (ip, inn) = Top(2.12f, 0.6f, s);
+                var (ip, inn) = Top(2.175f, 0.68f, s);
                 CarKit.Lamp(Mb, ip, inn, Vector3.right * s, CarKit.Rect(0.15f, 0.035f, 0.01f), Amber, Plastic, 0.004f, 0.02f, 0f, Vector3.forward);
                 Pm.Blinkers.Add(new Blinker(ip + inn * 0.004f, inn, new Vector2(0.15f, 0.04f)));
                 // headlamps: black housing under a clear cover on the bonnet corners, two projectors each
-                Body.PatchX(Mb, s, 1.86f, 2.17f, t => new Vector2(Mathf.Lerp(0.5f, 0.58f, t), Mathf.Lerp(0.86f, 0.8f, t)), BShoulder, BCentre, 0.002f, Plastic, 6, 6);
-                foreach (float k in new[] { 0.25f, 0.68f })
+                // fixed lamps: a rectangular black housing under a flush clear cover on each nose corner
+                Body.PatchX(Mb, s, 1.86f, 2.14f, t => new Vector2(0.52f, 0.84f), BShoulder, BCentre, 0.002f, Plastic, 6, 6);
+                Body.PatchX(Mb, s, 1.855f, 2.145f, t => new Vector2(0.515f, 0.845f), BShoulder, BCentre, 0.0012f, Seam, 6, 6);
+                foreach (float x in new[] { 0.6f, 0.76f })
                 {
-                    float z = Mathf.Lerp(1.9f, 2.12f, k), x = Mathf.Lerp(0.66f, 0.7f, k);
-                    var (p, pn) = Top(z, x, s);
-                    CarKit.RoundLamp(Mb, p, pn, 0.05f, Chrome, Lens);
+                    var (p, pn) = Top(2.0f, x, s);
+                    CarKit.RoundLamp(Mb, p + pn * 0.003f, pn, 0.055f, Chrome, Lens);
                 }
-                Body.PatchX(Mb, s, 1.86f, 2.17f, t => new Vector2(Mathf.Lerp(0.5f, 0.58f, t), Mathf.Lerp(0.86f, 0.8f, t)), BShoulder, BCentre, 0.024f, Glass, 6, 6);
+                Body.PatchX(Mb, s, 1.86f, 2.14f, t => new Vector2(0.52f, 0.84f), BShoulder, BCentre, 0.02f, Glass, 6, 6);
                 Body.PatchX(Mb, s, 2.17f, 2.19f, t => new Vector2(0.58f, 0.8f), BShoulder, BCentre, 0.002f, Seam, 1, 4);
             }
+            var (lp0, ln0) = Top(2.16f, 0.001f);
+            CarBadges.Lambo(Mb, lp0 + ln0 * 0.003f, ln0, 0.06f);
             // bonnet shut lines and the front plate
             SeamTop(0.7f, 2.08f, t => Mathf.Lerp(0.6f, 0.5f, t));
             SeamAcross(0.7f, 0.6f);
@@ -133,7 +139,10 @@ namespace HideAndSeek.Map.Editor
             {
                 // NACA duct on the door and the big intake ahead of the rear wheel
                 Body.PatchY(Mb, s, -0.3f, 0.3f, t => new Vector2(Mathf.Lerp(0.56f, 0.675f, t), Mathf.Lerp(0.7f, 0.69f, t)), BLip, BShoulder, 0.0015f, Well, 8, 3);
-                Body.PatchY(Mb, s, -1.0f, -0.6f, t => new Vector2(Mathf.Lerp(0.36f, 0.42f, t), Mathf.Lerp(0.86f, 0.84f, t)), BLip, BShoulder, 0.002f, Well, 6, 6);
+                // big intake ahead of the rear wheel: dark mouth with a body-coloured lip
+                Body.PatchY(Mb, s, -1.04f, -0.56f, t => new Vector2(Mathf.Lerp(0.33f, 0.45f, t), Mathf.Lerp(0.88f, 0.86f, t)), BLip, BShoulder, 0.002f, Well, 8, 6);
+                Body.PatchY(Mb, s, -0.58f, -0.55f, t => new Vector2(0.45f, 0.86f), BLip, BShoulder, 0.006f, Paint, 1, 6);
+
                 for (int i = 0; i < 6; i++)
                 {
                     float y = Mathf.Lerp(0.42f, 0.8f, i / 5f);

@@ -25,6 +25,7 @@ namespace HideAndSeek.Map.Editor
             Make("CarPaint_ReflexSilver", new Color(0.66f, 0.68f, 0.7f), null, 1f, 0.6f, 0.78f);
             // glass and lenses
             Make("Car_Glass", new Color(0.1f, 0.13f, 0.15f, 0.62f), null, 1f, 0.3f, 0.96f, mode: Mode.Transparent);
+            Make("Car_GlassDark", new Color(0.03f, 0.035f, 0.04f, 0.86f), null, 1f, 0.4f, 0.97f, mode: Mode.Transparent);
             Make("Car_MirrorGlass", new Color(0.7f, 0.74f, 0.78f), null, 1f, 0.9f, 0.97f);
             Make("Car_Lens", new Color(0.8f, 0.84f, 0.88f), null, 1f, 0.55f, 0.95f);
             Make("Car_Reflector", new Color(0.88f, 0.88f, 0.9f), "Metal_Brushed", 0.3f, 0.75f, 0.9f);

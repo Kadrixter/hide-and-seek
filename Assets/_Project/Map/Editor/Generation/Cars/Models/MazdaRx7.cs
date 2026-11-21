@@ -26,27 +26,31 @@ namespace HideAndSeek.Map.Editor
         protected override float[] BodyBreaks => new[] { 0.5f, -0.62f };
 
         private const float ZF = 2.1425f, ZR = -2.1425f;
+        protected override float RoofDip => 0.022f;
+        protected override int[] SharpRings => new[] { BShoulder };
 
         private static BodyKey K(float z, float yBot, float wBot, float wMax, float yMax, float wSh, float ySh, float yTop,
-            float tub = 0f, float round = 1f) => new BodyKey(z, yBot, wBot, wMax, yMax, wSh, ySh, yTop, round, tub);
+            float tub = 0f, float round = 0.5f) => new BodyKey(z, yBot, wBot, wMax, yMax, wSh, ySh, yTop, round, tub);
 
+        // long low bonnet sunk between two wing humps; flatter flanks than a pillow, rounded tail
         protected override BodyKey[] BodyKeys() => new[]
         {
-            K(ZF, 0.2f, 0.46f, 0.48f, 0.27f, 0.44f, 0.33f, 0.33f),
-            K(2.12f, 0.17f, 0.6f, 0.62f, 0.28f, 0.58f, 0.38f, 0.38f),
-            K(2.06f, 0.15f, 0.71f, 0.73f, 0.3f, 0.69f, 0.44f, 0.43f),
-            K(1.92f, 0.14f, 0.8f, 0.82f, 0.33f, 0.78f, 0.535f, 0.5f),
-            K(1.7f, 0.13f, 0.845f, 0.865f, 0.36f, 0.82f, 0.64f, 0.575f),
-            K(1.19f, 0.13f, 0.86f, 0.88f, 0.4f, 0.84f, 0.78f, 0.66f),
-            K(0.6f, 0.13f, 0.85f, 0.875f, 0.45f, 0.82f, 0.8f, 0.785f),
-            K(0.46f, 0.13f, 0.85f, 0.875f, 0.45f, 0.82f, 0.81f, 0.8f, 1f),
-            K(-0.62f, 0.13f, 0.86f, 0.88f, 0.48f, 0.83f, 0.86f, 0.86f, 1f),
+            K(ZF, 0.2f, 0.5f, 0.51f, 0.26f, 0.48f, 0.32f, 0.32f, 0f, 1f),
+            K(2.12f, 0.17f, 0.63f, 0.645f, 0.28f, 0.61f, 0.37f, 0.36f, 0f, 1f),
+            K(2.06f, 0.15f, 0.73f, 0.745f, 0.3f, 0.71f, 0.435f, 0.405f, 0f, 0.8f),
+            K(1.92f, 0.14f, 0.81f, 0.825f, 0.33f, 0.79f, 0.535f, 0.47f),
+            K(1.7f, 0.13f, 0.85f, 0.865f, 0.36f, 0.83f, 0.65f, 0.54f),
+            K(1.19f, 0.13f, 0.865f, 0.88f, 0.4f, 0.845f, 0.785f, 0.635f),
+            K(0.8f, 0.13f, 0.86f, 0.875f, 0.43f, 0.835f, 0.8f, 0.72f),
+            K(0.6f, 0.13f, 0.855f, 0.87f, 0.45f, 0.825f, 0.8f, 0.785f),
+            K(0.46f, 0.13f, 0.855f, 0.87f, 0.45f, 0.825f, 0.81f, 0.8f, 1f),
+            K(-0.62f, 0.13f, 0.865f, 0.88f, 0.48f, 0.83f, 0.86f, 0.86f, 1f),
             K(-0.75f, 0.13f, 0.87f, 0.885f, 0.48f, 0.83f, 0.87f, 0.88f),
             K(-1.235f, 0.13f, 0.875f, 0.89f, 0.48f, 0.82f, 0.9f, 0.9f),
-            K(-1.8f, 0.16f, 0.85f, 0.87f, 0.5f, 0.79f, 0.9f, 0.91f),
-            K(-2.0f, 0.2f, 0.79f, 0.81f, 0.52f, 0.73f, 0.89f, 0.9f),
-            K(-2.1f, 0.25f, 0.68f, 0.7f, 0.54f, 0.62f, 0.86f, 0.87f),
-            K(ZR, 0.29f, 0.56f, 0.58f, 0.55f, 0.5f, 0.83f, 0.84f),
+            K(-1.8f, 0.16f, 0.85f, 0.865f, 0.5f, 0.79f, 0.9f, 0.905f, 0f, 0.8f),
+            K(-2.0f, 0.2f, 0.79f, 0.805f, 0.52f, 0.73f, 0.875f, 0.885f, 0f, 1f),
+            K(-2.1f, 0.25f, 0.68f, 0.695f, 0.54f, 0.62f, 0.84f, 0.85f, 0f, 1f),
+            K(ZR, 0.29f, 0.56f, 0.575f, 0.55f, 0.5f, 0.8f, 0.81f, 0f, 1f),
         };
 
         protected override CabinKey[] CabinKeys() => new[]
@@ -73,7 +77,7 @@ namespace HideAndSeek.Map.Editor
                 case 4: return Paint;
                 default:
                     if (z > -0.15f) return z > 0.45f || z < -0.11f ? Trim : Glass;
-                    if (z < -0.7f) return z > -0.76f || z < -1.56f ? Trim : Glass; // glass hatch
+                    if (z < -0.7f) return z > -0.76f || z < -1.56f ? Trim : Lib["Car_GlassDark"]; // big dark glass hatch
                     return Paint;
             }
         }
@@ -130,7 +134,9 @@ namespace HideAndSeek.Map.Editor
                 Pm.Blinkers.Add(new Blinker(sm + smn * 0.003f, smn, new Vector2(0.07f, 0.02f)));
             }
             Body.Project(0f, 0.262f, 1f, out var pc, out var pn);
-            CarKit.Plate(Mb, pc + pn * 0.02f, pn, "KR RX7FD", 0.8f);
+            CarKit.Plate(Mb, pc + pn * 0.02f, pn, "KR RX7FD", 0.75f);
+            Body.Project(0f, 0.35f, 1f, out var lc, out var ln2);
+            CarBadges.Mazda(Mb, lc + ln2 * 0.004f, ln2, 0.032f);
             SeamTop(0.56f, 1.98f, t => Mathf.Lerp(0.5f, 0.46f, t));
             SeamAcross(1.98f, 0.46f);
             SeamAcross(0.56f, 0.5f);
