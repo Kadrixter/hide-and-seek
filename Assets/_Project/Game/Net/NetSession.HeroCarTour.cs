@@ -70,6 +70,9 @@ namespace HideAndSeek.Game.Net
                 LitShot(dir, name + "_d_alarm_close", corner, floor + fwd * half.z + right * half.x * 0.6f + Vector3.up * 0.55f);
                 // from high up (just under the ceiling): the car against the bay lines
                 LitShot(dir, name + "_e_top", floor - fwd * 0.5f - right * (half.x + 2.2f) + Vector3.up * 2.75f, floor + fwd * 0.3f);
+                // rear three-quarter close-up under a torch (tailgate details)
+                LitShot(dir, name + "_f_rear", floor - fwd * (half.z + 1.3f) - right * (half.x * 0.7f) + Vector3.up * 1.3f,
+                    floor - fwd * (half.z - 0.2f) + Vector3.up * 0.8f);
                 yield return new WaitForSeconds(0.5f);
 
                 Debug.Log($"[HeroTour] {name} at {t.position} yaw {t.eulerAngles.y:0.0}, stood at {stand}");

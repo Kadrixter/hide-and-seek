@@ -12,12 +12,7 @@ namespace HideAndSeek.Map.Editor
                 // gap round the tailgate: up both sides along the lamps (the bottom gap runs over the bumper)
                 Body.ProjectedPatch(Mb, CarLoft.RectAt(0.428f, 0.785f, 0.006f, 0.4f, 0.001f), -1f, s, 0.0015f, Seam, 2);
             }
-            // horizontal crease at the height of the lamp tops: a soft ridge running into the lamps
-            var ridge = new System.Collections.Generic.List<Vector3>();
-            for (int i = -4; i <= 4; i++)
-                if (Body.Project(i * 0.105f, 0.93f, -1f, out var rp, out _)) ridge.Add(rp);
-            for (int i = 0; i < ridge.Count - 1; i++)
-                CarBlob.Bar(Mb, ridge[i], ridge[i + 1], Vector3.up, 0.022f, 0.012f, Paint, 0.8f);
+            Crease();
 
             // plate set in a recess: a raised frame round it throws the shadow, the floor stays body colour
             Body.Project(0f, 0.66f, -1f, out var pc, out var pn);
@@ -39,7 +34,7 @@ namespace HideAndSeek.Map.Editor
                 Mb.Box(hc + right * (s * 0.12f) - up * 0.0165f, new Vector3(0.05f, 0.003f, 0.014f), Lens, rot);
 
             // the VW badge is the tailgate release: a dark round recess with the badge standing in it
-            Body.Project(0f, 0.86f, -1f, out var bc, out var bcn);
+            Body.Project(0f, 0.845f, -1f, out var bc, out var bcn);
             CarKit.Lamp(Mb, bc, bcn, right, CarKit.Circle(0.072f, 24), Seam, Seam, 0.001f, 0.01f);
             CarWheels.Lathe(Mb, bc + bcn * 0.001f, bcn, new[] { new Vector2(0.072f, 0f), new Vector2(0.072f, 0.004f), new Vector2(0.066f, 0.006f) }, 24, Paint);
             CarBadges.Vw(Mb, bc + bcn * 0.009f, bcn, 0.06f);
@@ -54,6 +49,41 @@ namespace HideAndSeek.Map.Editor
             Vector3 sc = new Vector3(0, 1.365f, -1.835f);
             CarBlob.Blob(Mb, sc, srot, new Vector3(0.58f, 0.016f, 0.055f), 0.35f, Paint, 0.5f, 1f, 16, 8);
             Mb.Box(sc + srot * new Vector3(0f, -0.004f, -0.053f), new Vector3(0.3f, 0.012f, 0.008f), Tail, srot);
+        }
+
+        /// <summary>
+        /// Horizontal crease across the tailgate at the lamp tops: the panel above stands 8.5 mm proud and ends in a
+        /// sharp edge; the bevel under it faces down and stays dark even under a torch; it ends at the gap by the lamps.
+        /// </summary>
+        private void Crease()
+        {
+            const float yc = 0.93f;
+            // (height above the crease line, stand-off): soft rise, sharp edge, steep bevel facing down, dark foot line
+            var prof = new[] { new Vector2(0.07f, 0f), new Vector2(0.04f, 0.0042f), new Vector2(0.015f, 0.0075f), new Vector2(0.003f, 0.0085f),
+                new Vector2(0f, 0.0085f), new Vector2(-0.004f, 0.0042f), new Vector2(-0.0075f, 0.0012f), new Vector2(-0.009f, 0f), new Vector2(-0.0135f, 0f) };
+            const int n = 44;
+            var P = new Vector3[n + 1, prof.Length];
+            var H = new Vector3[n + 1, prof.Length];
+            for (int i = 0; i <= n; i++)
+            {
+                float x = Mathf.Lerp(-0.424f, 0.424f, i / (float)n);
+                float end = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.424f, 0.405f, Mathf.Abs(x)));
+                for (int k = 0; k < prof.Length; k++)
+                {
+                    Body.Project(x, yc + prof[k].x, -1f, out var p, out var nn);
+                    P[i, k] = p + nn * (prof[k].y * end + 0.0004f);
+                    H[i, k] = nn;
+                }
+            }
+            // separate grids keep the edge and the bevel foot sharp: upper face, bevel (paint), foot line (seam colour)
+            foreach (var (k0, k1, m) in new[] { (0, 4, Paint), (4, 7, Paint), (7, 8, Seam) })
+            {
+                var gp = new Vector3[n + 1, k1 - k0 + 1];
+                var gh = new Vector3[n + 1, k1 - k0 + 1];
+                for (int i = 0; i <= n; i++)
+                for (int k = k0; k <= k1; k++) { gp[i, k - k0] = P[i, k]; gh[i, k - k0] = H[i, k]; }
+                Grid(gp, gh, m);
+            }
         }
     }
 }

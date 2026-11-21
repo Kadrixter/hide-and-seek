@@ -173,7 +173,7 @@ namespace HideAndSeek.Map.Editor
             Vector3 X = Vector3.right * side;
             const int n = 32;
             float r0 = a.R + 0.07f;
-            float s0 = Mathf.Asin(Mathf.Clamp((yBot + 0.02f - a.Y) / a.R, -1f, 1f));
+            float s0 = Mathf.Asin(Mathf.Clamp((yBot + 0.07f - a.Y) / a.R, -1f, 1f)); // ends clear of the lower body edge
             var P = new Vector3[n + 1, 6];
             var N = new Vector3[n + 1, 6];
             for (int i = 0; i <= n; i++)
@@ -194,6 +194,9 @@ namespace HideAndSeek.Map.Editor
                 P[i, 3] = Ring(a.R + 0.008f, crestX); N[i, 3] = (X - rad * 0.35f).normalized;
                 P[i, 4] = Ring(a.R - 0.002f, crestX - 0.014f * f - 0.004f); N[i, 4] = (-rad + X * 0.2f).normalized;
                 P[i, 5] = Ring(a.R + 0.004f, crestX - 0.045f * f - 0.01f); N[i, 5] = (-rad - X * 0.4f).normalized;
+                // at both ends the whole profile closes onto one line on the skin: no fin, no open edge
+                float g = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((a.Y + rad.y * a.R - yBot - 0.07f) / 0.1f));
+                for (int k = 0; k < 6; k++) P[i, k] = Vector3.Lerp(p2, P[i, k], g);
             }
             for (int i = 0; i < n; i++)
             for (int k = 0; k < 5; k++)
