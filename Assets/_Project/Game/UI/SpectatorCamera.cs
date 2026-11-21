@@ -28,6 +28,7 @@ namespace HideAndSeek.Game
                 if (l != null) l.enabled = false;
             }
             gameObject.AddComponent<AudioListener>();
+            gameObject.AddComponent<NightVision>(); // the dead see in the dark, in grey
             gameObject.tag = "MainCamera";
             transform.position = me.EyePosition;
             Cycle(0);

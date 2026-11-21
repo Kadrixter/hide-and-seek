@@ -27,12 +27,16 @@ namespace HideAndSeek.Game.Voice
 
         private AudioSource _source;
         private AudioLowPassFilter _lowPass;
+        private float _floorMuffle;
+        private float _nextFloorCheck;
+        private bool _floorBlocked;
         private AudioEchoFilter _echo;
         private float _nextOcclusion, _occlusion;
         private int _seenUnderruns;
         private float _steadySince;
         private float _shoutUntil = -10f;
         private float _range;
+        private volatile float _gain = BaseGain;
 
         /// <summary>True while this player is shouting (heard across the garage).</summary>
         public bool Shouting => Time.time < _shoutUntil;
@@ -110,7 +114,8 @@ namespace HideAndSeek.Game.Voice
 
         private void OnRead(float[] data)
         {
-            float gain = BaseGain * Mathf.Max(0f, LocalProfile.ChatVolume);
+            // Audio thread: PlayerPrefs is main-thread only, so use the value cached in Update.
+            float gain = _gain;
             lock (_lock)
             {
                 if (!_started && _count >= _target) _started = true;
@@ -140,6 +145,7 @@ namespace HideAndSeek.Game.Voice
 
         private void Update()
         {
+            _gain = BaseGain * Mathf.Max(0f, LocalProfile.ChatVolume);
             // Adaptive delay: each underrun while talking adds 60 ms; 8 s without one removes 20 ms.
             int u = _underruns;
             if (u != _seenUnderruns)
@@ -167,7 +173,18 @@ namespace HideAndSeek.Game.Voice
             // a shout from the other end of the parking comes back as a clear slap echo.
             bool garage = AudioEnvironment.Current == AudioEnvironmentKind.Garage;
             float far = Mathf.InverseLerp(4f, Shouting ? VoiceChat.ShoutRange * 0.6f : VoiceChat.HearRange, dist);
-            _echo.wetMix = garage ? Mathf.Lerp(0.18f, Shouting ? 0.85f : 0.6f, far) : 0f;
+            // A shout from another floor comes through the slab: muffled, quieter, almost no echo.
+            if (listener != null && Time.time >= _nextFloorCheck)
+            {
+                // Different floor and the slab in the way: the voice does not get through at all.
+                _nextFloorCheck = Time.time + 0.15f;
+                _floorBlocked = AudioFloors.DifferentFloor(listener.transform.position, transform.position) &&
+                                AudioOcclusion.Sample(listener.transform.position, transform.position, listener.transform.root,
+                                    transform.parent, GameAudio.OcclusionMask) > 0f;
+            }
+            bool otherFloor = listener != null && _floorBlocked;
+            _floorMuffle = Mathf.MoveTowards(_floorMuffle, otherFloor ? 1f : 0f, Time.deltaTime * 4f);
+            _echo.wetMix = (garage ? Mathf.Lerp(0.18f, Shouting ? 0.85f : 0.6f, far) : 0f) * Mathf.Lerp(1f, 0.2f, _floorMuffle);
             _echo.delay = Mathf.Lerp(220f, Shouting ? 650f : 420f, far);
             _echo.decayRatio = garage ? Mathf.Lerp(0.3f, Shouting ? 0.55f : 0.45f, far) : 0f;
             _echo.enabled = garage;
@@ -186,8 +203,9 @@ namespace HideAndSeek.Game.Voice
                 }
                 _occlusion = target;
             }
-            _source.volume = 1f - 0.4f * _occlusion;
-            _lowPass.cutoffFrequency = Mathf.Lerp(_lowPass.cutoffFrequency, _occlusion > 0.5f ? 1200f : 22000f, 0.3f);
+            _source.volume = (1f - 0.4f * _occlusion) * (1f - _floorMuffle);
+            float cutoff = Mathf.Min(_occlusion > 0.5f ? 1200f : 22000f, Mathf.Lerp(22000f, 600f, _floorMuffle));
+            _lowPass.cutoffFrequency = Mathf.Lerp(_lowPass.cutoffFrequency, cutoff, 0.3f);
         }
     }
 }

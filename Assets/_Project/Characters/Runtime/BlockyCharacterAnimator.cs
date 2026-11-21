@@ -19,6 +19,13 @@ namespace HideAndSeek.Characters
 
         [Tooltip("Occasionally glance around while standing still.")]
         public bool idleLookAround = true;
+        /// <summary>0..1 limp on the right leg (injured hider). Set by the action layer.</summary>
+        [Range(0f, 1f)] public float limp;
+        float limpW;
+
+        /// <summary>Index of the severed leg (0 = right, 1 = left) or -1: hops slowly on the other leg.</summary>
+        public int hopLeg = -1;
+        float hopW, hopPhase;
 
         [Range(0f, 85f)] public float maxHeadPitch = 65f;
 
@@ -210,9 +217,33 @@ namespace HideAndSeek.Characters
             desiredCycle = Mathf.Clamp(desiredCycle, 0.55f, 2f * maxAmp / duty);
             strideLength = Damp(strideLength, desiredCycle, 6f, dt);
 
+            limpW = Damp(limpW, limp, 3f, dt);
+            float limpMove = limpW * moveW;
+
+            // One-legged hopping: slow springy hops on the remaining leg, arms out for balance.
+            hopW = Damp(hopW, hopLeg >= 0 ? 1f : 0f, 6f, dt);
+            int standLeg = hopLeg == 0 ? 1 : 0;
+            float standSide = standLeg == 0 ? 1f : -1f;
+            float hopMove = hopW * moveW;
+            float hopHipOffset = 0f, hopFootLift = 0f, hopAlong = 0f;
+            if (hopW > 0.01f)
+            {
+                if (grounded && moveW > 0.1f) hopPhase += dt * (0.8f + 0.5f * Mathf.Clamp01(speed / 1.6f));
+                hopPhase -= Mathf.Floor(hopPhase);
+                float fr = hopPhase;
+                float dip = 0f, air = 0f, c;
+                if (fr < 0.3f) { dip = Mathf.Sin(Mathf.PI * fr / 0.3f) * 0.075f; c = (fr + 0.25f) / 0.55f; }
+                else if (fr < 0.75f) { air = Mathf.Sin(Mathf.PI * (fr - 0.3f) / 0.45f); c = (fr - 0.3f) / 0.45f; }
+                else { dip = Mathf.Sin(Mathf.PI * (fr - 0.75f) / 0.25f) * 0.05f; c = (fr - 0.75f) / 0.55f; }
+                hopHipOffset = (-dip + 0.07f * air) * hopMove;
+                hopFootLift = 0.07f * air * hopMove;
+                hopAlong = (fr >= 0.3f && fr < 0.75f ? Mathf.Lerp(-0.12f, 0.12f, c) : Mathf.Lerp(0.12f, -0.12f, c)) * hopMove;
+            }
             if (grounded)
             {
-                phase += speed * dt / strideLength + turnStepW * dt * 1.7f;
+                // Limp: hurry off the injured (right) leg -> short stance on it.
+                float ssNow = -Mathf.Cos(TwoPi * (phase - duty * 0.5f));
+                phase += speed * dt / strideLength * (1f + 0.75f * limpMove * Mathf.Max(0f, ssNow) - 0.25f * limpMove * Mathf.Max(0f, -ssNow)) + turnStepW * dt * 1.7f;
                 phase -= Mathf.Floor(phase);
             }
 
@@ -258,13 +289,19 @@ namespace HideAndSeek.Characters
             hip += landOffset * (1f - airW);
 
             float stanceSide = -Mathf.Cos(TwoPi * (phase - duty * 0.5f)); // -1 left stance, +1 right stance
-            float pelvisX = (0.011f * sway + 0.024f * weightShift) * idleW
+            // Limp: the body drops when the weight goes onto the injured right leg; slightly hunched always.
+            hip -= limpW * (0.012f + 0.05f * limpMove * Mathf.Max(0f, stanceSide));
+            hip += hopHipOffset - 0.02f * hopW;
+            float pelvisX = (0.011f * sway + 0.024f * weightShift - 0.035f * limpW) * idleW
                             + 0.014f * stanceSide * moveW * (1f - 0.5f * runW) * (1f - sideFactor);
             // Swing-side hip drops (negative roll lowers +X when the left leg is in stance).
-            float pelvisRoll = (1.2f * sway + 3f * weightShift) * idleW
-                               + 2.5f * stanceSide * moveW * (1f - runW * 0.4f);
+            float pelvisRoll = (1.2f * sway + 3f * weightShift + 4f * limpW) * idleW
+                               + 2.5f * stanceSide * moveW * (1f - runW * 0.4f)
+                               - 5f * limpMove * Mathf.Max(0f, stanceSide);
             float pelvisTwist = Mathf.Lerp(5f, 9f, runW) * moveW * dirZ * (1f - crouchW * 0.5f);
-            float pelvisYaw = pelvisTwist * swing;
+            pelvisX = Mathf.Lerp(pelvisX, standSide * 2f * Px, hopW);
+            pelvisRoll += hopW * (hopLeg == 0 ? -6f : 6f);
+            float pelvisYaw = pelvisTwist * swing * (1f - hopW);
             float pelvisPitch = 4f * crouchW;
 
             // Crouch: hips sit back behind the feet so the shins stay more upright (soles closer to flat).
@@ -300,11 +337,20 @@ namespace HideAndSeek.Characters
                     along -= runW * moveW * 0.16f * Mathf.Sin(Mathf.PI * t) * (1f - t);
                     // Side steps: swing foot arcs outwards so legs do not cross.
                     lateral = side * 0.05f * sideFactor * moveW * Mathf.Sin(Mathf.PI * t);
+                    if (leg == 0 && limpMove > 0f)
+                    {
+                        // Stiff injured leg: low lift, swings out round the side, shorter step.
+                        lift *= 1f - 0.6f * limpMove;
+                        lateral += 0.05f * limpMove * Mathf.Sin(Mathf.PI * t);
+                    }
                 }
+                if (leg == 0) along *= 1f - 0.3f * limpMove;
 
                 float width = 0.012f + 0.045f * crouchW + 0.01f * idleW;
                 float idleStagger = (leg == 0 ? 0.02f : -0.015f) * idleW;
                 Vector3 footRoot = new Vector3(side * (2f * Px + width) + lateral + dirX * along, lift, idleStagger + dirZ * along);
+                if (hopW > 0.01f && leg == standLeg)
+                    footRoot = Vector3.Lerp(footRoot, new Vector3(side * (2f * Px + 0.012f) + dirX * hopAlong, hopFootLift, dirZ * hopAlong), hopW);
                 Vector3 hipPos = leg == 0 ? BlockyCharacter.HipRightRest : BlockyCharacter.HipLeftRest;
                 Vector3 rel = invPelvis * (footRoot - pelvisPos) - hipPos;
 
@@ -324,12 +370,15 @@ namespace HideAndSeek.Characters
                          + 20f * crouchW
                          + accelLean
                          - landOffset * 140f
-                         + airW * (6f * falling - 4f * rising);
+                         + airW * (6f * falling - 4f * rising)
+                         + limpW * (7f + 5f * limpMove * Mathf.Max(0f, stanceSide))
+                         + hopW * (9f + 5f * hopMove);
             float sideLean = -(2.5f + 6f * runW) * moveW * dirX;
             float bank = Mathf.Clamp(-yawRate * 0.035f * moveW * (0.4f + runW), -12f, 12f);
             float torsoYaw = -Mathf.Lerp(5f, 11f, runW) * moveW * swing * dirZ + lookYaw * 0.18f * idleW;
             // Positive roll leans left; lean slightly over the stance leg.
-            float torsoRoll = sideLean + bank - 0.6f * pelvisRoll - 1.2f * stanceSide * moveW * (1f - runW);
+            float torsoRoll = sideLean + bank - 0.6f * pelvisRoll - 1.2f * stanceSide * moveW * (1f - runW)
+                              - 7f * limpMove * Mathf.Max(0f, stanceSide);
             float nod = (0.8f + 1.5f * runW) * moveW * bobWave;
             float breathPitch = -0.5f * breath * breathAmp * idleW;
 
@@ -356,7 +405,7 @@ namespace HideAndSeek.Characters
             // ---------------------------------------------------------------- arms
             float armAmp = Mathf.Lerp(26f, 52f, runW) * Mathf.Lerp(1f, 0.55f, crouchW) * moveW * Mathf.Lerp(1f, 0.45f, sideFactor);
             float armBasePitch = -8f * runW * moveW - 16f * crouchW;
-            float outward = 3f + 7f * runW * moveW + 6f * crouchW + 1.2f * breath * breathAmp * idleW;
+            float outward = 3f + 7f * runW * moveW + 6f * crouchW + 1.2f * breath * breathAmp * idleW + hopW * (16f + 8f * hopMove);
             float inwardYaw = 14f * runW * moveW;
             float shoulderLift = 0.004f * b * idleW;
 

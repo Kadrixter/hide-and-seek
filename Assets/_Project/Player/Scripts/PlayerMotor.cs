@@ -13,6 +13,8 @@ namespace HideAndSeek.Player
         public Vector2 Look;
         public bool Run;
         public bool Crouch;
+        /// <summary>Lie down and crawl (toggle state from the input reader).</summary>
+        public bool Prone;
         public bool Jump;
     }
 
@@ -128,7 +130,36 @@ namespace HideAndSeek.Player
         public float LookYaw => transform.eulerAngles.y;
 
         /// <summary>Camera height above the feet (interpolated with crouch).</summary>
-        public float EyeHeight => Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(standEyeHeight, crouchEyeHeight, _crouchAmount), seatedEyeHeight, _seatBlend), downedEyeHeight, _downedBlend);
+        public float EyeHeight => Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(standEyeHeight, crouchEyeHeight, _crouchAmount), proneEyeHeight, _proneAmount), seatedEyeHeight, _seatBlend), Mathf.Lerp(downedEyeHeight, 0.82f, _sitUpBlend), _downedBlend);
+
+        /// <summary>Kneel / crouch regardless of input (e.g. while injecting someone on the floor).</summary>
+        public bool ForceCrouch { get; set; }
+
+        /// <summary>Movement speed multiplier (injured hiders limp slower).</summary>
+        public float SpeedScale { get; set; } = 1f;
+
+        /// <summary>Downed but sitting up (bandaging the own wounds): camera rises to a sitting height.</summary>
+        public bool DownedSitting { get; set; }
+        private float _sitUpBlend;
+
+        /// <summary>Voluntary crawl: lying on the belly (true while lying or getting down).</summary>
+        public bool IsProne => _wantsProne || _proneAmount > 0.5f;
+
+        /// <summary>0 = upright (crouch / stand), 1 = flat on the floor.</summary>
+        public float ProneAmount => _proneAmount;
+
+        /// <summary>Fired when <see cref="IsProne"/> changes.</summary>
+        public event Action<bool> ProneChanged;
+
+        [Header("Prone (crawl)")]
+        [SerializeField] private float proneHeight = 0.62f;
+        [SerializeField] private float proneEyeHeight = 0.42f;
+        [SerializeField] private float proneSpeed = 0.95f;
+        [SerializeField] private float proneTransitionTime = 0.55f;
+        private float _proneLinear, _proneAmount;
+        private bool _wantsProne, _wasProneEvent;
+        private bool _remoteProne;
+        private float _remoteProneAmount;
         private float _seatBlend;
 
         /// <summary>Sitting on a seat: camera lowered (movement is locked by the caller).</summary>
@@ -223,8 +254,10 @@ namespace HideAndSeek.Player
         }
 
         /// <summary>Network state for a remote proxy (position itself comes from the NetworkTransform).</summary>
-        public void ApplyRemoteState(bool grounded, bool crouching, float crouchAmount, bool running, float pitch, bool downed)
+        public void ApplyRemoteState(bool grounded, bool crouching, float crouchAmount, bool running, float pitch, bool downed, bool prone = false, float proneAmount = 0f)
         {
+            _remoteProne = prone;
+            _remoteProneAmount = proneAmount;
             _remoteGrounded = grounded;
             _remoteCrouch = crouching;
             _remoteCrouchAmount = crouchAmount;
@@ -251,11 +284,9 @@ namespace HideAndSeek.Player
 
             _crouchAmount = Downed ? 1f : _remoteCrouchAmount;
             _wantsCrouch = _remoteCrouch || Downed;
-            if (IsCrouching != _wasCrouchingEvent)
-            {
-                _wasCrouchingEvent = IsCrouching;
-                CrouchChanged?.Invoke(_wasCrouchingEvent);
-            }
+            _wantsProne = _remoteProne && !Downed;
+            _proneAmount = Downed ? 0f : Mathf.MoveTowards(_proneAmount, _remoteProneAmount, dt * 4f);
+            FireStanceEvents();
             _pitch = Mathf.LerpAngle(_pitch, _remotePitch, 1f - Mathf.Exp(-dt * 15f));
             _running = _remoteRun;
             float hSpeed = HorizontalSpeed;
@@ -273,6 +304,7 @@ namespace HideAndSeek.Player
                 Look = input.LookDelta,
                 Run = input.RunHeld,
                 Crouch = input.CrouchActive,
+                Prone = input.ProneActive,
                 Jump = input.JumpBuffered,
             };
         }
@@ -296,7 +328,14 @@ namespace HideAndSeek.Player
             }
 
             // --- crouch
-            _wantsCrouch = (hasInput && cmd.Crouch) || Downed;
+            // Stance commands are not gated by MovementEnabled: a toggled crouch / crawl survives menus and cutscenes.
+            bool proneCmd = cmd.Prone && !Downed && !Seated;
+            // Lying down needs a grounded player; getting up needs room for the crouched capsule.
+            if (proneCmd && !_wantsProne && !_grounded) proneCmd = false;
+            if (!proneCmd && _wantsProne && _proneLinear > 0.01f && !CanFitAt(transform.position, crouchHeight)) proneCmd = true;
+            _wantsProne = proneCmd;
+            _wantsCrouch = (cmd.Crouch && !Seated) || Downed || _wantsProne || ForceCrouch;
+            _sitUpBlend = Mathf.MoveTowards(_sitUpBlend, Downed && DownedSitting ? 1f : 0f, dt * 1.6f);
             _downedBlend = Mathf.MoveTowards(_downedBlend, Downed ? 1f : 0f, dt * 1.5f);
             _seatBlend = Mathf.MoveTowards(_seatBlend, Seated ? 1f : 0f, dt * 3f);
             if (!_cc.enabled)
@@ -311,17 +350,20 @@ namespace HideAndSeek.Player
             }
             UpdateCrouch(dt);
             UpdateStepOffset();
-            if (IsCrouching != _wasCrouchingEvent)
-            {
-                _wasCrouchingEvent = IsCrouching;
-                CrouchChanged?.Invoke(_wasCrouchingEvent);
-            }
+            FireStanceEvents();
 
             // --- target velocity
             bool crouching = IsCrouching;
             bool wantsRun = hasInput && !Downed && cmd.Run && !crouching && move.y > runForwardThreshold;
             float targetSpeed = Downed ? crawlSpeed : crouching ? Mathf.Lerp(walkSpeed, crouchSpeed, Mathf.Clamp01(_crouchAmount * 2f))
                               : wantsRun ? runSpeed : walkSpeed;
+            targetSpeed *= SpeedScale;
+            if (!Downed && _proneAmount > 0f)
+            {
+                // Lying down / getting up: barely moving; flat: slow crawl.
+                float pa = _proneAmount;
+                targetSpeed = pa > 0.95f ? proneSpeed : Mathf.Lerp(targetSpeed, 0.25f, Mathf.Clamp01(pa * 1.5f));
+            }
             Vector3 wishDir = transform.right * move.x + transform.forward * move.y;
             Vector3 targetVelocity = wishDir * targetSpeed;
 
@@ -343,7 +385,7 @@ namespace HideAndSeek.Player
             }
 
             // --- jump (coyote + buffer)
-            bool canJump = !Downed && !_jumpedSinceGrounded && _clock - _lastGroundedTime <= coyoteTime && !crouching;
+            bool canJump = !Downed && !_wantsProne && _proneAmount < 0.05f && !_jumpedSinceGrounded && _clock - _lastGroundedTime <= coyoteTime && !crouching;
             if (hasInput && cmd.Jump && canJump)
             {
                 if (CommandProvider == null && input != null) input.ConsumeJump();
@@ -407,8 +449,31 @@ namespace HideAndSeek.Player
 
         // ---------------------------------------------------------------- internals
 
+        private void FireStanceEvents()
+        {
+            if (IsCrouching != _wasCrouchingEvent)
+            {
+                _wasCrouchingEvent = IsCrouching;
+                CrouchChanged?.Invoke(_wasCrouchingEvent);
+            }
+            if (IsProne != _wasProneEvent)
+            {
+                _wasProneEvent = IsProne;
+                ProneChanged?.Invoke(_wasProneEvent);
+            }
+        }
+
         private void UpdateCrouch(float dt)
         {
+            float pTarget = _wantsProne ? 1f : 0f;
+            _proneLinear = Mathf.MoveTowards(_proneLinear, pTarget, dt / Mathf.Max(0.01f, proneTransitionTime));
+            float pe = Mathf.SmoothStep(0f, 1f, _proneLinear);
+            if (!Mathf.Approximately(pe, _proneAmount))
+            {
+                _proneAmount = pe;
+                ApplyCapsuleHeight();
+            }
+
             float target = _wantsCrouch ? 1f : 0f;
             if (target < _crouchLinear && !CanStandAt(transform.position)) target = _crouchLinear;
             _crouchLinear = Mathf.MoveTowards(_crouchLinear, target, dt / Mathf.Max(0.01f, crouchTransitionTime));
@@ -423,7 +488,7 @@ namespace HideAndSeek.Player
         private void ApplyCapsuleHeight()
         {
             if (_cc == null) return;
-            float h = Mathf.Lerp(standHeight, crouchHeight, _crouchAmount);
+            float h = Mathf.Lerp(Mathf.Lerp(standHeight, crouchHeight, _crouchAmount), proneHeight, _proneAmount);
             _cc.height = h;
             _cc.center = new Vector3(0f, h * 0.5f, 0f);
         }
@@ -452,11 +517,15 @@ namespace HideAndSeek.Player
         }
 
         /// <summary>Capsule overlap test for the full standing capsule at <paramref name="feet"/>.</summary>
-        private bool CanStandAt(Vector3 feet)
+        private bool CanStandAt(Vector3 feet) => CanFitAt(feet, standHeight);
+
+        /// <summary>Capsule overlap test for a capsule of <paramref name="height"/> at <paramref name="feet"/>.</summary>
+        private bool CanFitAt(Vector3 feet, float height)
         {
+            if (_cc == null) return true;
             float r = _cc.radius - 0.02f;
             Vector3 bottom = feet + Vector3.up * (r + _cc.skinWidth + 0.05f);
-            Vector3 top = feet + Vector3.up * (standHeight - r);
+            Vector3 top = feet + Vector3.up * (height - r);
             int n = Physics.OverlapCapsuleNonAlloc(bottom, top, r, _overlapBuffer, obstacleMask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < n; i++)
             {

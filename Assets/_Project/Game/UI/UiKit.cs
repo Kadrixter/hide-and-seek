@@ -12,7 +12,7 @@ namespace HideAndSeek.Game.UI
     {
         public static readonly Color Bg = new Color(0.04f, 0.045f, 0.05f, 0.92f);
         public static readonly Color Panel = new Color(0.08f, 0.09f, 0.1f, 0.94f);
-        public static readonly Color ButtonColor = new Color(0.16f, 0.17f, 0.19f, 1f);
+        public static readonly Color ButtonColor = new Color(0.15f, 0.16f, 0.185f, 1f);
         public static readonly Color ButtonHoverColor = new Color(0.24f, 0.26f, 0.29f, 1f);
         public static readonly Color Accent = new Color(0.36f, 0.85f, 0.42f, 1f);
         public static readonly Color Danger = new Color(0.9f, 0.25f, 0.22f, 1f);
@@ -110,16 +110,38 @@ namespace HideAndSeek.Game.UI
         public static Button Button(string name, Transform parent, string text, Action onClick, int fontSize = 30, Color? color = null)
         {
             var img = Image(name, parent, color ?? ButtonColor);
+            img.sprite = UiStyle.RoundGradient;
+            img.type = UnityEngine.UI.Image.Type.Sliced;
+            var drop = img.AddDrop(3f, 0.4f);
             var b = img.gameObject.AddComponent<Button>();
             var colors = b.colors;
             colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(1.35f, 1.35f, 1.35f, 1f);
-            colors.pressedColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+            colors.highlightedColor = new Color(1.16f, 1.2f, 1.16f, 1f);
+            colors.pressedColor = new Color(0.82f, 0.86f, 0.82f, 1f);
             colors.selectedColor = Color.white;
-            colors.colorMultiplier = 1.5f;
+            colors.disabledColor = new Color(0.55f, 0.55f, 0.55f, 0.55f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.1f;
             b.colors = colors;
-            var label = Label("Label", img.transform, text, fontSize, TextAnchor.MiddleCenter);
+            var nav = b.navigation;
+            nav.mode = Navigation.Mode.None; // no sticky "selected" highlight after a click
+            b.navigation = nav;
+            // Ring border (turns green on hover), accent bar on the left, chevron on the right.
+            var border = UiStyle.Ring("Border", img.transform, UiStyle.Border);
+            var accent = Image("Accent", img.transform, new Color(Accent.r, Accent.g, Accent.b, 0f)).Rounded(true);
+            accent.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(9, 0), new Vector2(5, -20));
+            accent.raycastTarget = false;
+            var label = Label("Label", img.transform, text, fontSize, TextAnchor.MiddleCenter, null, FontStyle.Bold);
             label.rectTransform.Stretch(8f);
+            label.AddDrop(2f, 0.55f);
+            var chevron = Label("Chevron", img.transform, ">", fontSize, TextAnchor.MiddleRight, Accent, FontStyle.Bold);
+            chevron.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-18, 0), new Vector2(40, 0));
+            var fx = img.gameObject.AddComponent<UiButtonFx>();
+            fx.Accent = accent;
+            fx.Border = border;
+            fx.Drop = drop;
+            fx.Label = label.rectTransform;
+            fx.Chevron = chevron;
             b.onClick.AddListener(() =>
             {
                 GameAudio.Play2D(GameSfx.UiClick, 0.8f);
@@ -134,13 +156,15 @@ namespace HideAndSeek.Game.UI
 
         public static InputField Input(string name, Transform parent, string value, string placeholder, int fontSize = 28)
         {
-            var img = Image(name, parent, new Color(0.02f, 0.02f, 0.025f, 1f));
+            var img = Image(name, parent, new Color(0.035f, 0.038f, 0.045f, 1f)).Rounded();
+            UiStyle.Ring("Border", img.transform, UiStyle.Border);
             var field = img.gameObject.AddComponent<InputField>();
+            field.selectionColor = new Color(Accent.r, Accent.g, Accent.b, 0.35f);
             var text = Label("Text", img.transform, value, fontSize, TextAnchor.MiddleLeft);
-            text.rectTransform.Stretch(12f);
+            text.rectTransform.Stretch(16f);
             text.supportRichText = false;
             var ph = Label("Placeholder", img.transform, placeholder, fontSize, TextAnchor.MiddleLeft, TextDim, FontStyle.Italic);
-            ph.rectTransform.Stretch(12f);
+            ph.rectTransform.Stretch(16f);
             field.textComponent = text;
             field.placeholder = ph;
             field.text = value;
@@ -151,20 +175,35 @@ namespace HideAndSeek.Game.UI
         public static Slider Slider(string name, Transform parent, float min, float max, float value, bool whole, Action<float> onChange)
         {
             var root = Rect(name, parent);
-            var bg = Image("Bg", root, new Color(0.02f, 0.02f, 0.025f, 1f));
+            var bg = Image("Bg", root, new Color(0.05f, 0.055f, 0.065f, 1f)).Rounded(true);
             bg.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(0, 10));
+            UiStyle.Ring("Border", bg.transform, UiStyle.Border, true);
             var fillArea = Rect("FillArea", root);
-            fillArea.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(0, 10));
-            var fill = Image("Fill", fillArea, Accent);
+            fillArea.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-5, 0), new Vector2(-10, 10));
+            var fill = Image("Fill", fillArea, Accent).Rounded(true);
             fill.rectTransform.Stretch();
+            fill.rectTransform.offsetMax = new Vector2(10, 0);
             var handleArea = Rect("HandleArea", root);
-            handleArea.Stretch();
-            var handle = Image("Handle", handleArea, Text);
-            handle.rectTransform.sizeDelta = new Vector2(18, 30);
+            handleArea.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(-24, 0));
+            var handle = Image("Handle", handleArea, Color.white);
+            handle.sprite = UiStyle.Circle;
+            handle.rectTransform.sizeDelta = new Vector2(22, 22);
+            handle.AddDrop(2f, 0.55f);
+            var dot = Image("Dot", handle.transform, Accent);
+            dot.sprite = UiStyle.Circle;
+            dot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(8, 8));
+            dot.raycastTarget = false;
             var s = root.gameObject.AddComponent<Slider>();
             s.fillRect = fill.rectTransform;
             s.handleRect = handle.rectTransform;
             s.targetGraphic = handle;
+            var sc = s.colors;
+            sc.highlightedColor = new Color(0.8f, 1f, 0.82f, 1f);
+            sc.pressedColor = UiKit.Accent;
+            s.colors = sc;
+            var snav = s.navigation;
+            snav.mode = Navigation.Mode.None;
+            s.navigation = snav;
             s.minValue = min;
             s.maxValue = max;
             s.wholeNumbers = whole;
@@ -191,6 +230,17 @@ namespace HideAndSeek.Game.UI
             le.preferredHeight = h;
             le.minHeight = h;
             return le;
+        }
+
+        /// <summary>
+        /// Re-generates every Text under <paramref name="root"/>. Needed after the window / resolution changes at startup:
+        /// legacy Text keeps glyphs rasterised for the old canvas scale (blurry) until something marks it dirty.
+        /// </summary>
+        public static void RefreshTexts(Transform root)
+        {
+            if (root == null) return;
+            foreach (var t in root.GetComponentsInChildren<UnityEngine.UI.Text>(true)) t.FontTextureChanged();
+            Canvas.ForceUpdateCanvases();
         }
 
         public static string FormatTime(double seconds)

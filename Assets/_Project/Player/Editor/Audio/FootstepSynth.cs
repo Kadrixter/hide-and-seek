@@ -313,29 +313,19 @@ namespace HideAndSeek.Player.Editor.Audio
 
         public static float[] CrouchRustle(bool down, int variant, ulong seed)
         {
-            var r = new Rng(seed ^ (down ? 0xC0C0UL : 0x5757UL) ^ (ulong)(variant * 7727 + 11));
-            var buf = new float[Dsp.Samples(0.65f)];
-            float dur = down ? r.Range(0.42f, 0.5f) : r.Range(0.36f, 0.44f);
-            float center = down ? r.Range(1150f, 1450f) : r.Range(1550f, 1900f);
-            Dsp.AddRustle(buf, 0f, dur, center, 0.6f, t => Dsp.Hump(t, dur, down ? 0.55f : 0.42f, 1.1f), r, down ? 95f : 120f);
-            // second fabric layer (trousers vs jacket)
-            float dur2 = dur * r.Range(0.6f, 0.8f);
-            Dsp.AddRustle(buf, r.Range(0.03f, 0.08f), dur2, center * r.Range(0.6f, 0.75f), 0.3f, t => Dsp.Hump(t, dur2, 0.6f, 1.4f), r, 60f);
-            if (down)
-            {
-                // weight settling onto the soles + soft sole squish
-                Dsp.AddNoise(buf, dur * 0.55f, 0.15f, t => Dsp.AttackDecay(t, 0.006f, 0.035f), 0.3f, r, Biquad.BandPass(Fs, r.Range(300f, 400f), 1f));
-                Dsp.AddThump(buf, dur * 0.55f, 85f, 60f, 0.02f, 0.006f, 0.04f, 0.15f);
-            }
-            else
-            {
-                // feet shifting while rising
-                float sd = 0.12f;
-                Dsp.AddNoise(buf, dur * 0.6f, sd, t => Dsp.Hump(t, sd, 0.5f, 1.4f), 0.16f, r, Biquad.HighPass(Fs, 900f), Biquad.BandPass(Fs, 2600f, 0.7f));
-                Dsp.AddGrit(buf, dur * 0.6f, sd, 200f, t => Dsp.Hump(t, sd, 0.5f, 1f), 0.08f, r, 2000f, 4500f);
-            }
-            Dsp.EarlyReflections(buf, new[] { 0.014f, 0.025f }, new[] { 0.1f, 0.06f }, 2500f);
-            return Dsp.Finish(buf, 0.8f);
+            // Quiet, soft clothing rustle only: low crinkle rate (no crackle), no thumps or grit, darker filtering.
+            // (The old version had a sole thump + dense crinkles that read as a bone crack.)
+            var r = new Rng(seed ^ (down ? 0xC0C1UL : 0x5758UL) ^ (ulong)(variant * 7727 + 11));
+            var buf = new float[Dsp.Samples(0.75f)];
+            float dur = down ? r.Range(0.5f, 0.6f) : r.Range(0.42f, 0.52f);
+            float center = down ? r.Range(820f, 980f) : r.Range(950f, 1150f);
+            Dsp.AddRustle(buf, 0f, dur, center, 0.45f, t => Dsp.Hump(t, dur, down ? 0.5f : 0.4f, 1.6f), r, 16f);
+            // second, softer fabric layer slightly later (trousers vs jacket)
+            float dur2 = dur * r.Range(0.55f, 0.75f);
+            Dsp.AddRustle(buf, r.Range(0.06f, 0.12f), dur2, center * r.Range(0.7f, 0.8f), 0.22f, t => Dsp.Hump(t, dur2, 0.55f, 1.8f), r, 12f);
+            Dsp.Filter(buf, Biquad.LowPass(Fs, 2600f), Biquad.HighPass(Fs, 380f));
+            Dsp.EarlyReflections(buf, new[] { 0.014f, 0.025f }, new[] { 0.06f, 0.03f }, 2000f);
+            return Dsp.Finish(buf, 0.5f);
         }
 
         /// <summary>Seamless clothing rustle loop.</summary>

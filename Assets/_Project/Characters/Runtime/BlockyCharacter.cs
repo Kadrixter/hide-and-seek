@@ -220,6 +220,143 @@ namespace HideAndSeek.Characters
                 faceRenderer.shadowCastingMode = fp ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
         }
 
+        // ------------------------------------------------------------------ severed limbs
+
+        int severedMask;
+
+        /// <summary>Bit mask of limbs currently cut off (see <see cref="Limb"/>).</summary>
+        public int SeveredMask => severedMask;
+
+        /// <summary>Shows / hides the limbs so that exactly <paramref name="mask"/> is missing. No flying parts.</summary>
+        public void SetSevered(int mask)
+        {
+            if (!IsBuilt || mask == severedMask) return;
+            severedMask = mask;
+            SetLimbVisible(hipR, kneeR, (mask & Limb.LegR) == 0);
+            SetLimbVisible(hipL, kneeL, (mask & Limb.LegL) == 0);
+            SetLimbVisible(shoulderR, elbowR, (mask & Limb.ArmR) == 0);
+            SetLimbVisible(shoulderL, elbowL, (mask & Limb.ArmL) == 0);
+            SetLimbVisible(head, null, (mask & Limb.Head) == 0);
+            if (faceQuad != null && (mask & Limb.Head) != 0) faceQuad.gameObject.SetActive(false);
+            else if (faceQuad != null && IsSpecialNick(playerNick) && GetPhotoMaterial() != null) faceQuad.gameObject.SetActive(true);
+        }
+
+        static void SetLimbVisible(Transform a, Transform b, bool visible)
+        {
+            if (a != null && a.TryGetComponent<MeshRenderer>(out var ra)) ra.enabled = visible;
+            if (b != null && b.TryGetComponent<MeshRenderer>(out var rb)) rb.enabled = visible;
+        }
+
+        /// <summary>The flying part spawned by the last <see cref="Sever"/> call (null when none).</summary>
+        public GameObject LastGib { get; private set; }
+
+        /// <summary>Joint transform (hip / shoulder / head) of a limb.</summary>
+        public Transform LimbJoint(int limb) => limb switch
+        {
+            Limb.LegR => hipR,
+            Limb.LegL => hipL,
+            Limb.ArmR => shoulderR,
+            Limb.ArmL => shoulderL,
+            _ => head,
+        };
+
+        /// <summary>World position of the stump (joint) of a limb.</summary>
+        public Vector3 LimbJointPosition(int limb)
+        {
+            Transform t = limb switch
+            {
+                Limb.LegR => hipR,
+                Limb.LegL => hipL,
+                Limb.ArmR => shoulderR,
+                Limb.ArmL => shoulderL,
+                _ => head,
+            };
+            return t != null ? t.position : transform.position;
+        }
+
+        /// <summary>
+        /// Cuts off one limb: hides it and lets a physical copy fly away along <paramref name="impulse"/> (m/s).
+        /// Returns false when it was already missing. The part disappears after ~40 s.
+        /// </summary>
+        public bool Sever(int limb, Vector3 impulse)
+        {
+            LastGib = null;
+            if (!IsBuilt || (severedMask & limb) != 0) return false;
+            Transform a, b = null;
+            BlockyMeshBuilder.Part pa, pb = default;
+            bool isHead = false;
+            switch (limb)
+            {
+                case Limb.LegR: a = hipR; b = kneeR; pa = BlockyMeshBuilder.Part.UpperLegRight; pb = BlockyMeshBuilder.Part.LowerLegRight; break;
+                case Limb.LegL: a = hipL; b = kneeL; pa = BlockyMeshBuilder.Part.UpperLegLeft; pb = BlockyMeshBuilder.Part.LowerLegLeft; break;
+                case Limb.ArmR: a = shoulderR; b = elbowR; pa = BlockyMeshBuilder.Part.UpperArmRight; pb = BlockyMeshBuilder.Part.LowerArmRight; break;
+                case Limb.ArmL: a = shoulderL; b = elbowL; pa = BlockyMeshBuilder.Part.UpperArmLeft; pb = BlockyMeshBuilder.Part.LowerArmLeft; break;
+                default: a = head; pa = BlockyMeshBuilder.Part.Head; isHead = true; break;
+            }
+
+            SpawnGib(a, pa, b, pb, isHead, impulse);
+            SetSevered(severedMask | limb);
+            return true;
+        }
+
+        void SpawnGib(Transform a, BlockyMeshBuilder.Part pa, Transform b, BlockyMeshBuilder.Part pb, bool isHead, Vector3 impulse)
+        {
+            if (a == null) return;
+            Material mat = skinRenderers.Count > 0 && skinRenderers[0] != null ? skinRenderers[0].sharedMaterial : GetFallbackMaterial();
+            var root = new GameObject(isHead ? "SeveredHead" : "SeveredLimb");
+            LastGib = root;
+            root.transform.SetPositionAndRotation(a.position, a.rotation);
+            AddGibPart(root.transform, a, pa, mat);
+            if (b != null) AddGibPart(root.transform, b, pb, mat);
+            if (isHead && faceQuad != null && faceQuad.gameObject.activeSelf)
+            {
+                var f = Instantiate(faceQuad.gameObject, root.transform);
+                f.transform.SetPositionAndRotation(faceQuad.position, faceQuad.rotation);
+                f.transform.localScale = faceQuad.localScale;
+            }
+
+            var rb = root.AddComponent<Rigidbody>();
+            rb.mass = isHead ? 4f : 6f;
+            rb.linearDamping = 0.1f;
+            rb.angularDamping = 0.4f;
+            rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            Collider col;
+            if (isHead)
+            {
+                var sc = root.AddComponent<SphereCollider>();
+                sc.radius = 4f * PixelSize;
+                sc.center = new Vector3(0f, 4f * PixelSize, 0f);
+                col = sc;
+            }
+            else
+            {
+                var bc = root.AddComponent<BoxCollider>();
+                bc.size = new Vector3(4f * PixelSize, 11f * PixelSize, 4f * PixelSize);
+                bc.center = new Vector3(0f, -5.5f * PixelSize, 0f);
+                col = bc;
+            }
+
+            // Never push the players around.
+            foreach (var cc in FindObjectsByType<CharacterController>(FindObjectsSortMode.None))
+                if (cc != null) Physics.IgnoreCollision(col, cc, true);
+            rb.AddForce(impulse, ForceMode.VelocityChange);
+            rb.AddTorque(UnityEngine.Random.onUnitSphere * 5f, ForceMode.VelocityChange);
+            Destroy(root, 180f);
+        }
+
+        void AddGibPart(Transform parent, Transform joint, BlockyMeshBuilder.Part part, Material mat)
+        {
+            var go = new GameObject(part.ToString());
+            go.transform.SetParent(parent, false);
+            go.transform.SetPositionAndRotation(joint.position, joint.rotation);
+            go.transform.localScale = Vector3.one;
+            go.AddComponent<MeshFilter>().sharedMesh = BlockyMeshBuilder.GetMesh(part);
+            var r = go.AddComponent<MeshRenderer>();
+            r.sharedMaterial = mat;
+            r.shadowCastingMode = ShadowCastingMode.On;
+            r.receiveShadows = true;
+        }
+
         /// <summary>Sets the layer of the whole character hierarchy.</summary>
         public void SetLayer(int layer)
         {

@@ -16,7 +16,7 @@ namespace HideAndSeek.Characters
     /// </para>
     /// </summary>
     [DefaultExecutionOrder(200)]
-    public class FirstPersonViewModel : MonoBehaviour, IFirstPersonViewModel
+    public partial class FirstPersonViewModel : MonoBehaviour, IFirstPersonViewModel
     {
         public const int Layer = 9;
         public const string LayerName = "ViewModel";
@@ -35,7 +35,7 @@ namespace HideAndSeek.Characters
         Camera vmCamera;
         Transform rig;
         Transform shR, elR, socketR, shL, elL;
-        readonly HeldProp[] props = new HeldProp[4];
+        readonly HeldProp[] props = new HeldProp[12];
         GameObject handMag, dropMag;
         Vector3 dropVel;
         float dropAge = 99f;
@@ -44,6 +44,213 @@ namespace HideAndSeek.Characters
         bool visible = true;
 
         HeldItem heldItem, shownItem;
+        bool revving;
+        HoldAnim holdAnim;
+        float holdTime;
+        Vector3? holdTarget;
+        HeldProp vmKit;
+
+        /// <summary>First-person side of the injection / self-heal holds (time in seconds since the hold started).</summary>
+        public void SetHoldAnimation(HoldAnim mode, float t, Vector3? worldTarget = null)
+        {
+            holdAnim = mode;
+            holdTime = t;
+            holdTarget = worldTarget;
+        }
+
+        static float Sg(float t, float a, float b) => HealTimeline.Seg(t, a, b);
+
+        float pokeTime = 9f;
+        Color brickTint = Color.white;
+
+        /// <summary>Colour of the toy brick in the hand (lobby building).</summary>
+        public void SetBrickTint(Color c) => brickTint = c;
+
+        /// <summary>Quick push forward of the hand (a brick is put down).</summary>
+        public void PlayPoke() => pokeTime = 0f;
+
+        bool overrideOn, overrideLeft;
+        Vector3 overrideRight, overrideLeftPos;
+        Quaternion overrideRot;
+        HeldItem? overrideItem;
+
+        /// <summary>
+        /// Scripted hands in world space (fork into a socket, arcade controls, RC car put on the floor). Left hand optional;
+        /// <paramref name="item"/> replaces the shown item while the override is on.
+        /// </summary>
+        public void SetOverrideHands(bool on, Vector3 rightWorld, Quaternion propWorld, Vector3? leftWorld = null, HeldItem? item = null)
+        {
+            overrideOn = on;
+            overrideItem = item;
+            overrideRight = rightWorld;
+            overrideRot = propWorld;
+            overrideLeft = leftWorld.HasValue;
+            if (leftWorld.HasValue) overrideLeftPos = leftWorld.Value;
+        }
+
+        /// <summary>Hands for the hold animations in rig space. Returns false when no hold animation is running.</summary>
+        bool HoldHands(ref HeldItem show, out Vector3 rightT, out Quaternion propRot, ref Vector3 leftT, ref float wantLeft)
+        {
+            rightT = default;
+            propRot = Quaternion.identity;
+            float t = holdTime;
+            if (VendingHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (overrideOn && rig != null)
+            {
+                rightT = rig.InverseTransformPoint(overrideRight);
+                propRot = Quaternion.Inverse(rig.rotation) * overrideRot;
+                if (overrideItem.HasValue) show = overrideItem.Value;
+                SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -0.8f, -0.3f));
+                if (overrideLeft)
+                {
+                    leftT = rig.InverseTransformPoint(overrideLeftPos);
+                    wantLeft = 1f;
+                }
+                return true;
+            }
+            if (holdAnim == HoldAnim.Inject)
+            {
+                float sc = BlockyProps.SyringeScale;
+                Vector3 chest = new Vector3(0.02f, -0.9f, 0.62f);
+                if (holdTarget.HasValue && rig != null)
+                {
+                    chest = rig.InverseTransformPoint(holdTarget.Value);
+                    chest = new Vector3(Mathf.Clamp(chest.x, -0.2f, 0.25f), Mathf.Clamp(chest.y, -0.95f, -0.45f), Mathf.Clamp(chest.z, 0.55f, 0.9f));
+                }
+                Vector3 hidden = new Vector3(0.32f, -0.8f, 0.35f);
+                // Kept well away from the lens and right of centre, so the syringe reads and the arm does not fill the view.
+                Vector3 front = new Vector3(0.24f, -0.34f, 0.66f);
+                Vector3 raised = new Vector3(0.22f, -0.12f, 0.66f);
+                Vector3 down = (chest - raised).normalized;
+                Vector3 stab = chest - down * (BlockyProps.SyringeTipLocal.z * sc - 0.02f);
+                Vector3 dir;
+                if (t < 0.95f) { rightT = Vector3.Lerp(hidden, front, Sg(t, 0.45f, 0.95f)); dir = new Vector3(-0.35f, 0.05f, 1f); }
+                else if (t < 1.3f) { rightT = front; dir = new Vector3(-0.45f, 0.1f, 1f); }
+                else if (t < HealTimeline.InjectStab)
+                {
+                    float r = Sg(t, 1.3f, 1.56f), st = Mathf.Clamp01((t - 1.58f) / (HealTimeline.InjectStab - 1.58f));
+                    rightT = t < 1.58f ? Vector3.Lerp(front, raised, r) : Vector3.Lerp(raised, stab, st * st);
+                    dir = Vector3.Slerp(new Vector3(-0.45f, 0.1f, 1f), down, r);
+                }
+                else if (t < HealTimeline.InjectPullOut) { rightT = stab + down * 0.012f * HealTimeline.InjectPress(t); dir = down; }
+                else
+                {
+                    float po = Sg(t, HealTimeline.InjectPullOut, 3.35f), lo = Sg(t, 3.45f, 3.95f);
+                    rightT = Vector3.Lerp(Vector3.Lerp(stab, stab - down * 0.25f, po), hidden, lo);
+                    dir = down;
+                }
+                propRot = Quaternion.LookRotation(dir.normalized, Mathf.Abs(dir.normalized.y) > 0.9f ? Vector3.forward : Vector3.up);
+                show = t >= HealTimeline.InjectShow && t < HealTimeline.InjectHide ? HeldItem.Syringe : HeldItem.None;
+                SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -0.6f, -0.5f));
+                Vector3 hand = HandPos(shR, elR);
+                Vector3 tip = hand + propRot * (BlockyProps.SyringeTipLocal * sc);
+                Vector3 plunger = hand + propRot * ((BlockyProps.SyringePlungerLocal + new Vector3(0f, 0f, BlockyProps.SyringePlungerTravel * HealTimeline.InjectPress(t))) * sc) - propRot * new Vector3(0f, 0f, 0.05f);
+                Vector3 rest = new Vector3(-0.3f, -0.85f, 0.4f);
+                if (t < 0.95f) { leftT = rest; wantLeft = 0f; }
+                else if (t < 1.35f)
+                {
+                    leftT = Vector3.Lerp(Vector3.Lerp(rest, tip, Sg(t, 0.95f, 1.1f)), new Vector3(-0.3f, -0.42f, 0.62f), Sg(t, HealTimeline.InjectCapOff, 1.35f));
+                    wantLeft = 1f;
+                }
+                else if (t < 1.62f) { leftT = Vector3.Lerp(new Vector3(-0.3f, -0.42f, 0.62f), rest, Sg(t, 1.35f, 1.6f)); wantLeft = 1f - Sg(t, 1.45f, 1.6f); }
+                else if (t < HealTimeline.InjectPullOut) { leftT = Vector3.Lerp(rest, plunger, Sg(t, 1.62f, HealTimeline.InjectPressStart)); wantLeft = 1f; }
+                else { leftT = Vector3.Lerp(plunger, rest, Sg(t, HealTimeline.InjectPullOut, 3.4f)); wantLeft = 1f - Sg(t, 3.2f, 3.4f); }
+                return true;
+            }
+            if (holdAnim == HoldAnim.SelfHeal)
+            {
+                // Looking down at the own belly while sitting: hands circle round it with the roll, then tie.
+                // Positions in the body frame (camera position, yaw only), converted to rig space below.
+                Vector3 Belly(float a, float r = 1f) => new Vector3(0.2f * Mathf.Sin(a) * r, -0.5f + 0.015f * Mathf.Sin(a * 3f), 0.46f + 0.12f * Mathf.Cos(a) * r);
+                Vector3 kit = new Vector3(0.4f, -0.66f, 0.5f);
+                Vector3 hiddenR = new Vector3(0.4f, -0.55f, -0.15f), hiddenL = new Vector3(-0.4f, -0.55f, -0.15f);
+                Vector3 r, l;
+                float wl = 1f;
+                if (t < HealTimeline.HealSitEnd) { r = hiddenR; l = hiddenL; wl = 0f; }
+                else if (t < HealTimeline.HealKitOpen) { r = Vector3.Lerp(hiddenR, kit, Sg(t, HealTimeline.HealSitEnd, 0.95f)); l = hiddenL; wl = 0f; }
+                else if (t < HealTimeline.HealBandageOut)
+                {
+                    float lid = Mathf.Sin(Mathf.PI * Mathf.Clamp01((t - HealTimeline.HealKitOpen) / 0.3f));
+                    r = kit + new Vector3(0f, 0.1f * lid, 0.02f * lid);
+                    l = hiddenL;
+                    wl = 0f;
+                }
+                else if (t < HealTimeline.HealWrapStart)
+                {
+                    r = Vector3.Lerp(kit, Belly(0.6f), Sg(t, HealTimeline.HealBandageOut, HealTimeline.HealWrapStart));
+                    l = Vector3.Lerp(hiddenL, Belly(-0.4f), Sg(t, HealTimeline.HealBandageOut, HealTimeline.HealWrapStart));
+                    wl = Sg(t, HealTimeline.HealBandageOut, HealTimeline.HealWrapStart);
+                }
+                else if (t < HealTimeline.HealWrapEnd)
+                {
+                    float cyc = (t - HealTimeline.HealWrapStart) / (HealTimeline.HealWrapEnd - HealTimeline.HealWrapStart) * 3f;
+                    float ph = cyc - Mathf.Floor(cyc);
+                    float a = ph < 0.6f ? Mathf.Lerp(-0.9f, 2.0f, ActionTimeline.SmoothStep01(ph / 0.6f)) : Mathf.Lerp(2.0f, -0.9f, ActionTimeline.SmoothStep01((ph - 0.6f) / 0.4f));
+                    r = Belly(a, ph < 0.6f ? 1f : 1.4f);
+                    float b = ph < 0.6f ? -0.5f : Mathf.Lerp(-0.5f, -2.0f, Mathf.Sin(Mathf.PI * (ph - 0.6f) / 0.4f));
+                    l = Belly(b);
+                }
+                else if (t < HealTimeline.HealTieEnd)
+                {
+                    float pull = Mathf.Abs(Mathf.Sin((t - HealTimeline.HealWrapEnd) / (HealTimeline.HealTieEnd - HealTimeline.HealWrapEnd) * Mathf.PI * 2f));
+                    r = new Vector3(0.03f + 0.17f * pull, -0.48f, 0.6f);
+                    l = new Vector3(-0.03f - 0.17f * pull, -0.48f, 0.6f);
+                }
+                else
+                {
+                    float d = Sg(t, HealTimeline.HealTieEnd, 4.95f);
+                    r = Vector3.Lerp(new Vector3(0.05f, -0.48f, 0.6f), hiddenR, d);
+                    l = Vector3.Lerp(new Vector3(-0.05f, -0.48f, 0.6f), hiddenL, d);
+                    wl = 1f - d;
+                }
+                Quaternion toRig = BodyToRig();
+                rightT = toRig * r;
+                leftT = toRig * l;
+                wantLeft = wl;
+                propRot = toRig * Quaternion.Euler(0f, 90f, 0f);
+                show = t >= HealTimeline.HealKitOpen + 0.15f && t < HealTimeline.HealWrapEnd + 0.25f ? HeldItem.Bandage : HeldItem.None;
+                SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -0.4f, -0.5f));
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Rotation from the body frame (camera yaw only, level) to rig space (camera space).</summary>
+        Quaternion BodyToRig()
+        {
+            if (cam == null) return Quaternion.identity;
+            var yawOnly = Quaternion.Euler(0f, cam.eulerAngles.y, 0f);
+            var rigParent = rig != null && rig.parent != null ? rig.parent.rotation : cam.rotation;
+            return Quaternion.Inverse(rigParent) * yawOnly;
+        }
+
+        void UpdateVmKit()
+        {
+            bool on = holdAnim == HoldAnim.SelfHeal && holdTime >= HealTimeline.HealSitEnd && holdTime < HealTimeline.HealTieEnd + 0.3f;
+            if (on && vmKit == null)
+            {
+                vmKit = BlockyProps.Create(HeldItem.Medkit, rig, Layer);
+                vmKit.SetRenderMode(ShadowCastingMode.Off, false);
+            }
+            if (vmKit == null) return;
+            if (vmKit.gameObject.activeSelf != on) vmKit.gameObject.SetActive(on);
+            if (on)
+            {
+                var toRig = BodyToRig();
+                vmKit.transform.localPosition = toRig * new Vector3(0.42f, -0.72f, 0.52f);
+                vmKit.transform.localRotation = toRig * Quaternion.Euler(0f, 25f, 90f);
+            }
+        }
+
+        /// <summary>Chainsaw throttle (F held): saw raised, hands shaking.</summary>
+        public void SetRevving(bool value) => revving = value;
+
+        float sawStartT = 99f;
+        float sawBlood;
+        HeldItem lastShow;
+
+        /// <summary>Blood on the chain (1 = just killed), set by the game.</summary>
+        public void SetSawBlood(float amount) => sawBlood = amount;
         float switchTime = 99f;
         const float LowerTime = 0.16f, RaiseTime = 0.22f;
 
@@ -192,6 +399,11 @@ namespace HideAndSeek.Characters
             if (!visible) shownItem = item;
         }
 
+        float slashTime = 99f;
+
+        /// <summary>One quick slash (first hit that only wounds).</summary>
+        public void PlaySlash() => slashTime = 0f;
+
         public float PlayKnifeAttack()
         {
             action = Action.Knife;
@@ -231,6 +443,8 @@ namespace HideAndSeek.Characters
             if (rig == null || dt <= 0f) return;
             dt = Mathf.Min(dt, 0.1f);
             time += dt;
+            slashTime += dt;
+            pokeTime += dt;
             if (motion == null && cam != null) motion = cam.GetComponentInParent<ICharacterMotionSource>();
 
             // Item switching.
@@ -244,6 +458,10 @@ namespace HideAndSeek.Characters
             }
 
             HeldItem show = action == Action.Knife ? HeldItem.Knife : action == Action.Reload ? HeldItem.Glock : shownItem;
+            if (show == HeldItem.Chainsaw && lastShow != HeldItem.Chainsaw && !revving) sawStartT = -RaiseTime * 0.6f; // pull once raised
+            if (revving) sawStartT = Mathf.Max(sawStartT, BlockyProps.ChainsawStartTime);
+            lastShow = show;
+            sawStartT += dt;
 
             // Action clock.
             float prev = actionTime;
@@ -302,6 +520,9 @@ namespace HideAndSeek.Characters
             Vector3 gunPosForMag = Vector3.zero;
             Quaternion gunRotForMag = Quaternion.identity;
 
+            bool holding = HoldHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft);
+            UpdateVmKit();
+            if (!holding)
             switch (show)
             {
                 case HeldItem.Glock:
@@ -333,11 +554,21 @@ namespace HideAndSeek.Characters
                     break;
                 }
                 case HeldItem.Knife:
+                case HeldItem.Fork:
                 {
                     Vector3 rest = new Vector3(0.27f, -0.36f, 0.72f);
                     Quaternion restRot = Quaternion.LookRotation(new Vector3(-0.3f, 0.35f, 1f), Vector3.up);
                     rightT = rest;
                     propRot = restRot;
+                    if (slashTime < 0.55f && action != Action.Knife)
+                    {
+                        float wind = ActionTimeline.SmoothStep01(slashTime / 0.12f);
+                        float thrust = ActionTimeline.SmoothStep01(ActionTimeline.Remap01(slashTime, 0.12f, 0.2f));
+                        float back = ActionTimeline.SmoothStep01(ActionTimeline.Remap01(slashTime, 0.3f, 0.55f));
+                        Vector3 cocked = new Vector3(0.34f, -0.48f, 0.55f), hit = new Vector3(0.04f, -0.3f, 0.95f);
+                        rightT = Vector3.Lerp(rest, Vector3.Lerp(cocked, hit, thrust), wind * (1f - back));
+                        propRot = Quaternion.Slerp(restRot, Quaternion.LookRotation((hit - cocked).normalized, Vector3.up), wind * (1f - back));
+                    }
                     if (action == Action.Knife)
                     {
                         float e = ActionTimeline.SmoothStep01(actionTime / 0.25f) * (1f - ActionTimeline.SmoothStep01(ActionTimeline.Remap01(actionTime, 2.15f, 2.4f)));
@@ -355,11 +586,45 @@ namespace HideAndSeek.Characters
                     SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -1f, -0.4f));
                     break;
                 }
+                case HeldItem.Chainsaw:
+                {
+                    float rv = revving ? 1f : 0f;
+                    Vector3 jit = new Vector3(Mathf.Sin(time * 83f), Mathf.Sin(time * 67f), Mathf.Sin(time * 59f)) * (0.003f + 0.008f * rv);
+                    Vector3 sPos = new Vector3(0.2f, -0.46f + 0.06f * rv, 0.5f + 0.05f * rv) + jit;
+                    Quaternion sRot = Quaternion.Euler(-6f - 10f * rv, -8f, 0f);
+                    // Pull-start: saw held out lower and turned a little, left hand yanks the starter cord twice.
+                    var st = BlockyProps.ChainsawStarter(sawStartT);
+                    if (st.x > 0.001f)
+                    {
+                        float yank = st.y;
+                        // Turned so the starter side faces the camera, held up in view; each yank jerks it a little.
+                        sPos = Vector3.Lerp(sPos, new Vector3(0.04f, -0.36f - 0.025f * yank, 0.56f + 0.02f * yank), st.x);
+                        sRot = Quaternion.Slerp(sRot, Quaternion.Euler(8f + 5f * yank, 38f, -8f - 4f * yank), st.x);
+                    }
+                    rightT = sPos;
+                    propRot = sRot;
+                    SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -1f, -0.5f));
+                    Vector3 grip = HandPos(shR, elR) + sRot * BlockyProps.ChainsawLeftGripLocal;
+                    Vector3 starter = HandPos(shR, elR) + sRot * (BlockyProps.ChainsawStarterLocal +
+                                      BlockyProps.ChainsawPullDir * (BlockyProps.ChainsawPullLength * st.y));
+                    leftT = Vector3.Lerp(grip, starter, st.x);
+                    wantLeft = 1f;
+                    break;
+                }
                 case HeldItem.Medkit:
                     rightT = new Vector3(0.26f, -0.24f, 0.68f);
                     propRot = Quaternion.Euler(0f, -25f, 0f);
                     SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -1f, -0.4f));
                     break;
+                case HeldItem.Brick:
+                {
+                    // Brick held up in front; a quick push forward when one is put down.
+                    float poke = pokeTime < 0.32f ? Mathf.Sin(pokeTime / 0.32f * Mathf.PI) : 0f;
+                    rightT = new Vector3(0.3f, -0.4f, 0.78f) + new Vector3(-0.08f, 0.05f, 0.22f) * poke;
+                    propRot = Quaternion.Euler(-10f - 20f * poke, -20f, 0f);
+                    SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -1f, -0.4f));
+                    break;
+                }
                 default:
                     rightT = new Vector3(0.28f, -0.4f, 0.68f);
                     propRot = Quaternion.identity;
@@ -378,6 +643,19 @@ namespace HideAndSeek.Characters
                 if (props[i] != null && props[i].gameObject.activeSelf != ((HeldItem)i == show))
                     props[i].gameObject.SetActive((HeldItem)i == show);
             socketR.rotation = rig.rotation * propRot;
+            var syrProp = props[(int)HeldItem.Syringe];
+            if (syrProp != null && show == HeldItem.Syringe) syrProp.SetSyringe(HealTimeline.InjectPress(holdTime), holdTime < HealTimeline.InjectCapOff);
+            var brickProp = props[(int)HeldItem.Brick];
+            if (brickProp != null && show == HeldItem.Brick) brickProp.SetTint(brickTint);
+            UpdateVendingProp(show);
+            var sawProp = props[(int)HeldItem.Chainsaw];
+            if (sawProp != null && show == HeldItem.Chainsaw)
+            {
+                bool engine = sawStartT >= BlockyProps.ChainsawFireTime;
+                sawProp.SetChainRun(revving ? 1f : engine ? 0.3f : 0f, time);
+                sawProp.SetStarterPull(BlockyProps.ChainsawStarter(sawStartT).y);
+                sawProp.SetSawBlood(sawBlood);
+            }
             var glock = props[(int)HeldItem.Glock];
             if (glock != null && show == HeldItem.Glock)
             {

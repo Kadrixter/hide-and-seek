@@ -45,3 +45,8 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 *.slnx
+
+# Radio tools (yt-dlp, ffmpeg) copied next to the build
+Tools/
+AgentScripts/
+.codex/

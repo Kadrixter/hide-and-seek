@@ -1,4 +1,4 @@
-﻿{
+{
     "name": "HideAndSeek.Game",
     "rootNamespace": "HideAndSeek.Game",
     "references": [
@@ -12,7 +12,8 @@
         "Unity.Netcode.Runtime",
         "Unity.Networking.Transport",
         "Unity.Collections",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Netcode.Transports.Facepunch"
     ],
     "autoReferenced": true
 }

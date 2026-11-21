@@ -24,6 +24,21 @@ namespace HideAndSeek.Core
         Knife = 1,
         Glock = 2,
         Medkit = 3,
+        Chainsaw = 4,
+        /// <summary>Adrenaline syringe (only shown during the injection animation).</summary>
+        Syringe = 5,
+        /// <summary>Bandage roll (only shown during the self-heal animation).</summary>
+        Bandage = 6,
+        /// <summary>Lobby easter egg: fork from the coffee table (into the wall socket...).</summary>
+        Fork = 7,
+        /// <summary>Remote-controlled rally car (only shown while it is put on the floor).</summary>
+        RcCar = 8,
+        /// <summary>RC transmitter held in both hands while driving the car.</summary>
+        RcRemote = 9,
+        /// <summary>Lobby toy brick (tinted to the chosen colour) while building.</summary>
+        Brick = 10,
+        /// <summary>Soda can from the lobby vending machine (bought, opened, drunk, thrown).</summary>
+        Can = 11,
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using HideAndSeek.Core;
@@ -100,6 +100,18 @@ namespace HideAndSeek.Characters.Editor
 
         const float Dt = 1f / 60f;
 
+        static KillMove[] KillPreviewList()
+        {
+            var only = System.Environment.GetEnvironmentVariable("HNS_KILLS"); // e.g. "SawFinisher,Impale" for quick iterations
+            if (string.IsNullOrEmpty(only))
+                return new[] { KillMove.ThroatSlit, KillMove.Overhead, KillMove.GutKnee, KillMove.Impale, KillMove.Finisher, KillMove.Chainsaw,
+                    KillMove.SawChop, KillMove.SawSweep, KillMove.SawUpper, KillMove.SawNeck, KillMove.SawFinisher };
+            var list = new System.Collections.Generic.List<KillMove>();
+            foreach (var n in only.Split(','))
+                if (System.Enum.TryParse<KillMove>(n.Trim(), out var m)) list.Add(m);
+            return list.ToArray();
+        }
+
         static void TickAll(float seconds, params BlockyCharacterAnimator[] anims)
         {
             for (float t = 0f; t < seconds - 1e-4f; t += Dt)
@@ -171,6 +183,277 @@ namespace HideAndSeek.Characters.Editor
                 if (hits != 4) throw new Exception("Expected 4 StabHit events, got " + hits);
                 Kill(s);
                 Kill(v);
+            }
+
+            // ---------------------------------------------------------- fork in the socket + arcade
+            {
+                var c = SpawnAt(4, Vector3.zero, 0f, out _, out var ca);
+                c.Actions.SetHeldItem(HeldItem.Fork);
+                var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.transform.position = new Vector3(0f, 1f, 0.82f);
+                wall.transform.localScale = new Vector3(3f, 2f, 0.1f);
+                Vector3 outlet = new Vector3(0.1f, 0.3f, 0.765f);
+                TickAll(0.5f, ca);
+                float[] st = { 0.3f, 0.6f, 0.88f, 1.0f, 1.6f, 2.4f, 3.1f, 3.5f, 4.4f, 7f };
+                var sheet = new Texture2D(st.Length * w, h, TextureFormat.RGBA32, false);
+                float t = 0f;
+                for (int i = 0; i < st.Length; i++)
+                {
+                    while (t < st[i] - 1e-4f)
+                    {
+                        c.Actions.SetShock(t, outlet);
+                        ca.Tick(Dt);
+                        t += Dt;
+                    }
+                    LookFrom(cam, new Vector3(2.6f, 1.2f, -0.6f), new Vector3(0f, 0.6f, 0.1f), 40f);
+                    Blit(sheet, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(sheet, "fork_shock_t030_060_088_100_160_240_310_350_440_700.png");
+                c.Actions.SetShock(-1f, outlet);
+                c.Actions.SetHeldItem(HeldItem.None);
+                Object.DestroyImmediate(wall);
+                TickAll(0.5f, ca);
+                var arc = new Texture2D(4 * w, h, TextureFormat.RGBA32, false);
+                var dirs = new[] { Vector2.zero, Vector2.left, Vector2.up, Vector2.right };
+                Vector3 stick = new Vector3(-0.15f, 1.17f, 0.5f), buttons = new Vector3(0.1f, 1.1f, 0.48f);
+                for (int i = 0; i < 4; i++)
+                {
+                    c.Actions.SetArcade(true, stick + new Vector3(dirs[i].x, 0f, dirs[i].y) * 0.035f, buttons, dirs[i]);
+                    TickAll(0.5f, ca);
+                    LookFrom(cam, new Vector3(1.6f, 1.6f, 1.4f), new Vector3(0f, 1.05f, 0.35f), 36f);
+                    Blit(arc, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(arc, "arcade_idle_left_up_right.png");
+                Kill(c);
+            }
+
+            // ---------------------------------------------------------- limp (injured) + quick slash
+            {
+                var c = SpawnAt(2, Vector3.zero, 0f, out var cm, out var ca);
+                c.Actions.SetLimp(1f);
+                cm.Velocity = new Vector3(0f, 0f, 2.4f);
+                cm.HorizontalSpeed = 2.4f;
+                TickAll(2f, ca);
+                var sheet = new Texture2D(8 * w, h * 2, TextureFormat.RGBA32, false);
+                for (int i = 0; i < 8; i++)
+                {
+                    TickAll(0.11f, ca);
+                    LookFrom(cam, new Vector3(3.2f, 1.1f, 0f), new Vector3(0f, 0.85f, 0f), 34f);
+                    Blit(sheet, Render(cam, w, h), i * w, h);
+                    LookFrom(cam, new Vector3(0.6f, 1.2f, 3.2f), new Vector3(0f, 0.85f, 0f), 34f);
+                    Blit(sheet, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(sheet, "limp_walk_side_front.png");
+                Kill(c);
+                var sk = SpawnAt(1, Vector3.zero, 0f, out _, out var sa2);
+                var vi = SpawnAt(3, new Vector3(0f, 0f, 0.95f), 180f, out _, out var va2);
+                vi.Actions.SetLimp(1f);
+                TickAll(0.4f, sa2, va2);
+                sk.Actions.SetHeldItem(HeldItem.Knife);
+                TickAll(0.6f, sa2, va2);
+                sk.Actions.PlaySlash(vi);
+                float[] st = { 0.06f, 0.14f, 0.2f, 0.28f, 0.4f, 0.6f };
+                var ss = new Texture2D(st.Length * w, h, TextureFormat.RGBA32, false);
+                float tt = 0f;
+                for (int i = 0; i < st.Length; i++)
+                {
+                    if (tt < 0.2f && st[i] >= 0.2f) vi.Actions.PlayHitReaction();
+                    TickAll(st[i] - tt, sa2, va2);
+                    tt = st[i];
+                    LookFrom(cam, new Vector3(2.6f, 1.3f, 0.5f), new Vector3(0f, 1f, 0.48f), 36f);
+                    Blit(ss, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(ss, "slash_t006_014_020_028_040_060.png");
+                Kill(sk);
+                Kill(vi);
+            }
+
+            // ---------------------------------------------------------- adrenaline injection / self heal / resurrection gasp
+            {
+                var helper = SpawnAt(1, Vector3.zero, 0f, out _, out var ha);
+                var dead = SpawnAt(3, new Vector3(0.15f, 0f, 0.78f), 90f, out _, out var da);
+                dead.Actions.SetLifeStateImmediate(LifeState.Dead);
+                TickAll(0.5f, ha, da);
+                float[] shots = { 0.3f, 0.85f, 1.15f, 1.5f, 1.72f, 2.4f, 3.0f, 3.3f, 3.9f };
+                var sheet = new Texture2D(shots.Length * w, h * 2, TextureFormat.RGBA32, false);
+                float t = 0f;
+                Vector3 mid = new Vector3(0f, 0.55f, 0.4f);
+                for (int i = 0; i < shots.Length; i++)
+                {
+                    while (t < shots[i] - 1e-4f)
+                    {
+                        helper.Actions.SetHoldAnimation(HoldAnim.Inject, t, dead.Actions.ChestPoint.position);
+                        ha.Tick(Dt);
+                        da.Tick(Dt);
+                        t += Dt;
+                    }
+                    LookFrom(cam, new Vector3(2.6f, 1.0f, 0.3f), mid, 34f);
+                    Blit(sheet, Render(cam, w, h), i * w, h);
+                    LookFrom(cam, new Vector3(-1.4f, 1.6f, 2.6f), mid, 36f);
+                    Blit(sheet, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(sheet, "inject_t03_085_115_150_172_240_300_330_390.png");
+                // Resurrection gasp of the dead one.
+                helper.Actions.SetHoldAnimation(HoldAnim.None, 0f);
+                dead.Actions.PrepareResurrectGasp();
+                dead.Actions.SetLifeState(LifeState.Alive);
+                float[] g = { 0.08f, 0.22f, 0.5f, 0.95f, 1.3f, 1.7f, 2.2f };
+                var gs = new Texture2D(g.Length * w, h, TextureFormat.RGBA32, false);
+                t = 0f;
+                for (int i = 0; i < g.Length; i++)
+                {
+                    TickAll(g[i] - t, ha, da);
+                    t = g[i];
+                    LookFrom(cam, new Vector3(2.4f, 1.1f, 1.6f), new Vector3(0.1f, 0.5f, 0.8f), 36f);
+                    Blit(gs, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(gs, "resurrect_gasp_t008_022_050_095_130_170_220.png");
+                Kill(helper);
+                Kill(dead);
+            }
+            {
+                var c = SpawnAt(2, Vector3.zero, 0f, out _, out var ca);
+                TickAll(0.3f, ca);
+                c.Actions.SetLifeState(LifeState.Downed);
+                TickAll(1.3f, ca);
+                c.Actions.SetBandaged(0f);
+                float[] shots = { 0.35f, 0.9f, 1.25f, 1.6f, 2.0f, 2.45f, 3.0f, 3.6f, 4.4f, 4.85f };
+                var sheet = new Texture2D((shots.Length + 2) * w, h * 2, TextureFormat.RGBA32, false);
+                float t = 0f;
+                for (int i = 0; i < shots.Length; i++)
+                {
+                    while (t < shots[i] - 1e-4f)
+                    {
+                        c.Actions.SetHoldAnimation(HoldAnim.SelfHeal, t);
+                        ca.Tick(Dt);
+                        t += Dt;
+                    }
+                    LookFrom(cam, new Vector3(1.9f, 1.2f, 0.9f), new Vector3(0f, 0.3f, -0.35f), 36f);
+                    Blit(sheet, Render(cam, w, h), i * w, h);
+                    LookFrom(cam, new Vector3(0.2f, 1.0f, 1.3f), new Vector3(0f, 0.32f, -0.4f), 34f);
+                    Blit(sheet, Render(cam, w, h), i * w, 0);
+                }
+                // Hold done: stands up (stays bandaged while wounded).
+                c.Actions.SetBandaged(1f);
+                c.Actions.SetLifeState(LifeState.Alive);
+                c.Actions.SetHoldAnimation(HoldAnim.None, 0f);
+                TickAll(0.45f, ca);
+                LookFrom(cam, new Vector3(1.9f, 1.3f, 0.9f), new Vector3(0f, 0.5f, -0.2f), 36f);
+                Blit(sheet, Render(cam, w, h), shots.Length * w, 0);
+                TickAll(0.9f, ca);
+                LookFrom(cam, new Vector3(2.2f, 1.3f, 1.2f), new Vector3(0f, 0.8f, 0f), 34f);
+                Blit(sheet, Render(cam, w, h), (shots.Length + 1) * w, 0);
+                SaveAnim(sheet, "selfheal_t035_090_125_160_200_245_300_360_440_485_up045_up135.png");
+                Kill(c);
+            }
+
+            // ---------------------------------------------------------- kill variants + finisher
+            foreach (var move in KillPreviewList())
+            {
+                var s = SpawnAt(1, Vector3.zero, 0f, out _, out var sa);
+                var v = SpawnAt(3, new Vector3(0f, 0f, ActionTimeline.KnifeAttackDistance), 180f, out _, out var va);
+                s.Actions.SetHeldItem(KillMoves.IsSaw(move) ? HeldItem.Chainsaw : HeldItem.Knife);
+                TickAll(0.5f, sa, va);
+                int hits = 0;
+                var victimChar = v;
+                var seekerChar = s;
+                s.Actions.KillHit += i =>
+                {
+                    hits++;
+                    int cut = move == KillMove.SawFinisher ? seekerChar.Actions.SawFinisherLimb(i) : KillMoves.SeveredAtHit(move, i);
+                    if (cut != 0) victimChar.Sever(cut, new Vector3(0f, 2f, -1.5f));
+                };
+                s.Actions.PlayKill(move, v);
+                v.Actions.PlayKillReaction(move);
+                v.Actions.SetLifeState(KillMoves.EndsDead(move) ? LifeState.Dead : LifeState.Downed);
+                float len = KillMoves.SequenceDuration(move);
+                int count = KillMoves.IsFinisher(move) ? 12 : 8;
+                var sheet = new Texture2D(count * w, h * 2, TextureFormat.RGBA32, false);
+                float t = 0f;
+                Vector3 mid = new Vector3(0f, 0.75f, 0.3f);
+                var times = new List<string>();
+                for (int i = 0; i < count; i++)
+                {
+                    float shot = 0.3f + (len - 0.3f) * i / (count - 1);
+                    TickAll(shot - t, sa, va);
+                    t = shot;
+                    times.Add(shot.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+                    LookFrom(cam, new Vector3(4.6f, 1.2f, 0.3f), mid, 34f);
+                    Blit(sheet, Render(cam, w, h), i * w, h);
+                    LookFrom(cam, new Vector3(-2.6f, 1.7f, 3.2f), mid, 36f);
+                    Blit(sheet, Render(cam, w, h), i * w, 0);
+                }
+
+                SaveAnim(sheet, $"kill_{move}_t{string.Join("_", times)}.png");
+                int want = KillMoves.HitTimes(move).Length;
+                if (hits != want) throw new Exception($"{move}: expected {want} KillHit events, got {hits}");
+                Kill(s);
+                Kill(v);
+            }
+
+            // ---------------------------------------------------------- chainsaw first hit: a leg falls off, hopping, dust
+            {
+                var s = SpawnAt(1, Vector3.zero, 0f, out _, out var sa);
+                var v = SpawnAt(3, new Vector3(0f, 0f, ActionTimeline.KnifeAttackDistance), 180f, out var vm, out var va);
+                s.Actions.SetHeldItem(HeldItem.Chainsaw);
+                s.Actions.SetRevving(true);
+                TickAll(0.5f, sa, va);
+                s.Actions.PlaySawSlash(v, Limb.LegR);
+                var times = new[] { 0.12f, 0.24f, 0.34f, 0.42f, 0.52f, 0.66f, 0.82f, 1.0f };
+                var sheet = new Texture2D(times.Length * w, h * 2, TextureFormat.RGBA32, false);
+                float t = 0f;
+                bool cut = false;
+                for (int i = 0; i < times.Length; i++)
+                {
+                    TickAll(times[i] - t, sa, va);
+                    t = times[i];
+                    if (!cut && t >= BlockyCharacterActions.SawSlashHitTime) { v.Sever(Limb.LegR, new Vector3(0f, 2f, -1.5f)); v.Actions.PlayHitReaction(); cut = true; }
+                    LookFrom(cam, new Vector3(3.2f, 1.0f, 0.4f), new Vector3(0f, 0.55f, 0.4f), 34f);
+                    Blit(sheet, Render(cam, w, h), i * w, h);
+                    LookFrom(cam, new Vector3(-1.8f, 1.5f, 2.6f), new Vector3(0f, 0.5f, 0.45f), 36f);
+                    Blit(sheet, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(sheet, "saw_leg_slash.png");
+                Kill(s);
+                Kill(v);
+
+                // One-legged hopping (the leg is already gone).
+                var c = SpawnAt(2, Vector3.zero, 0f, out var cm, out var ca);
+                c.SetSevered(Limb.LegR);
+                c.Actions.SetHop(0);
+                cm.Velocity = new Vector3(0f, 0f, 1.0f);
+                cm.HorizontalSpeed = 1.0f;
+                TickAll(1.5f, ca);
+                var hop = new Texture2D(8 * w, h * 2, TextureFormat.RGBA32, false);
+                for (int i = 0; i < 8; i++)
+                {
+                    TickAll(0.13f, ca);
+                    LookFrom(cam, new Vector3(3.2f, 1.1f, 0f), new Vector3(0f, 0.85f, 0f), 34f);
+                    Blit(hop, Render(cam, w, h), i * w, h);
+                    LookFrom(cam, new Vector3(0.6f, 1.2f, 3.2f), new Vector3(0f, 0.85f, 0f), 34f);
+                    Blit(hop, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(hop, "hop_one_leg_side_front.png");
+                Kill(c);
+
+                // Dust throw.
+                var d = SpawnAt(2, Vector3.zero, 0f, out _, out var da);
+                TickAll(0.4f, da);
+                d.Actions.PlayDust();
+                var dust = new Texture2D(8 * w, h * 2, TextureFormat.RGBA32, false);
+                float dt0 = 0f;
+                var dts = new[] { 0.1f, 0.25f, 0.4f, 0.52f, 0.62f, 0.7f, 0.85f, 1.0f };
+                for (int i = 0; i < 8; i++)
+                {
+                    TickAll(dts[i] - dt0, da);
+                    dt0 = dts[i];
+                    LookFrom(cam, new Vector3(3.2f, 1.0f, 0.6f), new Vector3(0f, 0.7f, 0.5f), 34f);
+                    Blit(dust, Render(cam, w, h), i * w, h);
+                    LookFrom(cam, new Vector3(-1.8f, 1.4f, 2.8f), new Vector3(0f, 0.7f, 0.4f), 36f);
+                    Blit(dust, Render(cam, w, h), i * w, 0);
+                }
+                SaveAnim(dust, "dust_throw_t10_25_40_52_62_70_85_100.png");
+                Kill(d);
             }
 
             // ---------------------------------------------------------- downed crawl, dead, get up

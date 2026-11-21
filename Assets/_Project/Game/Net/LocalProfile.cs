@@ -44,6 +44,20 @@ namespace HideAndSeek.Game.Net
             set => PlayerPrefs.SetFloat("hns.sens", value);
         }
 
+        /// <summary>Show the game status in Discord (rich presence).</summary>
+        public static bool DiscordStatus
+        {
+            get => PlayerPrefs.GetInt("hns.discord", 1) != 0;
+            set => PlayerPrefs.SetInt("hns.discord", value ? 1 : 0);
+        }
+
+        /// <summary>Crouch key mode: true = press to switch (default), false = hold.</summary>
+        public static bool CrouchToggle
+        {
+            get => PlayerPrefs.GetInt("hns.crouchToggle", 1) != 0;
+            set => PlayerPrefs.SetInt("hns.crouchToggle", value ? 1 : 0);
+        }
+
         // ---------------------------------------------------------------- display
 
         public static readonly FullScreenMode[] DisplayModes =

@@ -12,6 +12,7 @@ namespace HideAndSeek.Game.Net
         Hiding = 2,
         Seeking = 3,
         Ended = 4,
+        Race = 5,     // RC race mode: countdown + racing
     }
 
     public enum MatchWinner : byte
@@ -19,25 +20,30 @@ namespace HideAndSeek.Game.Net
         None = 0,
         Seeker = 1,
         Hiders = 2,
+        Racer = 3,    // RC race: MatchManager.RaceWinnerId
     }
 
     /// <summary>Compact locomotion state sent by the owner ~15 times per second.</summary>
     public struct MotionPack : INetworkSerializable, IEquatable<MotionPack>
     {
-        public byte Flags;    // 1 grounded, 2 crouch, 4 run
+        public byte Flags;    // 1 grounded, 2 crouch, 4 run, 8 prone
         public byte Crouch;   // 0..255
+        public byte Prone;    // 0..255 (lying down for a crawl)
         public short Pitch;   // degrees * 100
 
         public bool Grounded => (Flags & 1) != 0;
         public bool Crouching => (Flags & 2) != 0;
         public bool Running => (Flags & 4) != 0;
+        public bool IsProne => (Flags & 8) != 0;
+        public float ProneAmount => Prone / 255f;
         public float CrouchAmount => Crouch / 255f;
         public float PitchDeg => Pitch / 100f;
 
-        public static MotionPack From(ICharacterMotionSource m) => new MotionPack
+        public static MotionPack From(ICharacterMotionSource m, bool prone = false, float proneAmount = 0f) => new MotionPack
         {
-            Flags = (byte)((m.IsGrounded ? 1 : 0) | (m.IsCrouching ? 2 : 0) | (m.IsRunning ? 4 : 0)),
+            Flags = (byte)((m.IsGrounded ? 1 : 0) | (m.IsCrouching ? 2 : 0) | (m.IsRunning ? 4 : 0) | (prone ? 8 : 0)),
             Crouch = (byte)Mathf.RoundToInt(Mathf.Clamp01(m.CrouchAmount) * 255f),
+            Prone = (byte)Mathf.RoundToInt(Mathf.Clamp01(proneAmount) * 255f),
             Pitch = (short)Mathf.RoundToInt(Mathf.Clamp(m.LookPitch, -90f, 90f) * 100f),
         };
 
@@ -45,10 +51,11 @@ namespace HideAndSeek.Game.Net
         {
             s.SerializeValue(ref Flags);
             s.SerializeValue(ref Crouch);
+            s.SerializeValue(ref Prone);
             s.SerializeValue(ref Pitch);
         }
 
-        public bool Equals(MotionPack o) => Flags == o.Flags && Crouch == o.Crouch && Math.Abs(Pitch - o.Pitch) < 50;
+        public bool Equals(MotionPack o) => Flags == o.Flags && Crouch == o.Crouch && Prone == o.Prone && Math.Abs(Pitch - o.Pitch) < 50;
     }
 
     /// <summary>Round settings as sent over the network (mirrors Core.GameSettings).</summary>
@@ -62,6 +69,9 @@ namespace HideAndSeek.Game.Net
         public bool Glock;           // seeker gets a Glock for the last 2 minutes
         public byte Medkits;
         public float BleedOut;       // seconds a downed hider survives
+        public byte Syringes;        // adrenaline syringes on the map (revive a dead hider)
+        public byte Mode;            // GameMode (0 = hide and seek)
+        public byte Laps;            // RC race: laps to win
 
         public static NetSettings Default => new NetSettings
         {
@@ -73,6 +83,9 @@ namespace HideAndSeek.Game.Net
             Glock = true,
             Medkits = 3,
             BleedOut = 78f,
+            Syringes = 2,
+            Mode = (byte)GameMode.HideAndSeek,
+            Laps = 3,
         };
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
@@ -85,11 +98,14 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Glock);
             s.SerializeValue(ref Medkits);
             s.SerializeValue(ref BleedOut);
+            s.SerializeValue(ref Syringes);
+            s.SerializeValue(ref Mode);
+            s.SerializeValue(ref Laps);
         }
 
         public bool Equals(NetSettings o) => HideTime == o.HideTime && SeekTime == o.SeekTime && HintStart == o.HintStart &&
                                              HintInterval == o.HintInterval && HintMode == o.HintMode && Glock == o.Glock &&
-                                             Medkits == o.Medkits && BleedOut == o.BleedOut;
+                                             Medkits == o.Medkits && BleedOut == o.BleedOut && Syringes == o.Syringes && Mode == o.Mode && Laps == o.Laps;
     }
 
     public struct MedkitState : INetworkSerializable, IEquatable<MedkitState>
@@ -108,17 +124,95 @@ namespace HideAndSeek.Game.Net
         public bool Equals(MedkitState o) => Id == o.Id && Taken == o.Taken && Position == o.Position;
     }
 
+    /// <summary>RC car state (server-written, one variable per car).</summary>
+    public enum RcMode : byte
+    {
+        Shelf = 0,    // on the shelf in the generator room
+        Carried = 1,  // in a hider's inventory (key 6 puts it down)
+        Driving = 2,  // on the floor, the holder sits and steers it
+        Parked = 3,   // on the floor, nobody steering (6 resumes, E picks it up)
+        Doomed = 4,   // the seeker is stomping on it (frozen)
+        Wreck = 5,    // crushed: static prop until the round ends
+        Shot = 6,     // shot to pieces with the Glock: smoking wreck until the round ends
+    }
+
+    public struct RcSlotState : INetworkSerializable, IEquatable<RcSlotState>
+    {
+        public RcMode Mode;
+        public ulong Holder;   // NetworkObjectId of the hider who has it (ulong.MaxValue = nobody)
+        public Vector3 Pos;    // on the floor (parked / wreck / where it was put down)
+        public float Yaw;
+
+        public static RcSlotState OnShelf => new RcSlotState { Mode = RcMode.Shelf, Holder = ulong.MaxValue };
+
+        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+        {
+            s.SerializeValue(ref Mode);
+            s.SerializeValue(ref Holder);
+            s.SerializeValue(ref Pos);
+            s.SerializeValue(ref Yaw);
+        }
+
+        public bool Equals(RcSlotState o) => Mode == o.Mode && Holder == o.Holder && Pos == o.Pos && Yaw == o.Yaw;
+    }
+
+    /// <summary>Driven RC car pose, written by the driver ~20 times per second.</summary>
+    public struct RcPack : INetworkSerializable, IEquatable<RcPack>
+    {
+        public Vector3 Pos;
+        public short Yaw;     // degrees * 50
+        public sbyte Speed;   // m/s * 20
+        public sbyte Steer;   // -100..100
+        public sbyte Throttle; // -100..100
+        public byte Flags;    // 1 horn, 2 bump, 4 boost
+
+        public float YawDeg => Yaw / 50f;
+        public float SpeedMs => Speed / 20f;
+        public bool Horn => (Flags & 1) != 0;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+        {
+            s.SerializeValue(ref Pos);
+            s.SerializeValue(ref Yaw);
+            s.SerializeValue(ref Speed);
+            s.SerializeValue(ref Steer);
+            s.SerializeValue(ref Throttle);
+            s.SerializeValue(ref Flags);
+        }
+
+        public bool Equals(RcPack o) => (Pos - o.Pos).sqrMagnitude < 1e-6f && Yaw == o.Yaw && Speed == o.Speed && Steer == o.Steer && Throttle == o.Throttle && Flags == o.Flags;
+    }
+
     /// <summary>Gameplay constants shared by server and clients.</summary>
     public static class Tuning
     {
         // Knife (seeker catches a hider)
-        public const float KnifePromptRange = 4.0f;    // icon appears
-        public const float KnifeRange = 3.0f;          // F works
-        public const float KnifeServerRange = 4.5f;    // server tolerance (latency)
+        public const float KnifePromptRange = 2.6f;    // icon appears
+        public const float KnifeRange = 1.9f;          // F works (arm's length + a step)
+        public const float KnifeServerRange = 2.7f;    // server tolerance (latency)
         public const float KnifeStandOff = 0.85f;      // victim distance during the animation
         public static readonly float[] StabTimes = HideAndSeek.Characters.ActionTimeline.KnifeStabTimes;
         public const float KnifeAttackDuration = HideAndSeek.Characters.ActionTimeline.KnifeAttackDuration;
         public const float KnifeSequenceDuration = HideAndSeek.Characters.ActionTimeline.StabbedReactionDuration + 0.1f; // incl. victim collapse
+
+        // RC car
+        public const float RcRange = 60f;              // radio range from the driver's body
+        public const float RcPickupRange = 2.2f;
+        public const float RcStompPromptRange = 2.2f;  // seeker F prompt
+        public const float RcStompServerRange = 3.2f;
+        public const float RcStompStandOff = 0.42f;    // seeker distance from the car during the stomp
+
+        // Melee cooldown, chainsaw first hit, dust
+        public const float AttackCooldown = 8f;        // seconds between two melee attacks of the seeker
+        public const float HopSpeedScale = 0.34f;      // one-legged hider (leg cut off by the chainsaw)
+        public const float DustRange = 2.6f;           // hider throws dust at a seeker this close (in front)
+        public const float DustBlindTime = 4f;
+        public const float DustCooldown = 20f;
+
+        // Chainsaw
+        public const float ChainsawContact = 1.3f;      // walk into a hider this close with F held
+        public const float ChainsawServerRange = 2.6f;
+        public const float ChainsawPromptRange = 4.0f;
 
         // Downed / rescue
         public const float BleedOutTime = 78f;           // 1.3 min
@@ -128,6 +222,11 @@ namespace HideAndSeek.Game.Net
         public const float HealHoldTime = 1.5f;
         public const float PickupRange = 2.0f;
         public const int MaxMedkits = 3;
+        public const int MaxSyringes = 2;
+        public const float SelfReviveTime = 5f;    // downed + medkit: hold G
+        public const float ResurrectTime = 4f;     // adrenaline on a dead hider: hold H
+        public const float ResurrectRange = 2.2f;
+        public const float ResurrectedPingEvery = 5f;
         public const float GlockHintInterval = 20f;
 
         // Glock

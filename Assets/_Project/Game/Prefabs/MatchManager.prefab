@@ -73,7 +73,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: HideAndSeek.Game::HideAndSeek.Game.Net.MatchManager
   ShowTopMostFoldoutHeaderGroup: 1
+  Bricks:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+  RadioQueue:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+  VendingCans:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
   Medkits:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+  Syringes:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0

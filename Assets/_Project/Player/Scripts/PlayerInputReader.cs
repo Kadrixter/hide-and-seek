@@ -31,9 +31,9 @@ namespace HideAndSeek.Player
         [Tooltip("How long (s) a jump press stays buffered so it can be consumed slightly before landing.")]
         [SerializeField, Range(0f, 0.3f)] private float jumpBufferTime = 0.12f;
 
-        private InputAction _move, _look, _run, _crouch, _jump, _flashlight, _release;
+        private InputAction _move, _look, _run, _crouch, _prone, _jump, _flashlight, _release;
         private Vector2 _smoothedLookRate;
-        private bool _crouchToggled;
+        private bool _crouchToggled, _proneToggled;
         private float _jumpPressedTime = float.NegativeInfinity;
         private bool _inputEnabled = true;
 
@@ -48,7 +48,6 @@ namespace HideAndSeek.Player
                 if (!value)
                 {
                     _smoothedLookRate = Vector2.zero;
-                    _crouchToggled = false;
                     _jumpPressedTime = float.NegativeInfinity;
                     LookDelta = Vector2.zero;
                 }
@@ -80,7 +79,21 @@ namespace HideAndSeek.Player
         public bool RunHeld => _inputEnabled && _run != null && _run.IsPressed();
 
         /// <summary>True while the player wants to crouch (hold or toggle mode).</summary>
-        public bool CrouchActive => _inputEnabled && (crouchToggle ? _crouchToggled : (_crouch != null && _crouch.IsPressed()));
+        /// Toggled stances survive short input locks (menu, cutscenes); call <see cref="ResetStance"/> to stand up.
+        public bool CrouchActive => crouchToggle ? _crouchToggled : (_inputEnabled && _crouch != null && _crouch.IsPressed());
+
+        /// <summary>Crawl (prone) toggle: Z switches it, crouch / jump leave it.</summary>
+        public bool ProneActive => _proneToggled;
+
+        /// <summary>Clears crouch and crawl toggles (death, downed, round change).</summary>
+        public void ResetStance()
+        {
+            _crouchToggled = false;
+            _proneToggled = false;
+        }
+
+        /// <summary>Clears the crawl toggle (e.g. no room to lie down, or the player became busy).</summary>
+        public void CancelProne() => _proneToggled = false;
 
         public bool JumpHeld => _inputEnabled && _jump != null && _jump.IsPressed();
 
@@ -121,14 +134,39 @@ namespace HideAndSeek.Player
             _run.AddBinding("<Keyboard>/rightShift");
             _crouch = new InputAction("Crouch", InputActionType.Button, "<Keyboard>/leftCtrl");
             _crouch.AddBinding("<Keyboard>/c");
+            _prone = new InputAction("Prone", InputActionType.Button, "<Keyboard>/z");
             _jump = new InputAction("Jump", InputActionType.Button, "<Keyboard>/space");
             _flashlight = new InputAction("Flashlight", InputActionType.Button, "<Mouse>/leftButton");
             _release = new InputAction("ReleaseCursor", InputActionType.Button, "<Keyboard>/escape");
 
-            _crouch.performed += _ => { if (_inputEnabled && crouchToggle) _crouchToggled = !_crouchToggled; };
+            _crouch.performed += _ =>
+            {
+                if (!_inputEnabled) return;
+                if (_proneToggled)
+                {
+                    // Crouch key while crawling: get up into a crouch.
+                    _proneToggled = false;
+                    if (crouchToggle) _crouchToggled = true;
+                    return;
+                }
+                if (crouchToggle) _crouchToggled = !_crouchToggled;
+            };
+            _prone.performed += _ =>
+            {
+                if (!_inputEnabled) return;
+                _proneToggled = !_proneToggled;
+                if (_proneToggled) _crouchToggled = false;
+            };
             _jump.performed += _ =>
             {
                 if (!_inputEnabled) return;
+                if (_proneToggled)
+                {
+                    // Space while crawling stands up instead of jumping.
+                    _proneToggled = false;
+                    _crouchToggled = false;
+                    return;
+                }
                 _jumpPressedTime = Time.time;
                 JumpPressed?.Invoke();
             };
@@ -150,14 +188,14 @@ namespace HideAndSeek.Player
         private void OnEnable()
         {
             if (_move == null) CreateActions();
-            _move.Enable(); _look.Enable(); _run.Enable(); _crouch.Enable();
+            _move.Enable(); _look.Enable(); _run.Enable(); _crouch.Enable(); _prone.Enable();
             _jump.Enable(); _flashlight.Enable(); _release.Enable();
             if (manageCursor && Application.isFocused) SetCursorLocked(true);
         }
 
         private void OnDisable()
         {
-            _move?.Disable(); _look?.Disable(); _run?.Disable(); _crouch?.Disable();
+            _move?.Disable(); _look?.Disable(); _run?.Disable(); _crouch?.Disable(); _prone?.Disable();
             _jump?.Disable(); _flashlight?.Disable(); _release?.Disable();
             if (manageCursor) SetCursorLocked(false);
             LookDelta = Vector2.zero;
@@ -165,7 +203,7 @@ namespace HideAndSeek.Player
 
         private void OnDestroy()
         {
-            _move?.Dispose(); _look?.Dispose(); _run?.Dispose(); _crouch?.Dispose();
+            _move?.Dispose(); _look?.Dispose(); _run?.Dispose(); _crouch?.Dispose(); _prone?.Dispose();
             _jump?.Dispose(); _flashlight?.Dispose(); _release?.Dispose();
         }
 

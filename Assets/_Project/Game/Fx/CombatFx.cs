@@ -36,18 +36,44 @@ namespace HideAndSeek.Game
             }
         }
 
+        private static Material _soft;
+
+        /// <summary>Alpha-blended soft round dot (blood droplets, smoke).</summary>
+        public static Material Soft
+        {
+            get
+            {
+                if (_soft != null) return _soft;
+                const int S = 32;
+                var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "FxSoftDot" };
+                var px = new Color32[S * S];
+                for (int y = 0; y < S; y++)
+                for (int x = 0; x < S; x++)
+                {
+                    float u = (x + 0.5f) / S * 2f - 1f, v = (y + 0.5f) / S * 2f - 1f;
+                    float r = Mathf.Sqrt(u * u + v * v);
+                    float a = Mathf.Clamp01((1f - r) * 2.2f);
+                    px[y * S + x] = new Color32(255, 255, 255, (byte)(a * a * 255f));
+                }
+                tex.SetPixels32(px);
+                tex.Apply();
+                _soft = new Material(Shader.Find("Sprites/Default")) { name = "FxSoft", mainTexture = tex };
+                return _soft;
+            }
+        }
+
         private class FxRunner : MonoBehaviour { }
     }
 
-    /// <summary>Blood spray particles and floor decals.</summary>
-    public static class BloodFx
+    /// <summary>Dust clouds (hider throws dust into the seeker's eyes).</summary>
+    public static class DustFx
     {
-        private static readonly Color Blood = new Color(0.42f, 0.02f, 0.02f, 1f);
-        private static readonly Color BloodDark = new Color(0.22f, 0.01f, 0.01f, 0.92f);
+        private static readonly Color Tan = new Color(0.78f, 0.68f, 0.5f, 0.9f);
+        private static readonly Color TanDark = new Color(0.58f, 0.5f, 0.36f, 0.8f);
 
-        public static void Spray(Vector3 position, Vector3 direction)
+        public static void Puff(Vector3 position, Vector3 direction, int count, float speed, float size)
         {
-            var go = new GameObject("BloodSpray");
+            var go = new GameObject("DustPuff");
             go.transform.position = position;
             go.transform.rotation = Quaternion.LookRotation(direction.sqrMagnitude > 0.001f ? direction : Vector3.forward);
             var ps = go.AddComponent<ParticleSystem>();
@@ -55,52 +81,32 @@ namespace HideAndSeek.Game
             var main = ps.main;
             main.duration = 0.2f;
             main.loop = false;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.9f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 3.5f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.025f, 0.06f);
-            main.startColor = new ParticleSystem.MinMaxGradient(Blood, BloodDark);
-            main.gravityModifier = 1.4f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(speed * 0.4f, speed);
+            main.startSize = new ParticleSystem.MinMaxCurve(size * 0.5f, size * 1.6f);
+            main.startColor = new ParticleSystem.MinMaxGradient(Tan, TanDark);
+            main.gravityModifier = 0.12f;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.stopAction = ParticleSystemStopAction.Destroy;
             var emission = ps.emission;
             emission.rateOverTime = 0f;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 28) });
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, count) });
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 28f;
-            shape.radius = 0.03f;
-            var col = ps.collision;
+            shape.angle = 24f;
+            shape.radius = 0.04f;
+            var col = ps.colorOverLifetime;
             col.enabled = true;
-            col.type = ParticleSystemCollisionType.World;
-            col.dampen = 0.9f;
-            col.bounce = 0.05f;
-            col.lifetimeLoss = 0.4f;
+            var g = new Gradient();
+            g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.6f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var sz = ps.sizeOverLifetime;
+            sz.enabled = true;
+            sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.8f));
             var r = go.GetComponent<ParticleSystemRenderer>();
             r.material = FxUtil.Unlit;
             ps.Play();
-
-            if (Physics.Raycast(position, Vector3.down, out var hit, 3f, ~0, QueryTriggerInteraction.Ignore))
-                Decal(hit.point + direction * Random.Range(0.1f, 0.5f), Random.Range(0.25f, 0.5f));
-        }
-
-        /// <summary>Flat blood pool on the floor below <paramref name="position"/>.</summary>
-        public static void Decal(Vector3 position, float size = 0.35f, float life = 90f)
-        {
-            if (Physics.Raycast(position + Vector3.up * 0.5f, Vector3.down, out var hit, 2f, ~0, QueryTriggerInteraction.Ignore))
-                position = hit.point;
-            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            Object.Destroy(q.GetComponent<Collider>());
-            q.name = "BloodDecal";
-            q.transform.position = position + Vector3.up * (0.006f + Random.value * 0.003f);
-            q.transform.rotation = Quaternion.Euler(90f, Random.Range(0f, 360f), 0f);
-            q.transform.localScale = new Vector3(size * Random.Range(0.7f, 1.3f), size * Random.Range(0.7f, 1.3f), 1f);
-            var mr = q.GetComponent<MeshRenderer>();
-            mr.sharedMaterial = FxUtil.Unlit;
-            var mpb = new MaterialPropertyBlock();
-            mpb.SetColor("_Color", BloodDark);
-            mr.SetPropertyBlock(mpb);
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            Object.Destroy(q, life);
         }
     }
 

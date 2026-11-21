@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HideAndSeek.Core;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -42,14 +42,16 @@ namespace HideAndSeek.Characters
             None,
             KnifeAttack,
             StabbedReaction,
-            Reload
+            Reload,
+            Kill,
+            KillReaction
         }
 
         BlockyCharacter character;
         BlockyCharacterAnimator animator;
         bool initialized;
         Transform chestPoint, socketR;
-        readonly HeldProp[] props = new HeldProp[4];
+        readonly HeldProp[] props = new HeldProp[12];
         GameObject handMag;
 
         HeldItem heldItem;
@@ -154,7 +156,7 @@ namespace HideAndSeek.Characters
             if (state == lifeState)
             {
                 // Alive while still lying after a stabbed reaction -> stand up.
-                if (state == LifeState.Alive && pendingDowned && action != ActionKind.StabbedReaction)
+                if (state == LifeState.Alive && pendingDowned && action != ActionKind.StabbedReaction && action != ActionKind.KillReaction)
                 {
                     pendingDowned = false;
                     StartLifePath(LifeState.Downed, LifeState.Alive);
@@ -163,12 +165,30 @@ namespace HideAndSeek.Characters
                 return;
             }
 
+            LifeState before = lifeState;
             lifeState = state;
             pendingDowned = false;
             if (state != LifeState.Alive) reviving = false;
+            if (before == LifeState.Dead && state == LifeState.Alive)
+            {
+                // Brought back (adrenaline): whatever death reaction / path was still running is dropped, the
+                // character always gets up from where it lies (never stays frozen in a reaction pose).
+                if (action != ActionKind.None) action = ActionKind.None;
+                knifeVictim = null;
+                stompT = -1f;
+                rcW = 0f;
+                StartLifePath(LifeState.Dead, LifeState.Alive);
+                return;
+            }
             if (state != LifeState.Alive && action == ActionKind.Reload) action = ActionKind.None;
             if (action == ActionKind.StabbedReaction) return; // resolved when the reaction ends
-            if (action == ActionKind.KnifeAttack && state != LifeState.Alive) action = ActionKind.None;
+            if (action == ActionKind.KillReaction)
+            {
+                // Normal kills resolve when the reaction ends; the finisher ends in the dead pose already.
+                if (KillMoves.EndsDead(killMove) && state == LifeState.Dead && actionTime >= killVictimDuration) EndFinisherReaction();
+                return;
+            }
+            if ((action == ActionKind.KnifeAttack || action == ActionKind.Kill) && state != LifeState.Alive) action = ActionKind.None;
             if (shown != state) StartLifePath(shown, state);
         }
 
@@ -205,6 +225,28 @@ namespace HideAndSeek.Characters
         }
 
         public bool IsSitting => sitting;
+
+        float proneW;
+        bool revving;
+
+        /// <summary>Chainsaw throttle (F held): bar raised, everything shakes.</summary>
+        public void SetRevving(bool value) => revving = value;
+
+        float sawStartT = 99f;
+        float sawBlood;
+
+        /// <summary>Time since the chainsaw came out (pull-start animation, engine fires at <see cref="BlockyProps.ChainsawFireTime"/>).</summary>
+        public float SawStartTime => sawStartT;
+        /// <summary>Blood on the chain (1 = just killed), set by the game.</summary>
+        public void SetSawBlood(float amount) => sawBlood = amount;
+        public bool IsRevving => revving;
+
+        /// <summary>Voluntary crawl (0 = upright, 1 = flat on the belly); driven every frame from the motor.</summary>
+        public void SetProneAmount(float amount)
+        {
+            EnsureInit();
+            proneW = Mathf.Clamp01(amount);
+        }
 
         public void SetReviving(bool value)
         {
@@ -305,11 +347,15 @@ namespace HideAndSeek.Characters
             AdvanceTimers(dt, speed);
 
             var basePose = CharacterPose.Capture(character);
+            var prevShown = shownItem;
             HeldItem show = shownItem = ResolveShownItem();
+            if (show == HeldItem.Chainsaw && prevShown != HeldItem.Chainsaw && !revving && action != ActionKind.Kill) sawStartT = 0f;
+            if (revving || action == ActionKind.Kill) sawStartT = Mathf.Max(sawStartT, BlockyProps.ChainsawStartTime);
+            sawStartT += dt;
             basePose.PropR = DefaultPropLocal(show);
             var p = basePose;
             LifeState visual = VisualLifeState;
-            bool standing = (visual == LifeState.Alive && !pathActive) || action == ActionKind.StabbedReaction;
+            bool standing = (visual == LifeState.Alive && !pathActive) || action == ActionKind.StabbedReaction || action == ActionKind.KillReaction;
 
             // 1. Item hold (arms).
             float targetItemW = show != HeldItem.None ? 1f : 0f;
@@ -318,7 +364,7 @@ namespace HideAndSeek.Characters
             {
                 var ip = ItemHoldPose(p, show, lookPitch);
                 CharacterPose.LerpArm(ref p, ip, 0, itemW);
-                if (show == HeldItem.Glock) CharacterPose.LerpArm(ref p, ip, 1, itemW);
+                if (show == HeldItem.Glock || show == HeldItem.Chainsaw) CharacterPose.LerpArm(ref p, ip, 1, itemW);
                 p.Torso = Quaternion.Slerp(p.Torso, ip.Torso, itemW);
             }
 
@@ -330,6 +376,13 @@ namespace HideAndSeek.Characters
                 CharacterPose.LerpArm(ref p, rp, 1, 1f);
             }
 
+            // 2b. Injured: hand on the belly; quick knife slash.
+            ApplyLimpAndSlash(ref p, dt, standing, show);
+            ApplyGoreLayers(ref p, dt, standing);
+            ApplyPushLayer(ref p, dt);
+            ApplyArcade(ref p, dt, standing);
+            ApplyPoke(ref p, dt, standing);
+
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
 
@@ -339,6 +392,33 @@ namespace HideAndSeek.Characters
                 var sp = SitPose();
                 sp.Head = p.Head;
                 p = CharacterPose.Lerp(p, sp, ActionTimeline.SmoothStep01(sitW));
+            }
+
+            // 3c. Voluntary crawl: stand / crouch -> all fours -> flat on the belly.
+            if (proneW > 0.001f && visual == LifeState.Alive && !pathActive)
+            {
+                var pp = PronePose();
+                CharacterPose lp = proneW < 0.5f
+                    ? CharacterPose.Lerp(p, AllFoursPose(), ActionTimeline.SmoothStep01(proneW * 2f))
+                    : CharacterPose.Lerp(AllFoursPose(), pp, ActionTimeline.SmoothStep01(proneW * 2f - 1f));
+                lp.PropR = p.PropR;
+                p = lp;
+            }
+
+            // 3d. Adrenaline injection (kneeling next to a dead player).
+            if (injectW > 0.001f && visual == LifeState.Alive && !pathActive)
+            {
+                var ip = InjectPose(p, holdTime);
+                p = CharacterPose.Lerp(p, ip, ActionTimeline.SmoothStep01(injectW));
+                p.PropR = ip.PropR;
+            }
+
+            // 3e. RC car: putting it down, sitting with the transmitter, standing up.
+            if (rcW > 0.001f)
+            {
+                var rp = RcPose(p);
+                if (sitW < 0.01f) p = CharacterPose.Lerp(p, rp, ActionTimeline.SmoothStep01(rcW));
+                if (rcW > 0.5f) p.PropR = rp.PropR;
             }
 
             // 4. One-shot full-body actions.
@@ -352,14 +432,44 @@ namespace HideAndSeek.Characters
             {
                 p = StabbedReactionPose(actionTime, p.PropR);
             }
+            else if (action == ActionKind.Kill)
+            {
+                var kp = KillPose(p, actionTime);
+                float w = 1f - ActionTimeline.SmoothStep01(ActionTimeline.Remap01(actionTime, killSeekerDuration - 0.3f, killSeekerDuration));
+                p = CharacterPose.Lerp(p, kp, w);
+            }
+            else if (action == ActionKind.KillReaction)
+            {
+                p = KillReactionPose(actionTime, p.PropR);
+            }
 
             // 5. Life state (downed / dead / transitions).
-            if (action != ActionKind.StabbedReaction && (pathActive || visual != LifeState.Alive))
+            bool reacting = action == ActionKind.StabbedReaction || action == ActionKind.KillReaction;
+            if (!reacting && (pathActive || visual != LifeState.Alive))
             {
                 var lp = pathActive ? EvaluatePath(basePose) : PoseFor(visual, basePose);
                 lp.PropR = p.PropR;
+                if (visual == LifeState.Downed && !pathActive && healW > 0.001f)
+                {
+                    var hp = SelfHealPose(holdTime);
+                    lp = CharacterPose.Lerp(lp, hp, ActionTimeline.SmoothStep01(healW));
+                    lp.PropR = hp.PropR;
+                }
                 p = lp;
             }
+
+            // 4b. Seeker stomping on a toy car (legs).
+            if (visual == LifeState.Alive && !pathActive) ApplyStomp(ref p);
+
+            // 5b. Lobby easter egg: fork into the socket (overrides everything).
+            if (shockT >= 0f)
+            {
+                var sp = ShockPose(p, shockT);
+                p = sp;
+            }
+
+            // 5c. Lobby exit door: shot to pieces (overrides everything).
+            if (gunT >= 0f) p = GunnedPose(p, gunT);
 
             // 6. Additive flinches.
             ApplyAdditives(ref p, standing);
@@ -371,6 +481,7 @@ namespace HideAndSeek.Characters
                 if (hasLast) p = CharacterPose.Lerp(fadeFrom, p, ActionTimeline.SmoothStep01(fadeT));
             }
 
+            if (visual == LifeState.Alive) ApplyVending(ref p);
             p.Apply(character);
             lastOutput = p;
             hasLast = true;
@@ -380,7 +491,16 @@ namespace HideAndSeek.Characters
 
         HeldItem ResolveShownItem()
         {
-            if (action == ActionKind.KnifeAttack) return HeldItem.Knife;
+            if (VendingShowsCan) return HeldItem.Can;
+            if (vendingOn || ShockHidesItem || GunHidesItem) return HeldItem.None;
+            var rc = RcShownItem();
+            if (rc != HeldItem.None || rcW > 0.5f) return rc;
+            var hold = HoldShownItem();
+            if (hold != HeldItem.None) return hold;
+            if (brickOn && action == ActionKind.None && VisualLifeState == LifeState.Alive) return HeldItem.Brick;
+            if (action == ActionKind.Kill && sawKill) return HeldItem.Chainsaw;
+            if (action == ActionKind.Kill && glockKill) return HeldItem.Glock;
+            if (action == ActionKind.KnifeAttack || action == ActionKind.Kill) return HeldItem.Knife;
             if (action == ActionKind.Reload) return HeldItem.Glock;
             return heldItem;
         }
@@ -407,6 +527,10 @@ namespace HideAndSeek.Characters
                 {
                     if (actionTime >= StabbedReactionDuration) EndStabbedReaction();
                 }
+                else if (action == ActionKind.Kill || action == ActionKind.KillReaction)
+                {
+                    AdvanceKill(prev);
+                }
                 else if (action == ActionKind.Reload)
                 {
                     if (Crossed(prev, actionTime, ActionTimeline.ReloadMagOutTime))
@@ -421,8 +545,11 @@ namespace HideAndSeek.Characters
                 }
             }
 
+            AdvanceHold(dt);
+            AdvanceRc(dt);
+
             // Revive weight + pump clock.
-            bool canRevive = reviving && VisualLifeState == LifeState.Alive && action != ActionKind.StabbedReaction;
+            bool canRevive = reviving && VisualLifeState == LifeState.Alive && action != ActionKind.StabbedReaction && action != ActionKind.KillReaction;
             reviveW = Mathf.MoveTowards(reviveW, canRevive ? 1f : 0f, dt / 0.3f);
             bool canSit = sitting && VisualLifeState == LifeState.Alive && action == ActionKind.None;
             sitW = Mathf.MoveTowards(sitW, canSit ? 1f : 0f, dt / 0.35f);
@@ -443,9 +570,10 @@ namespace HideAndSeek.Characters
 
             // Downed: crawl phase, twitches, breathing.
             bool downed = VisualLifeState == LifeState.Downed;
-            bool crawling = downed && speed > 0.05f && action == ActionKind.None;
+            bool prone = proneW > 0.5f && VisualLifeState == LifeState.Alive;
+            bool crawling = (downed || prone) && speed > 0.05f && action == ActionKind.None;
             crawlW = Damp(crawlW, crawling ? 1f : 0f, 5f, dt);
-            if (downed) crawlPhase += Mathf.Min(speed, 2.5f) * dt / CrawlStride;
+            if (downed || prone) crawlPhase += Mathf.Min(speed, 2.5f) * dt / CrawlStride;
             crawlPhase -= Mathf.Floor(crawlPhase);
             breathPhase += dt * Mathf.Lerp(2.4f, 3.6f, crawlW);
             if (breathPhase > 1000f) breathPhase -= 1000f;
@@ -533,6 +661,15 @@ namespace HideAndSeek.Characters
 
             socketR.localPosition = CharacterPose.HandLocal;
             socketR.localRotation = p.PropR;
+            UpdateVendingProp(show);
+            var saw = props[(int)HeldItem.Chainsaw];
+            if (saw != null && show == HeldItem.Chainsaw)
+            {
+                bool engine = sawStartT >= BlockyProps.ChainsawFireTime;
+                saw.SetChainRun(revving || action == ActionKind.Kill ? 1f : engine ? 0.3f : 0f, time);
+                saw.SetStarterPull(BlockyProps.ChainsawStarter(sawStartT).y);
+                saw.SetSawBlood(sawBlood);
+            }
 
             // Medkit is put down on the floor while reviving.
             if (show == HeldItem.Medkit && reviveW > 0.5f)
@@ -555,6 +692,11 @@ namespace HideAndSeek.Characters
                 glock.SetSlideBack(slide);
                 glock.SetMagVisible(magInGun);
             }
+
+            UpdateHoldProps(show);
+            UpdateRcProps(show);
+            var brick = props[(int)HeldItem.Brick];
+            if (brick != null && show == HeldItem.Brick) brick.SetTint(brickColor);
 
             if (magInHand)
             {
@@ -659,3 +801,4 @@ namespace HideAndSeek.Characters
         }
     }
 }
+

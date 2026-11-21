@@ -1,6 +1,7 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using HideAndSeek.Audio;
+using HideAndSeek.Characters;
 using HideAndSeek.Core;
 using Unity.Collections;
 using Unity.Netcode;
@@ -13,7 +14,7 @@ namespace HideAndSeek.Game.Net
     /// Server-authoritative round rules, spawned once by the host and kept across scene loads.
     /// Lobby -> (start button) -> Loading -> Hiding (seeker blind) -> Seeking (hints, Glock at the end) -> Ended -> Lobby.
     /// </summary>
-    public class MatchManager : NetworkBehaviour
+    public partial class MatchManager : NetworkBehaviour
     {
         public static MatchManager Instance { get; private set; }
 
@@ -22,7 +23,16 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<NetSettings> Settings = new(NetSettings.Default);
         public readonly NetworkVariable<MatchWinner> Winner = new();
         public readonly NetworkVariable<bool> GlockPhase = new();
+        /// <summary>The chainsaw on the generator-room shelf has been picked up this round.</summary>
+        public readonly NetworkVariable<bool> ChainsawTaken = new();
+        /// <summary>Level shown on the security-room monitors (0, 1, 2 = levels 0, -1, -2), same for every player.</summary>
+        public readonly NetworkVariable<byte> SecurityFloor = new();
+        /// <summary>Somebody stands in a security room: the cameras on the monitors light their red LED.</summary>
+        public readonly NetworkVariable<bool> SecurityWatched = new();
+        /// <summary>Bit per level (0, -1, -2): the crate in front of the security room door has been pushed aside.</summary>
+        public readonly NetworkVariable<byte> SecurityCrates = new();
         public NetworkList<MedkitState> Medkits;
+        public NetworkList<MedkitState> Syringes;
         public NetworkList<ElevatorState> Elevators;
 
         /// <summary>Raised on every client for hint pings (seeker minimap). Args: world position.</summary>
@@ -32,6 +42,30 @@ namespace HideAndSeek.Game.Net
             ? Mathf.Min(Settings.Value.HintInterval, Tuning.GlockHintInterval)
             : Settings.Value.HintInterval;
         private ulong _lastSeekerClient = ulong.MaxValue;
+        private readonly HashSet<string> _seekerHistory = new();
+
+        /// <summary>
+        /// Fair rotation: everybody is the seeker once (random order), then a new random round of turns starts.
+        /// The previous seeker is never picked twice in a row when somebody else is available.
+        /// </summary>
+        public NetPlayer PickSeeker(List<NetPlayer> players)
+        {
+            var candidates = players.FindAll(x => !_seekerHistory.Contains(x.Nick) && x.OwnerClientId != _lastSeekerClient);
+            if (candidates.Count == 0)
+            {
+                _seekerHistory.Clear();
+                candidates = players.FindAll(x => x.OwnerClientId != _lastSeekerClient);
+            }
+            if (candidates.Count == 0) candidates = players;
+            var seeker = candidates[Random.Range(0, candidates.Count)];
+            _seekerHistory.Add(seeker.Nick);
+            _lastSeekerClient = seeker.OwnerClientId;
+            Debug.Log($"[Match] seeker {seeker.Nick} (this turn so far: {string.Join(", ", _seekerHistory)})");
+            return seeker;
+        }
+
+        public void TestDown(NetPlayer pl) => Down(pl);
+        public void TestKill(NetPlayer pl) => Kill(pl);
         private readonly Dictionary<ulong, double> _lastShot = new();
         private readonly HashSet<ulong> _reloading = new();
 
@@ -59,7 +93,11 @@ namespace HideAndSeek.Game.Net
         private void Awake()
         {
             Medkits = new NetworkList<MedkitState>();
+            Syringes = new NetworkList<MedkitState>();
             Elevators = new NetworkList<ElevatorState>();
+            VendingCans = new NetworkList<VendingState>();
+            InitBricks();
+            InitRadio();
         }
 
         public override void OnNetworkSpawn()
@@ -112,6 +150,7 @@ namespace HideAndSeek.Game.Net
         [Rpc(SendTo.Everyone)]
         private void MatchEndedRpc(MatchWinner winner)
         {
+            if (winner == MatchWinner.Racer) { RaceEndedLocal(); return; }
             var local = NetPlayer.Local;
             bool seekerWon = winner == MatchWinner.Seeker;
             bool iWon = local != null && (local.IsSeeker == seekerWon);
@@ -133,6 +172,17 @@ namespace HideAndSeek.Game.Net
                 else GameAudio.PlayAt(GameSfx.HintWhistle, position);
             }
             if (pin) HintPinged?.Invoke(position);
+        }
+
+        /// <summary>A hider set off a car alarm: horn + hazard lights everywhere, minimap pin for the seeker (no text - the sound says it all).</summary>
+        [Rpc(SendTo.Everyone)]
+        public void CarAlarmRpc(int car, float duration, ulong hiderId)
+        {
+            CarAlarms.Ensure();
+            var alarms = CarAlarms.Instance;
+            alarms.PlayAlarm(car, duration);
+            Vector3 pos = alarms.CarPosition(car);
+            HintPinged?.Invoke(pos); // minimap shows pins to the seeker only
         }
 
         [Rpc(SendTo.Everyone)]
@@ -157,7 +207,10 @@ namespace HideAndSeek.Game.Net
             s.HintStart = Mathf.Clamp(s.HintStart, 0f, s.SeekTime);
             s.HintInterval = Mathf.Clamp(s.HintInterval, 15f, 600f);
             s.Medkits = (byte)Mathf.Clamp(s.Medkits, 0, 10);
+            s.Syringes = (byte)Mathf.Clamp(s.Syringes, 0, 6);
             s.BleedOut = Mathf.Clamp(s.BleedOut, 20f, 300f);
+            if (s.Mode >= GameModes.All.Length) s.Mode = 0;
+            s.Laps = (byte)Mathf.Clamp(s.Laps == 0 ? 3 : s.Laps, 1, 10);
             Settings.Value = s;
         }
 
@@ -171,9 +224,15 @@ namespace HideAndSeek.Game.Net
                 starter?.ToastRpc("Tylko właściciel pokoju może rozpocząć grę.", 3f);
                 return;
             }
-            if (NetPlayer.All.Count < GameSettings.MinPlayers)
+            if (NetPlayer.All.Count < GameSettings.MinPlayers && !RaceMode)
             {
                 starter?.ToastRpc("Potrzeba co najmniej 2 graczy.", 3f);
+                return;
+            }
+            var mode = GameModes.Get(Settings.Value.Mode);
+            if (!mode.Ready)
+            {
+                starter?.ToastRpc($"Tryb \"{mode.Name}\" jeszcze nie jest gotowy. Wybierz inny na tablicy ustawień.", 4f);
                 return;
             }
             var notReady = new List<string>();
@@ -205,12 +264,13 @@ namespace HideAndSeek.Game.Net
 
         private void StartMatch()
         {
+            if (RaceMode) { StartRace(); return; }
             var players = new List<NetPlayer>(NetPlayer.All);
             players.RemoveAll(x => x == null);
-            // Random seeker, avoiding the previous one when possible.
-            var candidates = players.FindAll(x => x.OwnerClientId != _lastSeekerClient);
-            if (candidates.Count == 0) candidates = players;
-            var seeker = candidates[Random.Range(0, candidates.Count)];
+            var pickFrom = players;
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-forcehider") >= 0 && players.Count > 1)
+                pickFrom = players.FindAll(x => x.OwnerClientId != NetworkManager.ServerClientId);
+            var seeker = PickSeeker(pickFrom);
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-forceseeker") >= 0)
                 seeker = NetPlayer.FindByClient(NetworkManager.ServerClientId) ?? seeker;
             _lastSeekerClient = seeker.OwnerClientId;
@@ -222,6 +282,9 @@ namespace HideAndSeek.Game.Net
             }
             Winner.Value = MatchWinner.None;
             GlockPhase.Value = false;
+            ChainsawTaken.Value = false;
+            SecurityCrates.Value = 0;
+            ResetRcCars();
             Phase.Value = MatchPhase.Loading;
             NetworkManager.SceneManager.LoadScene(NetSession.GameScene, LoadSceneMode.Single);
         }
@@ -230,9 +293,17 @@ namespace HideAndSeek.Game.Net
         {
             pl.Life.Value = LifeState.Alive;
             pl.Wounded.Value = false;
+            pl.Limping.Value = false;
             pl.MedkitCount.Value = 0;
+            pl.SyringeCount.Value = 0;
+            pl.Resurrected.Value = false;
+            pl.Severed.Value = 0;
+            pl.AttackReadyAt.Value = 0;
+            pl.BlindUntil.Value = 0;
+            pl.DustReadyAt.Value = 0;
             pl.Held.Value = HeldItem.None;
             pl.HasGlock.Value = false;
+            pl.HasChainsaw.Value = false;
             pl.Ammo.Value = 0;
             pl.SpareMags.Value = 0;
             pl.Busy.Value = false;
@@ -243,10 +314,15 @@ namespace HideAndSeek.Game.Net
 
         private void OnSceneLoaded(string sceneName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)
         {
-            if (sceneName == NetSession.GameScene && Phase.Value == MatchPhase.Loading)
+            if (sceneName == NetSession.GameScene && Phase.Value == MatchPhase.Loading && RaceMode)
+            {
+                OnRaceSceneLoaded();
+            }
+            else if (sceneName == NetSession.GameScene && Phase.Value == MatchPhase.Loading)
             {
                 PlacePlayersInMap();
                 SpawnMedkits();
+                SpawnSyringes();
                 Elevators.Clear();
                 if (ElevatorSystem.Instance != null)
                     foreach (var e in ElevatorSystem.Instance.InitialStates()) Elevators.Add(e);
@@ -287,6 +363,25 @@ namespace HideAndSeek.Game.Net
             }
         }
 
+        /// <summary>Adrenaline syringes at random hider spawn areas (other spots than the medkits).</summary>
+        private void SpawnSyringes()
+        {
+            Syringes.Clear();
+            var spots = SpawnPoints.Hider();
+            Shuffle(spots);
+            int count = Mathf.Min(Settings.Value.Syringes, spots.Count);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 p = spots[i].position;
+                Vector3 off = Random.insideUnitSphere;
+                off.y = 0f;
+                p += off.normalized * Random.Range(2f, 5f);
+                if (Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore))
+                    p = hit.point;
+                Syringes.Add(new MedkitState { Id = 100 + i, Position = p + Vector3.up * 0.02f, Taken = false });
+            }
+        }
+
         private void SpawnMedkits()
         {
             Medkits.Clear();
@@ -321,6 +416,25 @@ namespace HideAndSeek.Game.Net
 
         private readonly Dictionary<int, GameObject> _medkitViews = new();
 
+        private readonly Dictionary<int, GameObject> _syringeViews = new();
+
+        private void UpdateSyringeViews()
+        {
+            var alive = new HashSet<int>();
+            for (int i = 0; i < Syringes.Count; i++)
+            {
+                var m = Syringes[i];
+                if (m.Taken) continue;
+                alive.Add(m.Id);
+                if (!_syringeViews.TryGetValue(m.Id, out var go) || go == null)
+                    _syringeViews[m.Id] = SyringeView.Create(m.Position);
+            }
+            var remove = new List<int>();
+            foreach (var kv in _syringeViews)
+                if (!alive.Contains(kv.Key)) { if (kv.Value != null) Destroy(kv.Value); remove.Add(kv.Key); }
+            foreach (int id in remove) _syringeViews.Remove(id);
+        }
+
         private void UpdateMedkitViews()
         {
             var alive = new HashSet<int>();
@@ -341,8 +455,25 @@ namespace HideAndSeek.Game.Net
         private void Update()
         {
             UpdateMedkitViews();
+            UpdateSyringeViews();
+            UpdateLobbyFun();
+            UpdateRcCars();
+            BloodTracks.Ensure();
+            var ph = Phase.Value;
+            if (RaceMode && (ph == MatchPhase.Race || ph == MatchPhase.Ended) && SceneManager.GetActiveScene().name == NetSession.GameScene)
+                RaceSystem.Ensure();
+            if ((ph == MatchPhase.Hiding || ph == MatchPhase.Seeking || (ph == MatchPhase.Ended && !RaceMode)) && SceneManager.GetActiveScene().name == NetSession.GameScene)
+            {
+                ChainsawShelf.Ensure(ChainsawTaken.Value);
+                CarAlarms.Ensure();
+                SecurityRooms.Ensure();
+            }
             if (!IsServer) return;
+            bool watched = SecurityRooms.Instance != null && SecurityRooms.Instance.AnyoneWatching();
+            if (SecurityWatched.Value != watched) SecurityWatched.Value = watched;
             if (ElevatorSystem.Instance != null && Elevators.Count > 0) ElevatorSystem.Instance.ServerTick(this, Now);
+            if (ph == MatchPhase.Hiding || ph == MatchPhase.Seeking || ph == MatchPhase.Ended) UpdateRcServer();
+            UpdateRadioServer();
             double now = Now;
             var s = Settings.Value;
             switch (Phase.Value)
@@ -362,10 +493,16 @@ namespace HideAndSeek.Game.Net
 
                 case MatchPhase.Seeking:
                     UpdateDowned(now);
+                    if (CarAlarms.Instance != null) CarAlarms.Instance.ServerTick(this, now);
                     if (s.Glock && !GlockPhase.Value && PhaseEnd.Value - now <= Tuning.GlockAtRemaining) GiveGlock();
                     if (s.HintMode != 0) UpdateHints(now, s);
+                    if (_finisherRunning) break; // let everybody watch the finisher to the end
                     if (CheckWin(out var w)) EndMatch(w);
                     else if (now >= PhaseEnd.Value) EndMatch(MatchWinner.Hiders);
+                    break;
+
+                case MatchPhase.Race:
+                    UpdateRaceServer(now);
                     break;
 
                 case MatchPhase.Ended:
@@ -449,6 +586,7 @@ namespace HideAndSeek.Game.Net
 
         private void BackToLobby()
         {
+            _finisherRunning = false;
             foreach (var pl in NetPlayer.All)
             {
                 if (pl == null) continue;
@@ -456,8 +594,12 @@ namespace HideAndSeek.Game.Net
                 ResetPlayer(pl);
             }
             Medkits.Clear();
+            Syringes.Clear();
             Elevators.Clear();
             GlockPhase.Value = false;
+            ChainsawTaken.Value = false;
+            SecurityCrates.Value = 0;
+            ResetRcCars();
             Phase.Value = MatchPhase.Lobby;
             NetworkManager.SceneManager.LoadScene(NetSession.LobbyScene, LoadSceneMode.Single);
         }
@@ -484,16 +626,154 @@ namespace HideAndSeek.Game.Net
         {
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
+            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value) return; // 8 s between attacks, no attacks while blinded
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.KnifeServerRange) return;
+            if (!victim.Limping.Value && !victim.Wounded.Value && victim.Severed.Value == 0)
+            {
+                // First hit only wounds: quick slash, the hider limps and can still run.
+                if (_slashGrace.TryGetValue(victim.NetworkObjectId, out double g) && Now < g) return;
+                _slashGrace[victim.NetworkObjectId] = Now + 1.6;
+                seeker.AttackReadyAt.Value = Now + Tuning.AttackCooldown;
+                seeker.Held.Value = HeldItem.Knife;
+                ServerRcForcePark(victim);
+                seeker.SlashRpc(victim.NetworkObjectId);
+                Wound(victim);
+                return;
+            }
+            if (_slashGrace.TryGetValue(victim.NetworkObjectId, out double g2) && Now < g2) return;
+            ServerRcForcePark(victim);
             StartCoroutine(KnifeRoutine(seeker, victim));
         }
 
-        private IEnumerator KnifeRoutine(NetPlayer seeker, NetPlayer victim)
+        public void ServerChainsaw(NetPlayer seeker, NetPlayer victim)
+        {
+            if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
+            if (!seeker.HasChainsaw.Value || seeker.Held.Value != HeldItem.Chainsaw) return;
+            if (seeker.Busy.Value || victim.Busy.Value) return;
+            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value) return; // 8 s between attacks, no attacks while blinded
+            if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.ChainsawServerRange) return;
+            ServerRcForcePark(victim);
+            bool injured = victim.Limping.Value || victim.Wounded.Value || victim.Severed.Value != 0;
+            if (!injured)
+            {
+                // First hit: the saw takes one leg. The hider can still hop away (slowly); the next hit kills.
+                if (_slashGrace.TryGetValue(victim.NetworkObjectId, out double g) && Now < g) return;
+                _slashGrace[victim.NetworkObjectId] = Now + 1.6;
+                seeker.AttackReadyAt.Value = Now + Tuning.AttackCooldown;
+                int limb = Random.value < 0.5f ? Limb.LegR : Limb.LegL;
+                seeker.SawSlashRpc(victim.NetworkObjectId, (byte)limb);
+                StartCoroutine(SeverLegAfterHit(victim, limb));
+                return;
+            }
+            if (_slashGrace.TryGetValue(victim.NetworkObjectId, out double g2) && Now < g2) return;
+            StartCoroutine(KnifeRoutine(seeker, victim, true));
+        }
+
+        private IEnumerator SeverLegAfterHit(NetPlayer victim, int limb)
+        {
+            yield return new WaitForSeconds(BlockyCharacterActions.SawSlashHitTime);
+            if (victim == null || !victim.IsSpawned || !victim.IsAliveHider) yield break;
+            victim.Severed.Value = (byte)(victim.Severed.Value | limb);
+            victim.ToastRpc("Piła odcięła ci nogę! Skaczesz na jednej nodze. Kolejny atak piłą = śmierć.", 6f);
+        }
+
+        /// <summary>Hider throws a handful of dust: a seeker standing close in front is blinded for a few seconds.</summary>
+        public void ServerDust(NetPlayer hider)
+        {
+            if (!Seeking || hider == null || !hider.IsAliveHider || hider.Busy.Value) return;
+            if (Now < hider.DustReadyAt.Value) return;
+            hider.DustReadyAt.Value = Now + Tuning.DustCooldown;
+            NetPlayer target = null;
+            float best = Tuning.DustRange;
+            foreach (var s in NetPlayer.All)
+            {
+                if (s == null || !s.IsSeeker || s.Life.Value != LifeState.Alive || s.Busy.Value) continue;
+                Vector3 d = s.transform.position - hider.transform.position;
+                d.y = 0f;
+                float dist = d.magnitude;
+                if (dist > best) continue;
+                if (dist > 0.4f && Vector3.Angle(hider.transform.forward, d) > 75f) continue;
+                best = dist;
+                target = s;
+            }
+            hider.DustRpc(target != null ? target.NetworkObjectId : ulong.MaxValue);
+            if (target != null) StartCoroutine(BlindAfterDust(target));
+        }
+
+        private IEnumerator BlindAfterDust(NetPlayer seeker)
+        {
+            yield return new WaitForSeconds(BlockyCharacterActions.DustReleaseTime + 0.12f);
+            if (seeker == null || !seeker.IsSpawned) yield break;
+            seeker.BlindUntil.Value = Now + Tuning.DustBlindTime;
+            seeker.ToastRpc("Kurz w oczach! Nic nie widzisz.", 3f);
+        }
+
+        /// <summary>A player pushes the crate away from the security room door (level <paramref name="lv"/>).</summary>
+        public void ServerPushCrate(NetPlayer pl, byte lv)
+        {
+            if (pl == null || lv > 2 || SecurityRooms.Instance == null) return;
+            if (Phase.Value != MatchPhase.Hiding && Phase.Value != MatchPhase.Seeking) return;
+            if (pl.Life.Value != LifeState.Alive || pl.Busy.Value || (SecurityCrates.Value & (1 << lv)) != 0) return;
+            if (!SecurityRooms.IsNearCrate(pl.transform.position, lv)) return;
+            SecurityCrates.Value = (byte)(SecurityCrates.Value | (1 << lv));
+            StartCoroutine(PushCrateRoutine(pl, lv));
+        }
+
+        private IEnumerator PushCrateRoutine(NetPlayer pl, byte lv)
+        {
+            pl.Busy.Value = true;
+            ServerRcForcePark(pl);
+            pl.TeleportRpc(SecurityRooms.PushStand(lv), SecurityRooms.PushYaw);
+            yield return new WaitForSeconds(0.05f);
+            pl.CratePushRpc(lv);
+            yield return new WaitForSeconds(SecurityRooms.CratePushTime);
+            if (pl != null && pl.IsSpawned) pl.Busy.Value = false;
+        }
+
+        /// <summary>A player pressed a level button in a security room.</summary>
+        public void ServerSecurityFloor(NetPlayer pl, byte floor)
+        {
+            if (pl == null || floor > 2 || SecurityRooms.Instance == null) return;
+            if (!SecurityRooms.Instance.IsNearButton(pl.transform.position, floor)) return;
+            SecurityFloor.Value = floor;
+        }
+
+        public void ServerPickupChainsaw(NetPlayer pl)
+        {
+            if (!Seeking || pl == null || !pl.IsSeeker || pl.Busy.Value || ChainsawTaken.Value) return;
+            if (Vector3.Distance(pl.transform.position, ChainsawShelf.Position) > 3.2f) return;
+            ChainsawTaken.Value = true;
+            pl.HasChainsaw.Value = true;
+            pl.Held.Value = HeldItem.Chainsaw;
+            pl.SfxRpc(GameSfx.ChainsawStart, 1f);
+            pl.ToastRpc("Masz piłę! F (przytrzymaj) - odpal i wejdź w chowającego. Q - zmiana broni.", 6f);
+        }
+
+        /// <summary>Seeker weapon switch (Q cycles knife -> chainsaw -> Glock).</summary>
+        public void ServerEquip(NetPlayer pl, HeldItem item)
+        {
+            if (pl == null || !pl.IsSeeker || pl.Busy.Value || _reloading.Contains(pl.OwnerClientId)) return;
+            if (item == HeldItem.Glock && !pl.HasGlock.Value) return;
+            if (item == HeldItem.Chainsaw && !pl.HasChainsaw.Value) return;
+            if (item != HeldItem.Knife && item != HeldItem.Glock && item != HeldItem.Chainsaw) return;
+            if (pl.Held.Value == item) return;
+            pl.Held.Value = item;
+            pl.SfxRpc(item == HeldItem.Glock ? GameSfx.GlockEquip : item == HeldItem.Chainsaw ? GameSfx.ChainsawStart : GameSfx.KnifeDraw, 0.8f);
+        }
+
+        private bool IsLastHider(NetPlayer victim)
+        {
+            foreach (var pl in NetPlayer.All)
+                if (pl != null && pl != victim && pl.IsAliveHider) return false;
+            return true;
+        }
+
+        private IEnumerator KnifeRoutine(NetPlayer seeker, NetPlayer victim, bool chainsaw = false, bool glock = false)
         {
             seeker.Busy.Value = true;
             victim.Busy.Value = true;
             HeldItem prevHeld = seeker.Held.Value;
-            seeker.Held.Value = HeldItem.Knife;
+            if (!chainsaw && !glock) seeker.Held.Value = HeldItem.Knife;
 
             // Face each other: the seeker steps in front of the victim.
             Vector3 vp = victim.transform.position;
@@ -501,32 +781,90 @@ namespace HideAndSeek.Game.Net
             dir.y = 0f;
             if (dir.sqrMagnitude < 0.01f) dir = -victim.transform.forward;
             dir.Normalize();
-            Vector3 seekerPos = vp + dir * Tuning.KnifeStandOff;
+            Vector3 seekerPos = vp + dir * (glock ? 2.3f : Tuning.KnifeStandOff);
             float seekerYaw = Quaternion.LookRotation(-dir).eulerAngles.y;
             float victimYaw = Quaternion.LookRotation(dir).eulerAngles.y;
             seeker.TeleportRpc(seekerPos, seekerYaw);
             victim.TeleportRpc(vp, victimYaw);
             yield return new WaitForSeconds(0.1f);
 
-            seeker.KnifeSequenceRpc(victim.NetworkObjectId);
-            yield return new WaitForSeconds(Tuning.KnifeSequenceDuration);
+            // Last hider standing gets the long finisher (everybody watches); otherwise a random variant.
+            bool last = true;
+            foreach (var pl in NetPlayer.All)
+                if (pl != null && pl != victim && pl.IsAliveHider) { last = false; break; }
+            KillMove move = glock ? KillMove.GlockFinisher
+                : chainsaw ? (last ? KillMove.SawFinisher : PickKillMove(true)) : last ? KillMove.Finisher : PickKillMove(false);
+            if (last) _finisherRunning = true;
+            Debug.Log($"[Match] kill {seeker.Nick} -> {victim.Nick}: {move}{(last ? " (last hider, shown to everybody)" : "")}");
+            seeker.KnifeSequenceRpc(victim.NetworkObjectId, (byte)move, last);
 
-            if (victim != null && victim.IsSpawned)
+            if (KillMoves.EndsDead(move))
             {
-                if (victim.Wounded.Value) Kill(victim);
-                else Down(victim);
-                victim.Busy.Value = false;
+                float dead = KillMoves.VictimDuration(move) + 0.1f;
+                yield return new WaitForSeconds(dead);
+                if (victim != null && victim.IsSpawned)
+                {
+                    Kill(victim);
+                    int cut = KillMoves.SeveredTotal(move);
+                    if (cut != 0) victim.Severed.Value = (byte)(victim.Severed.Value | cut);
+                    victim.Busy.Value = false;
+                }
+                yield return new WaitForSeconds(Mathf.Max(0f, KillMoves.SequenceDuration(move) - dead));
+                _finisherRunning = false;
+            }
+            else
+            {
+                yield return new WaitForSeconds(KillMoves.SequenceDuration(move));
+                if (victim != null && victim.IsSpawned)
+                {
+                    if (victim.Wounded.Value) Kill(victim);
+                    else Down(victim);
+                    victim.Busy.Value = false;
+                }
             }
             if (seeker != null && seeker.IsSpawned)
             {
                 seeker.Busy.Value = false;
-                seeker.Held.Value = prevHeld == HeldItem.Glock && seeker.HasGlock.Value ? HeldItem.Glock : HeldItem.Knife;
+                seeker.AttackReadyAt.Value = Now + Tuning.AttackCooldown;
+                seeker.Held.Value = chainsaw ? HeldItem.Chainsaw
+                    : prevHeld == HeldItem.Glock && seeker.HasGlock.Value ? HeldItem.Glock : HeldItem.Knife;
                 seeker.Kills.Value++;
             }
         }
 
+        private bool _finisherRunning;
+        private int _lastKillMove = -1, _lastSawMove = -1;
+
+        /// <summary>Random normal kill variant of the knife or the chainsaw (5 each), never the same one twice in a row.</summary>
+        private KillMove PickKillMove(bool saw)
+        {
+            var pool = saw ? KillMoves.SawPool : KillMoves.KnifePool;
+            // Test switch: -killmove N forces a variant (enum value, must belong to the weapon in use).
+            var args = System.Environment.GetCommandLineArgs();
+            int ki = System.Array.IndexOf(args, "-killmove");
+            if (ki >= 0 && ki + 1 < args.Length && int.TryParse(args[ki + 1], out int forced) && System.Array.IndexOf(pool, (KillMove)forced) >= 0)
+                return (KillMove)forced;
+            int last = saw ? _lastSawMove : _lastKillMove;
+            int idx = Random.Range(0, pool.Length);
+            if (idx == last) idx = (idx + 1 + Random.Range(0, pool.Length - 1)) % pool.Length;
+            if (saw) _lastSawMove = idx; else _lastKillMove = idx;
+            return pool[idx];
+        }
+
+        private readonly System.Collections.Generic.Dictionary<ulong, double> _slashGrace = new();
+        private readonly System.Collections.Generic.Dictionary<ulong, double> _slashCooldown = new();
+
+        /// <summary>First hit: limping, hand on the belly. The next one downs.</summary>
+        private void Wound(NetPlayer pl)
+        {
+            ServerRcForcePark(pl); // hit while steering: the transmitter drops
+            pl.Limping.Value = true;
+            pl.ToastRpc("Zostałeś zraniony! Utykasz. Kolejny atak = wykrwawianie. Apteczka opatrzy ranę.", 5f);
+        }
+
         private void Down(NetPlayer pl)
         {
+            pl.Limping.Value = false;
             pl.Life.Value = LifeState.Downed;
             pl.DownedUntil.Value = Now + BleedOut;
             HelpNeededRpc(pl.NetworkObjectId);
@@ -539,10 +877,11 @@ namespace HideAndSeek.Game.Net
             pl.Life.Value = LifeState.Dead;
             pl.Held.Value = HeldItem.None;
             pl.Wounded.Value = false;
+            pl.Limping.Value = false;
             pl.ToastRpc("Nie żyjesz. Oglądasz grę (LPM / PPM - zmiana gracza).", 5f);
         }
 
-        public void ServerShoot(NetPlayer shooter, Vector3 origin, Vector3 dir, NetPlayer victim, Vector3 hitPoint)
+        public void ServerShoot(NetPlayer shooter, Vector3 origin, Vector3 dir, NetPlayer victim, Vector3 hitPoint, sbyte rcSlot)
         {
             if (!Seeking || shooter == null || !shooter.IsSeeker || !shooter.HasGlock.Value || shooter.Busy.Value) return;
             if (shooter.Held.Value != HeldItem.Glock || _reloading.Contains(shooter.OwnerClientId)) return;
@@ -558,10 +897,24 @@ namespace HideAndSeek.Game.Net
 
             bool valid = victim != null && victim.IsHider && victim.Life.Value != LifeState.Dead && !victim.Busy.Value &&
                          Vector3.Distance(origin, victim.ChestPosition) <= Tuning.GlockRange + 3f;
+            // Last hider standing and this shot would finish them (death or downed): the Glock finisher cutscene.
+            if (valid && victim.Life.Value == LifeState.Alive && (victim.Limping.Value || victim.Wounded.Value) && IsLastHider(victim) && !_finisherRunning)
+            {
+                shooter.ShotFxRpc(hitPoint, victim.NetworkObjectId);
+                ServerRcForcePark(victim);
+                StartCoroutine(KnifeRoutine(shooter, victim, false, true));
+                return;
+            }
+            if (!valid && rcSlot >= 0 && ServerShootRc(shooter, origin, rcSlot, hitPoint))
+            {
+                shooter.ShotFxRpc(hitPoint, ulong.MaxValue, rcSlot);
+                return;
+            }
             shooter.ShotFxRpc(hitPoint, valid ? victim.NetworkObjectId : ulong.MaxValue);
             if (!valid) return;
             if (victim.Life.Value == LifeState.Downed || victim.Wounded.Value) Kill(victim);
-            else Down(victim);
+            else if (victim.Limping.Value) Down(victim);
+            else Wound(victim);
             if (victim.Life.Value == LifeState.Dead) shooter.Kills.Value++;
         }
 
@@ -603,19 +956,75 @@ namespace HideAndSeek.Game.Net
             if (helper == null || target == null || helper == target) return;
             if (!helper.IsAliveHider || target.Life.Value != LifeState.Downed || !target.IsHider) return;
             if (Vector3.Distance(helper.transform.position, target.transform.position) > Tuning.RescueRange + 1f) return;
+            target.Busy.Value = false;
+            target.Limping.Value = false;
+            target.Held.Value = HeldItem.None;
             target.Life.Value = LifeState.Alive;
             target.Wounded.Value = true;
             target.SfxRpc(GameSfx.ReviveDone, 1f);
             target.ToastRpc($"{helper.Nick} cię uratował. Kolejne złapanie = śmierć, chyba że użyjesz apteczki.", 5f);
         }
 
+        /// <summary>Downed hider with a medkit gets up alone (hold G). Stays wounded: the next catch kills.</summary>
+        public void ServerSelfRevive(NetPlayer pl)
+        {
+            if (pl == null || !pl.IsHider || pl.Life.Value != LifeState.Downed || pl.MedkitCount.Value == 0) return;
+            pl.MedkitCount.Value--;
+            pl.Life.Value = LifeState.Alive;
+            pl.Wounded.Value = true;
+            pl.DownedUntil.Value = 0;
+            pl.SfxRpc(GameSfx.ReviveDone, 1f);
+            pl.ToastRpc("Opatrzyłeś się i wstałeś. Jesteś ranny - kolejne złapanie = śmierć.", 5f);
+        }
+
+        public void ServerPickupSyringe(NetPlayer pl, int id)
+        {
+            if (pl == null || !pl.IsAliveHider) return;
+            if (Phase.Value != MatchPhase.Seeking && Phase.Value != MatchPhase.Hiding) return;
+            if (pl.SyringeCount.Value >= Tuning.MaxSyringes)
+            {
+                pl.ToastRpc($"Masz już {Tuning.MaxSyringes} strzykawki.", 2f);
+                return;
+            }
+            for (int i = 0; i < Syringes.Count; i++)
+            {
+                var m = Syringes[i];
+                if (m.Id != id || m.Taken) continue;
+                if (Vector3.Distance(pl.transform.position, m.Position) > Tuning.PickupRange + 1.5f) return;
+                m.Taken = true;
+                Syringes[i] = m;
+                pl.SyringeCount.Value++;
+                pl.SfxRpc(GameSfx.MedkitPickup, 0.8f);
+                pl.ToastRpc("Masz adrenalinę: przytrzymaj H przy martwym chowającym, żeby go wskrzesić.", 4f);
+                return;
+            }
+        }
+
+        /// <summary>Adrenaline: a dead hider comes back (wounded); the seeker sees them blink blue on the minimap.</summary>
+        public void ServerResurrect(NetPlayer helper, NetPlayer target)
+        {
+            if (!Seeking || helper == null || target == null || helper == target) return;
+            if (!helper.IsAliveHider || helper.SyringeCount.Value == 0) return;
+            if (!target.IsHider || target.Life.Value != LifeState.Dead) return;
+            if (Vector3.Distance(helper.transform.position, target.transform.position) > Tuning.ResurrectRange + 1f) return;
+            helper.SyringeCount.Value--;
+            target.Life.Value = LifeState.Alive;
+            target.Wounded.Value = true;
+            target.DownedUntil.Value = 0;
+            target.Resurrected.Value = true;
+            target.SfxRpc(GameSfx.ReviveDone, 1f);
+            target.ToastRpc($"{helper.Nick} wskrzesił cię adrenaliną! Szukający co chwilę widzi cię na mapie.", 6f);
+            helper.ToastRpc($"Wskrzesiłeś {target.Nick}.", 3f);
+        }
+
         public void ServerHeal(NetPlayer helper, NetPlayer target)
         {
             if (helper == null || target == null || helper.MedkitCount.Value == 0 || !helper.IsAliveHider) return;
-            if (!target.IsAliveHider || !target.Wounded.Value) return;
+            if (!target.IsAliveHider || !(target.Wounded.Value || target.Limping.Value)) return;
             if (helper != target && Vector3.Distance(helper.transform.position, target.transform.position) > Tuning.RescueRange + 1f) return;
             helper.MedkitCount.Value--;
             target.Wounded.Value = false;
+            target.Limping.Value = false;
             target.SfxRpc(GameSfx.MedkitUse, 1f);
             if (helper != target) target.ToastRpc($"{helper.Nick} opatrzył twoje rany.", 4f);
             else helper.ToastRpc("Rany opatrzone.", 3f);
@@ -672,3 +1081,5 @@ namespace HideAndSeek.Game.Net
         }
     }
 }
+
+

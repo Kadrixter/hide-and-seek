@@ -41,6 +41,7 @@ namespace HideAndSeek.Game
         public const float TravelPerFloor = 2.2f;
         public const float TravelBase = 0.8f;
         private const float HalfWidth = 1.05f, HalfDepth = 1.4f, FaceZ = 1.4f;
+        private const float DoorHalf = 0.44f, DoorH = 2.23f; // each leaf 0.88 m wide (3 cm behind the jamb), up into the header
 
         public static ElevatorSystem Instance { get; private set; }
 
@@ -132,8 +133,16 @@ namespace HideAndSeek.Game
             {
                 float s = face == 0 ? -1f : 1f;
                 float z = s * FaceZ + s * 0.055f;
-                f.DoorL[face] = Box(root, "DoorL", new Vector3(x - 0.425f, y + 1.1f, z), new Vector3(0.85f, 2.2f, 0.05f), _doorMat, true);
-                f.DoorR[face] = Box(root, "DoorR", new Vector3(x + 0.425f, y + 1.1f, z), new Vector3(0.85f, 2.2f, 0.05f), _doorMat, true);
+                // Leaves overlap the jambs / header by 3 cm (no light gap at the edges when closed).
+                bool oldDoors = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-nojambfix") >= 0;
+                float dh = oldDoors ? 0.425f : DoorHalf, dH = oldDoors ? 2.2f : DoorH;
+                f.DoorL[face] = Box(root, "DoorL", new Vector3(x - dh, y + dH / 2f, z), new Vector3(dh * 2f, dH, 0.05f), _doorMat, true);
+                f.DoorR[face] = Box(root, "DoorR", new Vector3(x + dh, y + dH / 2f, z), new Vector3(dh * 2f, dH, 0.05f), _doorMat, true);
+                // The map's jambs end at +-1.00 m but the shaft opening is +-1.05 m: fill that 5 cm slot (full height,
+                // flush with the core wall), otherwise the cabin is visible next to the frame with the doors closed.
+                if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-nojambfix") < 0)
+                for (int side = -1; side <= 1; side += 2)
+                    Box(root, "JambFill", new Vector3(x + side * 1.022f, y + 1.24f, s * (FaceZ + 0.07f)), new Vector3(0.075f, 2.48f, 0.2f), _doorMat, true);
                 // Call-button lamp on the existing wall plate.
                 f.CallLamp[face] = Box(root, "CallLamp", CallButtonPos(car, f, face), new Vector3(0.045f, 0.045f, 0.02f), _lampMat, false).GetComponent<Renderer>();
                 // Floor display above the doors (inside face of the header, readable from the lobby).
@@ -243,8 +252,8 @@ namespace HideAndSeek.Game
                     {
                         float s = face == 0 ? -1f : 1f;
                         float z = s * FaceZ + s * 0.055f;
-                        f.DoorL[face].position = new Vector3(car.X - 0.425f - slide, f.Y + 1.1f, z);
-                        f.DoorR[face].position = new Vector3(car.X + 0.425f + slide, f.Y + 1.1f, z);
+                        f.DoorL[face].position = new Vector3(car.X - DoorHalf - slide, f.Y + DoorH / 2f, z);
+                        f.DoorR[face].position = new Vector3(car.X + DoorHalf + slide, f.Y + DoorH / 2f, z);
                         bool called = st.Target == fi && st.Floor != fi;
                         f.CallLamp[face].GetPropertyBlock(_mpb);
                         _mpb.SetColor("_EmissionColor", called ? new Color(1f, 0.55f, 0.1f) * 2.5f : Color.black);

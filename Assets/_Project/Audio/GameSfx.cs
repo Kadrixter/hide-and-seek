@@ -60,6 +60,49 @@ namespace HideAndSeek.Audio
         ElevatorDoor = 71,
         ElevatorMove = 72,       // loop: cabin hum while travelling
         ElevatorButton = 73,
+
+        // Chainsaw (seeker weapon picked up in the generator room)
+        ChainsawStart = 80,      // pull cord + engine starts
+        ChainsawIdle = 81,       // loop: idling engine while held
+        ChainsawRev = 82,        // loop: full throttle (F held), heard far away
+        ChainsawCut = 83,        // cutting into a body (kill)
+
+        // Parked cars
+        CarAlarm = 90,           // loop: car alarm siren (heard across the garage)
+
+        // Adrenaline / bandage
+        InjectStab = 92,         // cap off, needle in, plunger hiss
+        ResurrectGasp = 93,      // huge gasp for air when brought back
+        BandageWrap = 94,        // medkit opened, bandage wrapped round the waist
+
+        // Lobby easter eggs
+        ForkSparks = 95,         // fork in the socket: short circuit, crackling arc
+        ForkScream = 96,         // electrocuted scream (aaaa)
+        ArcadeEat = 97,          // snake eats a dot
+        ArcadeDie = 98,          // snake crashed
+        ArcadeStart = 99,        // game start jingle
+        ArcadeStick = 100,       // joystick click
+
+        // RC rally car
+        RcMotor = 101,           // loop: electric motor whine + gear rattle (pitch follows the speed)
+        RcHorn = 102,            // loop: loud toy horn while H is held
+        RcCrush = 103,           // stomped flat: plastic crunch, parts snapping off
+        RcPlace = 104,           // car put down / picked up (plastic click)
+        RcBump = 105,            // car hits a wall / a leg
+
+        // Lobby exit door easter egg
+        MinigunSpinUp = 106,     // barrels winding up
+        MinigunFire = 107,       // loop: continuous burst
+        MinigunSpinDown = 108,   // barrels winding down
+        DoorOpen = 109,          // handle + creaking hinge
+        DoorSlam = 110,          // door slammed shut
+        VendButton = 111,     // vending machine selection button + beep
+        VendDrop = 112,       // can drops into the tray
+        CanOpen = 113,        // pull tab crack + fizz
+        CanGulp = 114,        // three gulps
+        CanAhh = 115,         // satisfied exhale after drinking
+        CanCrush = 116,       // empty can squeezed in the fist
+        CanBounce = 117,      // thrown can hits the floor and rolls
     }
 
     /// <summary>Looping ambient beds.</summary>

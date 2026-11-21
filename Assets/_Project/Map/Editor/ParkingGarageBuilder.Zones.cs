@@ -292,13 +292,14 @@ namespace HideAndSeek.Map.Editor
             switch (lv)
             {
                 case 0:
-                    for (int r = 0; r < 4; r++)
+                    // Racks stand clear of the three corridor doors (x 16-17.2, 29-30.2, 39-40.2) and of the corridor wall
+                    // (z 57.2): bicycles are 1.7 m long, so the back row ends at z = 55.0 + 0.9 + 0.85 = 56.75.
+                    foreach (float x in new[] { 13.6f, 22.5f, 34.5f, 43.2f })
                     {
-                        float x = 15f + r * 7f;
-                        P(lv, _props.BikeRack(5), "BikeRack", x, 55.8f, 0f);
+                        P(lv, _props.BikeRack(5), "BikeRack", x, 55.0f, 0f);
                         for (int k = 0; k < 5; k++)
                             if (_rng.NextDouble() < 0.5)
-                                P(lv, _props.Bicycle(MaterialLibrary.CarPaints[_rng.Next(MaterialLibrary.CarPaints.Length)]), "Bicycle", x + (k - 2) * 0.75f, 54.9f + (k % 2) * 1.8f, k % 2 == 0 ? 0f : 180f);
+                                P(lv, _props.Bicycle(MaterialLibrary.CarPaints[_rng.Next(MaterialLibrary.CarPaints.Length)]), "Bicycle", x + (k - 2) * 0.75f, 54.1f + (k % 2) * 1.8f, k % 2 == 0 ? 0f : 180f);
                     }
                     break;
                 case 1:

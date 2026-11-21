@@ -59,7 +59,7 @@ namespace HideAndSeek.Player
         [SerializeField, Range(0f, 0.5f)] private float stereoAlternation = 0.12f;
         [SerializeField, Range(0f, 2f)] private float landingVolume = 0.95f;
         [SerializeField, Range(0f, 2f)] private float jumpVolume = 0.5f;
-        [SerializeField, Range(0f, 2f)] private float crouchRustleVolume = 0.4f;
+        [SerializeField, Range(0f, 2f)] private float crouchRustleVolume = 0.22f;
         [SerializeField, Range(0f, 1f)] private float clothVolume = 0.16f;
         [Tooltip("Volume multiplier per surface (concrete, metal, water).")]
         [SerializeField] private Vector3 surfaceVolume = new Vector3(1f, 1.05f, 0.95f);
@@ -351,7 +351,7 @@ namespace HideAndSeek.Player
             if (!_motion.IsGrounded) target *= 0.6f;
             if (_motion.IsCrouching) target *= 1.2f;
             _clothVol = Mathf.Lerp(_clothVol, target, 1f - Mathf.Exp(-10f * dt));
-            _cloth.volume = _clothVol;
+            _cloth.volume = OnOtherFloor(transform.position) ? 0f : _clothVol;
             _cloth.pitch = 0.92f + 0.16f * speedT;
             if (!localPlayer) _cloth.maxDistance = Mathf.Lerp(crouchRange, walkRange, speedT);
         }
@@ -452,9 +452,35 @@ namespace HideAndSeek.Player
             return clips[i];
         }
 
+        // ---- other players' steps are heard on the same floor only (sound used to pass through floors / ceilings)
+        private const float FloorGap = 2.2f;
+        private static AudioListener _listener;
+        private static float _nextListenerSearch;
+
+        private static float ListenerY(out bool ok)
+        {
+            if ((_listener == null || !_listener.isActiveAndEnabled) && Time.unscaledTime >= _nextListenerSearch)
+            {
+                _nextListenerSearch = Time.unscaledTime + 0.5f;
+                _listener = FindAnyObjectByType<AudioListener>();
+            }
+            ok = _listener != null;
+            return ok ? _listener.transform.position.y : 0f;
+        }
+
+        /// <summary>True when this (remote) player stands on another floor than the listener.</summary>
+        private bool OnOtherFloor(Vector3 position)
+        {
+            if (localPlayer) return false;
+            float ly = ListenerY(out bool ok);
+            // The listener sits at eye height; compare feet to feet (eye ~1.6 m above the feet).
+            return ok && Mathf.Abs((ly - 1.6f) - position.y) > FloorGap;
+        }
+
         private void Play(AudioClip clip, float volume, float pan, float range, Vector3 position)
         {
             if (clip == null || volume <= 0.0001f) return;
+            if (OnOtherFloor(position)) return;
             AudioSource s = NextSource();
             float jitterV = 1f + ((float)_rng.NextDouble() * 2f - 1f) * volumeJitter;
             float jitterP = 1f + ((float)_rng.NextDouble() * 2f - 1f) * pitchJitter;

@@ -24,8 +24,33 @@ namespace HideAndSeek.Game.UI
         private float _nextListRefresh;
         private float _connectStarted;
 
+        private static MainMenu _instance;
+
+        /// <summary>Shows a message on the main menu (e.g. a failed Steam join from an invite).</summary>
+        public static void ShowMessage(string text)
+        {
+            if (_instance == null) return;
+            _instance._connecting.gameObject.SetActive(false);
+            _instance._message.text = text ?? "";
+        }
+
+        /// <summary>Shows the "connecting" overlay (Steam joins started outside the menu buttons).</summary>
+        public static void ShowConnecting()
+        {
+            if (_instance == null) return;
+            _instance._connecting.gameObject.SetActive(true);
+            _instance._connectingText.text = "Łączenie przez Steam...";
+            _instance._connectStarted = Time.unscaledTime;
+        }
+
+        private Text _steamStatus;
+        private readonly List<SteamService.LobbyInfo> _steamLobbies = new();
+        private float _nextSteamSearch;
+        private bool _steamSearching;
+
         private void Start()
         {
+            _instance = this;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             LocalProfile.ApplyAudio();
@@ -39,9 +64,17 @@ namespace HideAndSeek.Game.UI
 
             var title = UiKit.Label("Title", side.transform, "HIDE AND SEEK", 62, TextAnchor.UpperLeft, null, FontStyle.Bold);
             title.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(60, -60), new Vector2(-120, 100));
+            title.AddDrop(4f, 0.6f);
             var sub = UiKit.Label("Sub", side.transform, "chowany w ciemnościach", 30, TextAnchor.UpperLeft, UiKit.TextDim);
             sub.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(64, -150), new Vector2(-120, 40));
+            var line = UiKit.Image("TitleLine", side.transform, UiKit.Accent).Rounded(true);
+            line.rectTransform.Place(new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(64, -196), new Vector2(160, 5));
+            var edge = UiKit.Image("Edge", side.transform, new Color(1f, 1f, 1f, 0.05f));
+            edge.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), Vector2.zero, new Vector2(2, 0));
 
+            _steamStatus = UiKit.Label("Steam", side.transform, SteamStatusText(), 20, TextAnchor.LowerLeft, UiKit.TextDim);
+            _steamStatus.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 0), new Vector2(60, 14), new Vector2(-120, 28));
+            _steamStatus.supportRichText = true;
             _message = UiKit.Label("Message", side.transform, NetSession.LastMessage ?? "", 26, TextAnchor.LowerLeft, new Color(1f, 0.6f, 0.5f));
             _message.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 0), new Vector2(60, 40), new Vector2(-120, 80));
             NetSession.LastMessage = null;
@@ -58,13 +91,24 @@ namespace HideAndSeek.Game.UI
             Show(_main);
 
             BuildPreview();
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testmenu") >= 0) StartCoroutine(TestPages());
+        }
+
+        /// <summary>Test switch -testmenu: walks through the pages (for screenshots).</summary>
+        private System.Collections.IEnumerator TestPages()
+        {
+            foreach (var p in new[] { _main, _options, _audio, _voicePage, _main })
+            {
+                Show(p);
+                yield return new WaitForSeconds(2.2f);
+            }
         }
 
         private RectTransform Page(Transform parent, string name)
         {
             var rt = UiKit.Rect(name, parent);
             rt.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), new Vector2(0, -40), new Vector2(-120, -420));
-            UiKit.VStack(rt, 14);
+            UiKit.VStack(rt, 10);
             return rt;
         }
 
@@ -122,11 +166,14 @@ namespace HideAndSeek.Game.UI
             _mcStatus = UiKit.Label("McStatus", page, "", 20, TextAnchor.MiddleLeft, UiKit.TextDim);
             _mcStatus.Height(24);
 
-            UiKit.Rect("Gap", page).Height(10);
-            UiKit.Button("Host", page, "Stwórz serwer", Host, 32, new Color(0.13f, 0.32f, 0.16f)).Height(76);
-            UiKit.Button("Find", page, "Szukaj serwerów", () => Show(_browser), 32).Height(76);
-            UiKit.Button("Options", page, "Ustawienia", () => Show(_options), 30).Height(66);
-            UiKit.Button("Quit", page, "Wyjdź", Application.Quit, 30).Height(66);
+            UiKit.Rect("Gap", page).Height(6);
+            var steamHost = UiKit.Button("HostSteam", page, "Stwórz serwer Steam", HostSteam, 30, new Color(0.13f, 0.32f, 0.16f));
+            steamHost.Height(70);
+            steamHost.interactable = SteamService.Ready;
+            UiKit.Button("Host", page, "Stwórz serwer LAN / UDP", Host, 26).Height(58);
+            UiKit.Button("Find", page, "Szukaj serwerów", () => Show(_browser), 30).Height(66);
+            UiKit.Button("Options", page, "Ustawienia", () => Show(_options), 28).Height(58);
+            UiKit.Button("Quit", page, "Wyjdź", Application.Quit, 28).Height(58);
             return page;
         }
 
@@ -154,6 +201,8 @@ namespace HideAndSeek.Game.UI
             UiKit.Label("T", page, "USTAWIENIA", 36, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(46);
             SettingsUi.SensitivitySlider(page);
             SettingsUi.DisplayModeButton(page);
+            SettingsUi.CrouchModeButton(page);
+            SettingsUi.DiscordSwitch(page);
             UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 28).Height(60);
             UiKit.Button("Voice", page, "Czat głosowy", () => Show(_voicePage), 28).Height(60);
             UiKit.Rect("Gap", page).Height(20);
@@ -217,6 +266,44 @@ namespace HideAndSeek.Game.UI
                 _message.text = NetSession.LastMessage;
                 NetSession.LastMessage = null;
             }
+        }
+
+        private static string SteamStatusText() => SteamService.Ready
+            ? $"<color=#6dff7a>Steam:</color> {SteamService.PersonaName}  (zaproszenia od znajomych działają)"
+            : $"<color=#ff8a7a>Steam niedostępny</color> ({SteamService.Error}) - działa tylko LAN / UDP";
+
+        private void HostSteam()
+        {
+            SaveNick();
+            LanDiscovery.StopSearch();
+            _connecting.gameObject.SetActive(true);
+            _connectingText.text = "Tworzenie lobby Steam...";
+            _connectStarted = Time.unscaledTime;
+            NetSession.Instance.HostSteam();
+        }
+
+        private void JoinSteam(ulong lobbyId, string name)
+        {
+            SaveNick();
+            LanDiscovery.StopSearch();
+            _connecting.gameObject.SetActive(true);
+            _connectingText.text = $"Łączenie z {name} przez Steam...";
+            _connectStarted = Time.unscaledTime;
+            NetSession.Instance.JoinSteamLobby(lobbyId);
+        }
+
+        private async void SearchSteam()
+        {
+            if (_steamSearching || !SteamService.Ready) return;
+            _steamSearching = true;
+            try
+            {
+                var found = await SteamService.FindLobbies();
+                _steamLobbies.Clear();
+                foreach (var l in found)
+                    if (l.Id != (SteamService.CurrentLobby.HasValue ? SteamService.CurrentLobby.Value.Id.Value : 0)) _steamLobbies.Add(l);
+            }
+            finally { _steamSearching = false; }
         }
 
         private void Join(string address)
@@ -291,6 +378,58 @@ namespace HideAndSeek.Game.UI
             _preview = BlockyCharacterFactory.Create(previewRoot, LocalProfile.Skin, LocalProfile.Nick);
             _preview.SetFirstPersonMode(false);
             if (!string.IsNullOrEmpty(LocalProfile.McNick)) FetchMcSkin(LocalProfile.McNick);
+            _previewYaw = previewRoot.eulerAngles.y;
+            StartCoroutine(PoseCycle());
+        }
+
+        private float _previewYaw;
+        private AudioSource _menuLoop;
+
+        /// <summary>Menu character: stands in a 3/4 pose and shows off the gear in a loop instead of spinning.</summary>
+        private System.Collections.IEnumerator PoseCycle()
+        {
+            var a = _preview != null ? _preview.Actions : null;
+            if (a == null) yield break;
+            var wait = new System.Func<float, WaitForSeconds>(s => new WaitForSeconds(s));
+            Transform at = previewRoot;
+            void Sfx(GameSfx id, float v = 0.8f) => GameAudio.PlayAt(id, at.position + Vector3.up * 1.1f, v);
+            while (true)
+            {
+                yield return wait(4.5f);
+                a.SetHeldItem(HideAndSeek.Core.HeldItem.Knife);
+                Sfx(GameSfx.KnifeDraw);
+                yield return wait(0.9f);
+                Sfx(GameSfx.KnifeSwing, 0.5f);
+                yield return wait(0.5f);
+                Sfx(GameSfx.KnifeSwing, 0.4f);
+                yield return wait(1.4f);
+                a.SetHeldItem(HideAndSeek.Core.HeldItem.None);
+                yield return wait(4f);
+                a.SetHeldItem(HideAndSeek.Core.HeldItem.Glock);
+                Sfx(GameSfx.GlockEquip);
+                yield return wait(1.2f);
+                a.PlayReload();
+                Sfx(GameSfx.GlockReload);
+                yield return wait(2.4f);
+                a.SetHeldItem(HideAndSeek.Core.HeldItem.None);
+                yield return wait(4f);
+                a.SetHeldItem(HideAndSeek.Core.HeldItem.Chainsaw);
+                Debug.Log($"[MainMenu] preview chainsaw at t={Time.time:0.0}");
+                Sfx(GameSfx.ChainsawStart, 0.7f);
+                var idle = _menuLoop = GameAudio.StartLoop(GameSfx.ChainsawIdle, at, 0.5f);
+                yield return wait(1.6f);
+                a.SetRevving(true);
+                GameAudio.StopLoop(idle, 0.1f);
+                var rev = _menuLoop = GameAudio.StartLoop(GameSfx.ChainsawRev, at, 0.6f);
+                yield return wait(1.5f);
+                a.SetRevving(false);
+                GameAudio.StopLoop(rev, 0.3f);
+                idle = _menuLoop = GameAudio.StartLoop(GameSfx.ChainsawIdle, at, 0.5f);
+                yield return wait(1.4f);
+                GameAudio.StopLoop(idle, 0.4f);
+                _menuLoop = null;
+                a.SetHeldItem(HideAndSeek.Core.HeldItem.None);
+            }
         }
 
         private void RefreshPreview()
@@ -298,12 +437,41 @@ namespace HideAndSeek.Game.UI
             if (_preview != null) _preview.SetSkin(LocalProfile.Skin, LocalProfile.Nick);
         }
 
+        private Vector2Int _lastScreen;
+        private float _refreshAt = 0.4f, _refreshAt2 = 1.5f;
+
+        /// <summary>Re-renders the menu texts when the window size changed (startup display mode) - they were blurry.</summary>
+        private void RefreshTextsIfNeeded()
+        {
+            var size = new Vector2Int(Screen.width, Screen.height);
+            if (size != _lastScreen)
+            {
+                _lastScreen = size;
+                _refreshAt = Time.unscaledTime + 0.1f;
+            }
+            float t = Time.unscaledTime;
+            if ((_refreshAt > 0f && t >= _refreshAt) || (_refreshAt2 > 0f && t >= _refreshAt2))
+            {
+                if (t >= _refreshAt) _refreshAt = -1f;
+                if (t >= _refreshAt2) _refreshAt2 = -1f;
+                if (_canvas != null) UiKit.RefreshTexts(_canvas.transform);
+            }
+        }
+
         private void Update()
         {
-            if (previewRoot != null) previewRoot.Rotate(0f, 18f * Time.deltaTime, 0f);
+            RefreshTextsIfNeeded();
+            // Slow, small sway around the 3/4 pose (no full spin: shadows stay calm).
+            if (previewRoot != null && _preview != null)
+                previewRoot.rotation = Quaternion.Euler(0f, _previewYaw + 7f * Mathf.Sin(Time.time * 0.35f), 0f);
 
             if (_browser.gameObject.activeSelf)
             {
+                if (Time.unscaledTime >= _nextSteamSearch)
+                {
+                    _nextSteamSearch = Time.unscaledTime + 4f;
+                    SearchSteam();
+                }
                 LanDiscovery.Tick();
                 if (Time.unscaledTime >= _nextListRefresh)
                 {
@@ -312,19 +480,20 @@ namespace HideAndSeek.Game.UI
                 }
             }
 
+            if (_steamStatus != null && Time.frameCount % 60 == 0) _steamStatus.text = SteamStatusText();
             if (_connecting.gameObject.activeSelf)
             {
                 var nm = NetworkManager.Singleton;
                 float t = Time.unscaledTime - _connectStarted;
                 if (nm == null || !nm.IsListening)
                 {
-                    if (t > 0.5f)
+                    if (t > 0.5f && !NetSession.Instance.SteamBusy)
                     {
                         _connecting.gameObject.SetActive(false);
                         if (!string.IsNullOrEmpty(NetSession.LastMessage)) _message.text = NetSession.LastMessage;
                     }
                 }
-                else if (t > 12f && !nm.IsConnectedClient)
+                else if (t > (NetSession.Instance.UsingSteam ? 25f : 12f) && !nm.IsConnectedClient)
                 {
                     NetSession.Instance.Leave("Serwer nie odpowiada.");
                     _connecting.gameObject.SetActive(false);
@@ -339,23 +508,50 @@ namespace HideAndSeek.Game.UI
         {
             var servers = LanDiscovery.Servers.OrderBy(s => s.Name).ToList();
             var keys = servers.Select(s => $"{s.Address}:{s.Port}|{s.Players}|{s.InLobby}|{s.Name}").ToList();
+            keys.AddRange(_steamLobbies.Select(l => $"steam{l.Id}|{l.Members}|{l.InLobby}|{l.Name}"));
+            keys.Add(_steamSearching ? "searching" : "idle");
             if (keys.SequenceEqual(_shownKeys)) return;
             _shownKeys.Clear();
             _shownKeys.AddRange(keys);
 
             for (int i = _listRoot.childCount - 1; i >= 0; i--) Destroy(_listRoot.GetChild(i).gameObject);
-            _serverList.text = servers.Count == 0 ? "Szukam serwerów..." : $"Znalezione: {servers.Count}";
-            foreach (var s in servers.Take(5))
+            int total = servers.Count + _steamLobbies.Count;
+            _serverList.text = total == 0 ? (SteamService.Ready ? "Szukam serwerów (Steam + LAN)..." : "Szukam serwerów w sieci LAN...") : $"Znalezione: {total}";
+            int shown = 0;
+            foreach (var l in _steamLobbies)
+            {
+                if (shown >= 5) break;
+                shown++;
+                string state = l.InLobby ? "lobby" : "gra trwa";
+                string friend = l.Friend ? "  [znajomy]" : "";
+                string ver = l.Version != Application.version ? "  (inna wersja)" : "";
+                var lobby = l;
+                var b = UiKit.Button("SteamLobby", _listRoot, $"STEAM   {(string.IsNullOrEmpty(l.Name) ? "?" : l.Name)}{friend}    {l.Members}/{l.Max}    {state}{ver}", () => JoinSteam(lobby.Id, lobby.Name), 24);
+                b.interactable = l.InLobby && l.Version == Application.version;
+                b.GetComponentInChildren<Text>().alignment = TextAnchor.MiddleLeft;
+                b.Height(58);
+            }
+            foreach (var s in servers.Take(5 - shown))
             {
                 string state = s.InLobby ? "lobby" : "gra trwa";
                 var srv = s;
-                var b = UiKit.Button("Server", _listRoot, $"{s.Name}    {s.Players} graczy    {state}    {s.Address}", () => Join($"{srv.Address}:{srv.Port}"), 24);
+                var b = UiKit.Button("Server", _listRoot, $"LAN   {s.Name}    {s.Players} graczy    {state}    {s.Address}", () => Join($"{srv.Address}:{srv.Port}"), 24);
                 b.interactable = s.InLobby;
                 b.GetComponentInChildren<Text>().alignment = TextAnchor.MiddleLeft;
                 b.Height(58);
             }
         }
 
-        private void OnDestroy() => LanDiscovery.StopSearch();
+        private void OnDestroy()
+        {
+            LanDiscovery.StopSearch();
+            // Leaving the menu (host / join) while the preview runs the chainsaw: stop its engine loop.
+            if (_menuLoop != null)
+            {
+                Debug.Log("[MainMenu] stopping preview chainsaw loop");
+                GameAudio.StopLoop(_menuLoop, 0.1f);
+            }
+            _menuLoop = null;
+        }
     }
 }

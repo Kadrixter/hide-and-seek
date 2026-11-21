@@ -24,7 +24,9 @@ namespace HideAndSeek.Characters
             AllFours,
             Side,
             Downed,
-            Dead
+            Dead,
+            Gasp,
+            Breath,
         }
 
         enum Ease
@@ -59,6 +61,13 @@ namespace HideAndSeek.Characters
             pathFrom = hasLast ? lastOutput : CharacterPose.Capture(character);
             keyCount = 0;
             Key(PoseId.Snapshot, 0f, Ease.Smooth);
+            if (StartSpecialPath(from, to))
+            {
+                pathTime = 0f;
+                pathActive = true;
+                fadeT = 1f;
+                return;
+            }
             if (from == LifeState.Alive && to == LifeState.Downed)
             {
                 Key(PoseId.Kneel, 0.3f, Ease.In);
@@ -123,6 +132,8 @@ namespace HideAndSeek.Characters
                 case PoseId.AllFours: return AllFoursPose();
                 case PoseId.Side: return SidePose();
                 case PoseId.Downed: return DownedPose();
+                case PoseId.Gasp: return GaspPose();
+                case PoseId.Breath: return BreathPose();
                 default: return DeadPose();
             }
         }
@@ -219,7 +230,12 @@ namespace HideAndSeek.Characters
 
         // ================================================================== downed (crawl)
 
-        CharacterPose DownedPose()
+        /// <summary>Healthy army crawl: like the downed pose but alert (head up), no twitches, stronger leg push.</summary>
+        CharacterPose PronePose() => DownedPose(true);
+
+        CharacterPose DownedPose() => DownedPose(false);
+
+        CharacterPose DownedPose(bool healthy)
         {
             float cw = crawlW;
             float ph = crawlPhase * Mathf.PI * 2f;
@@ -228,14 +244,14 @@ namespace HideAndSeek.Characters
 
             // Pained twitch: sharp onset, quick decay.
             float tw = twitchTime < 0.08f ? twitchTime / 0.08f : Mathf.Exp(-(twitchTime - 0.08f) * 7f);
-            if (twitchTime > 1.2f) tw = 0f;
+            if (twitchTime > 1.2f || healthy) tw = 0f;
             tw *= 1f - 0.6f * cw;
 
             var p = CharacterPose.Identity;
             p.PelvisPos = new Vector3(0.015f * sway, ProneY + 0.012f * Mathf.Abs(Mathf.Sin(ph)) * cw, ProneZ);
             p.Pelvis = Quaternion.Euler(0f, 3f * sway, 0f) * Prone * Quaternion.Euler(0f, 7f * sway, 0f);
-            p.Torso = Quaternion.Euler(-16f + 2.5f * br + 9f * tw, 6f * sway, 0f);
-            p.Head = Quaternion.Euler(-48f + 3f * br + 22f * tw, -8f * sway, 0f);
+            p.Torso = Quaternion.Euler(-16f + 2.5f * br + 9f * tw - (healthy ? 6f : 0f), 6f * sway, 0f);
+            p.Head = Quaternion.Euler(-48f + 3f * br + 22f * tw - (healthy ? 14f : 0f), -8f * sway, 0f);
 
             // Arms: idle = right forearm flat in front, left hand pressed to the belly side.
             //       crawl = hands reach forward, plant and pull back alternately.
@@ -254,7 +270,8 @@ namespace HideAndSeek.Characters
                 }
 
                 Vector3 idle = arm == 0 ? new Vector3(0.24f, 0.1f, ProneZ + 0.85f) : new Vector3(-0.22f, 0.11f, ProneZ + 0.23f + 0.01f * br);
-                float w = arm == 0 ? cw : cw * 0.85f;
+                if (healthy) idle = new Vector3(side * 0.26f, 0.1f, ProneZ + 0.82f); // both forearms flat in front
+                float w = arm == 0 || healthy ? cw : cw * 0.85f;
                 Vector3 target = Vector3.Lerp(idle, crawl, w);
                 if (arm == 1) target += new Vector3(0.02f, 0f, 0.02f) * tw;
                 Vector3 pole = arm == 0 ? new Vector3(1f, 1.2f, -0.4f) : Vector3.Lerp(new Vector3(-1f, 0.6f, -0.2f), new Vector3(-1f, 1.2f, -0.4f), w);
@@ -266,8 +283,8 @@ namespace HideAndSeek.Characters
             {
                 float side = leg == 0 ? 1f : -1f;
                 float q = crawlPhase + (leg == 0 ? 0.5f : 0f);
-                float push = Mathf.Max(0f, Mathf.Sin(q * Mathf.PI * 2f)) * cw * 0.7f;
-                float idleBend = leg == 1 ? 0.06f : 0f;
+                float push = Mathf.Max(0f, Mathf.Sin(q * Mathf.PI * 2f)) * cw * (healthy ? 1.3f : 0.7f);
+                float idleBend = leg == 1 && !healthy ? 0.06f : 0f;
                 float pull = push * 0.2f + idleBend + (leg == 0 ? 0.25f * tw : 0f);
                 Vector3 hip = p.HipPos(leg);
                 Vector3 sole = new Vector3(hip.x + side * (0.04f + 0.12f * (push + tw * 0.3f)), 0.12f, hip.z - 0.675f + pull);
@@ -284,7 +301,8 @@ namespace HideAndSeek.Characters
             switch (item)
             {
                 case HeldItem.Glock: return Quaternion.LookRotation(Vector3.down, Vector3.forward);
-                case HeldItem.Knife: return Quaternion.LookRotation(new Vector3(0f, -0.45f, 1f), Vector3.up);
+                case HeldItem.Knife:
+                case HeldItem.Fork: return Quaternion.LookRotation(new Vector3(0f, -0.45f, 1f), Vector3.up);
                 default: return Quaternion.identity;
             }
         }
@@ -317,10 +335,37 @@ namespace HideAndSeek.Characters
                     break;
                 }
                 case HeldItem.Knife:
+                case HeldItem.Fork:
+                case HeldItem.Brick:
                     p.ShoulderR = basePose.ShoulderR * Quaternion.Euler(-12f, 0f, 0f);
                     p.ElbowR = basePose.ElbowR * Quaternion.Euler(-38f, 0f, 0f);
-                    p.PropR = DefaultPropLocal(HeldItem.Knife);
+                    p.PropR = DefaultPropLocal(item);
                     break;
+                case HeldItem.Chainsaw:
+                {
+                    // Two-handed at the hip, bar forward; throttle raises it and shakes everything.
+                    float rv = revving ? 1f : 0f;
+                    Vector3 jit = new Vector3(Mathf.Sin(time * 83f), Mathf.Sin(time * 67f), 0f) * (0.004f + 0.01f * rv);
+                    Vector3 fist = p.TorsoPoint(new Vector3(0.17f, 0.17f + 0.08f * rv, 0.2f + 0.06f * rv)) + jit;
+                    float look = Mathf.Clamp(lookPitch, -40f, 40f) * 0.5f;
+                    Quaternion rot = p.TorsoRoot * Quaternion.Euler(-look - 8f - 14f * rv, -6f, 0f);
+                    // Pull-start: the saw is held out a little lower, the left hand grabs the starter grip and yanks.
+                    var st = BlockyProps.ChainsawStarter(sawStartT);
+                    if (st.x > 0.001f)
+                    {
+                        fist = Vector3.Lerp(fist, p.TorsoPoint(new Vector3(0.12f, 0.02f, 0.3f)), st.x);
+                        rot = Quaternion.Slerp(rot, p.TorsoRoot * Quaternion.Euler(16f, -18f, -10f), st.x);
+                    }
+                    SolveSawHands(ref p, fist, rot);
+                    if (st.x > 0.001f)
+                    {
+                        Vector3 grip = p.HandPos(0) + rot * BlockyProps.ChainsawLeftGripLocal;
+                        Vector3 starter = p.HandPos(0) + rot * (BlockyProps.ChainsawStarterLocal +
+                                          BlockyProps.ChainsawPullDir * (BlockyProps.ChainsawPullLength * st.y));
+                        p.SolveArm(1, Vector3.Lerp(grip, starter, st.x), TorsoDir(p, -0.2f, -1f, -0.6f));
+                    }
+                    break;
+                }
                 case HeldItem.Medkit:
                     p.ShoulderR = Quaternion.Euler(0f, 0f, 7f) * basePose.ShoulderR;
                     p.ElbowR = basePose.ElbowR * Quaternion.Euler(-6f, 0f, 0f);

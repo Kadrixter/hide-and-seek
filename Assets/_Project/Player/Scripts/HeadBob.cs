@@ -35,6 +35,15 @@ namespace HideAndSeek.Player
         /// <summary>Current bob offset in pivot-parent space (useful for viewmodels).</summary>
         public Vector3 CurrentOffset { get; private set; }
 
+        /// <summary>Scripted camera effects (electrocution shake, lying on the floor...).</summary>
+        public Vector3 ExtraEuler { get; set; }
+        public Vector3 ExtraPosition { get; set; }
+        /// <summary>0..1 limp on the right leg: uneven bob, sinks and rolls on the injured step.</summary>
+        public float Limp { get; set; }
+        private float _limpW;
+        public float EyeOverride { get; set; }
+        public float EyeOverrideWeight { get; set; }
+
         private HeadBobProfile P
         {
             get
@@ -118,6 +127,21 @@ namespace HideAndSeek.Player
             float bobRoll = -lateral * gait.roll * w;
             float bobPitch = -vertical * gait.pitch * w;
 
+            // ---------------------------------------------------------- limp (injured right leg)
+            // Every second step the weight drops onto the bad leg: the head sinks, rolls toward it and nods.
+            _limpW = Mathf.MoveTowards(_limpW, Limp, dt * 2f);
+            if (_limpW > 0.001f)
+            {
+                float side = Mathf.Sin(phase * Mathf.PI);
+                float bad = Mathf.Max(0f, side);
+                bad *= bad;
+                float lw = _limpW * _bobWeight * intensity;
+                bobPos.y -= 0.05f * bad * lw;
+                bobPos.x += 0.02f * side * lw;
+                bobRoll += 3.2f * side * lw - 0.8f * _limpW * intensity;
+                bobPitch += 2.2f * bad * lw;
+            }
+
             // ---------------------------------------------------------- landing spring (fixed substeps)
             _springAccumulator += dt;
             float omega = 2f * Mathf.PI * p.landingFrequency;
@@ -156,9 +180,10 @@ namespace HideAndSeek.Player
             // ---------------------------------------------------------- apply
             Vector3 offset = bobPos + breathPos + new Vector3(0f, landY, 0f);
             CurrentOffset = offset;
-            transform.localPosition = new Vector3(0f, motor.EyeHeight, 0f) + offset;
+            float eye = Mathf.Lerp(motor.EyeHeight, EyeOverride, EyeOverrideWeight);
+            transform.localPosition = new Vector3(0f, eye, 0f) + offset + ExtraPosition;
             transform.localRotation = Quaternion.Euler(-motor.LookPitch + bobPitch + landPitch + breathPitch, 0f,
-                bobRoll + breathRoll + _strafeRoll);
+                bobRoll + breathRoll + _strafeRoll) * Quaternion.Euler(ExtraEuler);
 
             // ---------------------------------------------------------- FOV kick
             if (targetCamera != null)

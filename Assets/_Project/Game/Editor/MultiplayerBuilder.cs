@@ -19,7 +19,7 @@ namespace HideAndSeek.Game.Editor
     /// Builds everything the multiplayer game needs: network prefabs, Menu / Lobby / Game scenes,
     /// hint voice list, build settings, and the Windows player.
     /// </summary>
-    public static class MultiplayerBuilder
+    public static partial class MultiplayerBuilder
     {
         private const string Root = "Assets/_Project/Game";
         private const string PrefabDir = Root + "/Prefabs";
@@ -48,15 +48,20 @@ namespace HideAndSeek.Game.Editor
         [MenuItem("HideAndSeek/Multiplayer/Build Windows Player")]
         public static void BuildPlayerMenu()
         {
-            BuildAll();
+            BuildAllStable();
             BuildPlayer();
         }
+
+        /// <summary>Builds every scene (and the lobby art it needs).</summary>
+        private static void BuildAllStable() => BuildAll();
+
+        private static bool _artGenerated; // set when lobby textures / CCTV stills were (re)generated (log only)
 
         public static void BuildAllFromCommandLine() => RunBatch(BuildAll);
 
         public static void BuildPlayerFromCommandLine() => RunBatch(() =>
         {
-            BuildAll();
+            BuildAllStable();
             BuildPlayer();
         });
 
@@ -81,6 +86,7 @@ namespace HideAndSeek.Game.Editor
             Directory.CreateDirectory(LobbyArtDir);
             EnsureLayer(PlayerAvatarBinder.LocalBodyLayer, "LocalPlayerBody");
             EnsureLayer(9, "ViewModel");
+            EnsureLayer(10, "MenuFloor");
             ConfigurePlayerSettings();
             BuildHintVoices();
             var netPlayer = BuildNetPlayerPrefab();
@@ -109,6 +115,20 @@ namespace HideAndSeek.Game.Editor
             });
             if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 throw new Exception($"Player build failed: {report.summary.result}, {report.summary.totalErrors} errors");
+            // Steam (AppID 480 for testing) expects steam_appid.txt next to the exe when not launched from Steam.
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(BuildOutput))!, "steam_appid.txt"), "480");
+            // Lobby radio tools (yt-dlp, ffmpeg) from <project>/Tools next to the exe.
+            string tools = Path.GetFullPath("Tools");
+            if (Directory.Exists(tools))
+            {
+                string dst = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(BuildOutput))!, "Tools");
+                Directory.CreateDirectory(dst);
+                foreach (var f in Directory.GetFiles(tools, "*.exe"))
+                {
+                    string to = Path.Combine(dst, Path.GetFileName(f));
+                    if (!File.Exists(to) || new FileInfo(to).Length != new FileInfo(f).Length) File.Copy(f, to, true);
+                }
+            }
             Debug.Log($"[MultiplayerBuilder] Player built to {BuildOutput}");
         }
 
@@ -121,6 +141,8 @@ namespace HideAndSeek.Game.Editor
             PlayerSettings.bundleVersion = DateTime.Now.ToString("yyyy.MM.dd.HHmm");
             PlayerSettings.companyName = "Kadrixter";
             PlayerSettings.runInBackground = true;
+            PlayerSettings.SplashScreen.show = false;
+            PlayerSettings.SplashScreen.showUnityLogo = false;
             PlayerSettings.visibleInBackground = true;
             PlayerSettings.resizableWindow = true;
             PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
@@ -222,50 +244,21 @@ namespace HideAndSeek.Game.Editor
             so.FindProperty("matchManagerPrefab").objectReferenceValue = matchManager;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            // Backdrop: dark concrete corner, the player's character under a cold spotlight.
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.03f, 0.035f, 0.04f);
-            RenderSettings.skybox = null;
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Exponential;
-            RenderSettings.fogDensity = 0.08f;
-            RenderSettings.fogColor = Color.black;
-
-            var concrete = Mat("MenuConcrete", new Color(0.32f, 0.32f, 0.31f), Tex("menu_concrete", TexKind.Concrete), 0.15f, new Vector2(6, 6));
-            Box("Floor", null, new Vector3(0, -0.05f, 0), new Vector3(30, 0.1f, 30), concrete);
-            Box("Wall", null, new Vector3(0, 3, 4), new Vector3(30, 6, 0.3f), concrete);
-            Box("Pillar", null, new Vector3(-2.2f, 3, 2.2f), new Vector3(0.7f, 6, 0.7f), concrete);
-            Box("Pillar2", null, new Vector3(3.6f, 3, 1.4f), new Vector3(0.7f, 6, 0.7f), concrete);
-
             var preview = new GameObject("CharacterPreview");
             preview.transform.position = new Vector3(0.9f, 0f, 0.6f);
-            preview.transform.rotation = Quaternion.Euler(0, 200, 0);
-
-            var spot = new GameObject("Spot").AddComponent<Light>();
-            spot.type = LightType.Spot;
-            spot.transform.position = new Vector3(0.9f, 4.2f, -0.6f);
-            spot.transform.LookAt(new Vector3(0.9f, 0.6f, 0.6f));
-            spot.spotAngle = 48f;
-            spot.range = 10f;
-            spot.intensity = 3.2f;
-            spot.color = new Color(0.85f, 0.9f, 1f);
-            spot.shadows = LightShadows.Soft;
-
-            var rim = new GameObject("Rim").AddComponent<Light>();
-            rim.type = LightType.Point;
-            rim.transform.position = new Vector3(2.5f, 1.6f, 2.5f);
-            rim.color = new Color(1f, 0.35f, 0.25f);
-            rim.range = 5f;
-            rim.intensity = 1.2f;
+            preview.transform.rotation = Quaternion.Euler(0, 214, 0); // 3/4 towards the camera
+            BuildMenuBackdrop(preview.transform);
 
             var camGo = new GameObject("MenuCamera");
             camGo.tag = "MainCamera";
             var cam = camGo.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = Color.black;
-            cam.fieldOfView = 42f;
-            camGo.transform.position = new Vector3(-0.6f, 1.35f, -3.4f);
-            camGo.transform.LookAt(new Vector3(-0.25f, 0.95f, 0.6f));
+            cam.fieldOfView = 46f;
+            cam.allowHDR = true;
+            cam.allowMSAA = true;
+            camGo.transform.position = new Vector3(-0.7f, 1.4f, -3.9f);
+            camGo.transform.LookAt(new Vector3(-0.15f, 1.05f, 0.6f));
             camGo.AddComponent<AudioListener>();
 
             var menuGo = new GameObject("MainMenu");
@@ -281,6 +274,7 @@ namespace HideAndSeek.Game.Editor
 
         private static void BuildLobbyScene()
         {
+            CaptureCctv(out _); // renders the CCTV stills (once) in its own scene, before the lobby scene exists
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             _seatCounter = 0;
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -403,25 +397,15 @@ namespace HideAndSeek.Game.Editor
 
             // Neon sign on the west wall.
             Neon(root, new Vector3(-W / 2 + 0.06f, 2.65f, 1.6f), "HIDE & SEEK");
-            // Settings board on the north wall
-            var boardGo = Box("SettingsBoard", root, new Vector3(3.2f, 1.75f, D / 2 - 0.05f), new Vector3(2.6f, 1.7f, 0.06f), board);
-            Box("BoardFrame", root, new Vector3(3.2f, 1.75f, D / 2 - 0.02f), new Vector3(2.8f, 1.9f, 0.04f), trim);
-            var bt = new GameObject("BoardText").AddComponent<TextMesh>();
-            bt.transform.SetParent(boardGo.transform.parent, false);
-            bt.transform.position = new Vector3(3.2f, 1.75f, D / 2 - 0.09f);
-            bt.transform.rotation = Quaternion.identity;
-            bt.characterSize = 0.022f;
-            bt.fontSize = 60;
-            bt.anchor = TextAnchor.MiddleCenter;
-            bt.alignment = TextAlignment.Left;
-            bt.color = new Color(0.85f, 0.95f, 0.85f);
-            bt.text = "USTAWIENIA RUNDY";
-            bt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            AddWorldText(bt, new Vector2(2.3f, 1.45f));
+            // Settings board on the north wall: a big screen (LobbySettingsBoard draws the display at runtime).
+            var boardGo = Box("SettingsBoard", root, new Vector3(3.55f, 1.85f, D / 2 - 0.05f), new Vector3(3.6f, 2.16f, 0.06f), board);
+            Box("BoardFrame", root, new Vector3(3.55f, 1.85f, D / 2 - 0.02f), new Vector3(3.8f, 2.36f, 0.04f), trim);
             var sb = boardGo.AddComponent<LobbySettingsBoard>();
             var sbo = new SerializedObject(sb);
-            sbo.FindProperty("text").objectReferenceValue = bt;
+            sbo.FindProperty("screenSize").vector2Value = new Vector2(3.5f, 2.06f);
             sbo.ApplyModifiedPropertiesWithoutUndo();
+
+            BuildLobbyDecor(root, darkWood, metal, trim, fabric);
 
             // Spawn points
             var spawnRoot = new GameObject(GameLayers.SpawnPointsRoot).transform;
@@ -440,6 +424,8 @@ namespace HideAndSeek.Game.Editor
             lao.FindProperty("kind").enumValueIndex = (int)HideAndSeek.Audio.AudioEnvironmentKind.SmallRoom;
             lao.FindProperty("populateEmitters").boolValue = false;
             lao.ApplyModifiedPropertiesWithoutUndo();
+            BuildLobbyModels(root);
+            ZFightCheck.FixOpenScene(); // no flickering coplanar faces
             EditorSceneManager.SaveScene(scene, LobbyScenePath);
         }
 
@@ -472,6 +458,9 @@ namespace HideAndSeek.Game.Editor
             Box("ArmL", s, new Vector3(-1.15f, 0.5f, 0), new Vector3(0.2f, 0.6f, 0.9f), fabric);
             Box("ArmR", s, new Vector3(1.15f, 0.5f, 0), new Vector3(0.2f, 0.6f, 0.9f), fabric);
             Box("Base", s, new Vector3(0, 0.04f, 0), new Vector3(2.3f, 0.08f, 0.8f), wood);
+            SofaCushions(s, fabric,
+                Mat("LobbyPillowMustard", new Color(0.8f, 0.6f, 0.15f), Tex("lobby_fabric", TexKind.Fabric), 0.05f, new Vector2(1, 1)),
+                Mat("LobbyPillowTeal", new Color(0.12f, 0.45f, 0.45f), Tex("lobby_fabric", TexKind.Fabric), 0.05f, new Vector2(1, 1)));
             // Two seats: root on the floor in front of the cushion, facing away from the backrest.
             for (int i = 0; i < 2; i++)
             {
@@ -650,6 +639,55 @@ namespace HideAndSeek.Game.Editor
             q.GetComponent<MeshRenderer>().sharedMaterial = m;
             q.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             q.AddComponent<PlanarMirror>();
+
+            // Make-up mirror lighting: warm bulbs around the frame plus soft lights in front of the glass, so whoever
+            // stands in front of it (and therefore the reflection) is lit.
+            var bulbMat = Mat("MirrorBulb", new Color(1f, 0.93f, 0.8f), null, 0.9f, Vector2.one);
+            bulbMat.EnableKeyword("_EMISSION");
+            bulbMat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.6f) * 2.2f);
+            float hx = size.x / 2f + 0.13f, hy = size.y / 2f + 0.13f;
+            void Bulb(Vector3 lp)
+            {
+                var b = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                b.name = "MirrorBulb";
+                UnityEngine.Object.DestroyImmediate(b.GetComponent<Collider>());
+                b.transform.SetParent(p, false);
+                b.transform.position = center + lp + new Vector3(0, 0, 0.05f);
+                b.transform.localScale = Vector3.one * 0.075f;
+                var r = b.GetComponent<MeshRenderer>();
+                r.sharedMaterial = bulbMat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            for (int i = 0; i < 5; i++) Bulb(new Vector3(Mathf.Lerp(-hx + 0.15f, hx - 0.15f, i / 4f), hy, 0));
+            for (int i = 0; i < 6; i++)
+            {
+                float y = Mathf.Lerp(-hy + 0.3f, hy - 0.2f, i / 5f);
+                Bulb(new Vector3(-hx, y, 0));
+                Bulb(new Vector3(hx, y, 0));
+            }
+            void PointLight(string n, Vector3 lp, float range, float intensity)
+            {
+                var l = new GameObject(n).AddComponent<Light>();
+                l.transform.SetParent(p, false);
+                l.transform.position = center + lp;
+                l.type = LightType.Point;
+                l.color = new Color(1f, 0.86f, 0.68f);
+                l.range = range;
+                l.intensity = intensity;
+            }
+            PointLight("MirrorLightL", new Vector3(-hx, 0.2f, 0.35f), 3.6f, 1.3f);
+            PointLight("MirrorLightR", new Vector3(hx, 0.2f, 0.35f), 3.6f, 1.3f);
+            // Soft key light from above the mirror onto the area in front of it (where players stand).
+            var key = new GameObject("MirrorKeyLight").AddComponent<Light>();
+            key.transform.SetParent(p, false);
+            key.transform.position = center + new Vector3(0, hy + 0.15f, 0.25f);
+            key.transform.rotation = Quaternion.LookRotation(new Vector3(0, -0.55f, 1f));
+            key.type = LightType.Spot;
+            key.spotAngle = 85f;
+            key.range = 6f;
+            key.intensity = 1.6f;
+            key.color = new Color(1f, 0.92f, 0.82f);
+            key.shadows = LightShadows.Soft;
         }
 
         private static void BuildLever(Transform root, Vector3 wallPos, Material metal, Material trim)
@@ -758,6 +796,13 @@ namespace HideAndSeek.Game.Editor
             go.transform.localPosition = localPos;
             go.transform.localScale = scale;
             go.GetComponent<MeshRenderer>().sharedMaterial = m;
+            // The primitive's CapsuleCollider turns flat cylinders into balls (a pouf became a sphere you float on):
+            // use the real cylinder shape instead.
+            var cap = go.GetComponent<CapsuleCollider>();
+            if (cap != null) UnityEngine.Object.DestroyImmediate(cap);
+            var mc = go.AddComponent<MeshCollider>();
+            mc.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+            mc.convex = true;
             return go;
         }
 
@@ -779,7 +824,19 @@ namespace HideAndSeek.Game.Editor
             return m;
         }
 
-        private enum TexKind { Wood, Wallpaper, Carpet, Fabric, Concrete }
+        private enum TexKind { Wood, Wallpaper, Carpet, Fabric, Concrete, Tiles, Bricks, Crate }
+
+        private static float Hash01(int v)
+        {
+            unchecked
+            {
+                uint h = (uint)v * 2654435761u;
+                h ^= h >> 15;
+                h *= 2246822519u;
+                h ^= h >> 13;
+                return (h & 0xFFFF) / 65535f;
+            }
+        }
 
         private static Texture2D Tex(string name, TexKind kind)
         {
@@ -829,6 +886,44 @@ namespace HideAndSeek.Game.Editor
                         {
                             float weave = ((x + y) % 4 < 2 ? 1f : 0.9f) * (0.9f + (float)rnd.NextDouble() * 0.12f);
                             c = new Color(weave, weave, weave);
+                            break;
+                        }
+                        case TexKind.Tiles:
+                        {
+                            // 4x4 square stone tiles, dark grout, per-tile shade, pixel noise (blocky look).
+                            int tx = x / 64, ty = y / 64, lx = x % 64, ly = y % 64;
+                            float tile = 0.62f + 0.32f * Hash01(tx * 7 + ty * 13 + 3);
+                            float px8 = 0.88f + 0.2f * Hash01((x / 8) * 31 + (y / 8) * 57);
+                            bool grout = lx < 3 || ly < 3;
+                            float crack = Mathf.PerlinNoise(u * 14f + tx, v * 14f + ty) > 0.78f ? 0.75f : 1f;
+                            float s = grout ? 0.12f : tile * px8 * crack;
+                            c = new Color(0.38f * s, 0.4f * s, 0.45f * s);
+                            break;
+                        }
+                        case TexKind.Bricks:
+                        {
+                            int row = y / 32;
+                            int bx = (x + (row % 2) * 32) / 64;
+                            int lx = (x + (row % 2) * 32) % 64, ly = y % 32;
+                            bool mortar = lx < 3 || ly < 3;
+                            float b = 0.55f + 0.4f * Hash01(bx * 17 + row * 29 + 5);
+                            float px8 = 0.85f + 0.25f * Hash01((x / 8) * 13 + (y / 8) * 71);
+                            float s = mortar ? 0.1f : b * px8;
+                            c = new Color(0.3f * s, 0.27f * s, 0.27f * s);
+                            break;
+                        }
+                        case TexKind.Crate:
+                        {
+                            // Planks, a dark frame around the edge and an X brace (crate face).
+                            float plank = 0.8f + 0.25f * Hash01((y / 32) * 11 + 1);
+                            float grain = 0.85f + 0.2f * Mathf.PerlinNoise(u * 4f, v * 60f);
+                            bool frame = x < 24 || x > n - 25 || y < 24 || y > n - 25;
+                            float d1 = Mathf.Abs(x - y), d2 = Mathf.Abs(x - (n - 1 - y));
+                            bool brace = (d1 < 14 || d2 < 14) && !frame;
+                            bool seam = y % 32 < 2;
+                            float s = (frame || brace ? 0.62f : plank) * grain * (seam && !frame && !brace ? 0.5f : 1f);
+                            c = new Color(0.5f * s, 0.33f * s, 0.2f * s);
+                            if (frame || brace) c *= 0.85f;
                             break;
                         }
                         default:

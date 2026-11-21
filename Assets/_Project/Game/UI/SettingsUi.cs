@@ -8,21 +8,37 @@ namespace HideAndSeek.Game.UI
     /// <summary>Settings widgets shared by the main menu and the in-game Esc menu.</summary>
     public static class SettingsUi
     {
-        /// <summary>Button that cycles borderless / fullscreen / windowed.</summary>
-        public static Button DisplayModeButton(Transform parent)
+        /// <summary>Window mode picker: borderless / fullscreen / windowed.</summary>
+        public static RectTransform DisplayModeButton(Transform parent)
         {
-            Button b = null;
-            b = UiKit.Button("Display", parent, Label(), () =>
+            var rt = UiStyle.Choice("Display", parent, "Tryb okna", () => LocalProfile.DisplayModeName(LocalProfile.DisplayMode), step =>
             {
                 var modes = LocalProfile.DisplayModes;
                 int i = Array.IndexOf(modes, LocalProfile.DisplayMode);
-                LocalProfile.DisplayMode = modes[(i + 1 + modes.Length) % modes.Length];
-                b.GetComponentInChildren<Text>().text = Label();
-            }, 26);
-            b.Height(56);
-            return b;
+                LocalProfile.DisplayMode = modes[(i + step + modes.Length * 2) % modes.Length];
+            });
+            rt.Height(58);
+            return rt;
+        }
 
-            static string Label() => "Tryb okna: " + LocalProfile.DisplayModeName(LocalProfile.DisplayMode);
+        /// <summary>Crouch key mode switch (on = press to toggle, off = hold).</summary>
+        public static RectTransform CrouchModeButton(Transform parent, Action<bool> extra = null)
+        {
+            var rt = UiStyle.Switch("CrouchMode", parent, "Kucanie przełączane (Ctrl / C)", () => LocalProfile.CrouchToggle, v =>
+            {
+                LocalProfile.CrouchToggle = v;
+                extra?.Invoke(v);
+            });
+            rt.Height(58);
+            return rt;
+        }
+
+        /// <summary>Discord rich presence on / off.</summary>
+        public static RectTransform DiscordSwitch(Transform parent)
+        {
+            var rt = UiStyle.Switch("Discord", parent, "Status gry w Discordzie", () => LocalProfile.DiscordStatus, v => LocalProfile.DiscordStatus = v);
+            rt.Height(58);
+            return rt;
         }
 
         public static void SensitivitySlider(Transform parent, Action<float> extra = null)
@@ -46,33 +62,27 @@ namespace HideAndSeek.Game.UI
             Row(parent, "Muzyka i tło", 0f, 1f, LocalProfile.MusicVolume, v => LocalProfile.MusicVolume = v, Pct);
             Row(parent, "Interfejs", 0f, 1f, LocalProfile.UiVolume, v => LocalProfile.UiVolume = v, Pct);
 
-            Button occ = null;
-            occ = UiKit.Button("Occlusion", parent, OccLabel(), () =>
-            {
-                LocalProfile.Occlusion = !LocalProfile.Occlusion;
-                occ.GetComponentInChildren<Text>().text = OccLabel();
-            }, 24);
-            occ.Height(50);
-
-            static string OccLabel() => "Tłumienie dźwięku za ścianami: " + (LocalProfile.Occlusion ? "tak" : "nie");
+            UiStyle.Switch("Occlusion", parent, "Tłumienie dźwięku za ścianami", () => LocalProfile.Occlusion, v => LocalProfile.Occlusion = v).Height(54);
         }
 
         /// <summary>"Czat głosowy" page: on/off, push-to-talk or open mic, device, gain, activation level, volume.</summary>
         public static void BuildVoice(Transform parent)
         {
-            Toggle(parent, () => "Czat głosowy: " + (LocalProfile.VoiceEnabled ? "włączony" : "wyłączony"),
-                () => { LocalProfile.VoiceEnabled = !LocalProfile.VoiceEnabled; Voice.VoiceChat.Instance?.Restart(); });
-            Toggle(parent, () => "Tryb: " + (LocalProfile.VoiceOpenMic ? "otwarty mikrofon (aktywacja głosem)" : "naciśnij i mów (V)"),
-                () => LocalProfile.VoiceOpenMic = !LocalProfile.VoiceOpenMic);
-            Toggle(parent, () => "Mikrofon: " + MicName(),
-                () =>
-                {
-                    var devs = Microphone.devices;
-                    if (devs.Length == 0) return;
-                    int i = Array.IndexOf(devs, LocalProfile.MicDevice);
-                    LocalProfile.MicDevice = devs[(i + 1) % devs.Length];
-                    Voice.VoiceChat.Instance?.Restart();
-                });
+            UiStyle.Switch("VoiceOn", parent, "Czat głosowy", () => LocalProfile.VoiceEnabled, v =>
+            {
+                LocalProfile.VoiceEnabled = v;
+                Voice.VoiceChat.Instance?.Restart();
+            }).Height(52);
+            UiStyle.Choice("VoiceMode", parent, "Tryb", () => LocalProfile.VoiceOpenMic ? "aktywacja głosem" : "naciśnij i mów (V)",
+                _ => LocalProfile.VoiceOpenMic = !LocalProfile.VoiceOpenMic, 22).Height(52);
+            UiStyle.Choice("Mic", parent, "Mikrofon", MicName, step =>
+            {
+                var devs = Microphone.devices;
+                if (devs.Length == 0) return;
+                int i = Array.IndexOf(devs, LocalProfile.MicDevice);
+                LocalProfile.MicDevice = devs[(i + step + devs.Length * 2) % devs.Length];
+                Voice.VoiceChat.Instance?.Restart();
+            }, 22).Height(52);
             Row(parent, "Wzmocnienie mikrofonu", 0.5f, 4f, LocalProfile.MicGain, v => LocalProfile.MicGain = v, v => $"{v:0.0}x");
             Row(parent, "Próg aktywacji głosem", 0.05f, 0.8f, LocalProfile.MicThreshold, v => LocalProfile.MicThreshold = v, Pct);
             Row(parent, "Głośność innych graczy", 0f, 2f, LocalProfile.ChatVolume, v => LocalProfile.ChatVolume = v, Pct);
@@ -86,7 +96,8 @@ namespace HideAndSeek.Game.UI
                 var devs = Microphone.devices;
                 if (devs.Length == 0) return "brak";
                 string d = LocalProfile.MicDevice;
-                return Array.IndexOf(devs, d) >= 0 ? d : devs[0] + " (domyślny)";
+                string n = Array.IndexOf(devs, d) >= 0 ? d : devs[0];
+                return n.Length > 17 ? n.Substring(0, 16).TrimEnd() + "..." : n;
             }
         }
 
@@ -105,15 +116,7 @@ namespace HideAndSeek.Game.UI
 
         private static void Row(Transform parent, string label, float min, float max, float value, Action<float> set, Func<float, string> fmt)
         {
-            var t = UiKit.Label("L", parent, "", 22);
-            t.Height(26);
-            void UpdateLabel(float v) => t.text = $"{label}: {fmt(v)}";
-            UpdateLabel(value);
-            UiKit.Slider("S", parent, min, max, value, false, v =>
-            {
-                set(v);
-                UpdateLabel(v);
-            }).Height(30);
+            UiStyle.SliderRow(parent, label, min, max, value, set, fmt);
         }
     }
 }

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using HideAndSeek.Audio;
+using HideAndSeek.Characters;
 using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using HideAndSeek.Game.UI;
@@ -25,6 +26,8 @@ namespace HideAndSeek.Game
         private Text _timer, _phase, _players, _lobbyInfo, _ammo, _status, _spectate, _blindText, _downText;
         private Image _blind, _crosshair;
         private RawImage _vignette, _hurt;
+        private Image _dust;
+        private Text _dustText;
         private RectTransform _prompt;
         private Text _promptText;
         private Image _promptFill;
@@ -73,6 +76,14 @@ namespace HideAndSeek.Game
             _vignette.gameObject.SetActive(false);
 
             _hurt = VignetteImage("Hurt", root, new Color(0.7f, 0f, 0f, 0f));
+
+            // Dust in the seeker's eyes (hider's escape move): opaque tan cloud that fades out.
+            _dust = UiKit.Image("DustBlind", root, new Color(0.74f, 0.66f, 0.5f, 0f));
+            _dust.rectTransform.Stretch();
+            _dust.raycastTarget = false;
+            _dustText = UiKit.Label("DustText", _dust.transform, "", 34, TextAnchor.MiddleCenter, new Color(0.25f, 0.2f, 0.12f));
+            _dustText.rectTransform.Stretch();
+            _dust.gameObject.SetActive(false);
 
             _crosshair = UiKit.Image("Crosshair", root, new Color(1f, 1f, 1f, 0.55f));
             _crosshair.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(4, 4));
@@ -124,6 +135,8 @@ namespace HideAndSeek.Game
             _promptText.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(0, 0.5f), new Vector2(8, 0), new Vector2(420, 50));
             _promptText.AddOutline();
             _prompt.gameObject.SetActive(false);
+
+            ReviveBars.Create(root);
 
             // Banner
             _bannerRoot = UiKit.Rect("Banner", root);
@@ -179,6 +192,9 @@ namespace HideAndSeek.Game
         }
 
         // ================================================================ static API
+
+        /// <summary>Player currently watched in spectator mode (null when playing).</summary>
+        public static NetPlayer Spectated => _instance != null && _instance._spectator != null ? _instance._spectator.Target : null;
 
         public static void Toast(string text, float seconds)
         {
@@ -240,11 +256,19 @@ namespace HideAndSeek.Game
 
         // ================================================================ update
 
+        private Vector2Int _lastScreen;
+
         private void Update()
         {
+            var scr = new Vector2Int(Screen.width, Screen.height);
+            if (scr != _lastScreen)
+            {
+                _lastScreen = scr;
+                if (_canvas != null) UiKit.RefreshTexts(_canvas.transform);
+            }
             var nm = NetworkManager.Singleton;
             bool inSession = nm != null && nm.IsListening && NetPlayer.Local != null;
-            _canvas.enabled = inSession;
+            _canvas.enabled = inSession && !KillCam.Active;
             if (!inSession)
             {
                 if (_escMenu != null) CloseMenus();
@@ -255,13 +279,19 @@ namespace HideAndSeek.Game
             var me = NetPlayer.Local;
             var mm = MatchManager.Instance;
             var phase = mm != null ? mm.Phase.Value : MatchPhase.Lobby;
+            if (TestEsc && !_testEscDone)
+            {
+                _testEscDone = true;
+                StartCoroutine(TestEscPages());
+            }
             bool inGame = phase == MatchPhase.Hiding || phase == MatchPhase.Seeking || phase == MatchPhase.Ended;
 
             // ---- Esc menu
             var kb = Keyboard.current;
             if (kb != null && kb.escapeKey.wasPressedThisFrame)
             {
-                if (_settingsPanel != null || _escMenu != null) CloseMenus();
+                if (Boombox.PanelOpen) Boombox.ClosePanel();
+                else if (_settingsPanel != null || _escMenu != null) CloseMenus();
                 else ShowEscMenu();
             }
 
@@ -287,6 +317,10 @@ namespace HideAndSeek.Game
                     _timer.color = remaining < 120 ? new Color(1f, 0.4f, 0.3f) : UiKit.Text;
                     _phase.text = me.IsSeeker ? "Szukaj" : "Nie daj się złapać";
                     break;
+                case MatchPhase.Race:
+                    _timer.text = "";
+                    _phase.text = "";
+                    break;
                 case MatchPhase.Ended:
                     _timer.text = "";
                     _phase.text = $"Powrót do lobby za {Mathf.CeilToInt((float)remaining)} s";
@@ -301,11 +335,18 @@ namespace HideAndSeek.Game
             {
                 var sb = new StringBuilder();
                 sb.Append("<b>LOBBY</b>\n");
-                if (nm.IsServer)
+                if (nm.IsServer && NetSession.Instance != null && NetSession.Instance.UsingSteam)
                 {
-                    sb.Append("Twój serwer. Adresy do połączenia:\n");
+                    sb.Append("Twój serwer <color=#6dff7a>Steam</color>. Znajomi: Esc > <b>Zaproś znajomych</b>\n");
+                    sb.Append("albo dołączą przez listę znajomych Steam (Dołącz do gry).\n");
+                }
+                else if (nm.IsServer)
+                {
+                    sb.Append("Twój serwer LAN / UDP. Adresy do połączenia:\n");
                     foreach (var (ip, _) in LanDiscovery.LocalIPv4()) sb.Append("  ").Append(ip).Append('\n');
                 }
+                else if (NetSession.Instance != null && NetSession.Instance.UsingSteam)
+                    sb.Append("Połączono przez <color=#6dff7a>Steam</color>.\n");
                 int readyCount = 0, need = 0;
                 foreach (var o in NetPlayer.All)
                 {
@@ -342,11 +383,26 @@ namespace HideAndSeek.Game
                 bool weak = LocalPlayerController.Instance != null && LocalPlayerController.Instance.CrawlExhausted;
                 _downText.text = $"Wykrwawiasz się: {UiKit.FormatTime(left)}\n" + (weak
                     ? "Nie masz już sił się czołgać. Czekaj na pomoc."
-                    : "Czołgaj się do kryjówki. Inny chowający może cię uratować.");
+                    : "Czołgaj się do kryjówki. Inny chowający może cię uratować.")
+                    + (me.MedkitCount.Value > 0 ? "\n<color=#7dff8a>Masz apteczkę: przytrzymaj G, żeby się podnieść.</color>" : "");
+                _downText.supportRichText = true;
             }
 
             _hurtLevel = Mathf.MoveTowards(_hurtLevel, 0f, Time.deltaTime * 1.6f);
             _hurt.color = new Color(0.75f, 0f, 0f, _hurtLevel * 0.7f);
+
+            // ---- dust in the eyes
+            double dustLeft = me.IsSeeker && mm != null ? me.BlindUntil.Value - mm.Now : 0d;
+            bool dusted = dustLeft > 0d && me.Life.Value == LifeState.Alive;
+            _dust.gameObject.SetActive(dusted);
+            if (dusted)
+            {
+                float a = Mathf.Clamp01((float)dustLeft / 1.2f);
+                float flick = 0.04f * Mathf.Sin(Time.time * 17f);
+                _dust.color = new Color(0.74f + flick, 0.66f + flick, 0.5f, Mathf.Clamp01(a * 0.97f));
+                _dustText.text = dustLeft > 1.2d ? $"Kurz w oczach!\n<size=22>{dustLeft:0.0} s</size>" : "";
+                _dustText.supportRichText = true;
+            }
 
             // ---- ammo / status
             if (me.HasGlock.Value && me.Held.Value == HeldItem.Glock)
@@ -361,7 +417,24 @@ namespace HideAndSeek.Game
             if (inGame && me.IsHider)
             {
                 if (me.Wounded.Value) st.Append("<color=#f66>Ranny</color> - kolejne złapanie = śmierć\n");
-                if (me.MedkitCount.Value > 0) st.Append($"Apteczki: {me.MedkitCount.Value}" + (me.Wounded.Value ? "  (przytrzymaj G)\n" : "  (H na rannym, G na sobie)\n"));
+                else if ((me.Severed.Value & Limb.Legs) != 0) st.Append("<color=#f66>Odcięta noga</color> - skaczesz powoli, kolejny atak piłą = śmierć\n");
+                else if (me.Limping.Value) st.Append("<color=#ffb070>Zraniony</color> - utykasz, kolejny atak = wykrwawianie\n");
+                if (phase == MatchPhase.Seeking && me.Life.Value == LifeState.Alive && mm != null)
+                {
+                    double dl = me.DustReadyAt.Value - mm.Now;
+                    st.Append(dl > 0d ? $"Kurz w oczy (X): za {UiKit.FormatTime(dl)}\n" : "<color=#e8d6a0>X - rzuć kurz w oczy szukającemu</color>\n");
+                }
+                if (me.MedkitCount.Value > 0) st.Append($"Apteczki: {me.MedkitCount.Value}" + (me.Wounded.Value || me.Limping.Value ?"  (przytrzymaj G)\n" : "  (H na rannym, G na sobie)\n"));
+                if (me.SyringeCount.Value > 0) st.Append($"<color=#7fd7ff>Adrenalina: {me.SyringeCount.Value}</color>  (H przy martwym - wskrzesza)\n");
+                int rcSlot = mm != null ? mm.RcSlotOf(me) : -1;
+                if (rcSlot >= 0)
+                {
+                    var rcs = mm.RcSlot(rcSlot);
+                    string rcWhat = rcs.Mode == RcMode.Carried ? "6 - postaw i steruj"
+                        : rcs.Mode == RcMode.Parked ? "na podłodze: 6 - steruj, E przy nim - podnieś"
+                        : "sterujesz (6 - wróć do postaci)";
+                    st.Append($"<color=#ffd34d>Samochodzik RC</color>  ({rcWhat})\n");
+                }
             }
             if (phase == MatchPhase.Seeking && me.IsHider && me.Life.Value != LifeState.Dead && mm != null &&
                 mm.Settings.Value.HintMode != 0 && me.NextHintAt.Value > 0)
@@ -372,7 +445,14 @@ namespace HideAndSeek.Game
                 st.Append(left <= 5 ? $"<color=#ff7060>{what} {UiKit.FormatTime(left)}</color>\n" : $"{what} {UiKit.FormatTime(left)}\n");
             }
             if (inGame && me.IsSeeker && phase == MatchPhase.Seeking)
+            {
                 st.Append("Kółko myszy - skupienie latarki\n");
+                if (mm != null && me.Held.Value != HeldItem.Glock)
+                {
+                    double al = me.AttackReadyAt.Value - mm.Now;
+                    if (al > 0d) st.Append($"<color=#ffb070>Atak gotowy za {al:0.0} s</color>\n");
+                }
+            }
             _status.text = st.ToString();
 
             // ---- voice indicator
@@ -433,7 +513,7 @@ namespace HideAndSeek.Game
                 }
                 string state = p.Life.Value switch
                 {
-                    LifeState.Alive => p.Wounded.Value ? "<color=#ffb070>ranny</color>" : "<color=#77ccff>chowa się</color>",
+                    LifeState.Alive => p.Wounded.Value ? "<color=#ffb070>ranny</color>" : p.Limping.Value ? "<color=#ffd080>zraniony</color>" :"<color=#77ccff>chowa się</color>",
                     LifeState.Downed => "<color=#ff7a7a>złapany</color>",
                     _ => "<color=#888888>nie żyje</color>",
                 };
@@ -600,20 +680,40 @@ namespace HideAndSeek.Game
             var dim = UiKit.Image(name, _canvas.transform, new Color(0, 0, 0, 0.55f));
             dim.rectTransform.Stretch();
             dim.raycastTarget = true;
-            var panel = UiKit.Image("Panel", dim.transform, UiKit.Panel);
+            var panel = UiStyle.Panel("Panel", dim.transform, UiKit.Panel);
             panel.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size);
-            UiKit.VStack(panel.rectTransform, 14, 30);
+            UiKit.VStack(panel.rectTransform, 10, 30).padding.top = 34;
             return dim.rectTransform;
+        }
+
+        private static readonly bool TestEsc = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testesc") >= 0;
+        private bool _testEscDone;
+
+        /// <summary>Test switch -testesc: opens the Esc menu and its sub pages once in the lobby (for screenshots).</summary>
+        private IEnumerator TestEscPages()
+        {
+            yield return new WaitForSeconds(3f);
+            ShowEscMenu();
+            yield return new WaitForSeconds(2.2f);
+            ShowAudioMenu();
+            yield return new WaitForSeconds(2.2f);
+            ShowVoiceMenu();
+            yield return new WaitForSeconds(2.2f);
+            CloseMenus();
         }
 
         private void ShowEscMenu()
         {
-            _escMenu = MenuPanel("EscMenu", new Vector2(600, 710));
+            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 858 : 788));
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "MENU", 44, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(64);
             UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(66);
             SettingsUi.SensitivitySlider(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.MouseSensitivity = v; });
             SettingsUi.DisplayModeButton(panel);
+            SettingsUi.CrouchModeButton(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.CrouchToggleMode = v; });
+            SettingsUi.DiscordSwitch(panel);
+            if (SteamService.InLobby)
+                UiKit.Button("Invite", panel, "Zaproś znajomych (Steam)", ShowInviteMenu, 28, new Color(0.13f, 0.32f, 0.16f)).Height(60);
             UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
             UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 28).Height(60);
             string leave = NetworkManager.Singleton.IsServer ? "Zamknij serwer" : "Rozłącz";
@@ -623,6 +723,39 @@ namespace HideAndSeek.Game
                 NetSession.Instance.Leave();
             }, 30, new Color(0.35f, 0.1f, 0.1f)).Height(70);
             UiKit.Button("Quit", panel, "Wyjdź z gry", Application.Quit).Height(60);
+        }
+
+        /// <summary>Steam friends list with "Zaproś" buttons (+ the Steam overlay invite dialog).</summary>
+        private void ShowInviteMenu()
+        {
+            if (_escMenu != null) Destroy(_escMenu.gameObject);
+            _escMenu = MenuPanel("InviteMenu", new Vector2(720, 860));
+            var panel = _escMenu.Find("Panel");
+            UiKit.Label("Title", panel, "ZAPROŚ ZNAJOMYCH", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(54);
+            UiKit.Button("Overlay", panel, "Otwórz zaproszenia w nakładce Steam", () => SteamService.OpenInviteOverlay(), 24).Height(54);
+            var info = UiKit.Label("Info", panel, "Albo zaproś bezpośrednio:", 22, TextAnchor.MiddleLeft, UiKit.TextDim);
+            info.Height(30);
+            var friends = SteamService.Friends();
+            int shown = 0;
+            foreach (var f in friends)
+            {
+                if (!f.Online) continue;
+                if (++shown > 9) break;
+                var fr = f;
+                string tag = f.Playing ? "  (gra w Hide and Seek)" : "";
+                UiStyle.ActionRow("Friend", panel, f.Name + tag, "Zaproś", () =>
+                {
+                    bool ok = SteamService.Invite(fr.Id);
+                    Toast(ok ? $"Wysłano zaproszenie do {fr.Name}." : $"Nie udało się zaprosić {fr.Name}.", 3f);
+                }).Height(52);
+            }
+            if (shown == 0) UiKit.Label("None", panel, "Brak znajomych online.", 22, TextAnchor.MiddleLeft, UiKit.TextDim).Height(30);
+            UiKit.Button("Back", panel, "Wróć", () =>
+            {
+                Destroy(_escMenu.gameObject);
+                _escMenu = null;
+                ShowEscMenu();
+            }, 28).Height(60);
         }
 
         private void ShowAudioMenu()
@@ -664,7 +797,7 @@ namespace HideAndSeek.Game
             var mm = MatchManager.Instance;
             if (mm == null) return;
             bool host = NetworkManager.Singleton.IsServer;
-            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 960));
+            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 1060 + 58));
             var panel = _settingsPanel.Find("Panel");
             var s = mm.Settings.Value;
             UiKit.Label("Title", panel, "USTAWIENIA RUNDY", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(56);
@@ -672,8 +805,8 @@ namespace HideAndSeek.Game
 
             Text Row(string label)
             {
-                var t = UiKit.Label("L", panel, label, 26);
-                t.Height(32);
+                var t = UiKit.Label("L", panel, label, 25);
+                t.Height(28);
                 return t;
             }
 
@@ -682,9 +815,33 @@ namespace HideAndSeek.Game
                 if (host) mm.SetSettingsRpc(s);
             }
 
+            // Game mode (more will come; not ready ones are marked and the lever refuses to start them).
+            string ModeLabel(byte m)
+            {
+                var info = GameModes.Get(m);
+                return "Tryb gry:  < " + info.Name + (info.Ready ? "" : "  (wkrótce)") + " >";
+            }
+            Button gameModeB = null;
+            Text gameModeInfo = null;
+            gameModeB = UiKit.Button("GameMode", panel, ModeLabel(s.Mode), () =>
+            {
+                s.Mode = (byte)((s.Mode + 1) % GameModes.All.Length);
+                gameModeB.GetComponentInChildren<Text>().text = ModeLabel(s.Mode);
+                var info = GameModes.Get(s.Mode);
+                gameModeInfo.text = info.Ready ? info.Tagline : info.Tagline + " Jeszcze nie gotowy - nie da się go uruchomić.";
+                gameModeInfo.color = info.Ready ? UiKit.TextDim : UiKit.Danger;
+                Push();
+            }, 27, new Color(0.13f, 0.2f, 0.15f, 1f));
+            gameModeB.Height(54);
+            gameModeB.interactable = host;
+            var gmInfo = GameModes.Get(s.Mode);
+            gameModeInfo = UiKit.Label("ModeInfo", panel, gmInfo.Ready ? gmInfo.Tagline : gmInfo.Tagline + " Jeszcze nie gotowy - nie da się go uruchomić.",
+                20, TextAnchor.MiddleCenter, gmInfo.Ready ? UiKit.TextDim : UiKit.Danger);
+            gameModeInfo.Height(28);
+
             var hideL = Row("");
             var hide = UiKit.Slider("Hide", panel, 10, 180, s.HideTime, true, v => { s.HideTime = v; hideL.text = $"Czas na schowanie: {UiKit.FormatTime(v)}"; Push(); });
-            hide.Height(34);
+            hide.Height(30);
             hideL.text = $"Czas na schowanie: {UiKit.FormatTime(s.HideTime)}";
 
             var seekL = Row("");
@@ -695,7 +852,7 @@ namespace HideAndSeek.Game
                 seekL.text = $"Czas szukania: {v:0} min";
                 Push();
             });
-            seek.Height(34);
+            seek.Height(30);
             seekL.text = $"Czas szukania: {s.SeekTime / 60f:0} min";
 
             var hsL = Row("");
@@ -705,7 +862,7 @@ namespace HideAndSeek.Game
                 hsL.text = $"Podpowiedzi od: {UiKit.FormatTime(s.HintStart)} szukania";
                 Push();
             });
-            hs.Height(34);
+            hs.Height(30);
             hsL.text = $"Podpowiedzi od: {UiKit.FormatTime(s.HintStart)} szukania";
 
             var hiL = Row("");
@@ -715,7 +872,7 @@ namespace HideAndSeek.Game
                 hiL.text = $"Podpowiedź co: {UiKit.FormatTime(v)}";
                 Push();
             });
-            hi.Height(34);
+            hi.Height(30);
             hiL.text = $"Podpowiedź co: {UiKit.FormatTime(s.HintInterval)}";
 
             string ModeName(byte m) => m == 3 ? "dźwięk + minimapa" : m == 1 ? "tylko dźwięk" : m == 2 ? "tylko minimapa" : "wyłączone";
@@ -726,7 +883,7 @@ namespace HideAndSeek.Game
                 modeB.GetComponentInChildren<Text>().text = "Tryb podpowiedzi: " + ModeName(s.HintMode);
                 Push();
             }, 26);
-            modeB.Height(56);
+            modeB.Height(50);
 
             Button glockB = null;
             glockB = UiKit.Button("Glock", panel, "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie"), () =>
@@ -735,7 +892,7 @@ namespace HideAndSeek.Game
                 glockB.GetComponentInChildren<Text>().text = "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie");
                 Push();
             }, 26);
-            glockB.Height(56);
+            glockB.Height(50);
 
             var bleedL = Row("");
             var bleed = UiKit.Slider("BleedOut", panel, 20, 180, s.BleedOut > 1f ? s.BleedOut : Tuning.BleedOutTime, true, v =>
@@ -744,19 +901,30 @@ namespace HideAndSeek.Game
                 bleedL.text = $"Wykrwawianie po złapaniu: {v:0} s";
                 Push();
             });
-            bleed.Height(34);
+            bleed.Height(30);
             bleedL.text = $"Wykrwawianie po złapaniu: {(s.BleedOut > 1f ? s.BleedOut : Tuning.BleedOutTime):0} s";
 
             var medL = Row("");
             var med = UiKit.Slider("Medkits", panel, 0, 8, s.Medkits, true, v => { s.Medkits = (byte)v; medL.text = $"Apteczki na mapie: {v:0}"; Push(); });
-            med.Height(34);
+            med.Height(30);
             medL.text = $"Apteczki na mapie: {s.Medkits}";
 
-            foreach (var sl in new[] { hide, seek, hs, hi, med, bleed }) sl.interactable = host;
+            var lapL = Row("");
+            var lap = UiKit.Slider("Laps", panel, 1, 10, s.Laps == 0 ? 3 : s.Laps, true, v => { s.Laps = (byte)v; lapL.text = $"Wyścigi RC - okrążenia: {v:0}"; Push(); });
+            lap.Height(30);
+            lapL.text = $"Wyścigi RC - okrążenia: {(s.Laps == 0 ? 3 : s.Laps)}";
+            lap.interactable = host;
+
+            var syrL = Row("");
+            var syr = UiKit.Slider("Syringes", panel, 0, 6, s.Syringes, true, v => { s.Syringes = (byte)v; syrL.text = $"Strzykawki z adrenaliną: {v:0}"; Push(); });
+            syr.Height(30);
+            syrL.text = $"Strzykawki z adrenaliną: {s.Syringes}";
+
+            foreach (var sl in new[] { hide, seek, hs, hi, med, bleed, syr }) sl.interactable = host;
             modeB.interactable = host;
             glockB.interactable = host;
 
-            UiKit.Button("Close", panel, "Zamknij", CloseMenus).Height(64);
+            UiKit.Button("Close", panel, "Zamknij", CloseMenus).Height(58);
         }
     }
 }
