@@ -83,7 +83,7 @@ namespace HideAndSeek.Game
                     else b.Encapsulate(cb);
                 }
                 // Visible body: the renderer's world AABB (valid also when statically batched) brought into local space.
-                // Cars stand at ~0/90/180/270 degrees (+-3.5), so swapping the horizontal extents is accurate enough.
+                // Fallback only (cars without Blinker anchors): swap the horizontal extents for cars turned ~90 degrees.
                 Bounds vis = b;
                 var rend = t.GetComponent<Renderer>();
                 if (rend != null)
@@ -205,6 +205,19 @@ namespace HideAndSeek.Game
 
         public Vector3 CarPosition(int index) => index >= 0 && index < _cars.Count ? _cars[index].WorldCenter : Vector3.zero;
 
+        /// <summary>Scene object of the car (tests: names, poses).</summary>
+        public Transform CarTransform(int index) => index >= 0 && index < _cars.Count ? _cars[index].T : null;
+
+        /// <summary>Server test helper: sets off the alarm of one car.</summary>
+        public void ServerForce(MatchManager mm, int index, double now, float duration = 12f)
+        {
+            if (index < 0 || index >= _cars.Count) return;
+            _cars[index].AlarmUntil = now + duration;
+            _cars[index].CooldownUntil = now + duration + Cooldown;
+            mm.CarAlarmRpc(index, duration, ulong.MaxValue);
+        }
+
+
         // ================================================================ all clients
 
         public void PlayAlarm(int index, float duration)
@@ -233,7 +246,25 @@ namespace HideAndSeek.Game
             var b = car.Visual;
             float y = b.min.y + Mathf.Clamp(b.size.y * 0.45f, 0.55f, 0.95f);
             var lamps = new List<Renderer>();
-            foreach (float sx in new[] { -1f, 1f })
+            // Preferred: the map marks every indicator lamp with a "Blinker" child lying on the body (+z = outward
+            // normal, scale = lamp size), so the hazard lights sit exactly on the lamps of every car model.
+            foreach (Transform anchor in car.T)
+            {
+                if (anchor.name != "Blinker") continue;
+                var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(g.GetComponent<Collider>());
+                g.name = "Blinker";
+                g.transform.SetParent(root.transform, false);
+                g.transform.localRotation = anchor.localRotation;
+                g.transform.localPosition = anchor.localPosition + anchor.localRotation * new Vector3(0f, 0f, 0.0035f);
+                g.transform.localScale = new Vector3(anchor.localScale.x, anchor.localScale.y, 0.006f);
+                var r = g.GetComponent<Renderer>();
+                r.sharedMaterial = _lampOff;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                lamps.Add(r);
+            }
+            foreach (float sx in lamps.Count > 0 ? new float[0] : new[] { -1f, 1f })
+
             foreach (float sz in new[] { -1f, 1f })
             {
                 var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
