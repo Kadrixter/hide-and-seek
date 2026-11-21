@@ -94,7 +94,7 @@ namespace HideAndSeek.Characters
             Text(br.Name, front, 124, sxName, sxName * 2 + 2, br.Ink, 1f, br.Accent * 0.35f + Color.black * 0.65f);
             Text(br.Sub, front, 90, 2, 3, br.Ink, 0.7f);
             Rect(front - 48, 84, front + 48, 86, br.Ink, 0.5f);
-            Text(br.Flavour, front, 64, 1, 2, br.Accent, 0.4f);
+            Text(br.Flavour, front, 64, 1, 2, br.Ink, 0.4f, Color.Lerp(br.Bg2, Color.black, 0.45f));
             Text("330 ML", front, 24, 2, 2, br.Ink, 0.6f);
             // Small round seal "NOWOSC" / "ORYGINAL" next to the logo.
             int sealX = front - 72, sealY = 44;
@@ -178,6 +178,7 @@ namespace HideAndSeek.Characters
                 {
                     for (int i = 0; i < 6; i++)
                     {
+                        if (i == 4) continue; // keep the front (logo and flavour) clear
                         Vector2 ctr = new Vector2((i * 0.17f + 0.08f) * LW, (i % 2 == 0 ? 0.24f : 0.8f) * LH);
                         Vector2 d = new Vector2(x, y) - ctr;
                         float r = d.magnitude;
@@ -222,14 +223,16 @@ namespace HideAndSeek.Characters
                 {
                     if (Mathf.Abs(v - 0.2f) < 0.02f || Mathf.Abs(v - 0.82f) < 0.02f) c = br.Accent;
                     float wx = Mathf.Repeat(x, 48f) - 24f, wy = y - 40f;
+                    if (Mathf.Abs(fu) < 0.16f || Mathf.Abs(fu + 0.5f) < 0.14f) break; // not under the front texts / back panel
                     if (Mathf.Abs(wy) < 18f && Mathf.Abs(wx - wy * 0.1f) < 1.2f) c = br.Accent;
                     if (Mathf.Abs(wy) < 16f && Mathf.Repeat(wy, 6f) < 3f && Mathf.Abs(Mathf.Abs(wx) - 3f) < 1.5f) c = br.Accent;
                     break;
                 }
                 case 7: // grape: racing checker band
                 {
-                    if (v > 0.12f && v < 0.26f) c = ((x / 12 + y / 12) % 2 == 0) ? br.Accent : br.Bg2 * 0.6f;
-                    if (Mathf.Abs(v - 0.88f) < 0.015f) c = br.Ink;
+                    if (v > 0.855f && v < 0.935f) c = ((x / 10 + y / 10) % 2 == 0) ? br.Accent : br.Bg2 * 0.6f;
+                    if (Mathf.Abs(v - 0.84f) < 0.01f || Mathf.Abs(v - 0.95f) < 0.01f) c = br.Ink;
+                    if (Mathf.Abs(v - 0.06f) < 0.012f) c = br.Ink;
                     break;
                 }
             }
