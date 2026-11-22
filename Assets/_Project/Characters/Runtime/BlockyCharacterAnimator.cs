@@ -23,6 +23,20 @@ namespace HideAndSeek.Characters
         [Range(0f, 1f)] public float limp;
         float limpW;
 
+        /// <summary>
+        /// 0..1 drunk (lobby vending machine): sways in place and catches the balance with small side steps, staggers
+        /// with uneven steps, torso leaning, arms a little out. Set by the action layer.
+        /// </summary>
+        [Range(0f, 1f)] public float drunk;
+        /// <summary>Clock of the shared sway signal (<see cref="Drunkenness.Sample"/>); NaN = own clock.</summary>
+        [System.NonSerialized] public float drunkClock = float.NaN;
+        [System.NonSerialized] public float drunkSeed;
+        float drunkW, nextCatchTime;
+        int gaitCycle;
+        // Balance-catch steps while standing: current, start and target offset (x, z) of each foot and step progress.
+        readonly Vector2[] catchOff = new Vector2[2], catchFrom = new Vector2[2], catchTo = new Vector2[2];
+        readonly float[] catchT = { 1f, 1f };
+
         /// <summary>Index of the severed leg (0 = right, 1 = left) or -1: hops slowly on the other leg.</summary>
         public int hopLeg = -1;
         float hopW, hopPhase;
@@ -220,6 +234,13 @@ namespace HideAndSeek.Characters
             limpW = Damp(limpW, limp, 3f, dt);
             float limpMove = limpW * moveW;
 
+            // Drunk: eases in slowly (the drink kicking in), the sway comes from the shared noise signal.
+            drunkW = Damp(drunkW, Mathf.Clamp01(drunk), drunk > drunkW ? 0.6f : 1.4f, dt);
+            float dw = drunkW < 0.001f ? 0f : drunkW;
+            float drunkMove = dw * moveW;
+            float drunkSeedNow = float.IsNaN(drunkClock) ? 0.5f : drunkSeed;
+            Drunkenness.Sway ds = dw > 0f ? Drunkenness.Sample(float.IsNaN(drunkClock) ? time : drunkClock, drunkSeedNow, dw) : default;
+
             // One-legged hopping: slow springy hops on the remaining leg, arms out for balance.
             hopW = Damp(hopW, hopLeg >= 0 ? 1f : 0f, 6f, dt);
             int standLeg = hopLeg == 0 ? 1 : 0;
@@ -243,7 +264,9 @@ namespace HideAndSeek.Characters
             {
                 // Limp: hurry off the injured (right) leg -> short stance on it.
                 float ssNow = -Mathf.Cos(TwoPi * (phase - duty * 0.5f));
-                phase += speed * dt / strideLength * (1f + 0.75f * limpMove * Mathf.Max(0f, ssNow) - 0.25f * limpMove * Mathf.Max(0f, -ssNow)) + turnStepW * dt * 1.7f;
+                phase += speed * dt / strideLength * (1f + 0.75f * limpMove * Mathf.Max(0f, ssNow) - 0.25f * limpMove * Mathf.Max(0f, -ssNow))
+                         * (1f + 0.22f * drunkMove * ds.Rhythm) + turnStepW * dt * 1.7f;
+                if (phase >= 1f) gaitCycle++;
                 phase -= Mathf.Floor(phase);
             }
 
@@ -274,6 +297,7 @@ namespace HideAndSeek.Characters
 
             weightShift = Damp(weightShift, weightTarget * idleW, 1.6f, dt);
             UpdateLookAround(dt);
+            UpdateBalanceCatch(dw * idleW, ds.Lean, dt);
 
             // ---------------------------------------------------------------- pelvis
             // Nearly straight legs when standing (a visible knee bend shows a seam at the limb split).
@@ -292,6 +316,8 @@ namespace HideAndSeek.Characters
             // Limp: the body drops when the weight goes onto the injured right leg; slightly hunched always.
             hip -= limpW * (0.012f + 0.05f * limpMove * Mathf.Max(0f, stanceSide));
             hip += hopHipOffset - 0.02f * hopW;
+            // Drunk: soft knees that give a little now and then.
+            hip -= dw * 0.007f * (1.2f + ds.Sag);
             float pelvisX = (0.011f * sway + 0.024f * weightShift - 0.035f * limpW) * idleW
                             + 0.014f * stanceSide * moveW * (1f - 0.5f * runW) * (1f - sideFactor);
             // Swing-side hip drops (negative roll lowers +X when the left leg is in stance).
@@ -300,12 +326,15 @@ namespace HideAndSeek.Characters
                                - 5f * limpMove * Mathf.Max(0f, stanceSide);
             float pelvisTwist = Mathf.Lerp(5f, 9f, runW) * moveW * dirZ * (1f - crouchW * 0.5f);
             pelvisX = Mathf.Lerp(pelvisX, standSide * 2f * Px, hopW);
+            // Drunk: the hips drift with the lean (the body topples a little and recovers).
+            pelvisX += dw * (0.045f * ds.Lean + 0.01f * ds.Wobble) + 0.02f * drunkMove * stanceSide * (1f - sideFactor);
+            pelvisRoll += dw * (4f * ds.Lean + 2f * moveW * stanceSide);
             pelvisRoll += hopW * (hopLeg == 0 ? -6f : 6f);
             float pelvisYaw = pelvisTwist * swing * (1f - hopW);
             float pelvisPitch = 4f * crouchW;
 
             // Crouch: hips sit back behind the feet so the shins stay more upright (soles closer to flat).
-            float pelvisZ = -0.13f * crouchW * (1f - airW);
+            float pelvisZ = -0.13f * crouchW * (1f - airW) + dw * 0.022f * ds.Pitch * (1f - airW);
             Vector3 pelvisPos = new Vector3(pelvisX, hip, pelvisZ);
             Quaternion pelvisRot = Quaternion.Euler(pelvisPitch, pelvisYaw, pelvisRoll);
             character.Pelvis.localPosition = pelvisPos;
@@ -346,9 +375,29 @@ namespace HideAndSeek.Characters
                 }
                 if (leg == 0) along *= 1f - 0.3f * limpMove;
 
-                float width = 0.012f + 0.045f * crouchW + 0.01f * idleW;
+                if (drunkMove > 0.001f)
+                {
+                    // Drunk gait: every step lands at its own spot, mostly wider, now and then across (a step aside).
+                    int stepNo = gaitCycle + Mathf.FloorToInt(phase + (leg == 0 ? 0.5f : 0f) - duty);
+                    float placed = StepJitter(stepNo, leg);
+                    if (q >= duty)
+                    {
+                        float st = (q - duty) / (1f - duty);
+                        placed = Mathf.Lerp(StepJitter(stepNo - 1, leg), placed, 0.5f - 0.5f * Mathf.Cos(Mathf.PI * st));
+                    }
+                    lateral += side * placed * drunkMove;
+                }
+
+                float width = 0.012f + 0.045f * crouchW + 0.01f * idleW + 0.03f * dw;
                 float idleStagger = (leg == 0 ? 0.02f : -0.015f) * idleW;
                 Vector3 footRoot = new Vector3(side * (2f * Px + width) + lateral + dirX * along, lift, idleStagger + dirZ * along);
+                if (catchOff[leg] != Vector2.zero || catchT[leg] < 1f)
+                {
+                    // Drunk, standing: balance-catch step (lift and set down at the new spot).
+                    float ct = catchT[leg];
+                    float catchLift = ct < 1f ? 0.045f * Mathf.Sin(Mathf.PI * ct) : 0f;
+                    footRoot += new Vector3(catchOff[leg].x, catchLift, catchOff[leg].y) * idleW;
+                }
                 if (hopW > 0.01f && leg == standLeg)
                     footRoot = Vector3.Lerp(footRoot, new Vector3(side * (2f * Px + 0.012f) + dirX * hopAlong, hopFootLift, dirZ * hopAlong), hopW);
                 Vector3 hipPos = leg == 0 ? BlockyCharacter.HipRightRest : BlockyCharacter.HipLeftRest;
@@ -372,13 +421,15 @@ namespace HideAndSeek.Characters
                          - landOffset * 140f
                          + airW * (6f * falling - 4f * rising)
                          + limpW * (7f + 5f * limpMove * Mathf.Max(0f, stanceSide))
-                         + hopW * (9f + 5f * hopMove);
+                         + hopW * (9f + 5f * hopMove)
+                         + dw * (4f + 6f * ds.Pitch);
             float sideLean = -(2.5f + 6f * runW) * moveW * dirX;
             float bank = Mathf.Clamp(-yawRate * 0.035f * moveW * (0.4f + runW), -12f, 12f);
-            float torsoYaw = -Mathf.Lerp(5f, 11f, runW) * moveW * swing * dirZ + lookYaw * 0.18f * idleW;
+            float torsoYaw = -Mathf.Lerp(5f, 11f, runW) * moveW * swing * dirZ + lookYaw * 0.18f * idleW + dw * 7f * ds.Yaw;
             // Positive roll leans left; lean slightly over the stance leg.
             float torsoRoll = sideLean + bank - 0.6f * pelvisRoll - 1.2f * stanceSide * moveW * (1f - runW)
-                              - 7f * limpMove * Mathf.Max(0f, stanceSide);
+                              - 7f * limpMove * Mathf.Max(0f, stanceSide)
+                              - dw * (8f * ds.Lean + 2f * ds.Wobble) - 3f * drunkMove * stanceSide;
             float nod = (0.8f + 1.5f * runW) * moveW * bobWave;
             float breathPitch = -0.5f * breath * breathAmp * idleW;
 
@@ -393,9 +444,10 @@ namespace HideAndSeek.Characters
             float pitchTarget = Mathf.Clamp(pitch, -maxHeadPitch, maxHeadPitch);
             headPitch = Damp(headPitch, pitchTarget, 16f, dt);
             float headNod = -nod * 0.6f;
-            Quaternion headRoot = Quaternion.Euler(-headPitch - lookPitch * idleW + headNod,
-                lookYaw * idleW,
-                -lookYaw * idleW * 0.08f - bank * 0.3f);
+            // Drunk: the head hangs a little and lolls into the lean (same roll as the owner's camera).
+            Quaternion headRoot = Quaternion.Euler(-headPitch - lookPitch * idleW + headNod + dw * (4f + 3f * ds.Sag),
+                lookYaw * idleW + dw * 6f * ds.Yaw,
+                -lookYaw * idleW * 0.08f - bank * 0.3f - dw * (6f * ds.Lean + 3f * ds.Wobble));
             // Head mostly stabilised in root space (eyes level while leaning), with a bit of the torso motion.
             Quaternion headStabilised = Quaternion.Inverse(torsoRoot) * headRoot;
             Quaternion headFollow = headRoot;
@@ -403,7 +455,7 @@ namespace HideAndSeek.Characters
             character.Head.localPosition = BlockyCharacter.NeckRest + new Vector3(0f, 0.003f * b * idleW, 0f);
 
             // ---------------------------------------------------------------- arms
-            float armAmp = Mathf.Lerp(26f, 52f, runW) * Mathf.Lerp(1f, 0.55f, crouchW) * moveW * Mathf.Lerp(1f, 0.45f, sideFactor);
+            float armAmp = Mathf.Lerp(26f, 52f, runW) * Mathf.Lerp(1f, 0.55f, crouchW) * moveW * Mathf.Lerp(1f, 0.45f, sideFactor) * (1f + 0.25f * dw);
             float armBasePitch = -8f * runW * moveW - 16f * crouchW;
             float outward = 3f + 7f * runW * moveW + 6f * crouchW + 1.2f * breath * breathAmp * idleW + hopW * (16f + 8f * hopMove);
             float inwardYaw = 14f * runW * moveW;
@@ -429,6 +481,14 @@ namespace HideAndSeek.Characters
                 // Landing: arms dip forward briefly.
                 armPitch += landOffset * 160f;
 
+                // Drunk: arms a little out and forward for balance, the arm away from the lean lifts more; loose elbows.
+                if (dw > 0f)
+                {
+                    armOut += dw * (10f + 6f * Mathf.Abs(ds.Lean) + 12f * Mathf.Max(0f, -side * ds.Lean));
+                    armPitch += dw * (-7f + 5f * (arm == 0 ? ds.Wobble : ds.Rhythm));
+                    elbow -= dw * (12f + 6f * Mathf.Abs(ds.Wobble));
+                }
+
                 Quaternion upper = Quaternion.Euler(armPitch, -side * inwardYaw, side * armOut);
                 Transform shoulder = arm == 0 ? character.ShoulderRight : character.ShoulderLeft;
                 Transform elbowT = arm == 0 ? character.ElbowRight : character.ElbowLeft;
@@ -450,6 +510,57 @@ namespace HideAndSeek.Characters
 
         BlockyCharacterActions actions;
         float nextActionsSearch;
+
+        /// <summary>Drunk step placement for one step of one leg: outward offset in metres (negative = a little across).</summary>
+        float StepJitter(int stepNo, int leg)
+        {
+            float seed = float.IsNaN(drunkClock) ? 0.5f : drunkSeed;
+            float h = Drunkenness.Hash(stepNo * 2 + leg, seed);
+            return h > 0f ? 0.06f * h : 0.028f * h;
+        }
+
+        /// <summary>
+        /// Drunk while standing: when the sway leans far, the foot on that side steps out to catch the balance
+        /// (lift and set down); the offsets fade back when sober or walking.
+        /// </summary>
+        void UpdateBalanceCatch(float w, float lean, float dt)
+        {
+            if (w > 0.05f && time >= nextCatchTime && Mathf.Abs(lean) * w > 0.2f && catchT[0] >= 1f && catchT[1] >= 1f)
+            {
+                int leg = lean > 0f ? 0 : 1;
+                float side = leg == 0 ? 1f : -1f;
+                catchFrom[leg] = catchOff[leg];
+                catchTo[leg] = new Vector2(side * Mathf.Lerp(0.015f, 0.08f, Mathf.Abs(lean)) * Mathf.Clamp01(w * 1.6f), Rand(-0.05f, 0.06f) * w);
+                catchT[leg] = 0f;
+                nextCatchTime = time + Rand(1.1f, 2.4f);
+            }
+            else if (w > 0.05f && time >= nextCatchTime && catchT[0] >= 1f && catchT[1] >= 1f)
+            {
+                // Upright again: the foot that is furthest out comes back under the body.
+                int leg = catchOff[0].sqrMagnitude > catchOff[1].sqrMagnitude ? 0 : 1;
+                if (catchOff[leg].sqrMagnitude > 0.03f * 0.03f)
+                {
+                    catchFrom[leg] = catchOff[leg];
+                    catchTo[leg] = catchOff[leg] * 0.3f;
+                    catchT[leg] = 0f;
+                    nextCatchTime = time + Rand(0.8f, 1.6f);
+                }
+            }
+
+            for (int leg = 0; leg < 2; leg++)
+            {
+                if (catchT[leg] < 1f)
+                {
+                    catchT[leg] = Mathf.Min(1f, catchT[leg] + dt / 0.36f);
+                    catchOff[leg] = Vector2.Lerp(catchFrom[leg], catchTo[leg], Smooth01(catchT[leg]));
+                }
+                else if (w <= 0.05f)
+                {
+                    catchOff[leg] = Vector2.Lerp(catchOff[leg], Vector2.zero, 1f - Mathf.Exp(-3f * dt));
+                    if (catchOff[leg].sqrMagnitude < 1e-8f) catchOff[leg] = Vector2.zero;
+                }
+            }
+        }
 
         void UpdateLookAround(float dt)
         {
