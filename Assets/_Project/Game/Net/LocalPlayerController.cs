@@ -270,8 +270,9 @@ namespace HideAndSeek.Game.Net
             _wasArcade = arcade;
             bool rc = _p.RcAnimating;
             bool gasp = _p.Gasping;
-            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp;
-            _p.Motor.LookEnabled = !locked && !arcade && !rc;
+            bool collapsed = _p.OverdoseActive; // lying after too many cans: the body drives the view (NetPlayer.Drunk)
+            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed;
+            _p.Motor.LookEnabled = !locked && !arcade && !rc && !collapsed;
             var cc = _p.GetComponent<CharacterController>();
             bool ccOn = !dead && _p.Seat.Value < 0;
             if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;

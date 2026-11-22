@@ -56,6 +56,8 @@ namespace HideAndSeek.Player
         /// <summary>Clock and seed of the shared sway signal (the same ones drive the body other players see).</summary>
         public float DrunkClock { get; set; }
         public float DrunkSeed { get; set; }
+        /// <summary>0..1 how much of the drunk sway reaches the view (the screen effect keeps the full amount).</summary>
+        public float DrunkSwayScale { get; set; } = 1f;
         /// <summary>Smoothed drunk amount actually shown (for screen effects).</summary>
         public float DrunkWeight => _drunkW;
         private float _drunkW;
@@ -186,7 +188,7 @@ namespace HideAndSeek.Player
             // Slow soft sway (lean, roll, drift), a wider and uneven walk and a view that trails the mouse.
             // Everything rides on low-frequency Perlin noise, so it floats rather than shakes.
             _drunkW = Mathf.Lerp(_drunkW, Mathf.Clamp01(Drunk), 1f - Mathf.Exp(-(Drunk > _drunkW ? 0.6f : 1.4f) * dt));
-            float dk = _drunkW * Mathf.Clamp01(intensity);
+            float dk = _drunkW * Mathf.Clamp01(intensity) * Mathf.Clamp01(DrunkSwayScale);
             Vector3 drunkPos = Vector3.zero;
             float drunkPitch = 0f, drunkYaw = 0f, drunkRoll = 0f, drunkFov = 0f;
             float yawNow = motor.LookYaw, pitchNow = motor.LookPitch;

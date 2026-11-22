@@ -16,6 +16,8 @@ namespace HideAndSeek.Game
         /// <summary>Clock and seed of the shared sway signal, so the ghost image drifts with the swaying view.</summary>
         public float Clock { get; set; }
         public float Seed { get; set; }
+        /// <summary>0..1 fading consciousness (collapse): darker, blurrier edges on top of the drunk look.</summary>
+        public float Faint { get; set; }
 
         static readonly int GhostId = Shader.PropertyToID("_Ghost");
         static readonly int GhostMixId = Shader.PropertyToID("_GhostMix");
@@ -44,7 +46,8 @@ namespace HideAndSeek.Game
         void OnRenderImage(RenderTexture src, RenderTexture dst)
         {
             float a = Mathf.Clamp01(Amount);
-            if (_mat == null || a < 0.002f)
+            float faint = Mathf.Clamp01(Faint);
+            if (_mat == null || (a < 0.002f && faint < 0.002f))
             {
                 Graphics.Blit(src, dst);
                 return;
@@ -58,8 +61,8 @@ namespace HideAndSeek.Game
             float aspect = _cam != null && _cam.pixelHeight > 0 ? (float)_cam.pixelWidth / _cam.pixelHeight : 16f / 9f;
             _mat.SetVector(GhostId, new Vector4(Mathf.Cos(ang) * dist, Mathf.Sin(ang) * dist * aspect, 0f, 0f));
             _mat.SetFloat(GhostMixId, 0.4f * Mathf.Clamp01(a * 1.5f));
-            _mat.SetFloat(BlurId, 0.0028f * a);
-            _mat.SetFloat(VignetteId, 0.3f * a);
+            _mat.SetFloat(BlurId, 0.0028f * a + 0.0022f * faint);
+            _mat.SetFloat(VignetteId, 0.3f * a + 0.42f * faint);
             _mat.SetFloat(AspectId, aspect);
             Graphics.Blit(src, dst, _mat);
         }

@@ -367,7 +367,7 @@ namespace HideAndSeek.Game.Net
             if (IsOwner)
             {
                 bool healing = HoldAnimVar.Value == (byte)HoldAnim.SelfHeal && Life.Value == LifeState.Downed;
-                bool vm = (Life.Value == LifeState.Alive && prone < 0.4f || healing) && !KillCam.Active && !_shockHideVm
+                bool vm = (Life.Value == LifeState.Alive && prone < 0.4f || healing) && !KillCam.Active && !_shockHideVm && !_odHideVm
                           && !_rcCamOn && !(RcAnimating && !_rcHandsOn) && !SeatBodyShown;
                 if (vm != _vmVisible) { _vmVisible = vm; ViewModel?.SetVisible(vm); }
             }

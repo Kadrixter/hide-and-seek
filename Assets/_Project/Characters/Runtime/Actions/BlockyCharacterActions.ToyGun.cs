@@ -37,7 +37,7 @@ namespace HideAndSeek.Characters
         {
             bool can = toyOn && standing && VisualLifeState == LifeState.Alive && action == ActionKind.None && !pathActive &&
                        shownItem == HeldItem.None && sitW < 0.01f && proneW < 0.3f && rcW < 0.01f && injectW < 0.01f &&
-                       medW < 0.01f && !vendingOn && shockT < 0f && gunT < 0f && flashT < 0f && carryW < 0.01f;
+                       medW < 0.01f && !vendingOn && shockT < 0f && gunT < 0f && overdoseT < 0f && flashT < 0f && carryW < 0.01f;
             toyW = Mathf.MoveTowards(toyW, can ? 1f : 0f, dt / 0.2f);
             toyKick = Mathf.MoveTowards(toyKick, 0f, dt * 3.2f);
             gooW = Mathf.MoveTowards(gooW, gooTarget, dt / 0.3f);
