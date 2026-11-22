@@ -303,6 +303,8 @@ namespace HideAndSeek.Game.Net
             pl.DownedUntil.Value = 0;
             pl.NextHintAt.Value = 0;
             pl.Ready.Value = false;
+            // Sober at the start of every round (and back in the lobby), so drinks never affect the game.
+            pl.ServerSoberUp();
         }
 
         private void OnSceneLoaded(string sceneName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)

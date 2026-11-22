@@ -32,6 +32,8 @@ namespace HideAndSeek.Game
             s.Rotation = can.transform.rotation;
             s.Expires = mm.Now + 45;
             player.Busy.Value = false;
+            // The can is empty: one more in the blood (two or more in a short time make the player drunk).
+            player.ServerAddDrink();
             mm.VendingCans[i] = s;
         }
 

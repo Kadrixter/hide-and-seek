@@ -1,3 +1,4 @@
+using HideAndSeek.Core;
 using UnityEngine;
 
 namespace HideAndSeek.Player
@@ -47,6 +48,19 @@ namespace HideAndSeek.Player
         /// <summary>0..1 limp on the right leg: uneven bob, sinks and rolls on the injured step.</summary>
         public float Limp { get; set; }
         private float _limpW;
+        /// <summary>
+        /// 0..1 drunk (vending machine): the view sways and rolls on <see cref="Drunkenness.Sample"/>, staggers more while
+        /// walking and trails the mouse a little. Eases in over a few seconds like the drink kicking in.
+        /// </summary>
+        public float Drunk { get; set; }
+        /// <summary>Clock and seed of the shared sway signal (the same ones drive the body other players see).</summary>
+        public float DrunkClock { get; set; }
+        public float DrunkSeed { get; set; }
+        /// <summary>Smoothed drunk amount actually shown (for screen effects).</summary>
+        public float DrunkWeight => _drunkW;
+        private float _drunkW;
+        private float _lagYaw, _lagPitch, _lagYawVel, _lagPitchVel;
+        private bool _lagInit;
         public float EyeOverride { get; set; }
         public float EyeOverrideWeight { get; set; }
 
@@ -148,6 +162,47 @@ namespace HideAndSeek.Player
                 bobPitch += 2.2f * bad * lw;
             }
 
+            // ---------------------------------------------------------- drunk
+            // Slow soft sway (lean, roll, drift), a wider and uneven walk and a view that trails the mouse.
+            // Everything rides on low-frequency Perlin noise, so it floats rather than shakes.
+            _drunkW = Mathf.Lerp(_drunkW, Mathf.Clamp01(Drunk), 1f - Mathf.Exp(-(Drunk > _drunkW ? 0.6f : 1.4f) * dt));
+            float dk = _drunkW * Mathf.Clamp01(intensity);
+            Vector3 drunkPos = Vector3.zero;
+            float drunkPitch = 0f, drunkYaw = 0f, drunkRoll = 0f, drunkFov = 0f;
+            float yawNow = motor.LookYaw, pitchNow = motor.LookPitch;
+            if (!_lagInit || dk <= 0.0005f)
+            {
+                _lagInit = true;
+                _lagYaw = yawNow; _lagPitch = pitchNow; _lagYawVel = 0f; _lagPitchVel = 0f;
+            }
+            else
+            {
+                float lagTime = 0.04f + 0.16f * dk;
+                _lagYaw = Mathf.SmoothDampAngle(_lagYaw, yawNow, ref _lagYawVel, lagTime, Mathf.Infinity, dt);
+                _lagPitch = Mathf.SmoothDamp(_lagPitch, pitchNow, ref _lagPitchVel, lagTime, Mathf.Infinity, dt);
+                // Never far behind (a teleport or a flick must not leave the view pointing elsewhere).
+                _lagYaw = yawNow + Mathf.Clamp(Mathf.DeltaAngle(yawNow, _lagYaw), -12f, 12f);
+                _lagPitch = pitchNow + Mathf.Clamp(_lagPitch - pitchNow, -8f, 8f);
+                float lagK = Mathf.Clamp01(dk * 3f);
+                drunkYaw += Mathf.DeltaAngle(yawNow, _lagYaw) * lagK;
+                drunkPitch -= (_lagPitch - pitchNow) * lagK;
+
+                var s = Drunkenness.Sample(DrunkClock, DrunkSeed, dk);
+                float walk = _bobWeight * _speedScale;
+                // Leaning body: the eye drifts sideways with the lean and rolls into it, knees soften.
+                drunkPos = new Vector3(0.06f * s.Lean + 0.012f * s.Wobble, -0.012f - 0.01f * s.Sag, 0.025f * s.Pitch) * dk;
+                drunkRoll = -(5.2f * s.Lean + 1.1f * s.Wobble) * dk;
+                drunkPitch += (2f * s.Pitch + 0.7f * s.Sag) * dk;
+                drunkYaw += (2.6f * s.Yaw + 0.6f * s.Wobble) * dk;
+                // Walking: the figure-8 widens and every step lands a little differently.
+                float stepSide = Mathf.Sin(phase * Mathf.PI);
+                bobPos.x *= 1f + 1.2f * dk;
+                bobRoll *= 1f + 1.4f * dk;
+                drunkRoll -= 2.2f * stepSide * (0.7f + 0.3f * s.Rhythm) * walk * dk;
+                drunkPos.x += 0.025f * stepSide * walk * dk;
+                drunkFov = (1.1f + 1.2f * s.Sag) * dk;
+            }
+
             // ---------------------------------------------------------- landing spring (fixed substeps)
             _springAccumulator += dt;
             float omega = 2f * Mathf.PI * p.landingFrequency;
@@ -184,18 +239,18 @@ namespace HideAndSeek.Player
             _strafeRoll = Mathf.Lerp(_strafeRoll, strafeTarget, 1f - Mathf.Exp(-p.strafeTiltSharpness * dt));
 
             // ---------------------------------------------------------- apply
-            Vector3 offset = bobPos + breathPos + new Vector3(0f, landY, 0f);
+            Vector3 offset = bobPos + breathPos + drunkPos + new Vector3(0f, landY, 0f);
             CurrentOffset = offset;
             float eye = Mathf.Lerp(motor.EyeHeight, EyeOverride, EyeOverrideWeight);
             transform.localPosition = new Vector3(0f, eye, 0f) + offset + ExtraPosition;
-            transform.localRotation = Quaternion.Euler(0f, YawOffset, 0f) * Quaternion.Euler(-motor.LookPitch + bobPitch + landPitch + breathPitch, 0f,
-                bobRoll + breathRoll + _strafeRoll) * Quaternion.Euler(ExtraEuler + KickEuler);
+            transform.localRotation = Quaternion.Euler(0f, YawOffset + drunkYaw, 0f) * Quaternion.Euler(-motor.LookPitch + bobPitch + landPitch + breathPitch + drunkPitch, 0f,
+                bobRoll + breathRoll + _strafeRoll + drunkRoll) * Quaternion.Euler(ExtraEuler + KickEuler);
 
             // ---------------------------------------------------------- FOV kick
             if (targetCamera != null)
             {
                 float runFovT = motor.IsRunning ? Mathf.InverseLerp(motor.WalkSpeed, motor.RunSpeed, speed) : 0f;
-                float targetFov = Mathf.Lerp(p.baseFov, p.runFov, runFovT) * FovScale;
+                float targetFov = (Mathf.Lerp(p.baseFov, p.runFov, runFovT) + drunkFov) * FovScale;
                 _fov = Mathf.Lerp(_fov, targetFov, 1f - Mathf.Exp(-p.fovSharpness * dt));
                 targetCamera.fieldOfView = _fov;
             }
