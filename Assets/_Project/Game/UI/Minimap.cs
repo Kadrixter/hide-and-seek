@@ -103,7 +103,7 @@ namespace HideAndSeek.Game
             Line(_root, "BL", new Vector2(0, 0), new Vector2(0, 1), new Vector2(1, 0.5f), new Vector2(2, 0), edge);
             Line(_root, "BR", new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 0.5f), new Vector2(2, 0), edge);
 
-            // Header: level name; compass N; scale bar; zoom hint.
+            // Header: level name; compass N; scale bar.
             _floorLabel = UiKit.Label("Floor", _root, "", 20, TextAnchor.UpperLeft, new Color(0.85f, 0.95f, 0.88f));
             _floorLabel.rectTransform.Place(new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(10, -7), new Vector2(200, 26));
             _floorLabel.AddOutline();
@@ -117,9 +117,7 @@ namespace HideAndSeek.Game
             bar.raycastTarget = false;
             _scaleBar = bar.rectTransform;
             _scaleBar.Place(new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-10, 14), new Vector2(60, 3));
-            var zoomHint = UiKit.Label("ZoomHint", _root, "M - skala", 14, TextAnchor.LowerLeft, new Color(0.6f, 0.65f, 0.62f));
-            zoomHint.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0), new Vector2(10, 6), new Vector2(120, 20));
-            zoomHint.AddOutline();
+            // "M - skala" is shown with the other key hints at the start of the round (KeyHints).
 
             // Level tabs on the right edge: 0, -1, -2 with the number of teammates on each level.
             for (int i = 0; i < 3; i++)

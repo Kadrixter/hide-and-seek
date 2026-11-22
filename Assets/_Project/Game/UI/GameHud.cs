@@ -15,7 +15,7 @@ using UnityEngine.UI;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// In-session HUD (persistent): timer, player list, minimap, interaction prompts, blind / downed overlays,
+    /// In-session HUD (persistent): timer, player list (PlayerListHud), key hints (KeyHints), minimap, interaction prompts, blind / downed overlays,
     /// banners, toasts, Esc menu, lobby round-settings panel and spectator camera.
     /// </summary>
     public class GameHud : MonoBehaviour
@@ -23,7 +23,7 @@ namespace HideAndSeek.Game
         private static GameHud _instance;
 
         private Canvas _canvas;
-        private Text _timer, _phase, _players, _lobbyInfo, _ammo, _status, _spectate, _blindText, _downText;
+        private Text _timer, _phase, _lobbyInfo, _ammo, _status, _spectate, _blindText, _downText;
         private Image _blind, _crosshair;
         private RawImage _vignette, _hurt;
         private Image _dust;
@@ -95,13 +95,11 @@ namespace HideAndSeek.Game
             _phase.rectTransform.Place(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -82), new Vector2(900, 36));
             _phase.AddOutline();
 
-            var listBg = UiKit.Image("PlayerListBg", root, new Color(0f, 0f, 0f, 0.45f));
-            listBg.rectTransform.Place(new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -20), new Vector2(430, 420));
-            _players = UiKit.Label("Players", listBg.transform, "", 24, TextAnchor.UpperLeft);
-            _players.rectTransform.Stretch(14);
-            _players.supportRichText = true;
+            PlayerListHud.Create(root);
+            KeyHints.Create(root);
+            DustBadge.Create(root);
 
-            _lobbyInfo = UiKit.Label("LobbyInfo", root, "", 24, TextAnchor.UpperLeft);
+            _lobbyInfo = UiKit.Label("LobbyInfo", root, "", 22, TextAnchor.UpperLeft);
             _lobbyInfo.rectTransform.Place(new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -20), new Vector2(760, 300));
             _lobbyInfo.supportRichText = true;
             _lobbyInfo.AddOutline();
@@ -315,7 +313,7 @@ namespace HideAndSeek.Game
                 case MatchPhase.Seeking:
                     _timer.text = UiKit.FormatTime(remaining);
                     _timer.color = remaining < 120 ? new Color(1f, 0.4f, 0.3f) : UiKit.Text;
-                    _phase.text = me.IsSeeker ? "Szukaj" : "Nie daj się złapać";
+                    _phase.text = ""; // role is in the player list; "Szukaj" / "Nie daj się złapać" removed
                     break;
                 case MatchPhase.Race:
                     _timer.text = "";
@@ -327,10 +325,7 @@ namespace HideAndSeek.Game
                     break;
             }
 
-            // ---- player list
-            _players.text = BuildPlayerList(phase);
-
-            // ---- lobby info
+            // ---- lobby info (player list: PlayerListHud; key hints: KeyHints)
             if (phase == MatchPhase.Lobby)
             {
                 var sb = new StringBuilder();
@@ -354,13 +349,15 @@ namespace HideAndSeek.Game
                     need++;
                     if (o.Ready.Value) readyCount++;
                 }
+                // Ready count per player is in the list (top right); here only what to do next.
                 if (nm.IsServer)
-                    sb.Append($"\nGotowi: <b>{readyCount}/{need}</b> (gotowy = wziął latarkę z pudełka). Gdy wszyscy będą gotowi, pociągnij <color=#ff6a5a>dźwignię</color> (E).\n");
+                    sb.Append(need > 0 && readyCount >= need
+                        ? "\n<color=#6dff7a>Wszyscy gotowi</color> - pociągnij <color=#ff6a5a>dźwignię</color>."
+                        : "\nGracze biorą latarki z pudełka (= gotowi). Potem pociągnij <color=#ff6a5a>dźwignię</color>.");
                 else
                     sb.Append(me.Ready.Value
-                        ? "\n<color=#6dff7a>Masz latarkę - jesteś gotowy.</color> E przy pudełku - odłóż. Czekaj, aż właściciel pokoju wystartuje.\n"
-                        : "\nWeź <b>latarkę</b> z pudełka przy lustrze (E) - wtedy jesteś gotowy.\n");
-                sb.Append("E na kanapie / pufie - usiądź. Tablica na ścianie - ustawienia rundy.\nEsc - menu");
+                        ? "\n<color=#6dff7a>Masz latarkę - jesteś gotowy.</color> Czekaj na start."
+                        : "\nWeź <b>latarkę</b> z pudełka przy lustrze - wtedy jesteś gotowy.");
                 _lobbyInfo.text = sb.ToString();
             }
             else _lobbyInfo.text = "";
@@ -411,7 +408,7 @@ namespace HideAndSeek.Game
                 _ammo.text = $"{me.Ammo.Value} / {me.SpareMags.Value * Tuning.MagSize}" + (me.Ammo.Value == 0 ? "   R - przeładuj" : "");
                 _ammo.color = me.Ammo.Value == 0 ? UiKit.Danger : UiKit.Text;
             }
-            else _ammo.text = me.HasGlock.Value ? "Q - glock" : "";
+            else _ammo.text = ""; // "Q - glock" removed: the glock is in the hotbar
 
             var st = new StringBuilder();
             if (inGame && me.IsHider)
@@ -420,21 +417,15 @@ namespace HideAndSeek.Game
                 else if ((me.Severed.Value & Limb.Legs) != 0) st.Append(me.FreeStump == 0 ? "<color=#ffb070>Noga z pręta</color> - kolejny atak piłą = śmierć\n"
                     : "<color=#f66>Odcięta noga</color> - skaczesz powoli, kolejny atak piłą = śmierć\n" + (me.RodCount.Value > 0 ? "<color=#cfd8e0>Masz pręt: 4, potem LPM - zrób z niego nogę</color>\n" : ""));
                 else if (me.Limping.Value) st.Append("<color=#ffb070>Zraniony</color> - utykasz, kolejny atak = wykrwawianie\n");
-                if (phase == MatchPhase.Seeking && me.Life.Value == LifeState.Alive && mm != null)
-                {
-                    double dl = me.DustReadyAt.Value - mm.Now;
-                    st.Append(dl > 0d ? $"Kurz w oczy (X): za {UiKit.FormatTime(dl)}\n" : "<color=#e8d6a0>X - rzuć kurz w oczy szukającemu</color>\n");
-                }
-                if (me.MedkitCount.Value > 0) st.Append($"Apteczki: {me.MedkitCount.Value}" + (me.Wounded.Value || me.Limping.Value ?"  (przytrzymaj G)\n" : "  (H na rannym, G na sobie)\n"));
-                if (me.SyringeCount.Value > 0) st.Append($"<color=#7fd7ff>Adrenalina: {me.SyringeCount.Value}</color>  (H przy martwym - wskrzesza)\n");
+                // Dust cooldown: DustBadge. Medkit / syringe / RC counts: hotbar. Only situational lines stay here.
+                if (me.MedkitCount.Value > 0 && (me.Wounded.Value || me.Limping.Value) && me.Life.Value == LifeState.Alive)
+                    st.Append("<color=#7dff8a>Apteczka: przytrzymaj G - opatrz się</color>\n");
                 int rcSlot = mm != null ? mm.RcSlotOf(me) : -1;
                 if (rcSlot >= 0)
                 {
                     var rcs = mm.RcSlot(rcSlot);
-                    string rcWhat = rcs.Mode == RcMode.Carried ? "6 - postaw i steruj"
-                        : rcs.Mode == RcMode.Parked ? "na podłodze: 6 - steruj, E przy nim - podnieś"
-                        : "sterujesz (6 - wróć do postaci)";
-                    st.Append($"<color=#ffd34d>Samochodzik RC</color>  ({rcWhat})\n");
+                    if (rcs.Mode == RcMode.Parked) st.Append("<color=#ffd34d>Samochodzik RC</color> na podłodze: 6 - steruj, E przy nim - podnieś\n");
+                    else if (rcs.Mode != RcMode.Carried) st.Append("<color=#ffd34d>Sterujesz samochodzikiem</color> (6 - wróć do postaci)\n");
                 }
             }
             if (phase == MatchPhase.Seeking && me.IsHider && me.Life.Value != LifeState.Dead && mm != null &&
@@ -443,12 +434,12 @@ namespace HideAndSeek.Game
                 double left = me.NextHintAt.Value - mm.Now;
                 bool soundHint = (mm.Settings.Value.HintMode & 1) != 0;
                 string what = soundHint ? "Wydasz dźwięk za" : "Pokażesz się na mapie za";
-                st.Append(left <= 5 ? $"<color=#ff7060>{what} {UiKit.FormatTime(left)}</color>\n" : $"{what} {UiKit.FormatTime(left)}\n");
+                // smaller than the other lines; red in the last 5 s
+                st.Append(left <= 5 ? $"<size=22><color=#ff7060>{what} {UiKit.FormatTime(left)}</color></size>\n" : $"<size=21><color=#c9ced4>{what} {UiKit.FormatTime(left)}</color></size>\n");
             }
             if (inGame && me.IsSeeker && phase == MatchPhase.Seeking)
             {
-                st.Append("T - latarka, kółko myszy - skupienie światła\n");
-                if (me.Held.Value == HeldItem.Glock) st.Append("PPM - celowanie (mniejszy rozrzut)\n");
+                // "T - latarka, kółko myszy..." and "PPM - celowanie" moved to KeyHints (first 15 s).
                 if (mm != null && me.Held.Value != HeldItem.Glock)
                 {
                     double al = me.AttackReadyAt.Value - mm.Now;
@@ -462,11 +453,11 @@ namespace HideAndSeek.Game
             if (_voice == null)
             {
                 _voice = UiKit.Label("VoiceInd", _canvas.transform, "", 24, TextAnchor.LowerLeft, new Color(0.5f, 1f, 0.55f));
-                _voice.rectTransform.Place(Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(24, 330), new Vector2(500, 34));
+                // right of the minimap (above it it covered the minimap header)
+                _voice.rectTransform.Place(Vector2.zero, Vector2.zero, Vector2.zero, new Vector2(358, 22), new Vector2(500, 34));
                 _voice.AddOutline();
             }
-            _voice.text = vc != null && vc.Transmitting ? MeterText(vc.MicLevel)
-                : (vc != null && LocalProfile.VoiceEnabled && !LocalProfile.VoiceOpenMic && phase == MatchPhase.Lobby ? "<color=#9a9a9a>V - mów</color>" : "");
+            _voice.text = vc != null && vc.Transmitting ? MeterText(vc.MicLevel) : ""; // "V - mów": KeyHints
             _voice.supportRichText = true;
 
             // ---- prompt
@@ -486,42 +477,6 @@ namespace HideAndSeek.Game
 
             // ---- minimap
             _minimap.SetVisible(inGame && SceneManager.GetActiveScene().name == NetSession.GameScene && !blind);
-        }
-
-        private string BuildPlayerList(MatchPhase phase)
-        {
-            var sb = new StringBuilder();
-            sb.Append("<b>GRACZE</b>  (").Append(NetPlayer.All.Count).Append(")\n\n");
-            var list = new List<NetPlayer>(NetPlayer.All);
-            list.Sort((a, b) => a.Role.Value == b.Role.Value ? string.CompareOrdinal(a.Nick, b.Nick) : b.Role.Value.CompareTo(a.Role.Value));
-            foreach (var p in list)
-            {
-                if (p == null) continue;
-                string nick = p.Nick + (p.IsOwner ? " (ty)" : "");
-                if (phase == MatchPhase.Lobby || phase == MatchPhase.Loading || p.Role.Value == PlayerRole.None)
-                {
-                    if (p.OwnerClientId == NetworkManager.ServerClientId)
-                        sb.Append("<color=#ffd75e>WŁAŚCICIEL</color>  ").Append(nick).Append('\n');
-                    else if (phase == MatchPhase.Lobby)
-                        sb.Append(p.Ready.Value ? "<color=#6dff7a>GOTOWY</color>  " : "<color=#9a9a9a>czeka</color>  ").Append(nick).Append('\n');
-                    else
-                        sb.Append("  ").Append(nick).Append('\n');
-                    continue;
-                }
-                if (p.IsSeeker)
-                {
-                    sb.Append("<color=#ff5544>SZUKA</color>  ").Append(nick).Append('\n');
-                    continue;
-                }
-                string state = p.Life.Value switch
-                {
-                    LifeState.Alive => p.Wounded.Value ? "<color=#ffb070>ranny</color>" : p.Limping.Value ? "<color=#ffd080>zraniony</color>" :"<color=#77ccff>chowa się</color>",
-                    LifeState.Downed => "<color=#ff7a7a>złapany</color>",
-                    _ => "<color=#888888>nie żyje</color>",
-                };
-                sb.Append(state).Append("  ").Append(nick).Append('\n');
-            }
-            return sb.ToString();
         }
 
         // ================================================================ name tags
@@ -657,7 +612,7 @@ namespace HideAndSeek.Game
                 _spectator = null;
             }
             _spectate.text = _spectator != null && _spectator.Target != null
-                ? $"Oglądasz: {_spectator.Target.Nick}    (LPM / PPM - zmiana)"
+                ? $"Oglądasz: {_spectator.Target.Nick}" // "LPM / PPM - zmiana": KeyHints
                 : "";
         }
 
@@ -706,12 +661,13 @@ namespace HideAndSeek.Game
 
         private void ShowEscMenu()
         {
-            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 928 : 858));
+            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 996 : 926));
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "MENU", 44, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(64);
             UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(66);
             SettingsUi.SensitivitySlider(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.MouseSensitivity = v; });
             SettingsUi.DisplayModeButton(panel);
+            SettingsUi.ResolutionButton(panel);
             SettingsUi.CrouchModeButton(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.CrouchToggleMode = v; });
             SettingsUi.DiscordSwitch(panel);
             if (SteamService.InLobby)
