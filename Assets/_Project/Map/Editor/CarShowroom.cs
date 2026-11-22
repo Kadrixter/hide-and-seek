@@ -11,7 +11,7 @@ using Object = UnityEngine.Object;
 namespace HideAndSeek.Map.Editor
 {
     /// <summary>
-    /// Test hook: renders every hero car in an empty, well lit studio and writes one contact sheet per car
+    /// Test hook: renders every hero car (and the ordinary parked car models) in an empty, well lit studio and writes one contact sheet per car
     /// (3/4 front and rear, side, front, rear, top, close-ups, interior and a dark garage view with a flashlight).
     /// Batch mode (without -nographics): -executeMethod HideAndSeek.Map.Editor.CarShowroom.CaptureFromCommandLine
     /// -carshots &lt;folder&gt; [-cars Name1,Name2]
@@ -78,14 +78,24 @@ namespace HideAndSeek.Map.Editor
             flash.transform.SetParent(camGo.transform, false);
             flash.transform.localPosition = new Vector3(0.25f, -0.25f, 0f);
 
-            foreach (var car in HeroCars.All())
+            var models = new List<(string name, System.Func<PropMesh> mesh, string paint, SportCar car)>();
+            foreach (var car in HeroCars.All().Concat<SportCar>(ParkedCars.All()))
             {
-                if (only != null && !only.Contains(car.Name)) continue;
-                var pm = props.Get("Hero_" + car.Name, (mb, p) => car.Build(mb, p));
-                var go = new GameObject(car.Name);
+                var c = car;
+                models.Add((c.Name, () => c is ParkedCar parked ? props.Parked(parked) : props.Get("Hero_" + c.Name, (mb, p) => c.Build(mb, p)), c.DefaultPaint, c));
+            }
+            models.Add(("Motorbike", () => props.Motorbike("CarPaint_Red"), "CarPaint_Red", null));
+            models.Add(("Bicycle", () => props.Bicycle("CarPaint_Teal"), "CarPaint_Teal", null));
+            foreach (var (modelName, meshOf, paintName, car) in models)
+            {
+                // -cars takes names or prefixes ("Parked" = every ordinary parked car, "Suv" = all its variants, "Bikes")
+                if (only != null && !only.Any(o => modelName.StartsWith(o) || (o == "Parked" && car is ParkedCar) || (o == "Bikes" && car == null))) continue;
+                if (only == null && car == null) continue;
+                var pm = meshOf();
+                var go = new GameObject(modelName);
                 go.AddComponent<MeshFilter>().sharedMesh = pm.Mesh;
                 var mats = (Material[])pm.Materials.Clone();
-                mats[0] = lib[car.DefaultPaint];
+                if (car != null) mats[0] = lib[paintName];
                 go.AddComponent<MeshRenderer>().sharedMaterials = mats;
                 // blinker anchors shown as small orange cubes on the dark tile
                 var anchors = new List<GameObject>();
@@ -134,16 +144,16 @@ namespace HideAndSeek.Map.Editor
                     cam.transform.position = pos;
                     if (name == "ortho top") cam.transform.rotation = Quaternion.LookRotation(Vector3.down, Vector3.left);
                     else cam.transform.LookAt(target);
-                    var guides = ortho ? Guides(car, name, lineMat) : null;
+                    var guides = ortho && car != null ? Guides(car, name, lineMat) : null;
                     Blit(cam, sheet, (v % Cols) * TileW, (rows - 1 - v / Cols) * TileH);
                     if (guides != null) Object.DestroyImmediate(guides);
                     cam.orthographic = false;
                 }
-                File.WriteAllBytes(Path.Combine(dir, car.Name + ".png"), sheet.EncodeToPNG());
+                File.WriteAllBytes(Path.Combine(dir, modelName + ".png"), sheet.EncodeToPNG());
                 Object.DestroyImmediate(sheet);
                 foreach (var a in anchors) Object.DestroyImmediate(a);
                 Object.DestroyImmediate(go);
-                Debug.Log($"[CarShowroom] {car.Name}: {pm.Mesh.vertexCount} verts, {pm.Mesh.subMeshCount} materials, bounds {bnd.size}, colliders {pm.Colliders.Count}, blinkers {pm.Blinkers.Count}");
+                Debug.Log($"[CarShowroom] {modelName}: {pm.Mesh.vertexCount} verts, {pm.Mesh.subMeshCount} materials, bounds {bnd.size}, colliders {pm.Colliders.Count}, blinkers {pm.Blinkers.Count}");
             }
         }
 

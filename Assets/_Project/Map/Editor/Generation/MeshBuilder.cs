@@ -27,8 +27,12 @@ namespace HideAndSeek.Map.Editor
         /// <summary>Forces a material to occupy the next sub-mesh slot (e.g. car paint = slot 0).</summary>
         public void Reserve(Material m) => Tris(m);
 
+        /// <summary>Optional material substitutions (fewer sub-meshes for cheap models).</summary>
+        public Dictionary<Material, Material> Alias;
+
         private List<int> Tris(Material m)
         {
+            if (Alias != null && m != null && Alias.TryGetValue(m, out var sub)) m = sub;
             int i = _mats.IndexOf(m);
             if (i < 0)
             {
@@ -236,6 +240,36 @@ namespace HideAndSeek.Map.Editor
         }
 
         // ------------------------------------------------------------------ output
+
+        /// <summary>
+        /// Merges vertices with the same position, normal and UV (quads are emitted with their own corners). Same
+        /// look, a fraction of the vertices; used for the many parked cars.
+        /// </summary>
+        public void Weld()
+        {
+            var map = new Dictionary<(int, int, int, int, int, int, int, int), int>();
+            var remap = new int[_v.Count];
+            var v = new List<Vector3>(); var n = new List<Vector3>(); var uv = new List<Vector2>();
+            for (int i = 0; i < _v.Count; i++)
+            {
+                Vector3 p = _v[i], q = _n[i];
+                var key = (Mathf.RoundToInt(p.x * 10000f), Mathf.RoundToInt(p.y * 10000f), Mathf.RoundToInt(p.z * 10000f),
+                    Mathf.RoundToInt(q.x * 500f), Mathf.RoundToInt(q.y * 500f), Mathf.RoundToInt(q.z * 500f),
+                    Mathf.RoundToInt(_uv[i].x * 2000f), Mathf.RoundToInt(_uv[i].y * 2000f));
+                if (!map.TryGetValue(key, out int k))
+                {
+                    k = v.Count;
+                    map[key] = k;
+                    v.Add(p); n.Add(q); uv.Add(_uv[i]);
+                }
+                remap[i] = k;
+            }
+            foreach (var t in _tris)
+                for (int i = 0; i < t.Count; i++) t[i] = remap[t[i]];
+            _v.Clear(); _v.AddRange(v);
+            _n.Clear(); _n.AddRange(n);
+            _uv.Clear(); _uv.AddRange(uv);
+        }
 
         public Mesh ToMesh(string name)
         {

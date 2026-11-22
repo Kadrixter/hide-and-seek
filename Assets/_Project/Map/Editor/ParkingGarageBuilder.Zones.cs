@@ -62,7 +62,7 @@ namespace HideAndSeek.Map.Editor
                 SignPlate(_signs[lv], new Vector3(x, y0 + 2.2f, 0), n, 2.4f, 0.4f, "CAR WASH", 0.24f, M("Sign_Blue"), M("Text_White"));
             _decals[lv].Text("WASH", new Vector3(-20f, y0 + 0.012f, -7.6f), Vector3.up, Vector3.forward, 0.9f, M("Text_Floor"));
             P(lv, _props.CarWashGantry(), "CarWashGantry", -20f, 1.8f, 0f);
-            PlaceCar(lv, CarType.Sedan, new Vector3(-20f, y0, 0f), Vector3.forward, 6f, "WASH", true, "CarPaint_Silver");
+            PlaceCar(lv, ParkedModel("Estate_1"), new Vector3(-20f, y0, 0f), Vector3.forward, 6f, "WASH", true, "CarPaint_Silver");
             for (int i = 0; i < 5; i++)
                 _decals[lv].FloorDecal(new Vector3(R(-25f, -15f), y0 + 0.014f, R(-5.5f, 5.5f)), new Vector3(R(-1, 1), 0, 1), R(1.5f, 3f), R(2f, 4f), M("Puddle"));
             P(lv, _props.PayMachine(), "WashTerminal", -27.2f, -6.8f, 180f);

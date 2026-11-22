@@ -90,6 +90,7 @@ namespace HideAndSeek.Game
             BuildFurniture(root, lv, cx, cz, y0);
             BuildWallDetails(root, lv, cx, cz, y0);
             BuildLights(root, lv, cx, y0);
+            HideAndSeek.Map.LevelLighting.SetLevelLayer(root, lv);   // lights of the other levels skip the room
         }
 
         /// <summary>

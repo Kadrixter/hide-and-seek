@@ -205,6 +205,7 @@ namespace HideAndSeek.Map.Editor
                 EmitChunks(_cages[lv], "Cages_" + t, _tPropsLv[lv], true, false);
             }
             EmitChunks(_roof, "Roof", _tFloors, true, true);
+            EmitUndersides();
 
             for (int k = 0; k < Levels - 1; k++)
             {
@@ -212,6 +213,7 @@ namespace HideAndSeek.Map.Editor
                 EmitChunks(_steps[k], $"Steps_{Tag(k)}-{Tag(k + 1)}", _tStairs, false, true);
             }
             ParkSomeCarsCrooked();
+            ApplyLevelLayers();
             return _root.gameObject;
         }
 
@@ -454,7 +456,7 @@ namespace HideAndSeek.Map.Editor
                     var c = new Vector3(r.center.x, FloorY(lv) - Slab * 0.5f, r.center.y);
                     var s = new Vector3(r.width, Slab, r.height);
                     _slabs[lv].Box(c, s, FloorMat(lv), null, MeshBuilder.Faces.PosY);
-                    if (!lowest) _slabs[lv].Box(c, s, CeilMat(lv + 1), null, MeshBuilder.Faces.All & ~MeshBuilder.Faces.PosY);
+                    if (!lowest) Under(lv + 1).Box(c, s, CeilMat(lv + 1), null, MeshBuilder.Faces.All & ~MeshBuilder.Faces.PosY);
                 }
             }
             _roof.Box(new Vector3(0, CeilY(0) + Slab * 0.5f, 0), new Vector3(outer.width, Slab, outer.height), CeilMat(0), null,
@@ -468,7 +470,7 @@ namespace HideAndSeek.Map.Editor
                 var faces = MeshBuilder.Faces.All & ~MeshBuilder.Faces.PosY;
                 _roof.Box(new Vector3(0, CeilY(0) - BeamDepth * 0.5f, z), new Vector3(2 * HX, BeamDepth, 0.5f), CeilMat(0), null, faces);
                 for (int lv = 1; lv < Levels; lv++)
-                    _slabs[lv - 1].Box(new Vector3(0, CeilY(lv) - BeamDepth * 0.5f, z), new Vector3(2 * HX, BeamDepth, 0.5f), CeilMat(lv), null, faces);
+                    Under(lv).Box(new Vector3(0, CeilY(lv) - BeamDepth * 0.5f, z), new Vector3(2 * HX, BeamDepth, 0.5f), CeilMat(lv), null, faces);
             }
         }
 
@@ -687,30 +689,11 @@ namespace HideAndSeek.Map.Editor
                 {
                     var bay = candidates[k];
                     double r = _rng.NextDouble();
-                    var type = r < 0.38 ? CarType.Sedan : r < 0.62 ? CarType.Hatchback : r < 0.83 ? CarType.Suv : CarType.Van;
-                    if (type == CarType.Van && bay.NoVan) type = CarType.Sedan;
-                    PlaceCar(lv, type, bay.Center, bay.Inward, bay.Depth, bay.Label, _rng.NextDouble() < 0.65);
+                    var model = PickParked(r, bay.NoVan);
+                    PlaceCar(lv, model, bay.Center, bay.Inward, bay.Depth, bay.Label, _rng.NextDouble() < 0.65);
                 }
             }
             PlaceHeroCars();
-        }
-
-        private void PlaceCar(int lv, CarType type, Vector3 bayCenter, Vector3 inward, float depth, string label, bool noseIn,
-            string forcedPaint = null)
-        {
-            string paint = forcedPaint ?? (type == CarType.Van
-                ? new[] { "CarPaint_White", "CarPaint_Silver", "CarPaint_Grey", "CarPaint_Navy", "CarPaint_White" }[_rng.Next(5)]
-                : MaterialLibrary.CarPaints[_rng.Next(MaterialLibrary.CarPaints.Length)]);
-            var pm = _props.Car(type);
-            var mats = (Material[])pm.Materials.Clone();
-            mats[0] = M(paint);
-            float len = type == CarType.Van ? 5.1f : type == CarType.Suv ? 4.7f : type == CarType.Hatchback ? 4.0f : 4.55f;
-            Vector3 side = Vector3.Cross(Vector3.up, inward);
-            Vector3 pos = bayCenter + inward * (depth * 0.5f - len * 0.5f - 0.35f) + side * R(-0.12f, 0.12f);
-            float yaw = Quaternion.LookRotation(noseIn ? inward : -inward).eulerAngles.y + R(-3.5f, 3.5f);
-            _carCount++;
-            var go = PlaceProp(pm, $"Car_{_carCount:000}_{type}_{paint.Replace("CarPaint_", "")}_{label}", _tCarsLv[lv], pos, yaw, mats);
-            _parked.Add(new Parked { Go = go, BayCenter = bayCenter, Inward = inward, Depth = depth, Level = lv, Label = label });
         }
 
         public int CarCount => _carCount;

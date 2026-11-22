@@ -137,6 +137,7 @@ namespace HideAndSeek.Game
                 changed = true;
             }
             if (changed || Time.frameCount % 6 == 0) UpdateLabels();
+            CycleIdle();
         }
 
         private void UpdateLabels()
@@ -177,7 +178,7 @@ namespace HideAndSeek.Game
                     OsdText(px, time, OsdW - CanFont.Width(time, 1) - 6, OsdH - 13, 1, white);
                     if (blink) OsdDot(px, 9, OsdH - 10, 3, red);
                     OsdText(px, "REC", 15, OsdH - 13, 1, white);
-                    OsdText(px, $"CAM{s.CamIndex % 14 + 1:00}  {name}", 6, 6, 1, white);
+                    OsdText(px, $"CAM{CamNumber(s.CamIndex):00}  {name}", 6, 6, 1, white);
                     OsdText(px, lvl, OsdW - CanFont.Width(lvl, 1) - 6, 6, 1, white);
                     if (s.Motion && blink) OsdText(px, "RUCH", (OsdW - CanFont.Width("RUCH", 2)) / 2, 22, 2, red);
                 }
@@ -257,6 +258,7 @@ namespace HideAndSeek.Game
                 if (!any) { QualitySettings.shadows = ShadowQuality.Disable; any = true; }
                 var c = _cams[s.CamIndex];
                 s.Cam.transform.SetPositionAndRotation(c.Pos, c.Rot);
+                s.Ir.cullingMask = HideAndSeek.Map.LevelLighting.MaskForLevel(c.Level);   // the IR lamp lights only its own level
                 s.Ir.enabled = true;
                 s.Cam.Render();
                 s.Ir.enabled = false;
@@ -294,12 +296,12 @@ namespace HideAndSeek.Game
         }
 
         /// <summary>Plays the switch sound at the monitor (or the whole wall for -1) in the room on the listener's level.</summary>
-        private void PlayFeedSound(int slot)
+        private void PlayFeedSound(int slot, float volume = 1f)
         {
             if (!AnyRoomNear(out var viewer)) return;
             int lv = Mathf.Clamp(Mathf.RoundToInt(-(viewer.y - 1f) / 3.4f), 0, Levels - 1);
             Vector3 pos = slot >= 0 ? _slots[slot].ScreenPos[lv] : new Vector3((X0 + X1) * 0.5f, FloorY(lv) + 1.7f, Z1 - 0.2f);
-            GameAudio.PlayClipAt(slot >= 0 ? _switchClip : _floorClip, pos, slot >= 0 ? 0.55f : 0.75f, 14f);
+            GameAudio.PlayClipAt(slot >= 0 ? _switchClip : _floorClip, pos, (slot >= 0 ? 0.55f : 0.75f) * volume, 14f);
         }
     }
 }

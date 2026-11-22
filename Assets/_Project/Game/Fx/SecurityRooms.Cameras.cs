@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace HideAndSeek.Game
 {
-    /// <summary>Garage CCTV cameras: where they hang, their models with a red LED, and motion detection.</summary>
+    /// <summary>Garage CCTV cameras: where they hang (24 per level), their models with a red LED, and motion detection.</summary>
     public partial class SecurityRooms
     {
         private const float MotionRange = 36f, MotionHalfAngle = 33f, MotionMinSpeed = 0.5f;
@@ -17,49 +17,62 @@ namespace HideAndSeek.Game
             public int Level;
             public string Name;
             public float LastMotion;
-            public Renderer Led;     // red LED on the physical camera
+            public float LastShown;  // last time it was on a monitor (idle cycling)
+            public Renderer Led;     // the camera model (its LED sub-mesh glows through a property block)
+            public Renderer Halo;    // soft red glow around the LED
+            public Light Glow;       // tiny red light while watched (made on demand)
         }
 
         private readonly List<CamPoint> _cams = new();
         private readonly List<int>[] _levelCams = { new(), new(), new() };
         private readonly Dictionary<ulong, Vector3> _prev = new();
         private readonly MaterialPropertyBlock _ledMpb = new();
+        private Material[] _cctvMats;
+        private Material _haloMat;
         private float _nextSense, _lastSense;
 
         private void AddCam(int lv, string name, Vector3 pos, Vector3 dir)
         {
             _levelCams[lv].Add(_cams.Count);
             var rot = Quaternion.LookRotation(dir);
-            _cams.Add(new CamPoint { Pos = pos, Rot = rot, Level = lv, Name = name, LastMotion = -99f, Led = BuildCameraModel(pos, rot, lv) });
+            var (model, halo) = BuildCameraModel(pos, rot, lv);
+            _cams.Add(new CamPoint { Pos = pos, Rot = rot, Level = lv, Name = name, LastMotion = -99f, LastShown = -99f, Led = model, Halo = halo });
         }
 
-        /// <summary>Small CCTV camera hanging from the ceiling: bracket, housing, lens, sun hood and a red LED.</summary>
-        private Renderer BuildCameraModel(Vector3 pos, Quaternion rot, int lv)
+        /// <summary>CCTV camera hanging from the ceiling (<see cref="CctvModel"/>: housing, sun hood, lens, bracket, cable, LED) plus the LED halo.</summary>
+        private (Renderer model, Renderer halo) BuildCameraModel(Vector3 pos, Quaternion rot, int lv)
         {
+            _cctvMats ??= CctvModel.Materials();
             var root = new GameObject("CCTV").transform;
             root.SetParent(transform, false);
             root.SetPositionAndRotation(pos, rot);
-            var housing = new Color(0.82f, 0.82f, 0.8f);
-            var dark = new Color(0.12f, 0.12f, 0.13f);
-            float ceiling = FloorY(lv) + 3.0f;
-            // Housing behind the lens (the feed camera sits at the lens, its near plane hides the model).
-            LocalPart(root, PrimitiveType.Cube, new Vector3(0f, 0f, -0.2f), new Vector3(0.13f, 0.12f, 0.3f), housing, Surf.Shiny(0.35f));
-            LocalPart(root, PrimitiveType.Cube, new Vector3(0f, 0.075f, -0.17f), new Vector3(0.16f, 0.025f, 0.36f), housing, Surf.Shiny(0.35f));
-            var lens = LocalPart(root, PrimitiveType.Cylinder, new Vector3(0f, 0f, -0.04f), new Vector3(0.08f, 0.012f, 0.08f), dark, Surf.Shiny(0.8f));
-            lens.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            // Bracket up to the ceiling.
-            var arm = new GameObject("Bracket").transform;
-            arm.SetParent(transform, false);
-            Vector3 top = new Vector3(pos.x, ceiling, pos.z) - rot * Vector3.forward * 0.25f;
-            Vector3 bottom = pos - rot * Vector3.forward * 0.25f + Vector3.up * 0.06f;
-            arm.position = (top + bottom) * 0.5f;
-            LocalPart(arm, PrimitiveType.Cylinder, Vector3.zero, new Vector3(0.035f, Mathf.Max(0.05f, (top.y - bottom.y) * 0.5f), 0.035f), dark, default);
-            LocalPart(arm, PrimitiveType.Cube, new Vector3(0f, (top.y - bottom.y) * 0.5f, 0f), new Vector3(0.14f, 0.02f, 0.14f), dark, default);
-            // LED on the front, next to the lens.
-            var led = LocalPart(root, PrimitiveType.Cube, new Vector3(0.045f, 0.04f, -0.045f), new Vector3(0.018f, 0.018f, 0.006f), new Color(0.15f, 0f, 0f), Surf.Glow(new Color(0.01f, 0f, 0f)));
-            var lr = led.GetComponent<Renderer>();
-            lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            return lr;
+            root.gameObject.AddComponent<MeshFilter>().sharedMesh = CctvModel.Build(pos, rot, FloorY(lv) + 3.0f);
+            var mr = root.gameObject.AddComponent<MeshRenderer>();
+            mr.sharedMaterials = _cctvMats;
+            CctvModel.Setup(mr);
+            if (_haloMat == null)
+            {
+                var sh = Resources.Load<Shader>("Shaders/HnsLedGlow");
+                if (sh != null) _haloMat = new Material(sh) { name = "CctvLedHalo" };
+            }
+            Renderer halo = null;
+            if (_haloMat != null)
+            {
+                var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                Destroy(q.GetComponent<Collider>());
+                q.name = "LedHalo";
+                q.transform.SetParent(root, false);
+                q.transform.localPosition = CctvModel.LedLocal + Vector3.forward * 0.004f;
+                q.transform.localScale = Vector3.one * 0.24f;
+                halo = q.GetComponent<MeshRenderer>();
+                halo.sharedMaterial = _haloMat;
+                halo.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                halo.receiveShadows = false;
+                halo.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                halo.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            }
+            HideAndSeek.Map.LevelLighting.SetLevelLayer(root, lv);
+            return (mr, halo);
         }
 
         private GameObject LocalPart(Transform parent, PrimitiveType type, Vector3 localPos, Vector3 scale, Color c, Surf s)
@@ -71,25 +84,6 @@ namespace HideAndSeek.Game
             g.transform.localScale = scale;
             Paint(g.GetComponent<MeshRenderer>(), c, s, scale);
             return g;
-        }
-
-        /// <summary>LEDs blink softly red on the cameras shown on the monitors while somebody watches them.</summary>
-        private void UpdateLeds()
-        {
-            var mm = MatchManager.Instance;
-            bool watched = mm != null && mm.SecurityWatched.Value;
-            float pulse = 0.55f + 0.45f * Mathf.Sin(Time.time * 2f * Mathf.PI * 0.9f);
-            for (int i = 0; i < _cams.Count; i++)
-            {
-                var led = _cams[i].Led;
-                if (led == null) continue;
-                bool on = false;
-                if (watched)
-                    foreach (var s in _slots) if (s.CamIndex == i) { on = true; break; }
-                _ledMpb.SetColor("_Color", on ? new Color(0.6f, 0.05f, 0.03f) : new Color(0.15f, 0f, 0f));
-                _ledMpb.SetColor("_EmissionColor", on ? new Color(3f * pulse, 0.2f * pulse, 0.1f * pulse) : Color.black);
-                led.SetPropertyBlock(_ledMpb);
-            }
         }
 
         /// <summary>Test helper: is the LED of camera <paramref name="index"/> on level <paramref name="level"/> lit right now.</summary>
@@ -154,6 +148,7 @@ namespace HideAndSeek.Game
                     var look = new Vector3(kv.Value, y0 + 1.1f, -1.4f) - pos;
                     AddCam(lv, "WINDA " + (++e), pos, look);
                 }
+                AddExtraCams(lv, y0, y, aisleZ);
             }
         }
 
