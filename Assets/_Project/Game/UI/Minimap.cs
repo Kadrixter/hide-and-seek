@@ -519,9 +519,10 @@ namespace HideAndSeek.Game
                     Vector3 w = p.transform.position;
                     float dy = w.y - pos.y; // pos = the watched player while spectating (the map shows his level)
                     bool otherFloor = Mathf.Abs(dy) > 1.7f;
-                    // The downed marker (red, pulsing, kept at the edge) only for a teammate on the viewer's level;
-                    // one on another level is an ordinary teammate dot (dim, with the up / down arrow, only in range).
-                    bool downed = p.Life.Value == LifeState.Downed && !otherFloor;
+                    // A downed teammate is only shown on the viewer's level (red, pulsing, kept at the edge);
+                    // on another level he is not on the map at all.
+                    if (p.Life.Value == LifeState.Downed && otherFloor) continue;
+                    bool downed = p.Life.Value == LifeState.Downed;
                     Vector2 off = new Vector2(w.x - pos.x, w.z - pos.z) * pxPerM;
                     bool outside = Mathf.Abs(off.x) > edge || Mathf.Abs(off.y) > edge;
                     if (outside && !downed) continue;
