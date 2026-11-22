@@ -16,6 +16,12 @@ namespace HideAndSeek.Game
         public HotbarItem Item { get; private set; }
         public bool Settled { get; private set; }
 
+        /// <summary>Half height of the item's box (lifted by this much when the server puts it on the floor).</summary>
+        public float HalfHeight => _col != null ? _col.size.y * 0.5f : 0.1f;
+
+        /// <summary>Half of the item's smallest box size.</summary>
+        public float MinHalfExtent => _col != null ? Mathf.Min(_col.size.x, Mathf.Min(_col.size.y, _col.size.z)) * 0.5f : 0.02f;
+
         /// <summary>Test counter: landing sounds played on this peer.</summary>
         public static int Landings;
 
@@ -108,6 +114,9 @@ namespace HideAndSeek.Game
             bool calm = _rb.IsSleeping() || (_rb.linearVelocity.sqrMagnitude < 0.003f && _rb.angularVelocity.sqrMagnitude < 0.02f);
             if (!calm) _calmSince = -1f;
             else if (_calmSince < 0f) _calmSince = Time.time;
+            // Fell through a gap in the map, or left the garage: the server checks the spot and moves it back
+            // next to the player (MatchManager.Drops / ItemPlacement.CheckRest).
+            if (HideAndSeek.Map.MapInfo.HasGarage && !HideAndSeek.Map.MapInfo.InsideGarage(transform.position, -0.5f)) return true;
             if (transform.position.y < _start.y - 8f)
             {
                 // Fell through a gap in the map: put it on the floor under the start point.

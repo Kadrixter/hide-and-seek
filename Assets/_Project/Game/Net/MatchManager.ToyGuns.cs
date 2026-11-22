@@ -98,7 +98,14 @@ namespace HideAndSeek.Game.Net
                 var s = picked[i];
                 Vector3 outDir = s.Base - new Vector3(s.Top.x, s.Base.y, s.Top.z);
                 outDir = outDir.sqrMagnitude > 1e-4f ? outDir.normalized : Vector3.forward;
-                Vector3 pos = s.Base + outDir * 0.22f;
+                // A little out from the rack / fence, checked (inside the walls, flat free floor), else on the spot itself.
+                Vector3 want = s.Base + outDir * 0.22f;
+                var why = ItemPlacement.Check(s.Base, s.Base.y, want, ItemPlacement.Small, out var pos);
+                if (why != ItemPlacement.Reject.None)
+                {
+                    ItemPlacement.Count(why, "toy gun", want);
+                    pos = s.Base;
+                }
                 ToyGuns.Add(new ToyGunState { Id = 300 + i, Pos = pos, Yaw = UnityEngine.Random.Range(0f, 360f), Ammo = ToyTuning.Shots });
                 Debug.Log($"[ToyGun] gun {300 + i} at {pos} next to {s.Near}");
             }

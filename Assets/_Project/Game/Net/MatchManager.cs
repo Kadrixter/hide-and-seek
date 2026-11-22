@@ -45,6 +45,12 @@ namespace HideAndSeek.Game.Net
             : Settings.Value.HintInterval;
         public void TestDown(NetPlayer pl) => Down(pl);
         public void TestKill(NetPlayer pl) => Kill(pl);
+        /// <summary>-testplace: places the medkits and syringes of this round again.</summary>
+        public void TestRespawnPickups()
+        {
+            SpawnMedkits();
+            SpawnSyringes();
+        }
         private readonly Dictionary<ulong, double> _lastShot = new();
         private readonly HashSet<ulong> _reloading = new();
 
@@ -65,7 +71,10 @@ namespace HideAndSeek.Game.Net
             var local = NetPlayer.Local;
             if (local == null || local == downed || !local.IsHider) return;
             GameAudio.Play2D(GameSfx.UiError, 0.9f);
-            GameHud.Banner("POMOCY!", $"{downed.Nick} potrzebuje pomocy - czerwony znacznik na mapie.", 4f, new Color(1f, 0.35f, 0.3f));
+            // The red minimap marker is only drawn on the downed player's level (Minimap.UpdateTeamDots).
+            bool sameLevel = Mathf.Abs(downed.transform.position.y - local.transform.position.y) <= 1.7f;
+            string where = sameLevel ? "czerwony znacznik na mapie" : $"poziom {FloorAcoustics.FloorOf(downed.transform.position.y)}";
+            GameHud.Banner("POMOCY!", $"{downed.Nick} potrzebuje pomocy - {where}.", 4f, new Color(1f, 0.35f, 0.3f));
         }
         public double Remaining => PhaseEnd.Value - Now;
 
@@ -365,14 +374,16 @@ namespace HideAndSeek.Game.Net
             var spots = SpawnPoints.Hider();
             Shuffle(spots);
             int count = Mathf.Min(Settings.Value.Syringes, spots.Count);
+            var placed = new List<Vector3>();
+            for (int i = 0; i < Medkits.Count; i++) placed.Add(Medkits[i].Position);
             for (int i = 0; i < count; i++)
             {
-                Vector3 p = spots[i].position;
-                Vector3 off = Random.insideUnitSphere;
-                off.y = 0f;
-                p += off.normalized * Random.Range(2f, 5f);
-                if (Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore))
-                    p = hit.point;
+                // 2-5 m from the spawn point, checked: inside the walls, on the same floor, free (ItemPlacement).
+                var pf = ItemPlacement.Pickup;
+                pf.MinRadius = 2f;
+                pf.MaxRadius = 5f;
+                Vector3 p = ItemPlacement.Scatter(spots[i].position, pf, placed, "syringe " + (100 + i));
+                placed.Add(p);
                 Syringes.Add(new MedkitState { Id = 100 + i, Position = p + Vector3.up * 0.02f, Taken = false });
             }
         }
@@ -383,15 +394,13 @@ namespace HideAndSeek.Game.Net
             var spots = SpawnPoints.Hider();
             Shuffle(spots);
             int count = Mathf.Min(Settings.Value.Medkits, spots.Count);
+            var placed = new List<Vector3>();
             for (int i = 0; i < count; i++)
             {
-                // Offset from the spawn point so medkits are not exactly where hiders start.
-                Vector3 p = spots[spots.Count - 1 - i].position;
-                Vector3 off = Random.insideUnitSphere;
-                off.y = 0f;
-                p += off.normalized * Random.Range(1.5f, 4f);
-                if (Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore))
-                    p = hit.point;
+                // 1.5-4 m from the spawn point so medkits are not exactly where hiders start; checked: inside the walls,
+                // nothing between, on the same floor, free (ItemPlacement), else on the spawn point itself.
+                Vector3 p = ItemPlacement.Scatter(spots[spots.Count - 1 - i].position, ItemPlacement.Pickup, placed, "medkit " + (i + 1));
+                placed.Add(p);
                 Medkits.Add(new MedkitState { Id = i + 1, Position = p + Vector3.up * 0.02f, Taken = false });
             }
         }
@@ -950,6 +959,7 @@ namespace HideAndSeek.Game.Net
             target.Held.Value = HeldItem.None;
             target.Life.Value = LifeState.Alive;
             target.Wounded.Value = true;
+            target.DownedUntil.Value = 0; // no stale deadline (player list bleed bar, like the other ways up)
             target.SfxRpc(GameSfx.ReviveDone, 1f);
             target.ToastRpc($"{helper.Nick} cię uratował. Kolejne złapanie = śmierć, chyba że użyjesz apteczki.", 5f);
         }

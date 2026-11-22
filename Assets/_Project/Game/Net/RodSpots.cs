@@ -54,10 +54,17 @@ namespace HideAndSeek.Game.Net
             {
                 bool match = false;
                 foreach (var pre in Prefixes) if (t.name.StartsWith(pre)) { match = true; break; }
-                if (!match || InSecurityZone(t.position)) continue;
+                if (!match || InSecurityZone(t.position) || !HideAndSeek.Map.MapInfo.InsideGarage(t.position, 0.3f)) continue;
                 if (TrySpot(t, out var s)) list.Add(s);
             }
             return list;
+        }
+
+        private static bool OnGarageFloor(Vector3 p)
+        {
+            if (!HideAndSeek.Map.MapInfo.HasGarage) return true;
+            if (!HideAndSeek.Map.MapInfo.InsideGarage(p, 0.45f) || HideAndSeek.Map.MapInfo.InSlabOpening(p, 0.4f)) return false;
+            return Mathf.Abs(p.y - HideAndSeek.Map.MapInfo.FloorUnder(p.y)) <= 0.25f;
         }
 
         /// <summary>The security rooms (north-east) clear props away when they are built.</summary>
@@ -93,6 +100,9 @@ namespace HideAndSeek.Game.Net
                 if (!Physics.Raycast(basePt + Vector3.up * 0.6f, Vector3.down, out var fh, 1.2f, ~0, QueryTriggerInteraction.Ignore)) continue;
                 if (fh.normal.y < 0.9f || Mathf.Abs(fh.point.y - floorY) > 0.25f) continue;
                 basePt = fh.point;
+                // The garage floor of that level, inside the walls, not at a ramp / stairwell (a fence on the edge of
+                // the map: its outer face is outside).
+                if (!OnGarageFloor(basePt)) continue;
                 // Free space where the rod and a player stand.
                 Vector3 boxC = basePt + n * 0.35f + Vector3.up * 1.0f;
                 int cnt = Physics.OverlapBoxNonAlloc(boxC, new Vector3(0.3f, 0.85f, 0.3f), Overlap, Quaternion.LookRotation(n), ~0, QueryTriggerInteraction.Ignore);

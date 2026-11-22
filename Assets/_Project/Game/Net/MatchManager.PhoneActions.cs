@@ -51,7 +51,7 @@ namespace HideAndSeek.Game.Net
             var s = Phones[i];
             s.Mode = PhoneMode.Floor;
             s.Holder = 0;
-            s.Pos = FloorUnder(pos);
+            s.Pos = FloorUnder(from, pos);
             s.Yaw = pl.transform.eulerAngles.y + UnityEngine.Random.Range(-30f, 30f);
             Phones[i] = s;
             Debug.Log($"[Phone] {pl.Nick} dropped phone {s.Id} at {s.Pos}");
@@ -65,7 +65,7 @@ namespace HideAndSeek.Game.Net
             if (i < 0) return;
             var s = Phones[i];
             if (s.RingAt <= 0d || Now - s.RingAt > PhoneTuning.RingLength + 0.5d) return;
-            Vector3 land = FloorUnder(pl.transform.position + pl.transform.forward * 0.5f + pl.transform.right * 0.08f);
+            Vector3 land = FloorUnder(pl.transform.position, pl.transform.position + pl.transform.forward * 0.5f + pl.transform.right * 0.08f);
             float yaw = pl.transform.eulerAngles.y + UnityEngine.Random.Range(-40f, 40f);
             s.Mode = PhoneMode.Smashed;
             s.RingAt = 0d;

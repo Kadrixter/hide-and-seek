@@ -12,6 +12,8 @@ namespace HideAndSeek.Game.UI
     /// Player list in the top right corner of the HUD (lobby and round): "GRACZE (n)" + summary, then one row per player
     /// (<see cref="PlayerListRow"/>). Lobby: host / ready (has a flashlight from the box) / waiting. Round: SZUKA or the
     /// hider's state (chowa się / zraniony / ranny / powalony / martwy). The speaking player is highlighted.
+    /// A downed hider shows the bleed-out left (bar + time) to everybody who sees "powalony" - the same rows for every
+    /// role and spectators - while the seeking phase runs (the server only lets players bleed out then).
     /// Narrow (360 px of 1920) and grows downwards only as far as needed, so it stays clear of the banner, the lever
     /// countdown and the toasts in the middle of the screen.
     /// </summary>
@@ -93,7 +95,7 @@ namespace HideAndSeek.Game.UI
                 row.Root.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, y), new Vector2(-2 * Pad + 4, PlayerListRow.Height));
                 y -= PlayerListRow.Height;
                 var p = _sorted[i];
-                var d = Describe(p, phase, round);
+                var d = Describe(p, phase, round, mm);
                 d.Me = p == me;
                 if (d.Me)
                 {
@@ -118,9 +120,9 @@ namespace HideAndSeek.Game.UI
             CWounded = new Color(1f, 0.62f, 0.35f), CDowned = new Color(1f, 0.42f, 0.4f), CDead = new Color(0.5f, 0.5f, 0.52f);
 
         /// <summary>State column text and colours of one player.</summary>
-        private static PlayerListRow.Data Describe(NetPlayer p, MatchPhase phase, bool round)
+        private static PlayerListRow.Data Describe(NetPlayer p, MatchPhase phase, bool round, MatchManager mm)
         {
-            var d = new PlayerListRow.Data { Nick = p.Nick, NickColor = UiKit.Text };
+            var d = new PlayerListRow.Data { Nick = p.Nick, NickColor = UiKit.Text, Bleed = -1f };
             bool host = p.OwnerClientId == NetworkManager.ServerClientId;
             if (!round || p.Role.Value == PlayerRole.None)
             {
@@ -156,6 +158,17 @@ namespace HideAndSeek.Game.UI
                     d.State = "powalony";
                     d.StateColor = CDowned;
                     d.Pulse = true;
+                    // Server: DownedUntil = down time + BleedOut, death when the server clock passes it. Lifting does
+                    // not stop or add time (ServerRescue just stands the player up), so the bar keeps running until
+                    // the state changes. After the round (Ended) nobody bleeds out any more: no bar.
+                    if (phase == MatchPhase.Seeking && mm != null && p.DownedUntil.Value > 0d)
+                    {
+                        float total = mm.BleedOut;
+                        float left = Mathf.Max(0f, (float)(p.DownedUntil.Value - mm.Now));
+                        d.BleedTotal = total;
+                        d.BleedLeft = left;
+                        d.Bleed = total > 0f ? Mathf.Clamp01(left / total) : 0f;
+                    }
                     break;
                 default:
                     d.State = "martwy";

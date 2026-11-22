@@ -158,7 +158,7 @@ namespace HideAndSeek.Game.Net
                 else if (s.Mode == RcMode.Carried && (pl.Life.Value == LifeState.Dead || !pl.IsHider))
                 {
                     // Dead hider drops the car next to the body (anybody can take it).
-                    Vector3 p = pl.transform.position + pl.transform.right * 0.5f;
+                    Vector3 p = ItemPlacement.PutDown(pl.transform.position, pl.transform.position + pl.transform.right * 0.5f, ItemPlacement.Small, "rc car");
                     SetRc(i, RcMode.Parked, ulong.MaxValue, p, pl.transform.eulerAngles.y + 90f);
                 }
             }

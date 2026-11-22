@@ -13,7 +13,8 @@ namespace HideAndSeek.Game.UI
     /// Test of the HUD (player list, key hints, dust badge): -testhud [-hudshots &lt;dir&gt;] [-hudplayers N] [-hidetime N].
     /// Every copy with -testhud saves &lt;dir&gt;/&lt;nick&gt;_&lt;step&gt;.png at the same moments; the host drives the round:
     /// lobby (one client ready, the other waiting), lobby after 20 s (hints gone), start, hiding, seeking, then one hider
-    /// gets zraniony -> ranny -> powalony -> martwy, last shot 23 s into seeking (no key hints any more), then quit.
+    /// gets zraniony -> ranny -> powalony (bleed-out bar full, then its last seconds: deep red, pulsing) -> martwy,
+    /// last shot 25 s into seeking (no key hints any more), then quit.
     /// A client with -voicetest sends a tone all the time (= speaking in the list).
     /// </summary>
     public sealed class HudProbe : MonoBehaviour
@@ -93,16 +94,21 @@ namespace HideAndSeek.Game.UI
             if (host && victim != null)
             {
                 victim.Wounded.Value = false;
-                victim.DownedUntil.Value = mm.Now + 120d;
+                victim.DownedUntil.Value = mm.Now + mm.BleedOut; // like MatchManager.Down: the bar starts full
                 victim.Life.Value = LifeState.Downed;
             }
             yield return Until(t0 + 12.5f);
             yield return Shot("7_powalony");
+            if (host && victim != null) victim.DownedUntil.Value = mm.Now + 7d; // the last seconds of the bleed-out
+            yield return Until(t0 + 15f);
+            yield return Shot("7b_powalony_koncowka");
+            yield return Until(t0 + 15.6f);
+            yield return Shot("7c_powalony_puls");
             if (host && victim != null) victim.Life.Value = LifeState.Dead;
-            yield return Until(t0 + 15.5f);
+            yield return Until(t0 + 18.5f);
             yield return Shot("8_martwy");
-            yield return Until(t0 + 23f);
-            yield return Shot("9_szukanie_po23s");
+            yield return Until(t0 + 25f);
+            yield return Shot("9_szukanie_po25s");
             Log("done");
             yield return new WaitForSecondsRealtime(host ? 4f : 1f);
             Application.Quit();

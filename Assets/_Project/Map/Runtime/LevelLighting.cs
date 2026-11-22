@@ -24,6 +24,12 @@ namespace HideAndSeek.Map
 
         public static LevelLighting Instance { get; private set; }
 
+        /// <summary>Half size (x, z) of the garage footprint, outer walls included (<see cref="MapInfo"/>).</summary>
+        public Vector2 HalfSize => halfSize;
+
+        /// <summary>Openings in the slabs (ramp shafts, stairwells) on the xz plane (<see cref="MapInfo"/>).</summary>
+        public IReadOnlyList<Rect> Holes => holes;
+
         private readonly List<Light> _lights = new();
         private readonly HashSet<Light> _seen = new();
         private float _nextScan;

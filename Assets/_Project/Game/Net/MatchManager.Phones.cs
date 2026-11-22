@@ -182,22 +182,22 @@ namespace HideAndSeek.Game.Net
                     if (sample) _phoneHolderPos[s.Id] = pl.transform.position;
                     continue;
                 }
-                Vector3 at = pl != null ? pl.transform.position + pl.transform.right * 0.45f
-                    : _phoneHolderPos.TryGetValue(s.Id, out var last) ? last : s.Pos;
+                Vector3 feet = pl != null ? pl.transform.position : _phoneHolderPos.TryGetValue(s.Id, out var last) ? last : s.Pos;
+                Vector3 at = pl != null ? feet + pl.transform.right * 0.45f : feet;
                 s.Mode = PhoneMode.Floor;
                 s.Holder = 0;
-                s.Pos = FloorUnder(at);
+                s.Pos = FloorUnder(feet, at);
                 s.Yaw = UnityEngine.Random.Range(0f, 360f);
                 Phones[i] = s;
                 Debug.Log($"[Phone] phone {s.Id} dropped at {s.Pos} (holder {(pl != null ? pl.Nick + " " + pl.Life.Value : "left")})");
             }
         }
 
-        private static Vector3 FloorUnder(Vector3 p)
-        {
-            if (Physics.Raycast(p + Vector3.up * 0.6f, Vector3.down, out var hit, 2f, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore))
-                return hit.point + Vector3.up * 0.005f;
-            return p;
-        }
+        /// <summary>
+        /// A phone put down by somebody standing at <paramref name="feet"/>, wanted at <paramref name="want"/>: on that
+        /// floor, never behind a wall or inside a car / column (ItemPlacement.PutDown).
+        /// </summary>
+        private static Vector3 FloorUnder(Vector3 feet, Vector3 want) =>
+            ItemPlacement.PutDown(feet, want, ItemPlacement.Small, "phone") + Vector3.up * 0.005f;
     }
 }

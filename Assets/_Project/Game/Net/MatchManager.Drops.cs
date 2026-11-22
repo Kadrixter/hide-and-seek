@@ -18,6 +18,8 @@ namespace HideAndSeek.Game.Net
 
         private readonly Dictionary<int, DroppedItemView> _dropViews = new();
         private int _nextDropId = 1000;
+        /// <summary>Server: where the player who dropped each item stood (resting spots are checked against it).</summary>
+        private readonly Dictionary<int, Vector3> _dropAnchor = new();
         /// <summary>RC slot holder while the car lies on the floor as a dropped item.</summary>
         public const ulong RcDropHolder = ulong.MaxValue - 1;
 
@@ -32,6 +34,7 @@ namespace HideAndSeek.Game.Net
             if (ph != MatchPhase.Hiding && ph != MatchPhase.Seeking && ph != MatchPhase.Ended)
             {
                 if (Drops.Count > 0) Drops.Clear();
+                _dropAnchor.Clear();
                 return;
             }
             if (ph != MatchPhase.Ended)
@@ -41,6 +44,21 @@ namespace HideAndSeek.Game.Net
             {
                 var d = Drops[i];
                 if (d.Settled || !_dropViews.TryGetValue(d.Id, out var v) || v == null || !v.Resting(out var pos, out var rot)) continue;
+                // Through a wall, through the floor, out of the garage, stuck in something or still in the air: it
+                // lies next to the player who dropped it instead.
+                if (_dropAnchor.TryGetValue(d.Id, out var feet))
+                {
+                    var why = ItemPlacement.CheckRest(pos, feet, v.transform, v.MinHalfExtent * 0.5f);
+                    if (why != ItemPlacement.Reject.None)
+                    {
+                        ItemPlacement.Count(why, "drop " + d.Kind, pos);
+                        Vector3 floor = ItemPlacement.Scatter(feet, ItemPlacement.Small, null, "drop " + d.Kind, v.transform);
+                        Debug.Log($"[Drops] {d.Kind} #{d.Id} came to rest at {pos} ({why}) - moved to {floor}");
+                        pos = floor + Vector3.up * v.HalfHeight;
+                        rot = Quaternion.Euler(0f, rot.eulerAngles.y, 0f);
+                    }
+                    _dropAnchor.Remove(d.Id);
+                }
                 d.Settled = true;
                 d.Pos = pos;
                 d.Rot = rot;
@@ -74,10 +92,32 @@ namespace HideAndSeek.Game.Net
 
         // ================================================================ server
 
-        private void SpawnDrop(HotbarItem item, byte extra, Vector3 pos, Quaternion rot, Vector3 vel)
+        private void SpawnDrop(HotbarItem item, byte extra, Vector3 pos, Quaternion rot, Vector3 vel, Vector3 feet)
         {
             var spin = new Vector3(Random.Range(-6f, 6f), Random.Range(-3f, 3f), Random.Range(-6f, 6f));
-            Drops.Add(new DropState { Id = _nextDropId++, Item = (byte)item, Extra = extra, Pos = pos, Rot = rot, Vel = vel, Spin = spin });
+            int id = _nextDropId++;
+            _dropAnchor[id] = feet;
+            Drops.Add(new DropState { Id = id, Item = (byte)item, Extra = extra, Pos = pos, Rot = rot, Vel = vel, Spin = spin });
+        }
+
+        /// <summary>
+        /// Throws an item from the chest of <paramref name="pl"/> along <paramref name="dir"/>: starts in front of the
+        /// body but never inside or behind a wall / car (ItemPlacement.ThrowStart). No room at all (pressed against a
+        /// wall, sitting in a car): it is let go from just above a free spot of floor next to the player.
+        /// </summary>
+        private void ThrowDrop(NetPlayer pl, HotbarItem item, byte extra, Vector3 dir, float reach, float chestH, float speed, float up, Quaternion rot)
+        {
+            Vector3 feet = pl.transform.position;
+            Vector3 chest = feet + Vector3.up * chestH;
+            if (ItemPlacement.ThrowStart(chest, dir, reach, 0.2f, out var start, out float got, pl.transform))
+            {
+                Vector3 vel = dir * (got > 0.3f ? speed : 0.4f) + Vector3.up * up;
+                SpawnDrop(item, extra, start, rot, vel, feet);
+                return;
+            }
+            Vector3 floor = ItemPlacement.PutDown(feet, feet + dir * 0.6f, ItemPlacement.Small, "drop " + item, pl.transform);
+            Debug.Log($"[Drops] {pl.Nick}: no room to throw {item} - let go above {floor}");
+            SpawnDrop(item, extra, floor + Vector3.up * 0.35f, rot, Vector3.zero, feet);
         }
 
         /// <summary>Q: throws one of the selected slot's item in front of the player.</summary>
@@ -96,13 +136,7 @@ namespace HideAndSeek.Game.Net
             Vector3 fwd = pl.transform.forward;
             fwd.y = 0f;
             fwd = fwd.sqrMagnitude > 0.01f ? fwd.normalized : Vector3.forward;
-            Vector3 chest = pl.transform.position + Vector3.up * 1.15f;
-            float reach = 0.5f;
-            foreach (var h in Physics.SphereCastAll(chest, 0.14f, fwd, 0.7f, ~0, QueryTriggerInteraction.Ignore))
-                if (!h.transform.IsChildOf(pl.transform) && h.distance < reach + 0.2f) reach = Mathf.Max(0f, h.distance - 0.2f);
-            Vector3 start = chest + fwd * reach;
-            Vector3 vel = fwd * (reach > 0.3f ? 2.3f : 0.4f) + Vector3.up * 1.3f;
-            SpawnDrop(item, extra, start, Quaternion.LookRotation(fwd) * Quaternion.Euler(0f, 90f, 0f), vel);
+            ThrowDrop(pl, item, extra, fwd, 0.5f, 1.15f, 2.3f, 1.3f, Quaternion.LookRotation(fwd) * Quaternion.Euler(0f, 90f, 0f));
             Debug.Log($"[Drops] {pl.Nick} dropped {item} from slot {slot + 1}");
         }
 
@@ -125,6 +159,7 @@ namespace HideAndSeek.Game.Net
                 if (!Inventory.HasRoomFor(pl, d.Kind)) { pl.ToastRpc(Inventory.Count(pl, d.Kind) > 0 ? $"{def.Name}: masz już max." : Inventory.FullText, 2.5f); return; }
                 if (def.Give == null || !def.Give(pl, d.Extra)) return;
                 Drops.RemoveAt(i);
+                _dropAnchor.Remove(id);
                 pl.SfxRpc(GameSfx.MedkitPickup, 0.7f);
                 int slot = Inventory.PredictSlot(pl, d.Kind);
                 pl.ToastRpc(slot >= 0 ? $"{def.Name} (slot {slot + 1})" : def.Name, 2f);
@@ -138,20 +173,23 @@ namespace HideAndSeek.Game.Net
         {
             var def = ItemDefs.Get(item);
             if (def?.Take == null || !def.Take(pl, out byte extra)) return;
-            Vector3 side = pl.transform.right;
-            SpawnDrop(item, extra, pl.transform.position + side * 0.45f + Vector3.up * 1.1f, Quaternion.Euler(0f, pl.transform.eulerAngles.y, 0f),
-                side * 1.1f + Vector3.up * 0.6f);
+            ThrowDrop(pl, item, extra, FlatRight(pl), 0.45f, 1.1f, 1.1f, 0.6f, Quaternion.Euler(0f, pl.transform.eulerAngles.y, 0f));
             Debug.Log($"[Drops] {pl.Nick}: {item} did not fit, spilled on the floor");
         }
 
         /// <summary>The Glock phase begins and the seeker has no free slot: the gun drops next to him (minimap marker).</summary>
         private void ServerGlockToFloor(NetPlayer pl)
         {
-            Vector3 side = pl.transform.right;
-            SpawnDrop(HotbarItem.Glock, 0, pl.transform.position + side * 0.5f + Vector3.up * 1.2f, Quaternion.Euler(0f, pl.transform.eulerAngles.y + 90f, 0f),
-                side * 1.3f + Vector3.up * 0.8f);
+            ThrowDrop(pl, HotbarItem.Glock, 0, FlatRight(pl), 0.5f, 1.2f, 1.3f, 0.8f, Quaternion.Euler(0f, pl.transform.eulerAngles.y + 90f, 0f));
             pl.ToastRpc("Ekwipunek pełny - glock upadł obok ciebie (zaznaczony na mapie). Wyrzuć coś (Q) i podnieś go (E).", 7f);
             Debug.Log($"[Drops] {pl.Nick}: inventory full, the Glock fell on the floor");
+        }
+
+        private static Vector3 FlatRight(NetPlayer pl)
+        {
+            Vector3 side = pl.transform.right;
+            side.y = 0f;
+            return side.sqrMagnitude > 0.01f ? side.normalized : Vector3.right;
         }
 
         // ================================================================ RC car as an inventory item

@@ -80,7 +80,11 @@ namespace HideAndSeek.Game.Net
             public string Near;
         }
 
-        private static readonly Collider[] Overlap = new Collider[8];
+        /// <summary>A phone lying flat: its box must be free, the floor flat and level with the rod spot.</summary>
+        private static readonly ItemPlacement.Profile Profile = new ItemPlacement.Profile
+        {
+            HalfWidth = 0.18f, Height = 0.16f, Headroom = 0f, LosRadius = 0.06f,
+        };
 
         public static List<Spot> Pick(int count, List<Vector3> avoid, float minSpacing = 14f)
         {
@@ -123,11 +127,14 @@ namespace HideAndSeek.Game.Net
             for (int k = 0; k < 4; k++)
             {
                 Vector3 p = r.Base + side * Random.Range(-0.9f, 0.9f) - toObj * Random.Range(0.05f, 0.35f);
-                if (!Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, out var hit, 1f, ~0, QueryTriggerInteraction.Ignore)) continue;
-                if (hit.normal.y < 0.92f || Mathf.Abs(hit.point.y - r.Base.y) > 0.12f) continue;
-                int n = Physics.OverlapBoxNonAlloc(hit.point + Vector3.up * 0.12f, new Vector3(0.18f, 0.08f, 0.18f), Overlap, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
-                if (n > 0) continue;
-                spot = new Spot { Pos = hit.point + Vector3.up * 0.004f, Yaw = Random.Range(0f, 360f), Near = r.Near };
+                // Inside the walls, nothing between it and the rod spot, flat floor level with it, free (ItemPlacement).
+                var why = ItemPlacement.Check(r.Base, r.Base.y, p, Profile, out var floor);
+                if (why != ItemPlacement.Reject.None)
+                {
+                    ItemPlacement.Count(why, "phone spot", p);
+                    continue;
+                }
+                spot = new Spot { Pos = floor + Vector3.up * 0.004f, Yaw = Random.Range(0f, 360f), Near = r.Near };
                 return true;
             }
             return false;

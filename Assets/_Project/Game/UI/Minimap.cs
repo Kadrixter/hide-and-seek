@@ -506,7 +506,7 @@ namespace HideAndSeek.Game
             return _dots[index];
         }
 
-        /// <summary>Hiders only: teammates as dots (arrows when on another level), downed ones as pulsing red markers.</summary>
+        /// <summary>Hiders only: teammates as dots (arrows when on another level), downed ones on the viewer's level as pulsing red markers.</summary>
         private void UpdateTeamDots(NetPlayer me, Vector3 pos, float pxPerM, float size)
         {
             int used = 0;
@@ -516,14 +516,16 @@ namespace HideAndSeek.Game
                 foreach (var p in NetPlayer.All)
                 {
                     if (p == null || p == me || !p.IsHider || p.Life.Value == LifeState.Dead) continue;
-                    bool downed = p.Life.Value == LifeState.Downed;
                     Vector3 w = p.transform.position;
+                    float dy = w.y - pos.y; // pos = the watched player while spectating (the map shows his level)
+                    bool otherFloor = Mathf.Abs(dy) > 1.7f;
+                    // The downed marker (red, pulsing, kept at the edge) only for a teammate on the viewer's level;
+                    // one on another level is an ordinary teammate dot (dim, with the up / down arrow, only in range).
+                    bool downed = p.Life.Value == LifeState.Downed && !otherFloor;
                     Vector2 off = new Vector2(w.x - pos.x, w.z - pos.z) * pxPerM;
                     bool outside = Mathf.Abs(off.x) > edge || Mathf.Abs(off.y) > edge;
                     if (outside && !downed) continue;
                     off = new Vector2(Mathf.Clamp(off.x, -edge, edge), Mathf.Clamp(off.y, -edge, edge));
-                    float dy = w.y - pos.y;
-                    bool otherFloor = Mathf.Abs(dy) > 1.7f;
 
                     var dot = Dot(used);
                     var arrow = _dotArrows[used];
