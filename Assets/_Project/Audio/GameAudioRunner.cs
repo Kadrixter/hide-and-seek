@@ -274,7 +274,18 @@ namespace HideAndSeek.Audio
             if (_listener != null && _listener.isActiveAndEnabled) return;
             if (now < _nextListenerSearch) return;
             _nextListenerSearch = now + 0.5f;
-            _listener = FindAnyObjectByType<AudioListener>();
+            _listener = FindActiveListener();
+        }
+
+        /// <summary>
+        /// The enabled AudioListener. Remote players keep a disabled listener on their camera and FindAnyObjectByType
+        /// also returns disabled components - on clients that put floors / occlusion relative to another player.
+        /// </summary>
+        public static AudioListener FindActiveListener()
+        {
+            foreach (var l in FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                if (l.isActiveAndEnabled) return l;
+            return null;
         }
 
         /// <summary>World position of the active AudioListener (or null when none).</summary>

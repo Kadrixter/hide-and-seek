@@ -1,0 +1,136 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using UnityEngine;
+using Random = UnityEngine.Random;
+
+namespace HideAndSeek.Game.Net
+{
+    /// <summary>Tuning of the toy phones (+ test overrides from the command line).</summary>
+    public static class PhoneTuning
+    {
+        public const float RingGapMin = 60f, RingGapMax = 150f;
+        /// <summary>Ringtone audible range (m) - "around", walls / floors muffle it like every 3D sound.</summary>
+        public const float RingRange = 26f;
+        public const float StompPromptRange = 1.8f, StompServerRange = 2.6f, StompStandOff = 0.55f;
+        public const string RingClipPath = "Phone/imyourlittlebutterfly";
+
+        private static AudioClip _clip;
+        private static bool _clipLoaded;
+
+        public static AudioClip RingClip
+        {
+            get
+            {
+                if (!_clipLoaded) { _clip = Resources.Load<AudioClip>(RingClipPath); _clipLoaded = true; }
+                return _clip;
+            }
+        }
+
+        /// <summary>Length of the ringtone (the whole song plays unless the phone is smashed).</summary>
+        public static float RingLength => RingClip != null ? RingClip.length : 15.12f;
+
+        /// <summary>-phonering a,b: ring gap in seconds (tests), else 60-150 s.</summary>
+        public static float NextGap()
+        {
+            var g = Gap;
+            return Random.Range(g.x, g.y);
+        }
+
+        private static Vector2? _gap;
+        private static Vector2 Gap
+        {
+            get
+            {
+                if (_gap.HasValue) return _gap.Value;
+                _gap = new Vector2(RingGapMin, RingGapMax);
+                string arg = Arg("-phonering");
+                if (arg != null)
+                {
+                    var parts = arg.Split(',');
+                    if (parts.Length == 2 && float.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float a) &&
+                        float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float b)) _gap = new Vector2(a, b);
+                }
+                return _gap.Value;
+            }
+        }
+
+        /// <summary>-phonecount N: fixed number of phones per round (tests), 0 = by player count.</summary>
+        public static int ForcedCount => int.TryParse(Arg("-phonecount"), out int n) ? n : 0;
+
+        private static string Arg(string name)
+        {
+            var a = Environment.GetCommandLineArgs();
+            int i = Array.IndexOf(a, name);
+            return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
+        }
+    }
+
+    /// <summary>
+    /// Where toy phones can lie: on the floor next to the racks / cage shelves / site fences that also hold the rods
+    /// (<see cref="RodSpots"/>, never in the security rooms), shifted along the object, well apart, on different
+    /// levels first, away from the rods of this round.
+    /// </summary>
+    public static class PhoneSpots
+    {
+        public struct Spot
+        {
+            public Vector3 Pos;
+            public float Yaw;
+            public string Near;
+        }
+
+        private static readonly Collider[] Overlap = new Collider[8];
+
+        public static List<Spot> Pick(int count, List<Vector3> avoid, float minSpacing = 14f)
+        {
+            var all = new List<Spot>();
+            foreach (var r in RodSpots.Candidates())
+                if (TryShift(r, out var s)) all.Add(s);
+            for (int i = all.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (all[i], all[j]) = (all[j], all[i]);
+            }
+            var picked = new List<Spot>();
+            for (int pass = 0; pass < 3 && picked.Count < count; pass++)
+                foreach (var s in all)
+                {
+                    if (picked.Count >= count) break;
+                    bool ok = true;
+                    foreach (var a in avoid) if (Vector3.Distance(a, s.Pos) < 3f) ok = false;
+                    foreach (var p in picked)
+                    {
+                        float d = Vector3.Distance(p.Pos, s.Pos);
+                        if (d < (pass == 2 ? 4f : minSpacing)) ok = false;
+                        // pass 0: one per level first (levels are 3.4 m apart)
+                        if (pass == 0 && Mathf.Abs(p.Pos.y - s.Pos.y) < 1.5f && picked.Count < 3) ok = false;
+                    }
+                    if (ok) picked.Add(s);
+                }
+            return picked;
+        }
+
+        /// <summary>From a rod spot: a little along the object face, on free and flat floor.</summary>
+        private static bool TryShift(RodSpots.Spot r, out Spot spot)
+        {
+            spot = default;
+            Vector3 toObj = r.Top - r.Base;
+            toObj.y = 0f;
+            if (toObj.sqrMagnitude < 1e-4f) return false;
+            toObj.Normalize();
+            Vector3 side = Vector3.Cross(Vector3.up, toObj);
+            for (int k = 0; k < 4; k++)
+            {
+                Vector3 p = r.Base + side * Random.Range(-0.9f, 0.9f) - toObj * Random.Range(0.05f, 0.35f);
+                if (!Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, out var hit, 1f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                if (hit.normal.y < 0.92f || Mathf.Abs(hit.point.y - r.Base.y) > 0.12f) continue;
+                int n = Physics.OverlapBoxNonAlloc(hit.point + Vector3.up * 0.12f, new Vector3(0.18f, 0.08f, 0.18f), Overlap, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+                if (n > 0) continue;
+                spot = new Spot { Pos = hit.point + Vector3.up * 0.004f, Yaw = Random.Range(0f, 360f), Near = r.Near };
+                return true;
+            }
+            return false;
+        }
+    }
+}
