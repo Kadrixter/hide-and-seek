@@ -77,6 +77,10 @@ namespace HideAndSeek.Game
                 key.AddOutline(1.5f, 0.7f);
                 _key[i] = key;
 
+                int idx = i; // the ringing phone's "E" key cap over its slot
+                PhoneRingBadge.Attach(rt, () => NetPlayer.Local != null && Hotbar.ItemAt(NetPlayer.Local, idx) == HotbarItem.Phone &&
+                                                PhoneControls.SmashOffered(NetPlayer.Local));
+
                 var count = UiKit.Label("Count", rt, "", 18, TextAnchor.LowerRight, UiKit.Text, FontStyle.Bold);
                 count.rectTransform.Stretch(6f);
                 count.AddOutline(1.5f, 0.8f);

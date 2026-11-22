@@ -52,6 +52,9 @@ namespace HideAndSeek.Game
         public Func<NetPlayer, byte, bool> Give;
         /// <summary>Server: one less (for a drop). False = cannot drop it now (nothing is spawned).</summary>
         public TakeFn Take;
+        /// <summary>Server: own Q handling instead of Take + a generic dropped item (items that live on as their own
+        /// world object, e.g. the phone that keeps ringing on the floor).</summary>
+        public Action<NetPlayer> CustomDrop;
         /// <summary>Client: what the left mouse button does with the selected slot (shown above the hotbar).</summary>
         public Func<NetPlayer, string> Hint = _ => "";
         /// <summary>Client: left mouse button on the selected slot (click = pressed this frame, hold = held down).</summary>

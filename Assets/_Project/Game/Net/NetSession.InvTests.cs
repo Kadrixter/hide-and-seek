@@ -157,6 +157,26 @@ namespace HideAndSeek.Game.Net
             }
             else Debug.Log("[InvTest] FAIL: no rc drop");
 
+            // Phone: E into a slot, Q puts it back on the floor as a phone (MatchManager.Phones).
+            int pi = -1;
+            for (int i = 0; i < mm.Phones.Count; i++) if (mm.Phones[i].Mode == PhoneMode.Floor) { pi = i; break; }
+            if (pi >= 0)
+            {
+                var ps = mm.Phones[pi];
+                yield return LookAt(me, ps.Pos + Vector3.up * 0.05f, me.transform.position);
+                Debug.Log($"[InvTest] phone prompt '{LocalPlayerController.Instance.PromptText}'");
+                me.RequestPickupPhoneRpc(ps.Id);
+                yield return new WaitForSeconds(0.7f);
+                InvLog(me, $"phone picked (has {me.HasPhone})");
+                Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Phone);
+                yield return new WaitForSeconds(0.4f);
+                Shot(dir, "h10_phone_slot");
+                Hotbar.TestDrop = true;
+                yield return new WaitForSeconds(0.8f);
+                InvLog(me, $"phone dropped (has {me.HasPhone}, mode {mm.Phones[pi].Mode})");
+            }
+            else Debug.Log("[InvTest] no phone on the floor");
+
             // Toy gun: Q keeps the shots left, E takes it back with them.
             me.ToyAmmo.Value = 5;
             yield return new WaitForSeconds(0.4f);
@@ -268,8 +288,8 @@ namespace HideAndSeek.Game.Net
                 Debug.Log($"[InvTest] saw drop settled={sd.Settled} at {at}, seeker map marks={Minimap.SeekerDropMarks}");
                 SafeLitShot(dir, "s05_saw_floor", at + new Vector3(1f, 0.8f, -1f), at);
                 Shot(dir, "s06_saw_minimap");
-                // the hider checks that it cannot take it (about 10 s)
-                yield return new WaitForSeconds(14f);
+                // the hider checks that it cannot take it (after its RC car, phone and toy gun steps)
+                yield return new WaitForSeconds(26f);
                 yield return LookAt(me, mm.DropPosition(sd), me.transform.position);
                 Debug.Log($"[InvTest] seeker prompt at his saw: '{LocalPlayerController.Instance.PromptText}'");
                 me.RequestPickupDropRpc(sd.Id);

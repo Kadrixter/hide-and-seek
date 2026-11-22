@@ -103,6 +103,7 @@ namespace HideAndSeek.Game.Net
             InitRods();
             InitDrops();
             InitToyGuns();
+            InitPhones();
         }
 
         public override void OnNetworkSpawn()
@@ -468,6 +469,7 @@ namespace HideAndSeek.Game.Net
             UpdateDrops();
             UpdateFlashBox();
             UpdateToyGuns();
+            UpdatePhones();
             BloodTracks.Ensure();
             var ph = Phase.Value;
             if (RaceMode && (ph == MatchPhase.Race || ph == MatchPhase.Ended) && SceneManager.GetActiveScene().name == NetSession.GameScene)

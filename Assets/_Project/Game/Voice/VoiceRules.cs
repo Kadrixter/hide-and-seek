@@ -37,6 +37,31 @@ namespace HideAndSeek.Game.Voice
             return (listener.transform.position - speaker.transform.position).sqrMagnitude <= range * range;
         }
 
+        /// <summary>
+        /// Toy phone link (round only): both are hiders, neither is dead and both carry a phone - then the listener gets
+        /// the speaker through the phone, at any distance and on any level (on top of the normal proximity voice).
+        /// The dead never talk through a phone (their observer channel stays as it is).
+        /// </summary>
+        public static bool PhoneLink(NetPlayer listener, NetPlayer speaker)
+        {
+            var mm = MatchManager.Instance;
+            if (LobbyLike || mm == null || listener == null || speaker == null || listener == speaker) return false;
+            if (!listener.IsHider || !speaker.IsHider) return false;
+            if (listener.Life.Value == LifeState.Dead || speaker.Life.Value == LifeState.Dead) return false;
+            return mm.HasPhone(listener) && mm.HasPhone(speaker);
+        }
+
+        /// <summary>Client: second check before playing a frame on the phone channel.</summary>
+        public static bool LocalPhoneLink(NetPlayer speaker) => PhoneLink(NetPlayer.Local, speaker);
+
+        /// <summary>How many others the local player's phone connects with right now.</summary>
+        public static int LocalPhoneLinks()
+        {
+            int n = 0;
+            foreach (var p in NetPlayer.All) if (p != null && !p.IsOwner && PhoneLink(NetPlayer.Local, p)) n++;
+            return n;
+        }
+
         /// <summary>Client: may the local player play this speaker's voice? (the living never hear the dead)</summary>
         public static bool LocalMayHear(NetPlayer speaker) => !OnDeadChannel(speaker) || OnDeadChannel(NetPlayer.Local);
     }

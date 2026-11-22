@@ -466,6 +466,7 @@ namespace HideAndSeek.Characters
 
             // 4b. Seeker stomping on a toy car (legs).
             if (visual == LifeState.Alive && !pathActive) ApplyStomp(ref p);
+            ApplyPhoneSmash(ref p, dt, visual == LifeState.Alive && !pathActive); // 4c. toy phone thrown / stomped
 
             // 5b. Lobby easter egg: fork into the socket (overrides everything).
             if (shockT >= 0f)
@@ -498,6 +499,7 @@ namespace HideAndSeek.Characters
         HeldItem ResolveShownItem()
         {
             if (VendingShowsCan) return HeldItem.Can;
+            if (PhoneSmashing) return HeldItem.None;
             if (vendingOn || ShockHidesItem || GunHidesItem) return HeldItem.None;
             var rc = RcShownItem();
             if (rc != HeldItem.None || rcW > 0.5f) return rc;

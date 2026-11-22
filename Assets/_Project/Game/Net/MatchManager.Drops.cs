@@ -90,6 +90,7 @@ namespace HideAndSeek.Game.Net
             var def = ItemDefs.Get(item);
             if (def == null) return;
             if (!def.Droppable) { pl.ToastRpc($"{def.Name} to twoja podstawowa broń - nie da się go wyrzucić.", 2.5f); return; }
+            if (def.CustomDrop != null) { def.CustomDrop(pl); return; }
             if (def.Take == null || !def.Take(pl, out byte extra)) return;
 
             Vector3 fwd = pl.transform.forward;

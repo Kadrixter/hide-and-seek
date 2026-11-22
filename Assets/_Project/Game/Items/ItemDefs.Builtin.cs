@@ -129,12 +129,14 @@ namespace HideAndSeek.Game
                     return parts.Root.gameObject;
                 },
             };
-            // Placeholder: wired up when the phone branch is merged (Count / Give / Take on its state).
+            // Toy phone (MatchManager.Phones): stays its own world object - Q puts it on the floor as a phone that keeps
+            // ringing (ServerDropPhone), E there picks it up again, E while it rings in the pocket smashes it.
             yield return new ItemDef
             {
-                Item = HotbarItem.Phone, Name = "Telefon", Users = ItemUsers.Hider,
-                DropSfx = GameSfx.RcPlace, Glow = new Color(1f, 0.5f, 0.8f, 0.45f),
-                Model = r => Placeholder(r, new Vector3(0.075f, 0.15f, 0.012f), new Color(1f, 0.55f, 0.78f)),
+                Item = HotbarItem.Phone, Name = "Zabawkowy telefon", Users = ItemUsers.Hider,
+                Count = p => p.HasPhone ? 1 : 0,
+                CustomDrop = p => MatchManager.Instance?.ServerDropPhone(p, p.transform.position + p.transform.forward * 0.8f),
+                Hint = p => p.PhoneRinging ? "DZWONI!  E - rzuć i zdepcz" : "V - słyszą cię inni, którzy mają telefon",
             };
         }
 
@@ -163,14 +165,5 @@ namespace HideAndSeek.Game
 
         private static GameObject Prop(Transform root, HeldItem item) => BlockyProps.Create(item, root, 0).gameObject;
 
-        private static GameObject Placeholder(Transform root, Vector3 size, Color color)
-        {
-            var b = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Object.Destroy(b.GetComponent<Collider>());
-            b.transform.SetParent(root, false);
-            b.transform.localScale = size;
-            b.GetComponent<MeshRenderer>().sharedMaterial = new Material(Shader.Find("Standard")) { color = color };
-            return b;
-        }
     }
 }

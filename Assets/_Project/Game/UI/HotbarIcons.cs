@@ -5,9 +5,9 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// 32 x 32 pixel-art icons for the hotbar (point filtered, dark outline), drawn in code in the blocky style of the
-    /// game: medkit, adrenaline syringe, RC car, metal rod, knife, chainsaw, Glock (+ placeholder toy gun and phone).
+    /// game: medkit, adrenaline syringe, RC car, metal rod, knife, chainsaw, Glock, toy gun, phone (HotbarIcons.Phone.cs).
     /// </summary>
-    public static class HotbarIcons
+    public static partial class HotbarIcons
     {
         private const int N = 32;
         private static readonly Dictionary<HotbarItem, Sprite> Cache = new();
@@ -15,6 +15,7 @@ namespace HideAndSeek.Game
         public static Sprite Get(HotbarItem item)
         {
             if (item == HotbarItem.None) return null;
+            if (item == HotbarItem.Phone) return Phone(); // HotbarIcons.Phone.cs
             if (Cache.TryGetValue(item, out var s) && s != null) return s;
             var px = new Color32[N * N];
             switch (item)
@@ -27,7 +28,6 @@ namespace HideAndSeek.Game
                 case HotbarItem.Chainsaw: Saw(px); break;
                 case HotbarItem.Glock: Glock(px); break;
                 case HotbarItem.ToyGun: ToyGun(px); break;
-                case HotbarItem.Phone: Phone(px); break;
             }
             Outline(px);
             var tex = new Texture2D(N, N, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.DontSave };
@@ -161,15 +161,6 @@ namespace HideAndSeek.Game
             Rect(px, 13, 12, 16, 13, C(0.95f, 0.45f, 0.7f));    // trigger guard
             Rect(px, 8, 22, 14, 25, C(0.25f, 0.65f, 0.22f));    // tank
             Rect(px, 28, 18, 30, 21, C(0.55f, 1f, 0.35f));      // slime
-        }
-
-        /// <summary>Placeholder: pink phone with a dark screen.</summary>
-        private static void Phone(Color32[] px)
-        {
-            Rect(px, 10, 3, 21, 28, C(1f, 0.55f, 0.78f));       // case
-            Rect(px, 12, 8, 19, 25, C(0.1f, 0.11f, 0.14f));     // screen
-            Rect(px, 13, 21, 18, 23, C(0.35f, 0.6f, 0.95f));    // something on the screen
-            Rect(px, 14, 5, 17, 6, C(0.85f, 0.35f, 0.6f));      // button
         }
 
         private static void Glock(Color32[] px)
