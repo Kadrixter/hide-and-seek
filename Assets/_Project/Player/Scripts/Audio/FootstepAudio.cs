@@ -351,7 +351,7 @@ namespace HideAndSeek.Player
             if (!_motion.IsGrounded) target *= 0.6f;
             if (_motion.IsCrouching) target *= 1.2f;
             _clothVol = Mathf.Lerp(_clothVol, target, 1f - Mathf.Exp(-10f * dt));
-            _cloth.volume = OnOtherFloor(transform.position) ? 0f : _clothVol;
+            _cloth.volume = _clothVol * FloorGain(transform.position);
             _cloth.pitch = 0.92f + 0.16f * speedT;
             if (!localPlayer) _cloth.maxDistance = Mathf.Lerp(crouchRange, walkRange, speedT);
         }
@@ -452,12 +452,11 @@ namespace HideAndSeek.Player
             return clips[i];
         }
 
-        // ---- other players' steps are heard on the same floor only (sound used to pass through floors / ceilings)
-        private const float FloorGap = 2.2f;
+        // ---- other players' steps are heard on the same floor only (or muffled next to a ramp / stairwell)
         private static AudioListener _listener;
         private static float _nextListenerSearch;
 
-        private static float ListenerY(out bool ok)
+        private static Vector3 ListenerPos(out bool ok)
         {
             if ((_listener == null || !_listener.isActiveAndEnabled) && Time.unscaledTime >= _nextListenerSearch)
             {
@@ -465,22 +464,30 @@ namespace HideAndSeek.Player
                 _listener = FindAnyObjectByType<AudioListener>();
             }
             ok = _listener != null;
-            return ok ? _listener.transform.position.y : 0f;
+            return ok ? _listener.transform.position : Vector3.zero;
         }
 
-        /// <summary>True when this (remote) player stands on another floor than the listener.</summary>
-        private bool OnOtherFloor(Vector3 position)
+        /// <summary>
+        /// 0..1: how much of this (remote) player's steps reaches the listener. Another floor is silent, except next to a
+        /// ramp shaft / stairwell (<see cref="FloorAcoustics"/>), where it is heavily muffled.
+        /// </summary>
+        private float FloorGain(Vector3 position)
         {
-            if (localPlayer) return false;
-            float ly = ListenerY(out bool ok);
-            // The listener sits at eye height; compare feet to feet (eye ~1.6 m above the feet).
-            return ok && Mathf.Abs((ly - 1.6f) - position.y) > FloorGap;
+            if (localPlayer) return 1f;
+            Vector3 lp = ListenerPos(out bool ok);
+            if (!ok) return 1f;
+            // Neighbours on the same ramp: feet at nearly the same height and close by (eye ~1.6 m above the feet).
+            Vector2 flat = new Vector2(lp.x - position.x, lp.z - position.z);
+            bool neighbours = flat.sqrMagnitude < 36f && Mathf.Abs(lp.y - 1.6f - position.y) < 1.6f;
+            return FloorAcoustics.Transfer(lp, position, neighbours, out _);
         }
 
         private void Play(AudioClip clip, float volume, float pan, float range, Vector3 position)
         {
             if (clip == null || volume <= 0.0001f) return;
-            if (OnOtherFloor(position)) return;
+            float floorGain = FloorGain(position);
+            if (floorGain <= 0.001f) return;
+            volume *= floorGain;
             AudioSource s = NextSource();
             float jitterV = 1f + ((float)_rng.NextDouble() * 2f - 1f) * volumeJitter;
             float jitterP = 1f + ((float)_rng.NextDouble() * 2f - 1f) * pitchJitter;
