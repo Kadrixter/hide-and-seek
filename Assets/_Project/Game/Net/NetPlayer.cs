@@ -669,8 +669,10 @@ namespace HideAndSeek.Game.Net
             Vector3 tilt = new Vector3(dir.x, 0f, dir.y) * 0.035f;
             (Actions as BlockyCharacterActions)?.SetArcade(on, MatchManager.ArcadeStickBall + tilt, MatchManager.ArcadeButtons, dir);
             if (IsOwner && _shock == null && (on || _arcadeHands))
-                (ViewModel as FirstPersonViewModel)?.SetOverrideHands(on, MatchManager.ArcadeButtons + new Vector3(0f, 0.04f, -0.03f), Quaternion.identity,
-                    MatchManager.ArcadeStickBall + tilt + new Vector3(0f, 0.03f, -0.03f));
+            {
+                ArcadeHands.FirstPerson(Camera != null ? Camera.transform : transform, dir, out var handR, out var handL);
+                (ViewModel as FirstPersonViewModel)?.SetOverrideHands(on, handR, Quaternion.identity, handL);
+            }
             _arcadeHands = on;
         }
 

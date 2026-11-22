@@ -259,24 +259,9 @@ namespace HideAndSeek.Game.Editor
             // Marquee
             var marq = Emissive("LobbyArcadeMarquee", new Color(1f, 0.85f, 0.3f), new Color(1f, 0.6f, 0.15f) * 1.6f);
             Deco("Marquee", a, pos + new Vector3(0, 1.78f, -0.33f), new Vector3(0.66f, 0.2f, 0.06f), marq);
-            Label3D("MarqueeText", a, pos + new Vector3(0, 1.78f, -0.37f), Quaternion.identity, "SNAKE", new Color(0.35f, 0.08f, 0.02f), 0.02f, new Vector2(0.55f, 0.16f));
-            // Screen (recessed, tilted back)
-            Deco("Bezel", a, pos + new Vector3(0, 1.36f, -0.3f), new Vector3(0.62f, 0.5f, 0.04f), Mat("LobbyArcadeBezel", new Color(0.02f, 0.02f, 0.03f), null, 0.6f, Vector2.one), Quaternion.Euler(-12f, 0, 0));
-            var screenMat = Unlit("LobbyArcadeScreen", null);
-            var screen = QuadAt("Screen", a, pos + new Vector3(0, 1.36f, -0.325f), Quaternion.Euler(-12f, 0, 0), new Vector2(0.5f, 0.375f), screenMat);
-            // Control panel, joystick, buttons
-            Deco("Panel", a, pos + new Vector3(0, 1.0f, -0.42f), new Vector3(0.68f, 0.07f, 0.32f), Mat("LobbyArcadePanel", new Color(0.12f, 0.12f, 0.16f), null, 0.5f, Vector2.one), Quaternion.Euler(14f, 0, 0));
-            Cyl("Stick", a, pos + new Vector3(-0.15f, 1.1f, -0.45f), 0.025f, 0.12f, metal);
-            Ball("StickBall", a, pos + new Vector3(-0.15f, 1.17f, -0.45f), Vector3.one * 0.06f, Mat("LobbyArcadeRed", new Color(0.9f, 0.1f, 0.1f), null, 0.6f, Vector2.one));
-            var cols = new[] { new Color(0.95f, 0.15f, 0.15f), new Color(0.2f, 0.5f, 1f), new Color(1f, 0.85f, 0.2f), new Color(0.2f, 0.9f, 0.3f) };
-            for (int i = 0; i < 4; i++)
-                Cyl("Button", a, pos + new Vector3(0.04f + (i % 2) * 0.09f + (i / 2) * 0.04f, 1.08f, -0.47f + (i / 2) * 0.07f), 0.05f, 0.02f,
-                    Emissive("LobbyArcadeBtn" + i, cols[i], cols[i] * 0.6f), Quaternion.Euler(14f, 0, 0));
-            // Coin door
-            Deco("CoinDoor", a, pos + new Vector3(0, 0.55f, -0.31f), new Vector3(0.3f, 0.36f, 0.02f), metal);
-            for (int i = 0; i < 2; i++)
-                Deco("CoinSlot", a, pos + new Vector3(-0.06f + i * 0.12f, 0.62f, -0.325f), new Vector3(0.06f, 0.08f, 0.01f),
-                    Emissive("LobbyCoinSlot", new Color(1f, 0.3f, 0.2f), new Color(1f, 0.2f, 0.1f) * 1.2f));
+            var screen = ArcadeScreen(a, pos);
+            ArcadeControls(a, pos, metal);   // panel with art, joystick, buttons (MultiplayerBuilder.LobbyArcade.cs)
+            ArcadeTrim(a, pos, metal, body); // coin door, bevels, kick plate, marquee frame
 
             var glow = PointLight("ArcadeGlow", a, pos + new Vector3(0, 1.35f, -0.8f), new Color(0.45f, 0.6f, 1f), 0.8f, 2.6f);
             var arc = a.gameObject.AddComponent<LobbyArcade>();
