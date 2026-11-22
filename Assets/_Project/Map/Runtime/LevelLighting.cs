@@ -98,13 +98,20 @@ namespace HideAndSeek.Map
 
         public void ScanNow() => Scan();
 
-        /// <summary>Picks up new lights that still see every level (the builder's map lamps are already restricted).</summary>
+        /// <summary>
+        /// Picks up new lights. Skipped: directional lights and lights of the map itself that are already restricted
+        /// (the builder's lamps, CCTV). Lights elsewhere are always tracked, even when their mask is already restricted:
+        /// a player's flashlight keeps the mask from the previous round (players survive the scene change), and
+        /// skipping it left the flashlight lighting only the level where the last round ended.
+        /// </summary>
         private void Scan()
         {
             foreach (var l in FindObjectsByType<Light>(FindObjectsInactive.Include))
             {
                 if (l == null || !_seen.Add(l)) continue;
-                if (l.type == LightType.Directional || (l.cullingMask & AllLevels) != AllLevels) continue;
+                if (l.type == LightType.Directional) continue;
+                bool restricted = (l.cullingMask & AllLevels) != AllLevels;
+                if (restricted && l.transform.IsChildOf(transform)) continue;
                 _lights.Add(l);
             }
             if (_seen.Count > 4000) _seen.RemoveWhere(x => x == null);
