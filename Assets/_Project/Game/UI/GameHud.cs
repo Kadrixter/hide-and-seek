@@ -252,6 +252,9 @@ namespace HideAndSeek.Game
             _instance.ShowSettings(true);
         }
 
+        /// <summary>Tests: closes the settings panel / Esc menu.</summary>
+        public static void CloseAllMenus() => _instance?.CloseMenus();
+
         // ================================================================ update
 
         private Vector2Int _lastScreen;
@@ -365,7 +368,12 @@ namespace HideAndSeek.Game
             // ---- seeker blind during hiding
             bool blind = me.IsSeeker && (phase == MatchPhase.Hiding || phase == MatchPhase.Loading);
             _blind.gameObject.SetActive(blind || phase == MatchPhase.Loading);
-            if (blind) _blindText.text = $"Jesteś szukającym.\nChowający się chowają...\n\n<size=72>{UiKit.FormatTime(remaining)}</size>";
+            if (blind)
+            {
+                string mates = MatchManager.OtherSeekerNames(me); // several seekers: who hunts with you
+                _blindText.text = (mates.Length > 0 ? $"Jesteś szukającym (razem z: {mates}).\n" : "Jesteś szukającym.\n")
+                                  + $"Chowający się chowają...\n\n<size=72>{UiKit.FormatTime(remaining)}</size>";
+            }
             else if (phase == MatchPhase.Loading) _blindText.text = "Ładowanie...";
             _blindText.supportRichText = true;
 
@@ -484,12 +492,12 @@ namespace HideAndSeek.Game
         private readonly List<Text> _tags = new();
         private readonly RaycastHit[] _tagHits = new RaycastHit[8];
 
-        /// <summary>Lobby: everyone's nick. In a round: only hiders see the nicks of other hiders (seeker sees none).</summary>
+        /// <summary>Lobby: everyone's nick. In a round: hiders see the nicks of other hiders, seekers those of the other seekers.</summary>
         private void UpdateNameTags(NetPlayer me, MatchPhase phase)
         {
             var cam = Camera.main;
             bool lobby = phase == MatchPhase.Lobby || phase == MatchPhase.Loading;
-            bool canSee = lobby || me.IsHider;
+            bool canSee = lobby || me.IsHider || (me.IsSeeker && phase == MatchPhase.Seeking);
             int used = 0;
             if (cam != null && canSee)
             {
@@ -498,7 +506,7 @@ namespace HideAndSeek.Game
                 foreach (var p in NetPlayer.All)
                 {
                     if (p == null || p == me) continue;
-                    if (!lobby && !p.IsHider) continue;
+                    if (!lobby && (me.IsSeeker ? !p.IsSeeker : !p.IsHider)) continue; // own team only
                     if (ArcadeKeepOut.Instance != null && ArcadeKeepOut.Instance.IsHidden(p)) continue; // not over the SNAKE screen
                     bool lying = p.Life.Value != LifeState.Alive;
                     Vector3 head = p.transform.position + Vector3.up * (lying ? 0.75f : 2.15f - 0.55f * p.Motor.CrouchAmount);
@@ -862,14 +870,18 @@ namespace HideAndSeek.Game
             }, 26);
             modeB.Height(50);
 
+            // One row: Glock toggle + killer count stepper (SeekerCountRow).
+            var glockRow = SeekerCountRow.Row(panel);
             Button glockB = null;
-            glockB = UiKit.Button("Glock", panel, "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie"), () =>
+            glockB = UiKit.Button("Glock", glockRow, "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie"), () =>
             {
                 s.Glock = !s.Glock;
                 glockB.GetComponentInChildren<Text>().text = "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie");
                 Push();
-            }, 26);
-            glockB.Height(50);
+            }, 21);
+            glockB.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            SeekerCountRow.Build(glockRow, host ? () => s.SeekerCount : () => mm.Settings.Value.SeekerCount,
+                host ? v => { s.Seekers = (byte)v; Push(); } : null);
 
             string TakeText() => "Szukający zabiera przedmioty (apteczki, strzykawki, pręty): " + (s.SeekerTakesItems ? "tak" : "nie");
             Button takeB = null;

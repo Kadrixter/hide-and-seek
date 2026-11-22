@@ -96,10 +96,11 @@ namespace HideAndSeek.Game.Net
                 SceneManager.GetActiveScene().name == NetSession.GameScene)
             {
                 _phonesSpawned = true;
-                int players = 0;
-                foreach (var p in NetPlayer.All) if (p != null) players++;
+                int players = 0, hiders = 0;
+                foreach (var p in NetPlayer.All) if (p != null) { players++; if (p.IsHider) hiders++; }
                 int forced = PhoneTuning.ForcedCount;
-                int count = forced > 0 ? forced : PhoneCountFor(players);
+                // Several seekers: never more phones than hiders (with one seeker n-1 = hiders, as before).
+                int count = forced > 0 ? forced : Mathf.Min(PhoneCountFor(players), Mathf.Max(1, hiders));
                 SpawnPhones(count);
                 Debug.Log($"[Phone] {Phones.Count} phones for {players} players (wanted {count})");
             }
