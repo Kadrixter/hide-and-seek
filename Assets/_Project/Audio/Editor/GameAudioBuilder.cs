@@ -124,12 +124,12 @@ namespace HideAndSeek.Audio.Editor
         private static readonly Dictionary<AmbientId, (float volume, float range, bool bed)> AmbientDefs = new Dictionary<AmbientId, (float, float, bool)>
         {
             { AmbientId.MenuMusic, (0.8f, 0f, true) },
-            { AmbientId.LobbyRoom, (0.5f, 0f, true) },
-            { AmbientId.GarageBed, (0.55f, 0f, true) },
+            { AmbientId.LobbyRoom, (0.12f, 0f, true) },     // was 0.5: the wind outside was far too loud
+            { AmbientId.GarageBed, (0.5f, 0f, true) },      // AmbientSynth room tone (no wind underground)
             { AmbientId.Ventilation, (0.5f, 12f, false) },
             { AmbientId.Drips, (0.6f, 10f, false) },
-            { AmbientId.LampBuzz, (0.35f, 6f, false) },
-            { AmbientId.DistantCity, (0.5f, 30f, false) },
+            { AmbientId.LampBuzz, (0.22f, 5f, false) },     // AmbientSynth ballast hum (the old clip squealed)
+            { AmbientId.DistantCity, (0.22f, 26f, false) }, // was 0.5: gusty rumble near the ramps
             { AmbientId.TensionMusic, (0.7f, 0f, true) },
         };
 

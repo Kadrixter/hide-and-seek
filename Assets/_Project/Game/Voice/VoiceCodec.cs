@@ -6,7 +6,7 @@ namespace HideAndSeek.Game.Voice
     public static class VoiceCodec
     {
         public const int SampleRate = 16000;
-        public const int FrameSamples = 640; // 40 ms
+        public const int FrameSamples = 320; // 20 ms (was 40 ms: half the framing delay)
 
         private const int Bias = 0x84, Clip = 32635;
         private static readonly float[] DecodeTable = BuildDecode();

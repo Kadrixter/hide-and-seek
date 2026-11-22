@@ -705,7 +705,7 @@ namespace HideAndSeek.Game
 
         private void ShowEscMenu()
         {
-            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 858 : 788));
+            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 928 : 858));
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "MENU", 44, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(64);
             UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(66);
@@ -717,6 +717,7 @@ namespace HideAndSeek.Game
                 UiKit.Button("Invite", panel, "Zaproś znajomych (Steam)", ShowInviteMenu, 28, new Color(0.13f, 0.32f, 0.16f)).Height(60);
             UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
             UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 28).Height(60);
+            UiKit.Button("PlayerVolumes", panel, "Głośność graczy", ShowPlayerVolumeMenu, 28).Height(60);
             string leave = NetworkManager.Singleton.IsServer ? "Zamknij serwer" : "Rozłącz";
             UiKit.Button("Leave", panel, leave, () =>
             {
@@ -783,6 +784,22 @@ namespace HideAndSeek.Game
             UiKit.Label("Title", panel, "CZAT GŁOSOWY", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(54);
             SettingsUi.BuildVoice(panel);
             UiKit.Label("Info", panel, "Słychać cię z bliska (do 35 m), za ścianami ciszej. Szukający też cię usłyszy.", 20, TextAnchor.MiddleCenter, UiKit.TextDim).Height(30);
+            UiKit.Button("Back", panel, "Wróć", () =>
+            {
+                Prefs.Save();
+                Destroy(_escMenu.gameObject);
+                _escMenu = null;
+                ShowEscMenu();
+            }, 28).Height(58);
+        }
+
+        /// <summary>Esc menu page with a voice volume slider per other player (<see cref="PlayerVolumeMenu"/>).</summary>
+        public void ShowPlayerVolumeMenu()
+        {
+            if (_escMenu != null) Destroy(_escMenu.gameObject);
+            _escMenu = MenuPanel("PlayerVolumeMenu", new Vector2(760, PlayerVolumeMenu.PanelHeight()));
+            var panel = _escMenu.Find("Panel");
+            PlayerVolumeMenu.Build(panel);
             UiKit.Button("Back", panel, "Wróć", () =>
             {
                 Prefs.Save();

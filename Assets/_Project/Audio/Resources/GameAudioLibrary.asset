@@ -624,12 +624,12 @@ MonoBehaviour:
     pitchJitter: 0
   - id: 2
     clip: {fileID: 8300000, guid: a3a94b5cbec8cd942b618fb69ed905f2, type: 3}
-    volume: 0.5
+    volume: 0.12
     range: 0
     pitchJitter: 0
   - id: 3
     clip: {fileID: 8300000, guid: 10e81ad826555f342b6c5310d9d816cc, type: 3}
-    volume: 0.55
+    volume: 0.5
     range: 0
     pitchJitter: 0
   - id: 4
@@ -644,13 +644,13 @@ MonoBehaviour:
     pitchJitter: 0.04
   - id: 6
     clip: {fileID: 8300000, guid: 2b2d43463a77d424980c42c4b1a85d4a, type: 3}
-    volume: 0.35
-    range: 6
+    volume: 0.22
+    range: 5
     pitchJitter: 0.04
   - id: 7
     clip: {fileID: 8300000, guid: 97a6f5aff8fab4a479aaf52373116d40, type: 3}
-    volume: 0.5
-    range: 30
+    volume: 0.22
+    range: 26
     pitchJitter: 0.04
   - id: 8
     clip: {fileID: 8300000, guid: b69fd047d6a6f1f44bf882d75b332d34, type: 3}

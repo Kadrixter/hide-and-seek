@@ -107,6 +107,22 @@ namespace HideAndSeek.Audio
             return Runner.Play(e, position, null, volume, true, false);
         }
 
+        /// <summary>Plays an arbitrary clip in 2D (local feedback, e.g. the player's own breathing), mixed like <paramref name="mixAs"/>.</summary>
+        public static AudioSource PlayClip2D(AudioClip clip, float volume = 1f, GameSfx mixAs = GameSfx.None)
+        {
+            if (clip == null) return null;
+            var e = new SfxEntry { id = mixAs, clips = new[] { clip }, volume = 1f, range = 10f, pitchJitter = 0f, reverbMix = 0f };
+            return Runner.Play(e, Vector3.zero, null, volume, false, false);
+        }
+
+        /// <summary>Plays an arbitrary clip in 3D following <paramref name="target"/> (walls / floors muffle it as usual).</summary>
+        public static AudioSource PlayClipAttached(AudioClip clip, Transform target, float volume, float range, GameSfx mixAs = GameSfx.None, float reverbMix = 0.6f)
+        {
+            if (clip == null || target == null) return null;
+            var e = new SfxEntry { id = mixAs, clips = new[] { clip }, volume = 1f, range = range, pitchJitter = 0f, reverbMix = reverbMix };
+            return Runner.Play(e, target.position, target, volume, true, false);
+        }
+
         /// <summary>Switches the 2D music/ambient bed (menu, lobby, garage, tension). Crossfades.</summary>
         public static void SetBed(AmbientId id, float fade = 1.5f) => Runner.SetBed(Library?.Get(id), fade);
 

@@ -1,5 +1,4 @@
 using System;
-using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using Unity.Collections;
 using Unity.Netcode;
@@ -10,11 +9,13 @@ namespace HideAndSeek.Game.Voice
 {
     /// <summary>
     /// Proximity voice chat over the game connection (no external service).
-    /// Microphone -> 16 kHz mu-law frames -> server -> only listeners in range -> 3D <see cref="VoicePlayback"/>.
-    /// Lobby: everybody hears everybody. Round: within <see cref="HearRange"/> m; the dead hear everyone,
-    /// the living never hear the dead.
+    /// Microphone -> 20 ms 16 kHz mu-law frames -> server -> only listeners allowed by <see cref="VoiceRules"/> ->
+    /// <see cref="VoicePlayback"/>. Frames go unreliable and carry a sequence number: a lost frame becomes a short
+    /// concealed gap instead of stalling everything behind it (reliable delivery waits for the resend).
+    /// Lobby: everybody hears everybody. Round: within <see cref="HearRange"/> m; the dead have their own channel and
+    /// still hear the living, the living never hear the dead.
     /// </summary>
-    public class VoiceChat : MonoBehaviour
+    public partial class VoiceChat : MonoBehaviour
     {
         public const string Message = "hns.voice";
         public const float HearRange = 60f;
@@ -34,14 +35,11 @@ namespace HideAndSeek.Game.Voice
         public string ActiveDevice { get; private set; }
         public bool MicAvailable => Microphone.devices.Length > 0;
 
-        public static float CurrentHearRange
-        {
-            get
-            {
-                var mm = MatchManager.Instance;
-                return mm == null || mm.Phase.Value == MatchPhase.Lobby || mm.Phase.Value == MatchPhase.Loading ? LobbyRange : HearRange;
-            }
-        }
+        public static float CurrentHearRange => VoiceRules.LobbyLike ? LobbyRange : HearRange;
+
+        /// <summary>-voicereliable: old reliable delivery (for comparison / bad routers).</summary>
+        private static readonly bool Reliable = Array.IndexOf(Environment.GetCommandLineArgs(), "-voicereliable") >= 0;
+        private static NetworkDelivery Delivery => Reliable ? NetworkDelivery.ReliableFragmentedSequenced : NetworkDelivery.UnreliableSequenced;
 
         private AudioClip _mic;
         private int _readPos;
@@ -50,6 +48,10 @@ namespace HideAndSeek.Game.Voice
         private byte[] _rx = new byte[VoiceCodec.FrameSamples * 2];
         private float _vadHangover;
         private NetworkManager _registeredOn;
+        private ushort _seq;
+        private bool _wantMic;
+        private float _frameLevel;
+        private string _deviceArg;
 
         public static void EnsureExists()
         {
@@ -57,6 +59,7 @@ namespace HideAndSeek.Game.Voice
             var go = new GameObject("[VoiceChat]");
             DontDestroyOnLoad(go);
             Instance = go.AddComponent<VoiceChat>();
+            go.AddComponent<SpectatorVoiceLabel>();
         }
 
         // ================================================================ microphone
@@ -87,10 +90,6 @@ namespace HideAndSeek.Game.Voice
             _wantMic = false;
         }
 
-        private bool _wantMic;
-        private float _frameLevel;
-        private string _deviceArg;
-
         // ================================================================ loop
 
         private void Update()
@@ -106,21 +105,12 @@ namespace HideAndSeek.Game.Voice
             }
             if (nm == null || !nm.IsListening) _registeredOn = null;
 
+            LogStats();
             if (session && TestTone)
             {
-                // Test mode: synthetic 440 Hz tone at real-time rate instead of the microphone.
-                _toneClock += Time.unscaledDeltaTime;
-                while (_toneClock >= VoiceCodec.FrameSamples / (float)VoiceCodec.SampleRate)
-                {
-                    _toneClock -= VoiceCodec.FrameSamples / (float)VoiceCodec.SampleRate;
-                    for (int i = 0; i < _frame.Length; i++, _tonePhase++)
-                        _frame[i] = 0.3f * Mathf.Sin(_tonePhase * 2f * Mathf.PI * 440f / VoiceCodec.SampleRate);
-                    ProcessFrame(nm, true);
-                }
-                LogStats();
+                ToneFrames(nm);
                 return;
             }
-            LogStats();
 
             bool want = session && LocalProfile.VoiceEnabled;
             if (want && !_wantMic) StartMic();
@@ -133,6 +123,7 @@ namespace HideAndSeek.Game.Voice
                 return;
             }
 
+            // Read every complete 20 ms frame the microphone has delivered since the last frame.
             int pos = Microphone.GetPosition(_deviceArg);
             int len = _mic.samples;
             int available = (pos - _readPos + len) % len;
@@ -141,27 +132,12 @@ namespace HideAndSeek.Game.Voice
                 _mic.GetData(_frame, _readPos);
                 _readPos = (_readPos + VoiceCodec.FrameSamples) % len;
                 available -= VoiceCodec.FrameSamples;
-                ProcessFrame(nm, false);
+                ProcessFrame(nm, false, 0);
             }
         }
 
-        private static readonly bool TestTone = Array.IndexOf(Environment.GetCommandLineArgs(), "-voicetest") >= 0;
-        private float _toneClock;
-        private long _tonePhase;
-        private int _rxPackets, _txPackets;
-        private float _nextStats;
-
-        private void LogStats()
-        {
-            if (!TestTone && Array.IndexOf(Environment.GetCommandLineArgs(), "-debugpos") < 0) return;
-            if (Time.unscaledTime < _nextStats) return;
-            _nextStats = Time.unscaledTime + 3f;
-            int buf = 0;
-            foreach (var vp in FindObjectsByType<VoicePlayback>(FindObjectsInactive.Exclude)) buf = Mathf.Max(buf, vp.BufferMs);
-            Debug.Log($"[Voice] tx={_txPackets} rx={_rxPackets} transmitting={Transmitting} bufferMs={buf}");
-        }
-
-        private void ProcessFrame(NetworkManager nm, bool forceSend)
+        /// <summary>Gain, level meter, push-to-talk / voice activation, then encode and send one frame.</summary>
+        private void ProcessFrame(NetworkManager nm, bool forceSend, long stamp)
         {
             float gain = LocalProfile.MicGain;
             float sum = 0f;
@@ -175,7 +151,7 @@ namespace HideAndSeek.Game.Voice
             // dB meter: -50 dBFS = 0, -5 dBFS = 1 (normal speech ~0.4-0.6, shouting > 0.8).
             float db = 20f * Mathf.Log10(Mathf.Max(rms, 1e-5f));
             float level = Mathf.Clamp01((db + 50f) / 45f);
-            MicLevel = Mathf.Max(level, MicLevel * 0.85f); // fast attack, slower release for the HUD
+            MicLevel = Mathf.Max(level, MicLevel * 0.92f); // fast attack, slower release for the HUD (20 ms frames)
             _frameLevel = level;
 
             bool menu = LocalPlayerController.MenuOpen;
@@ -195,21 +171,45 @@ namespace HideAndSeek.Game.Voice
             Transmitting = send;
             if (!send) return;
             _txPackets++;
+            _seq++;
 
             for (int i = 0; i < _frame.Length; i++) _encoded[i] = VoiceCodec.Encode(_frame[i]);
+            byte lvl = (byte)Mathf.RoundToInt(_frameLevel * 255f);
 
-            if (nm.IsServer) Relay(nm, nm.LocalClientId, (byte)Mathf.RoundToInt(_frameLevel * 255f), _encoded, _encoded.Length);
+            if (nm.IsServer) Relay(nm, nm.LocalClientId, _seq, lvl, _encoded, _encoded.Length, stamp);
             else
             {
-                using var writer = new FastBufferWriter(_encoded.Length + 8, Allocator.Temp);
-                writer.WriteValueSafe((byte)Mathf.RoundToInt(_frameLevel * 255f));
-                writer.WriteValueSafe((ushort)_encoded.Length);
-                writer.WriteBytesSafe(_encoded, _encoded.Length);
-                nm.CustomMessagingManager.SendNamedMessage(Message, NetworkManager.ServerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                using var writer = new FastBufferWriter(_encoded.Length + 16, Allocator.Temp);
+                WriteFrame(writer, _seq, lvl, _encoded, _encoded.Length, stamp);
+                nm.CustomMessagingManager.SendNamedMessage(Message, NetworkManager.ServerClientId, writer, Delivery);
             }
         }
 
         // ================================================================ network
+
+        private static void WriteFrame(FastBufferWriter w, ushort seq, byte level, byte[] data, int len, long stamp)
+        {
+            w.WriteValueSafe(seq);
+            w.WriteValueSafe(level);
+            w.WriteValueSafe((byte)(stamp != 0 ? 1 : 0));
+            w.WriteValueSafe((ushort)len);
+            w.WriteBytesSafe(data, len);
+            if (stamp != 0) w.WriteValueSafe(stamp);
+        }
+
+        private bool ReadFrame(FastBufferReader r, out ushort seq, out byte level, out int len, out long stamp)
+        {
+            r.ReadValueSafe(out seq);
+            r.ReadValueSafe(out level);
+            r.ReadValueSafe(out byte flags);
+            r.ReadValueSafe(out ushort l);
+            len = l;
+            stamp = 0;
+            if (len > _rx.Length) return false;
+            r.ReadBytesSafe(ref _rx, len);
+            if ((flags & 1) != 0) r.ReadValueSafe(out stamp);
+            return true;
+        }
 
         private void OnMessage(ulong sender, FastBufferReader reader)
         {
@@ -217,61 +217,52 @@ namespace HideAndSeek.Game.Voice
             if (nm == null) return;
             if (nm.IsServer && sender != NetworkManager.ServerClientId)
             {
-                // Client -> server: relay to listeners in range.
-                reader.ReadValueSafe(out byte lvl);
-                reader.ReadValueSafe(out ushort len);
-                if (len > _rx.Length) return;
-                reader.ReadBytesSafe(ref _rx, len);
-                Relay(nm, sender, lvl, _rx, len);
+                // Client -> server: relay to the listeners allowed to hear it.
+                if (!ReadFrame(reader, out ushort seq, out byte lvl, out int len, out long stamp)) return;
+                Relay(nm, sender, seq, lvl, _rx, len, stamp);
             }
             else
             {
                 // Server -> client: play.
                 reader.ReadValueSafe(out ulong speaker);
-                reader.ReadValueSafe(out byte lvl);
-                reader.ReadValueSafe(out ushort len);
-                if (len > _rx.Length) return;
-                reader.ReadBytesSafe(ref _rx, len);
-                Play(speaker, lvl, _rx, len);
+                if (!ReadFrame(reader, out ushort seq, out byte lvl, out int len, out long stamp)) return;
+                Play(speaker, seq, lvl, _rx, len, stamp);
             }
         }
 
-        private void Relay(NetworkManager nm, ulong speakerId, byte level, byte[] data, int len)
+        private void Relay(NetworkManager nm, ulong speakerId, ushort seq, byte level, byte[] data, int len, long stamp)
         {
             var speaker = NetPlayer.FindByClient(speakerId);
             if (speaker == null) return;
-            var mm = MatchManager.Instance;
-            bool lobby = mm == null || mm.Phase.Value == MatchPhase.Lobby || mm.Phase.Value == MatchPhase.Loading;
-            bool speakerDead = speaker.Life.Value == LifeState.Dead;
-
-            using var writer = new FastBufferWriter(len + 16, Allocator.Temp);
-            writer.WriteValueSafe(speakerId);
-            writer.WriteValueSafe(level);
-            writer.WriteValueSafe((ushort)len);
             bool shout = level / 255f >= ShoutLevel;
-            writer.WriteBytesSafe(data, len);
+
+            using var writer = new FastBufferWriter(len + 24, Allocator.Temp);
+            writer.WriteValueSafe(speakerId);
+            WriteFrame(writer, seq, level, data, len, stamp);
 
             foreach (var listener in NetPlayer.All)
             {
                 if (listener == null || listener.OwnerClientId == speakerId) continue;
-                bool listenerDead = listener.Life.Value == LifeState.Dead;
-                bool hears;
-                if (lobby) hears = true;
-                else if (speakerDead) hears = listenerDead;
-                else hears = listenerDead || Vector3.Distance(listener.transform.position, speaker.transform.position) <= (shout ? ShoutRange : HearRange) + 5f;
-                if (!hears) continue;
+                // The dead talk on their own channel: their voice is never even sent to the living.
+                if (!VoiceRules.Hears(listener, speaker, shout) && !TestRelayAll) continue;
 
-                if (listener.OwnerClientId == nm.LocalClientId) Play(speakerId, level, data, len); // host listens locally
-                else nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                if (listener.OwnerClientId == nm.LocalClientId) Play(speakerId, seq, level, data, len, stamp); // host listens locally
+                else nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writer, Delivery);
             }
         }
 
-        private static void Play(ulong speakerId, byte level, byte[] data, int len)
+        private static void Play(ulong speakerId, ushort seq, byte level, byte[] data, int len, long stamp)
         {
-            if (Instance != null) Instance._rxPackets++;
             var p = NetPlayer.FindByClient(speakerId);
             if (p == null || p.IsOwner) return;
-            VoicePlayback.For(p).Push(data, len, level / 255f);
+            // Second check on the receiving side (an older / modified server): the living never hear the dead.
+            if (!VoiceRules.LocalMayHear(p))
+            {
+                if (Instance != null) Instance._rejected++;
+                return;
+            }
+            if (Instance != null) Instance._rxPackets++;
+            VoicePlayback.For(p).Push(seq, data, len, level / 255f, stamp);
         }
 
         /// <summary>True if the given remote player is currently heard talking.</summary>

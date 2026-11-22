@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HideAndSeek.Core;
 using HideAndSeek.Player;
 using UnityEngine;
 
@@ -31,6 +32,8 @@ namespace HideAndSeek.Audio
             public AmbientId Id;
             public float BaseVolume;
             public float Occlusion, OcclusionTarget;
+            public bool Clear;              // last probe: nothing solid between listener and emitter
+            public float FloorGain = 1f;    // FloorAcoustics: another floor is silent unless near a ramp / stairwell
         }
 
         private readonly List<Emitter> _emitters = new List<Emitter>();
@@ -238,9 +241,9 @@ namespace HideAndSeek.Audio
                 _cursor = (_cursor + 1) % _emitters.Count;
                 var e = _emitters[_cursor];
                 if (e.Source == null || !e.Source.isPlaying) continue;
-                e.OcclusionTarget = GameAudio.OcclusionEnabled
-                    ? AudioOcclusion.Sample(lp, e.Source.transform.position, _listener.root, transform, GameAudio.OcclusionMask)
-                    : 0f;
+                float occ = AudioOcclusion.Sample(lp, e.Source.transform.position, _listener.root, transform, GameAudio.OcclusionMask);
+                e.Clear = occ <= 0f;
+                e.OcclusionTarget = GameAudio.OcclusionEnabled ? occ : 0f;
             }
 
             for (int i = 0; i < _emitters.Count; i++)
@@ -250,9 +253,12 @@ namespace HideAndSeek.Audio
                 if (s == null) continue;
                 float d = Vector3.Distance(lp, s.transform.position);
                 bool inRange = d < s.maxDistance + 2f;
+                float floorTarget = FloorAcoustics.Transfer(lp, s.transform.position, e.Clear, out float floorCutoff);
                 if (inRange && !s.isPlaying)
                 {
+                    if (floorTarget <= 0f) continue; // another floor, far from any opening: do not even start it
                     s.time = Random.Range(0f, s.clip.length * 0.95f);
+                    e.FloorGain = floorTarget;
                     s.Play();
                 }
                 else if (!inRange && s.isPlaying)
@@ -263,10 +269,14 @@ namespace HideAndSeek.Audio
                 if (!s.isPlaying) continue;
 
                 e.Occlusion = Mathf.MoveTowards(e.Occlusion, e.OcclusionTarget, dt * 3f);
-                e.LowPass.enabled = e.Occlusion > 0.01f;
-                if (e.LowPass.enabled) e.LowPass.cutoffFrequency = Mathf.Lerp(22000f, 700f, Mathf.Sqrt(e.Occlusion));
-                float target = e.BaseVolume * GameAudio.AmbientVolume * Mathf.Lerp(1f, 0.45f, e.Occlusion);
-                s.volume = Mathf.MoveTowards(s.volume, target, dt * 2f);
+                e.FloorGain = Mathf.MoveTowards(e.FloorGain, floorTarget, dt * 3f);
+                bool muffled = e.FloorGain < 0.99f;
+                e.LowPass.enabled = e.Occlusion > 0.01f || muffled;
+                if (e.LowPass.enabled)
+                    e.LowPass.cutoffFrequency = Mathf.Min(Mathf.Lerp(22000f, 700f, Mathf.Sqrt(e.Occlusion)), muffled ? floorCutoff : 22000f);
+                float target = e.BaseVolume * GameAudio.AmbientVolume * Mathf.Lerp(1f, 0.45f, e.Occlusion) * e.FloorGain;
+                // fades in slowly, but drops at once when the slab gets in the way
+                s.volume = target < s.volume ? Mathf.MoveTowards(s.volume, target, dt * 6f) : Mathf.MoveTowards(s.volume, target, dt * 2f);
             }
         }
     }

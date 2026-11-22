@@ -1,42 +1,32 @@
 using HideAndSeek.Audio;
+using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 
 namespace HideAndSeek.Game.Voice
 {
     /// <summary>
-    /// Plays one remote player's voice in 3D from their head: adaptive jitter buffer (grows when packets arrive late,
-    /// shrinks back when the connection is steady), loudness boost with soft clipping, garage echo that gets
-    /// stronger with distance, and muffling behind walls.
+    /// Plays one remote player's voice from their head: low-latency jitter buffer (<see cref="VoiceStream"/>), loudness
+    /// boost x chat volume x this player's own volume (<see cref="PlayerVoiceVolumes"/>), garage echo that grows with
+    /// distance, muffling behind walls, silence from other floors (<see cref="FloorAcoustics"/>).
+    /// A dead talker heard by a dead listener (observer channel) is played flat in 2D, without range or effects.
     /// </summary>
     public class VoicePlayback : MonoBehaviour
     {
-        private const int Rate = VoiceCodec.SampleRate;
-        private const int BufferSize = Rate * 3;
-        private const int MinTarget = Rate * 100 / 1000;   // 100 ms
-        private const int MaxTarget = Rate * 600 / 1000;   // 600 ms
         private const float BaseGain = 2.4f;
 
-        private readonly float[] _ring = new float[BufferSize];
-        private int _write, _read, _count;
-        private bool _started;
-        private int _target = Rate * 160 / 1000;          // start at 160 ms
-        private volatile int _underruns;
-        private float _lastSample;
-        private readonly object _lock = new object();
-
         private AudioSource _source;
+        private VoiceStream _stream;
         private AudioLowPassFilter _lowPass;
-        private float _floorMuffle;
-        private float _nextFloorCheck;
-        private bool _floorBlocked;
         private AudioEchoFilter _echo;
-        private float _nextOcclusion, _occlusion;
-        private int _seenUnderruns;
-        private float _steadySince;
+        private NetPlayer _owner;
+        private float _floorGain = 1f, _floorTarget = 1f, _floorCutoff = 22000f;
+        private float _nextFloorCheck, _nextOcclusion, _occlusion;
         private float _shoutUntil = -10f;
         private float _range;
-        private volatile float _gain = BaseGain;
+        private string _nick;
+        private float _nextNick;
+        private bool _wasSpeaking;
 
         /// <summary>True while this player is shouting (heard across the garage).</summary>
         public bool Shouting => Time.time < _shoutUntil;
@@ -45,8 +35,14 @@ namespace HideAndSeek.Game.Voice
         public float LastPacketTime { get; private set; } = -10f;
         public bool IsSpeaking => Time.time - LastPacketTime < 0.4f;
 
-        /// <summary>Current buffering delay in ms (debug).</summary>
-        public int BufferMs => _target * 1000 / Rate;
+        /// <summary>Current target delay of the jitter buffer in ms (debug).</summary>
+        public int BufferMs => _stream != null ? _stream.TargetMs : 0;
+        public VoiceStream Stream => _stream;
+        /// <summary>True while played on the observer channel (2D, dead to dead).</summary>
+        public bool DeadChannel { get; private set; }
+        public int Packets { get; private set; }
+        /// <summary>Current volume factor from other floors (1 = same floor).</summary>
+        public float FloorGain => _floorGain;
 
         public static VoicePlayback For(NetPlayer p)
         {
@@ -60,9 +56,10 @@ namespace HideAndSeek.Game.Voice
 
         private void Awake()
         {
+            _owner = GetComponentInParent<NetPlayer>();
+            // Component order matters: the stream filter first, then echo and low-pass act on the voice.
             _source = gameObject.AddComponent<AudioSource>();
-            _source.clip = AudioClip.Create("voice", Rate, 1, Rate, true, OnRead);
-            _source.loop = true;
+            _stream = gameObject.AddComponent<VoiceStream>();
             _source.spatialBlend = 1f;
             _source.rolloffMode = AudioRolloffMode.Custom;
             _source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, new AnimationCurve(
@@ -72,6 +69,7 @@ namespace HideAndSeek.Game.Voice
             _source.dopplerLevel = 0f;
             _source.spread = 30f;
             _source.volume = 1f;
+            _source.priority = 8;
             _source.Play();
 
             _echo = gameObject.AddComponent<AudioEchoFilter>();
@@ -84,81 +82,35 @@ namespace HideAndSeek.Game.Voice
             _lowPass.cutoffFrequency = 22000f;
         }
 
-        public void Push(byte[] data, int length, float level = 0f)
+        public void Push(ushort seq, byte[] data, int length, float level, long stamp)
         {
+            if (!IsSpeaking) _nextFloorCheck = 0f; // a new sentence: check the floor before it starts playing
             LastPacketTime = Time.time;
+            Packets++;
             if (level >= VoiceChat.ShoutLevel) _shoutUntil = Time.time + 0.8f;
-            lock (_lock)
-            {
-                for (int i = 0; i < length; i++)
-                {
-                    if (_count >= BufferSize)
-                    {
-                        _read = (_read + 1) % BufferSize;
-                        _count--;
-                    }
-                    _ring[_write] = VoiceCodec.Decode(data[i]);
-                    _write = (_write + 1) % BufferSize;
-                    _count++;
-                }
-                // Too far behind (e.g. after a long stall): drop the oldest audio down to the target delay.
-                int limit = _target + Rate / 3;
-                if (_count > limit)
-                {
-                    int drop = _count - _target;
-                    _read = (_read + drop) % BufferSize;
-                    _count -= drop;
-                }
-            }
-        }
-
-        private void OnRead(float[] data)
-        {
-            // Audio thread: PlayerPrefs is main-thread only, so use the value cached in Update.
-            float gain = _gain;
-            lock (_lock)
-            {
-                if (!_started && _count >= _target) _started = true;
-                for (int i = 0; i < data.Length; i++)
-                {
-                    if (_started && _count > 0)
-                    {
-                        float x = _ring[_read] * gain;
-                        _read = (_read + 1) % BufferSize;
-                        _count--;
-                        // Soft clip so the boost never crackles.
-                        x = x / (1f + 0.35f * Mathf.Abs(x));
-                        _lastSample = Mathf.Clamp(x, -1f, 1f);
-                        data[i] = _lastSample;
-                    }
-                    else
-                    {
-                        if (_started) _underruns++; // ran dry mid-speech: buffer more next time
-                        _started = false;
-                        // Fade the last sample out instead of a hard click.
-                        _lastSample *= 0.96f;
-                        data[i] = _lastSample;
-                    }
-                }
-            }
+            _stream.Push(seq, data, length, stamp);
         }
 
         private void Update()
         {
-            _gain = BaseGain * Mathf.Max(0f, LocalProfile.ChatVolume);
-            // Adaptive delay: each underrun while talking adds 60 ms; 8 s without one removes 20 ms.
-            int u = _underruns;
-            if (u != _seenUnderruns)
+            if (Time.unscaledTime >= _nextNick && _owner != null) { _nick = _owner.Nick; _nextNick = Time.unscaledTime + 1f; }
+            _stream.Gain = BaseGain * Mathf.Max(0f, LocalProfile.ChatVolume) * PlayerVoiceVolumes.Get(_nick);
+            bool speaking = IsSpeaking;
+            _stream.Tick(speaking);
+
+            DeadChannel = VoiceRules.OnDeadChannel(_owner) && VoiceRules.OnDeadChannel(NetPlayer.Local);
+            if (DeadChannel)
             {
-                if (IsSpeaking) _target = Mathf.Min(MaxTarget, _target + Rate * 60 / 1000);
-                _seenUnderruns = u;
-                _steadySince = Time.time;
+                // observer channel: flat, the same everywhere
+                _source.spatialBlend = 0f;
+                _source.volume = 1f;
+                _echo.enabled = false;
+                _lowPass.cutoffFrequency = 22000f;
+                _floorGain = _floorTarget = 1f;
+                _wasSpeaking = speaking;
+                return;
             }
-            else if (Time.time - _steadySince > 8f && _target > MinTarget)
-            {
-                _target = Mathf.Max(MinTarget, _target - Rate * 20 / 1000);
-                _steadySince = Time.time;
-            }
+            _source.spatialBlend = 1f;
 
             // Shouts carry across the whole garage; the range eases back after the shout.
             bool lobby = VoiceChat.CurrentHearRange > VoiceChat.HearRange;
@@ -167,24 +119,29 @@ namespace HideAndSeek.Game.Voice
             _source.maxDistance = Mathf.Max(5f, _range);
 
             var listener = Camera.main;
-            float dist = listener != null ? Vector3.Distance(listener.transform.position, transform.position) : 0f;
+            Vector3 lp = listener != null ? listener.transform.position : transform.position;
+            float dist = Vector3.Distance(lp, transform.position);
 
-            // Echo: only in the big concrete garage. Stronger and longer the farther away the speaker is;
-            // a shout from the other end of the parking comes back as a clear slap echo.
-            bool garage = AudioEnvironment.Current == AudioEnvironmentKind.Garage;
-            float far = Mathf.InverseLerp(4f, Shouting ? VoiceChat.ShoutRange * 0.6f : VoiceChat.HearRange, dist);
-            // A shout from another floor comes through the slab: muffled, quieter, almost no echo.
+            // Another floor: the slab stops the voice; next to a ramp / stairwell only a muffled rest gets through.
             if (listener != null && Time.time >= _nextFloorCheck)
             {
-                // Different floor and the slab in the way: the voice does not get through at all.
                 _nextFloorCheck = Time.time + 0.15f;
-                _floorBlocked = AudioFloors.DifferentFloor(listener.transform.position, transform.position) &&
-                                AudioOcclusion.Sample(listener.transform.position, transform.position, listener.transform.root,
-                                    transform.parent, GameAudio.OcclusionMask) > 0f;
+                _floorTarget = 1f;
+                _floorCutoff = 22000f;
+                if (FloorAcoustics.DifferentFloor(lp, transform.position))
+                {
+                    bool clear = AudioOcclusion.Sample(lp, transform.position, listener.transform.root, transform.parent, GameAudio.OcclusionMask) <= 0f;
+                    _floorTarget = FloorAcoustics.Transfer(lp, transform.position, clear, out _floorCutoff);
+                }
+                if (!_wasSpeaking) _floorGain = _floorTarget; // never start a sentence loud and fade it out
             }
-            bool otherFloor = listener != null && _floorBlocked;
-            _floorMuffle = Mathf.MoveTowards(_floorMuffle, otherFloor ? 1f : 0f, Time.deltaTime * 4f);
-            _echo.wetMix = (garage ? Mathf.Lerp(0.18f, Shouting ? 0.85f : 0.6f, far) : 0f) * Mathf.Lerp(1f, 0.2f, _floorMuffle);
+            _floorGain = Mathf.MoveTowards(_floorGain, _floorTarget, Time.deltaTime * 4f);
+            float muffle = 1f - _floorGain;
+
+            // Echo: only in the big concrete garage, stronger and longer the farther away the speaker is.
+            bool garage = AudioEnvironment.Current == AudioEnvironmentKind.Garage;
+            float far = Mathf.InverseLerp(4f, Shouting ? VoiceChat.ShoutRange * 0.6f : VoiceChat.HearRange, dist);
+            _echo.wetMix = (garage ? Mathf.Lerp(0.18f, Shouting ? 0.85f : 0.6f, far) : 0f) * Mathf.Lerp(1f, 0.2f, muffle);
             _echo.delay = Mathf.Lerp(220f, Shouting ? 650f : 420f, far);
             _echo.decayRatio = garage ? Mathf.Lerp(0.3f, Shouting ? 0.55f : 0.45f, far) : 0f;
             _echo.enabled = garage;
@@ -193,19 +150,19 @@ namespace HideAndSeek.Game.Voice
             {
                 _nextOcclusion = Time.time + 0.15f;
                 float target = 0f;
-                if (listener != null && IsSpeaking)
+                if (listener != null && speaking)
                 {
-                    Vector3 from = listener.transform.position, to = transform.position;
-                    Vector3 d = to - from;
-                    if (Physics.Raycast(from, d.normalized, out var hit, d.magnitude, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore)
+                    Vector3 d = transform.position - lp;
+                    if (Physics.Raycast(lp, d.normalized, out var hit, d.magnitude, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore)
                         && !hit.transform.IsChildOf(transform.parent) && !hit.transform.IsChildOf(listener.transform.root))
                         target = 1f;
                 }
                 _occlusion = target;
             }
-            _source.volume = (1f - 0.4f * _occlusion) * (1f - _floorMuffle);
-            float cutoff = Mathf.Min(_occlusion > 0.5f ? 1200f : 22000f, Mathf.Lerp(22000f, 600f, _floorMuffle));
+            _source.volume = (1f - 0.4f * _occlusion) * _floorGain;
+            float cutoff = Mathf.Min(_occlusion > 0.5f ? 1200f : 22000f, _floorGain < 0.99f ? _floorCutoff : 22000f);
             _lowPass.cutoffFrequency = Mathf.Lerp(_lowPass.cutoffFrequency, cutoff, 0.3f);
+            _wasSpeaking = speaking;
         }
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HideAndSeek.Core;
 using UnityEngine;
 
 namespace HideAndSeek.Audio
@@ -26,8 +27,8 @@ namespace HideAndSeek.Audio
             public float BaseVolume;
             public float EchoWet;
             public float Occlusion, OcclusionTarget, NextOcclusionCheck;
-            public float OtherFloor; // 0..1, eased: source on another floor than the listener (and the slab is in the way)
-            public bool FloorBlocked;
+            public float OtherFloor; // 0..1 = 1 - FloorGain: how much of the sound is lost through the slab
+            public float FloorGain = 1f, FloorGainTarget = 1f, FloorCutoff = 22000f; // FloorAcoustics.Transfer
             public float NextFloorCheck;
             public float StartTime;
             public float FadeOut = -1f;
@@ -115,6 +116,12 @@ namespace HideAndSeek.Audio
             // occlusion starts from a fresh sample so a sound behind a wall never pops in bright
             v.Occlusion = v.OcclusionTarget = spatial ? SampleOcclusion(pos, follow) : 0f;
             v.NextOcclusionCheck = Time.unscaledTime + OcclusionInterval;
+            // the floor too: a shot / scream on another floor must not start loud and fade out
+            UpdateFloor(v, pos, follow);
+            v.FloorGain = v.FloorGainTarget;
+            v.OtherFloor = 1f - v.FloorGain;
+            v.NextFloorCheck = Time.unscaledTime + OcclusionInterval;
+            if (spatial) s.volume = v.BaseVolume * OcclusionGain(v.Occlusion) * v.FloorGain;
             ApplyOcclusion(v);
 
             // echo from the current acoustic space
@@ -227,20 +234,13 @@ namespace HideAndSeek.Audio
                         v.OcclusionTarget = SampleOcclusion(s.transform.position, v.Follow);
                     }
                     v.Occlusion = Mathf.MoveTowards(v.Occlusion, v.OcclusionTarget, dt * 5f);
-                    bool other = false;
-                    if (_listener != null && AudioFloors.DifferentFloor(_listener.transform.position, s.transform.position))
+                    if (now >= v.NextFloorCheck)
                     {
-                        // Concrete slab between the floors: nothing gets through, unless there is a clear line
-                        // (looking down a ramp at the sound source).
-                        if (now >= v.NextFloorCheck)
-                        {
-                            v.NextFloorCheck = now + OcclusionInterval;
-                            v.FloorBlocked = AudioOcclusion.Sample(_listener.transform.position, s.transform.position,
-                                _listener.transform.root, v.Follow != null ? v.Follow.root : null, GameAudio.OcclusionMask) > 0f;
-                        }
-                        other = v.FloorBlocked;
+                        v.NextFloorCheck = now + OcclusionInterval;
+                        UpdateFloor(v, s.transform.position, v.Follow);
                     }
-                    v.OtherFloor = Mathf.MoveTowards(v.OtherFloor, other ? 1f : 0f, dt * 5f);
+                    v.FloorGain = Mathf.MoveTowards(v.FloorGain, v.FloorGainTarget, dt * 4f);
+                    v.OtherFloor = 1f - v.FloorGain;
                     ApplyOcclusion(v);
                     UpdateDistanceMix(v);
                 }
@@ -252,7 +252,7 @@ namespace HideAndSeek.Audio
                     fadeMul = Mathf.Max(0f, 1f - v.FadeOut / Mathf.Max(0.001f, v.FadeTime));
                     if (fadeMul <= 0f) { s.Stop(); v.FadeOut = -1f; v.Follow = null; continue; }
                 }
-                s.volume = v.BaseVolume * fadeMul * OcclusionGain(v.Occlusion) * (1f - v.OtherFloor);
+                s.volume = v.BaseVolume * fadeMul * OcclusionGain(v.Occlusion) * (v.Spatial ? v.FloorGain : 1f);
             }
 
             if (_bedA != null)
@@ -303,10 +303,24 @@ namespace HideAndSeek.Audio
 
         private static void ApplyOcclusion(Voice v)
         {
-            // Walls (occlusion) and other floors (through concrete slabs: heavy low-pass, little echo).
-            bool on = v.Spatial && (v.Occlusion > 0.01f || v.OtherFloor > 0.01f);
+            // Walls (occlusion) and other floors (through a ramp shaft / stairwell: heavy low-pass, little echo).
+            bool on = v.Spatial && (v.Occlusion > 0.01f || v.FloorGain < 0.99f);
             v.LowPass.enabled = on;
-            if (on) v.LowPass.cutoffFrequency = Mathf.Min(Mathf.Lerp(22000f, 750f, Mathf.Sqrt(v.Occlusion)), Mathf.Lerp(22000f, 520f, v.OtherFloor));
+            if (on) v.LowPass.cutoffFrequency = Mathf.Min(Mathf.Lerp(22000f, 750f, Mathf.Sqrt(v.Occlusion)), v.FloorGain < 0.99f ? v.FloorCutoff : 22000f);
+        }
+
+        /// <summary>Recomputes how much of a spatial voice gets through to the listener's floor (<see cref="FloorAcoustics"/>).</summary>
+        private void UpdateFloor(Voice v, Vector3 pos, Transform follow)
+        {
+            v.FloorGainTarget = 1f;
+            v.FloorCutoff = 22000f;
+            if (!v.Spatial) return;
+            RefreshListener(Time.unscaledTime);
+            if (_listener == null) return;
+            Vector3 lp = _listener.transform.position;
+            if (!FloorAcoustics.DifferentFloor(lp, pos)) return;
+            bool clear = AudioOcclusion.Sample(lp, pos, _listener.transform.root, follow != null ? follow.root : null, GameAudio.OcclusionMask) <= 0f;
+            v.FloorGainTarget = FloorAcoustics.Transfer(lp, pos, clear, out v.FloorCutoff);
         }
 
         private float SampleOcclusion(Vector3 sourcePos, Transform follow)
@@ -319,21 +333,14 @@ namespace HideAndSeek.Audio
         }
     }
 
-    /// <summary>Parking floors (slab tops at y 0 / -3.4 / -6.8): sounds do not travel through the concrete between them.</summary>
+    /// <summary>Parking floors (slab tops at y 0 / -3.4 / -6.8). Kept for older callers; see <see cref="FloorAcoustics"/>.</summary>
     public static class AudioFloors
     {
         /// <summary>Floor index (0, -1, -2) of a point at body height.</summary>
-        public static int FloorOf(float y) => y >= -0.25f ? 0 : y >= -3.65f ? -1 : -2;
+        public static int FloorOf(float y) => FloorAcoustics.FloorOf(y);
 
-        /// <summary>
-        /// True when <paramref name="listener"/> (camera) and <paramref name="source"/> are on different floors and
-        /// far enough apart vertically (players next to each other on a ramp still hear each other).
-        /// </summary>
-        public static bool DifferentFloor(Vector3 listener, Vector3 source)
-        {
-            if (Mathf.Abs(listener.y - source.y) < 2.0f) return false;
-            return FloorOf(listener.y - 0.4f) != FloorOf(source.y - 0.1f);
-        }
+        /// <summary>True when <paramref name="listener"/> (camera) and <paramref name="source"/> are on different floors.</summary>
+        public static bool DifferentFloor(Vector3 listener, Vector3 source) => FloorAcoustics.DifferentFloor(listener, source);
     }
 
     /// <summary>Cheap listener-to-source occlusion: counts solid colliders crossed by one ray.</summary>
