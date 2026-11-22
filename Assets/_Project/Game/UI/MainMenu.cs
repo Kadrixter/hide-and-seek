@@ -174,7 +174,7 @@ namespace HideAndSeek.Game.UI
             UiKit.Button("Host", page, "Stwórz serwer LAN / UDP", Host, 26).Height(58);
             UiKit.Button("Find", page, "Szukaj serwerów", () => Show(_browser), 30).Height(66);
             UiKit.Button("Options", page, "Ustawienia", () => Show(_options), 28).Height(58);
-            UiKit.Button("Quit", page, "Wyjdź", Application.Quit, 28).Height(58);
+            UiKit.Button("Quit", page, "Wyjdź", ConfirmDialog.ConfirmQuit, 28).Height(58);
             return page;
         }
 

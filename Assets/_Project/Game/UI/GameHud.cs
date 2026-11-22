@@ -288,7 +288,7 @@ namespace HideAndSeek.Game
 
             // ---- Esc menu
             var kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame)
+            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape)
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
                 else if (_settingsPanel != null || _escMenu != null) CloseMenus();
@@ -719,13 +719,14 @@ namespace HideAndSeek.Game
             UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
             UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 28).Height(60);
             UiKit.Button("PlayerVolumes", panel, "Głośność graczy", ShowPlayerVolumeMenu, 28).Height(60);
-            string leave = NetworkManager.Singleton.IsServer ? "Zamknij serwer" : "Rozłącz";
-            UiKit.Button("Leave", panel, leave, () =>
+            bool isHost = NetworkManager.Singleton.IsServer;
+            string leave = isHost ? "Zamknij serwer" : "Rozłącz";
+            UiKit.Button("Leave", panel, leave, () => ConfirmDialog.ConfirmLeave(isHost, () =>
             {
                 CloseMenus();
                 NetSession.Instance.Leave();
-            }, 30, new Color(0.35f, 0.1f, 0.1f)).Height(70);
-            UiKit.Button("Quit", panel, "Wyjdź z gry", Application.Quit).Height(60);
+            }), 30, new Color(0.35f, 0.1f, 0.1f)).Height(70);
+            UiKit.Button("Quit", panel, "Wyjdź z gry", ConfirmDialog.ConfirmQuit).Height(60);
         }
 
         /// <summary>Steam friends list with "Zaproś" buttons (+ the Steam overlay invite dialog).</summary>
