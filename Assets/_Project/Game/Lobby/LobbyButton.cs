@@ -1,4 +1,3 @@
-using HideAndSeek.Audio;
 using HideAndSeek.Characters;
 using HideAndSeek.Game.Net;
 using Unity.Netcode;
@@ -10,7 +9,8 @@ namespace HideAndSeek.Game
     /// Big double start lever on the lobby wall (E). Only the room owner can pull it, and only when everyone is ready;
     /// otherwise it is locked (bolt through the arm, red lamp) and only rattles. The pull itself is a shared
     /// animation (<see cref="LeverTimeline"/>): the puller drags the red bar down with the whole body, the blades
-    /// slam into the lower jaws with sparks, then the server starts the round. The model is built at runtime
+    /// slam into the lower jaws with sparks, then a 5..0 countdown for everyone (<see cref="LeverCountdownHud"/>) and
+    /// the server starts the round; if someone drops out during it the lever springs back up. The model is built at runtime
     /// (<see cref="StartLeverModel"/>); the scene keeps only the root with a collider body.
     /// </summary>
     public class LobbyButton : MonoBehaviour
@@ -20,6 +20,7 @@ namespace HideAndSeek.Game
         public static event System.Action PullStarted;
 
         StartLeverModel _m;
+        LeverCountdownHud _hud;
         MaterialPropertyBlock _mpb;
         float _pullT = -1f, _jamT = 9f, _resetT = 9f, _bolt;
         float _shownThrow;
@@ -37,7 +38,11 @@ namespace HideAndSeek.Game
                 if (c != body) c.gameObject.SetActive(false);
             if (body != null) body.GetComponent<Renderer>().enabled = false;
             _m = StartLeverModel.Build(transform, template);
+            _hud = LeverCountdownHud.Create(transform);
         }
+
+        /// <summary>Countdown number shown right now (5..0), -1 when there is none (tests).</summary>
+        public int CountdownNumber => _pullT >= 0f ? LeverTimeline.Countdown(_pullT) : -1;
 
         /// <summary>Point the player aims at (middle of the red bar).</summary>
         public Vector3 AimPoint => _m != null ? _m.Bar.position : transform.position + Vector3.up * 1.3f;
@@ -70,14 +75,17 @@ namespace HideAndSeek.Game
         {
             if (Pulling) return;
             _jamT = 0f;
-            GameAudio.PlayAt(GameSfx.GlockDryFire, AimPoint, 0.9f);
+            LeverSounds.Jam(AimPoint);
         }
 
-        /// <summary>Everybody: the round did not start after all, the lever springs back up.</summary>
-        public void ResetLever()
+        /// <summary>Everybody: the round did not start after all (<paramref name="why"/>), the lever springs back up.</summary>
+        public void ResetLever(string why)
         {
+            bool was = Pulling;
             _pullT = -1f;
             _resetT = 0f;
+            if (_hud != null) _hud.Abort(why);
+            if (was) LeverSounds.Release(AimPoint);
         }
 
         /// <summary>Test helper: shows the lever thrown to this amount (0 up, 1 down), or -1 for normal.</summary>
@@ -106,9 +114,12 @@ namespace HideAndSeek.Game
                 _pullT += dt;
                 throwAmt = LeverTimeline.Throw(_pullT);
                 Events(prev, _pullT);
+                int n = LeverTimeline.Countdown(_pullT);
+                if (_hud != null) _hud.Show(n, n < 0 ? 0f : Mathf.Clamp01(_pullT - LeverTimeline.CountdownAt - (LeverTimeline.CountdownFrom - n)));
             }
             else
             {
+                if (_hud != null) _hud.Hide();
                 // Spring back after a reset.
                 _resetT += dt;
                 throwAmt = _resetT > 1f ? 0f : Mathf.Min(_shownThrow, 1f - LeverTimeline.S(_resetT, 0f, 0.8f));
@@ -138,6 +149,12 @@ namespace HideAndSeek.Game
                 float flash = Mathf.Exp(-(_pullT - LeverTimeline.Latch) * 3f);
                 c = Color.Lerp(c, Color.white, 0.6f * flash);
                 pulse = 1.2f + 1.5f * flash * Mathf.Abs(Mathf.Sin(_pullT * 30f));
+                // Countdown: a flash on every tick, steady bright on "0".
+                if (_pullT >= LeverTimeline.CountdownAt)
+                {
+                    float k = _pullT >= LeverTimeline.GoAt ? 0f : Mathf.Repeat(_pullT - LeverTimeline.CountdownAt, 1f);
+                    pulse = _pullT >= LeverTimeline.GoAt ? 2.6f : 0.7f + 2.2f * Mathf.Exp(-k * 6f);
+                }
             }
             _m.Glow.color = c;
             _m.Glow.intensity = 1.4f * pulse;
@@ -152,14 +169,18 @@ namespace HideAndSeek.Game
         {
             bool Cross(float mark) => prev < mark && now >= mark;
             Vector3 bar = AimPoint;
-            if (Cross(LeverTimeline.Grip)) GameAudio.PlayAt(GameSfx.RcPlace, bar, 0.7f);
-            if (Cross(LeverTimeline.Unstick)) GameAudio.PlayAt(GameSfx.GlockDryFire, bar, 1f);
+            if (Cross(LeverTimeline.Grip)) LeverSounds.Grab(bar);
+            if (Cross(LeverTimeline.Grip + 0.1f)) LeverSounds.Strain(bar);
+            if (Cross(LeverTimeline.Unstick)) LeverSounds.Unstick(transform.TransformPoint(StartLeverModel.PivotPos));
+            if (Cross(LeverTimeline.Unstick + 0.02f)) LeverSounds.Slide(transform.TransformPoint(StartLeverModel.PivotPos));
             if (Cross(LeverTimeline.Latch))
             {
-                GameAudio.PlayAt(GameSfx.LobbyButtonPress, bar, 1f);
-                GameAudio.PlayAt(GameSfx.ForkSparks, transform.TransformPoint(_m.LowerJaws[0]), 0.35f);
+                LeverSounds.Latch(transform.TransformPoint(_m.LowerJaws[0] + Vector3.right * StartLeverModel.ArmX));
                 foreach (var j in _m.LowerJaws) LeverSparks.Burst(transform.TransformPoint(j), transform.forward);
             }
+            for (int k = 0; k < LeverTimeline.CountdownFrom; k++)
+                if (Cross(LeverTimeline.CountdownAt + k)) LeverSounds.Tick();
+            if (Cross(LeverTimeline.GoAt)) LeverSounds.Go();
         }
     }
 }

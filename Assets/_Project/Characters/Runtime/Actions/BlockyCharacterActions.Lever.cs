@@ -7,14 +7,21 @@ namespace HideAndSeek.Characters
     /// model, the third-person body, the first-person hands and camera, and the sounds:
     /// reach up and grab the red bar (0-0.5), hang the body weight on it while it sticks (0.5-0.95), drag it down with
     /// the whole body into a squat (0.95-1.8), the blades slam into the lower jaws (1.8), hold, let go (2.45) and
-    /// stand up (3.2). The server starts the round at <see cref="StartMatch"/>.
+    /// stand up (3.2). Then the countdown 5..0 (3.3-8.3) and the server starts the round at <see cref="StartMatch"/>.
     /// </summary>
     public static class LeverTimeline
     {
         public const float Grip = 0.5f, Unstick = 0.95f, Latch = 1.8f, Release = 2.45f, End = 3.2f;
-        public const float StartMatch = 3.5f;
+        /// <summary>Countdown 5..1 starts here (one number per second), "0" at <see cref="GoAt"/>.</summary>
+        public const float CountdownAt = 3.3f;
+        public const int CountdownFrom = 5;
+        public const float GoAt = CountdownAt + CountdownFrom;
+        public const float StartMatch = GoAt + 0.7f;
+
+        /// <summary>Countdown number shown at <paramref name="t"/> (5..0), or -1 before the countdown.</summary>
+        public static int Countdown(float t) => t < CountdownAt ? -1 : Mathf.Max(0, CountdownFrom - Mathf.FloorToInt(t - CountdownAt));
         /// <summary>Feet of the puller, metres in front of the wall plate.</summary>
-        public const float StandDistance = 1.1f;
+        public const float StandDistance = 0.95f;
 
         public static float S(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
 
@@ -85,8 +92,8 @@ namespace HideAndSeek.Characters
 
             // Shoulders relative to the bar: below-behind it at the top (arms up), behind it in the middle (leaning
             // back, arms forward), above-behind it at the bottom (deep squat, arms down).
-            Vector3 shOff = LeverBez(new Vector3(0f, -0.45f, -0.2f), new Vector3(0f, 0.0f, -0.42f), new Vector3(0f, 0.42f, -0.2f), th);
-            float pitch = LeverBez(22f, -10f, 25f, th) + 6f * strain + 5f * latchHit;
+            Vector3 shOff = LeverBez(new Vector3(0f, -0.38f, -0.33f), new Vector3(0f, 0.0f, -0.42f), new Vector3(0f, 0.42f, -0.2f), th);
+            float pitch = LeverBez(4f, -10f, 25f, th) + 6f * strain + 5f * latchHit;
             Vector3 shoulders = bar + shOff + new Vector3(0f, -0.05f * strain, 0f);
 
             var p = CharacterPose.Identity;
@@ -104,7 +111,7 @@ namespace HideAndSeek.Characters
             p.Head = Quaternion.Euler(Mathf.Clamp(headDown - pitch, -55f, 55f), 2f * shake, 0f);
 
             // Staggered stance, planted.
-            p.SolveLeg(0, new Vector3(0.14f, 0f, 0.2f), new Vector3(0.15f, 0f, 1f));
+            p.SolveLeg(0, new Vector3(0.14f, 0f, 0.14f), new Vector3(0.15f, 0f, 1f));
             p.SolveLeg(1, new Vector3(-0.15f, 0f, -0.14f), new Vector3(-0.15f, 0f, 1f));
 
             // Arms: from wherever they were up to the bar; elbows out and down.

@@ -1,16 +1,21 @@
 using System.Collections;
+using HideAndSeek.Characters;
 using HideAndSeek.Game.Net;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace HideAndSeek.Game
 {
     /// <summary>
     /// Opt-in tests of the start lever (host + one client).
-    /// Host -testlever: pull while not everyone is ready (must rattle), make everyone ready, pull (round starts).
+    /// Host -testlever: pull while not everyone is ready (must rattle), make everyone ready, pull; if the countdown gets
+    /// cancelled (client -leverunready drops its ready at "3"), make everyone ready again and pull once more - the
+    /// round must start after the countdown.
     /// Host -levershots &lt;dir&gt;: model renders (model_*.png), first-person shot of the locked rattle (fp_jam.png), then
     /// records the pull at 30 fps: real screen (fpp/f_###.jpg) and a side camera of the body (tpp/f_###.jpg).
     /// The round is not started (see MatchManager.LeverStay).
     /// Client -leverwatch &lt;dir&gt;: stands beside the lever and saves its own screen while the host pulls (watch_##.png).
+    /// Client -leverunready: drops its ready once when the countdown shows 3.
     /// </summary>
     public sealed class LeverProbe : MonoBehaviour
     {
@@ -24,7 +29,7 @@ namespace HideAndSeek.Game
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
-            if (Arg("-testlever") == null && Arg("-levershots") == null && Arg("-leverwatch") == null) return;
+            if (Arg("-testlever") == null && Arg("-levershots") == null && Arg("-leverwatch") == null && Arg("-leverunready") == null) return;
             var g = new GameObject("LeverProbe");
             DontDestroyOnLoad(g);
             g.AddComponent<LeverProbe>();
@@ -35,6 +40,7 @@ namespace HideAndSeek.Game
             while (!NetPlayer.Local || !LobbyButton.Instance || MatchManager.Instance == null) yield return null;
             string watch = Arg("-leverwatch");
             if (!string.IsNullOrEmpty(watch)) { yield return Watch(watch); yield break; }
+            if (Arg("-leverunready") != null) { yield return Unready(); yield break; }
             for (float w = 0f; NetPlayer.All.Count < 2 && w < 90f; w += Time.unscaledDeltaTime) yield return null;
             yield return new WaitForSeconds(2f);
             string shots = Arg("-levershots");
@@ -82,11 +88,24 @@ namespace HideAndSeek.Game
 
             if (dir == null)
             {
-                lever.Press();
-                yield return new WaitForSeconds(0.5f);
-                Debug.Log("[LeverProbe] pulling=" + lever.Pulling + " (expected True)");
-                yield return new WaitForSeconds(6f);
-                Debug.Log("[LeverProbe] phase after pull: " + MatchManager.Instance.Phase.Value);
+                var mm = MatchManager.Instance;
+                for (int attempt = 1; attempt <= 2; attempt++)
+                {
+                    p.Motor.SetLook(lever.StandYaw, 8f);
+                    lever.Press();
+                    yield return new WaitForSeconds(0.5f);
+                    Debug.Log("[LeverProbe] pull " + attempt + ": pulling=" + lever.Pulling + " (expected True)");
+                    for (float w = 0f; w < 14f && mm.Phase.Value == MatchPhase.Lobby && lever.Pulling; w += Time.deltaTime) yield return null;
+                    if (mm.Phase.Value != MatchPhase.Lobby) break;
+                    Debug.Log("[LeverProbe] pull " + attempt + ": countdown cancelled, lever back up");
+                    yield return new WaitForSeconds(1f);
+                    foreach (var o in NetPlayer.All)
+                        if (o != null && o != p) o.Ready.Value = true;
+                    yield return new WaitForSeconds(2.5f);
+                    p.TeleportLocal(lever.StandPoint, lever.StandYaw);
+                }
+                yield return new WaitForSeconds(1f);
+                Debug.Log("[LeverProbe] phase after pull: " + mm.Phase.Value + " (expected not Lobby)");
                 yield break;
             }
             yield return Record(dir, p, lever);
@@ -140,7 +159,8 @@ namespace HideAndSeek.Game
             cam.transform.position = lt.TransformPoint(new Vector3(2.35f, 1.2f, 1.35f));
             cam.transform.LookAt(lt.TransformPoint(new Vector3(0f, 1.0f, 0.62f)));
             Time.captureFramerate = 30;
-            const int frames = 186, pressAt = 12;
+            const int pressAt = 12;
+            int frames = pressAt + Mathf.CeilToInt((LeverTimeline.StartMatch + 0.3f) * 30f);
             for (int i = 0; i < frames; i++)
             {
                 if (i == pressAt) lever.Press();
@@ -154,6 +174,8 @@ namespace HideAndSeek.Game
                 p.Character.SetFirstPersonMode(true);
             }
             Time.captureFramerate = 0;
+            // Sound track for the video (the same clips, mixed offline at the timeline marks).
+            System.IO.File.WriteAllBytes(dir + "/sound.wav", LeverSounds.Wav(LeverSounds.MixPull(pressAt / 30f, frames / 30f)));
             Destroy(cam.gameObject);
             rt.Release();
         }
@@ -171,15 +193,28 @@ namespace HideAndSeek.Game
             LobbyButton.PullStarted += () => started = true;
             while (!started) { Place(p, spot, at); yield return null; }
             int n = 0;
-            for (float t = 0f; t < 4.6f; t += 0.3f)
+            for (float t = 0f; t < LeverTimeline.StartMatch; t += 0.45f)
             {
                 ScreenCapture.CaptureScreenshot(dir + "/watch_" + n.ToString("00") + ".png");
                 n++;
                 yield return new WaitForSeconds(0.3f);
             }
             Debug.Log("[LeverProbe] watch saved " + n);
-            yield return new WaitForSeconds(1f);
+            // Stay connected until the host is done (its recording runs slower than real time), then quit.
+            for (float w = 0f; w < 120f && NetworkManager.Singleton != null && NetworkManager.Singleton.IsConnectedClient; w += Time.unscaledDeltaTime) yield return null;
             Application.Quit();
+        }
+
+        /// <summary>Client: drops its ready once while the countdown shows 3 (the countdown must get cancelled).</summary>
+        IEnumerator Unready()
+        {
+            var p = NetPlayer.Local;
+            yield return new WaitForSeconds(1f);
+            Place(p, new Vector3(-1.9f, 0f, 1.75f), new Vector3(0f, 1.05f, 0.75f));
+            while (!p.Ready.Value) yield return null;
+            while (LobbyButton.Instance != null && LobbyButton.Instance.CountdownNumber != 3) yield return null;
+            Debug.Log("[LeverProbe] client drops ready at countdown 3");
+            p.SetReadyRpc(false);
         }
 
         static void Save(RenderTexture rt, string path, bool jpg)

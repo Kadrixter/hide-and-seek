@@ -262,12 +262,6 @@ namespace HideAndSeek.Game.Net
             ElevatorSystem.Instance?.ServerRequest(this, car, floor, Now);
         }
 
-        [Rpc(SendTo.Everyone)]
-        public void ButtonPressedRpc(Vector3 pos)
-        {
-            GameAudio.PlayAt(GameSfx.LobbyButtonPress, pos);
-        }
-
         private void StartMatch()
         {
             if (RaceMode) { StartRace(); return; }

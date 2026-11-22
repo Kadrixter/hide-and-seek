@@ -64,27 +64,41 @@ namespace HideAndSeek.Game.Net
                 Vector3 local = parent != null ? parent.InverseTransformPoint(eyeW) : eyeW - transform.position;
                 bob.EyeOverride = local.y;
                 bob.EyeOverrideWeight = body;
-                // A bit behind the eyes so the bar and both fists fit in the view.
-                bob.ExtraPosition = new Vector3(local.x, 0f, local.z - 0.14f) * body;
+                // Behind the eyes so the bar and both fists fit in the view.
+                bob.ExtraPosition = new Vector3(local.x, 0f, local.z - 0.22f) * body;
                 float jolt = t > LeverTimeline.Latch ? Mathf.Exp(-(t - LeverTimeline.Latch) * 8f) : 0f;
                 float strain = LeverTimeline.S(t, 0.55f, 0.9f) * (1f - LeverTimeline.S(t, LeverTimeline.Unstick, 1.2f));
                 bob.ExtraEuler = new Vector3(5f * jolt + Random.Range(-1f, 1f) * (2.2f * jolt + 0.5f * strain), Random.Range(-1f, 1f) * 1.4f * jolt, Random.Range(-1f, 1f) * 1.8f * jolt);
 
-                // Look at the bar while holding it, then back to level as he stands up.
-                Vector3 to = bar - eyeW;
-                float want = Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg;
+                // Look a little above the bar while holding it (bar and fists in the lower half of the view, the arms
+                // come in from the bottom edge), then back to level as he stands up.
+                Vector3 to = bar - (eyeW - transform.forward * 0.22f);
+                float want = Mathf.Atan2(to.y, new Vector2(to.x, to.z).magnitude) * Mathf.Rad2Deg + 24f;
                 want = Mathf.Lerp(0f, want, Mathf.Max(hands, body * 0.5f));
                 float pitch = Mathf.LerpAngle(Motor.LookPitch, want, 1f - Mathf.Exp(-9f * Time.deltaTime));
                 Motor.SetLook(lever.StandYaw, pitch);
             }
             if (fpv != null && Camera != null)
             {
-                // Hands come up from below the view to the bar and go back down after letting go.
+                // Hands come up from below the view to the bar and go back down after letting go. The first-person
+                // arms are short and drawn with their own camera, so the fists are put on the line of sight to the
+                // grips at arm's length (same spot on screen as the bar), not at the bar itself.
                 var cam = Camera.transform;
                 Vector3 restR = cam.TransformPoint(new Vector3(0.28f, -0.55f, 0.3f)), restL = cam.TransformPoint(new Vector3(-0.28f, -0.55f, 0.3f));
                 bool on = t < LeverTimeline.Release + 0.4f;
-                fpv.SetOverrideHands(on, Vector3.Lerp(restR, gr, hands), Quaternion.LookRotation(lever.transform.right), Vector3.Lerp(restL, gl, hands), HeldItem.None);
+                fpv.SetOverrideHands(on, Vector3.Lerp(restR, OnScreen(cam, gr), hands), Quaternion.LookRotation(lever.transform.right),
+                    Vector3.Lerp(restL, OnScreen(cam, gl), hands), HeldItem.None);
             }
+        }
+
+        /// <summary>World point at arm's length on the view ray to <paramref name="world"/>, corrected for the viewmodel FOV.</summary>
+        private Vector3 OnScreen(Transform cam, Vector3 world)
+        {
+            Vector3 d = cam.InverseTransformPoint(world);
+            if (d.z < 0.05f) d.z = 0.05f;
+            float k = Mathf.Tan(FirstPersonViewModel.ViewModelFov * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(Camera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            Vector3 s = new Vector3(d.x / d.z * k, d.y / d.z * k, 1f);
+            return cam.TransformPoint(s.normalized * 0.74f);
         }
     }
 }
