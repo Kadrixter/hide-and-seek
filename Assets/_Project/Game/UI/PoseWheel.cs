@@ -15,9 +15,12 @@ namespace HideAndSeek.Game.UI
     /// screen, the camera stops turning and moving the mouse picks a slice by direction; release G = take the
     /// highlighted pose, left click = take it too, Esc / right click = cancel. A short tap of G leaves the wheel open
     /// (then a click or G again picks). One slice per pose of the seat (<see cref="SitPoseRules.Poses"/>, i.e.
-    /// <see cref="SitPoseCatalog"/>): the current pose is marked, poses that cannot be taken now are greyed out. In the
-    /// middle a live preview of the own character (own skin) on the same seat shows the highlighted pose
-    /// (<see cref="PosePreviewStage"/>). The pick goes to the server (<see cref="NetPlayer.RequestSitPose"/>).
+    /// <see cref="SitPoseCatalog"/>), shown only by its look - no names: each slice holds a small picture of the own
+    /// character (own skin) in that pose on the same seat, rendered once per pose when the wheel opens by a still
+    /// thumbnail stage (<see cref="PosePreviewStage.CreateThumbs"/>, same posing code as the game). States are drawn,
+    /// not written: current pose = green strip and green rim, unavailable = greyed out and darkened, new = small gold dot.
+    /// In the middle a live preview of the own character shows the highlighted pose (<see cref="PosePreviewStage"/>).
+    /// The pick goes to the server (<see cref="NetPlayer.RequestSitPose"/>).
     /// G stays the medkit key everywhere else (<see cref="OwnsG"/>).
     /// </summary>
     public sealed class PoseWheel : MonoBehaviour
@@ -26,6 +29,8 @@ namespace HideAndSeek.Game.UI
         private const float TravelPx = 115f;   // mouse travel (1080p pixels) from the middle to the rim of the virtual cursor
         private const float DeadZone = 0.3f;
         private const float OpenTime = 0.16f, CloseTime = 0.12f, TapTime = 0.22f;
+        private const float ThumbD = 124f;     // slice picture diameter (fits 8 slices)
+        private const int ThumbsPerFrame = 2;  // pictures rendered per frame after opening
 
         private static PoseWheel _inst;
         private static int _closedFrame = -10;
@@ -58,8 +63,10 @@ namespace HideAndSeek.Game.UI
             public SitPoseInfo Info;
             public bool Available, Current;
             public RectTransform Rt;
-            public RingSector Fill, Glow, Edge, Mark;
-            public Text Name, Sub;
+            public RingSector Fill, Glow, Edge, Mark, ThumbRim;
+            public RawImage Thumb;
+            public Image Grey, NewDot;
+            public RenderTexture Picture;
             public float Scale = 1f, Hot;
         }
 
@@ -68,9 +75,10 @@ namespace HideAndSeek.Game.UI
         private Image _dim;
         private RawImage _preview;
         private RingSector _pointer;
-        private Text _title, _hint;
+        private Text _hint;
         private readonly List<Slice> _slices = new();
-        private PosePreviewStage _stage;
+        private PosePreviewStage _stage, _thumbStage;
+        private int _thumbNext, _thumbPx = 128;
 
         private bool _open, _toggle;
         private float _anim, _openedAt;
@@ -129,9 +137,6 @@ namespace HideAndSeek.Game.UI
 
             _pointer = RingSector.Create("Pointer", _ring, InnerR - 11f, InnerR - 4f, 0f, 30f, 0f, UiKit.Accent, 1.5f);
 
-            _title = UiKit.Label("Title", _root, "Wybierz pozę", 30, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);
-            _title.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f), new Vector2(0f, OuterR + 34f), new Vector2(800f, 44f));
-            _title.AddOutline(1.5f, 0.6f);
             _hint = UiKit.Label("Hint", _root, "", 19, TextAnchor.MiddleCenter, UiKit.TextDim);
             _hint.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, -OuterR - 30f), new Vector2(1000f, 30f));
             _hint.AddOutline(1f, 0.6f);
@@ -139,6 +144,7 @@ namespace HideAndSeek.Game.UI
 
         private void BuildSlices(NetPlayer me)
         {
+            ReleaseThumbs();
             foreach (var s in _slices) if (s.Rt != null) Destroy(s.Rt.gameObject);
             _slices.Clear();
             var seat = LobbySeat.Get(me.Seat.Value);
@@ -147,8 +153,7 @@ namespace HideAndSeek.Game.UI
             if (n == 0) return;
             float step = 360f / n;
             float mid = (SliceIn + OuterR) * 0.5f;
-            // Name box: as wide as the slice allows at its middle radius.
-            float arc = Mathf.Min(2f * Mathf.PI * mid / n - 26f, 190f);
+            var dark = new Color(0.075f, 0.082f, 0.095f, 1f);
             for (int i = 0; i < n; i++)
             {
                 float a = i * step;
@@ -158,14 +163,73 @@ namespace HideAndSeek.Game.UI
                 s.Glow = RingSector.Create("Glow", s.Rt, SliceIn - 4f, OuterR + 6f, a, step, Gap, new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0f), 16f);
                 s.Fill = RingSector.Create("Fill", s.Rt, SliceIn, OuterR, a, step, Gap, Color.white);
                 s.Edge = RingSector.Create("Edge", s.Rt, OuterR - 5f, OuterR, a, step, Gap, UiKit.Accent);
-                s.Mark = RingSector.Create("Current", s.Rt, SliceIn, SliceIn + 4f, a, step, Gap, UiKit.Accent);
+                s.Mark = RingSector.Create("Current", s.Rt, SliceIn, SliceIn + 5f, a, step, Gap, UiKit.Accent);
+
+                // Picture of the pose: a round window (masked render texture) in the middle of the slice.
                 Vector2 c = RingSector.Dir(a) * mid;
-                s.Name = UiKit.Label("Name", s.Rt, s.Info.Name, n > 6 ? 19 : 21, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);
-                s.Name.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), c + new Vector2(0f, 6f), new Vector2(Mathf.Max(arc, 110f), 52f));
-                s.Name.AddOutline(1f, 0.55f);
-                s.Sub = UiKit.Label("Sub", s.Rt, "", 15, TextAnchor.MiddleCenter, UiKit.TextDim);
-                s.Sub.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), c + new Vector2(0f, -30f), new Vector2(Mathf.Max(arc, 110f), 22f));
+                var holder = UiKit.Image("Thumb", s.Rt, dark);
+                holder.sprite = UiStyle.Circle;
+                holder.raycastTarget = false;
+                holder.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), c, Vector2.one * ThumbD);
+                holder.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+                s.Thumb = new GameObject("Picture", typeof(RectTransform)).AddComponent<RawImage>();
+                s.Thumb.transform.SetParent(holder.transform, false);
+                s.Thumb.rectTransform.Stretch();
+                s.Thumb.raycastTarget = false;
+                s.Thumb.enabled = false;
+                s.Grey = UiKit.Image("Grey", holder.transform, new Color(0.17f, 0.18f, 0.2f, 0f));
+                s.Grey.rectTransform.Stretch();
+                s.Grey.raycastTarget = false;
+                s.ThumbRim = RingSector.Create("Rim", s.Rt, ThumbD * 0.5f - 1.5f, ThumbD * 0.5f + 1f, 0f, 360f, 0f, new Color(1f, 1f, 1f, 0.14f));
+                s.ThumbRim.rectTransform.anchoredPosition = c;
+
+                // New pose: small gold dot at the picture's upper outer edge.
+                s.NewDot = UiKit.Image("New", s.Rt, new Color(1f, 0.78f, 0.25f, 1f));
+                s.NewDot.sprite = UiStyle.Circle;
+                s.NewDot.raycastTarget = false;
+                s.NewDot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), c + new Vector2(0.36f, 0.36f) * ThumbD, Vector2.one * 15f);
+                s.NewDot.AddDrop(1.5f, 0.6f);
+                s.NewDot.gameObject.SetActive(s.Info.IsNew);
                 _slices.Add(s);
+            }
+        }
+
+        /// <summary>Renders the next pose pictures (a couple per frame after opening), then drops the thumbnail stage.</summary>
+        private void StepThumbs()
+        {
+            if (_thumbStage == null) return;
+            for (int k = 0; k < ThumbsPerFrame && _thumbNext < _slices.Count; k++, _thumbNext++)
+            {
+                var s = _slices[_thumbNext];
+                if (s.Picture == null)
+                {
+                    s.Picture = new RenderTexture(_thumbPx, _thumbPx, 24, RenderTextureFormat.ARGB32) { name = "PoseThumb", antiAliasing = 4 };
+                    s.Picture.Create();
+                }
+                _thumbStage.RenderPose(s.Info.Id, s.Picture);
+                s.Thumb.texture = s.Picture;
+                s.Thumb.enabled = true;
+            }
+            if (_thumbNext >= _slices.Count)
+            {
+                Destroy(_thumbStage.gameObject);
+                _thumbStage = null;
+            }
+        }
+
+        private void ReleaseThumbs()
+        {
+            if (_thumbStage != null) Destroy(_thumbStage.gameObject);
+            _thumbStage = null;
+            foreach (var s in _slices)
+            {
+                if (s.Thumb != null) { s.Thumb.texture = null; s.Thumb.enabled = false; }
+                if (s.Picture != null)
+                {
+                    s.Picture.Release();
+                    Destroy(s.Picture);
+                    s.Picture = null;
+                }
             }
         }
 
@@ -202,6 +266,9 @@ namespace HideAndSeek.Game.UI
             _stage = PosePreviewStage.Create(LobbySeat.Get(_seat), me.Character, me.SitPoseVar.Value, size);
             _shownPose = me.SitPoseVar.Value;
             _preview.texture = _stage.Texture;
+            _thumbPx = Mathf.Clamp(Mathf.RoundToInt(ThumbD * k / 16f) * 16, 96, 256);
+            _thumbStage = PosePreviewStage.CreateThumbs(LobbySeat.Get(_seat), me.Character, me.SitPoseVar.Value);
+            _thumbNext = 0;
             GameAudio.Play2D(GameSfx.UiHover, 0.35f);
             Debug.Log($"[PoseWheel] open: seat {_seat}, {_slices.Count} poses, current {me.SitPoseVar.Value}");
         }
@@ -235,6 +302,7 @@ namespace HideAndSeek.Game.UI
 
         private void DestroyStage()
         {
+            ReleaseThumbs();
             if (_stage != null) Destroy(_stage.gameObject);
             _stage = null;
             if (_preview != null) _preview.texture = null;
@@ -314,6 +382,7 @@ namespace HideAndSeek.Game.UI
             _group.alpha = Mathf.Clamp01(_anim * 1.4f);
             _ring.localScale = Vector3.one * Mathf.LerpUnclamped(0.84f, 1f, e);
             _dim.color = new Color(0f, 0f, 0f, 0.28f * _anim);
+            StepThumbs();
             AnimateSlices();
         }
 
@@ -353,7 +422,7 @@ namespace HideAndSeek.Game.UI
                 _shownPose = show;
                 _stage.ShowPose(show);
             }
-            UpdateTexts(me);
+            UpdateTexts();
 
             // Pointer arc follows the cursor direction.
             float m = _cursor.magnitude;
@@ -400,16 +469,11 @@ namespace HideAndSeek.Game.UI
             }
         }
 
-        private void UpdateTexts(NetPlayer me)
+        private void UpdateTexts()
         {
-            var hl = _hl >= 0 ? _slices[_hl] : null;
-            if (hl == null) _title.text = "Wybierz pozę";
-            else if (!hl.Available) _title.text = hl.Info.Name + " - teraz niedostępna";
-            else if (hl.Current) _title.text = hl.Info.Name + " (obecna)";
-            else _title.text = hl.Info.Name;
             _hint.text = _toggle
-                ? "Mysz - wskaż pozę   |   LPM / G - wybierz   |   PPM / Esc - anuluj"
-                : "Mysz - wskaż pozę   |   puść G lub LPM - wybierz   |   PPM / Esc - anuluj";
+                ? "mysz - wskaż   |   LPM / G - wybierz   |   PPM / Esc - anuluj"
+                : "mysz - wskaż   |   puść G / LPM - wybierz   |   PPM / Esc - anuluj";
         }
 
         private void AnimateSlices()
@@ -434,11 +498,14 @@ namespace HideAndSeek.Game.UI
                 s.Edge.color = new Color(acc.r, acc.g, acc.b, s.Available ? h : 0f);
                 s.Mark.color = new Color(acc.r, acc.g, acc.b, s.Current ? 0.95f : 0f);
 
-                s.Name.color = !s.Available ? new Color(0.45f, 0.46f, 0.48f, 0.9f) : Color.Lerp(UiKit.Text, Color.white, h);
-                if (s.Current) { s.Sub.text = "obecna"; s.Sub.color = UiKit.Accent; }
-                else if (!s.Available) { s.Sub.text = "niedostępna"; s.Sub.color = new Color(0.5f, 0.5f, 0.52f, 0.9f); }
-                else if (s.Info.IsNew) { s.Sub.text = "NOWA"; s.Sub.color = new Color(1f, 0.8f, 0.3f, 1f); }
-                else s.Sub.text = "";
+                // Picture: slightly dimmed at rest, full brightness under the cursor; unavailable = dark and washed out.
+                float lum = s.Available ? Mathf.Lerp(0.84f, 1f, h) : 0.5f;
+                s.Thumb.color = new Color(lum, lum, lum, 1f);
+                s.Grey.color = new Color(0.17f, 0.18f, 0.2f, s.Available ? 0f : 0.55f);
+                s.ThumbRim.color = s.Current ? new Color(acc.r, acc.g, acc.b, 0.95f)
+                    : s.Available ? new Color(1f, 1f, 1f, Mathf.Lerp(0.14f, 0.4f, h)) : new Color(1f, 1f, 1f, 0.06f);
+                s.ThumbRim.Outer = ThumbD * 0.5f + (s.Current ? 3f : 1f);
+                s.NewDot.color = new Color(1f, 0.78f, 0.25f, s.Available ? 1f : 0.45f);
             }
         }
 

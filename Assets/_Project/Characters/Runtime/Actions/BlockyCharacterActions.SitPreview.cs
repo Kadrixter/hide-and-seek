@@ -28,10 +28,16 @@ namespace HideAndSeek.Characters
         /// character root at the seat point (seat space = root space). The first call snaps into the pose, later ones
         /// move to the new pose the same way as in the game.
         /// </summary>
-        public void SetSeatedPreview(SeatShape shape, byte poseId)
+        public void SetSeatedPreview(SeatShape shape, byte poseId) => SetSeatedPreview(shape, poseId, false);
+
+        /// <summary>
+        /// As <see cref="SetSeatedPreview(SeatShape, byte)"/>; <paramref name="snap"/> = jump straight into the pose
+        /// (pose thumbnails: posed and rendered in the same frame).
+        /// </summary>
+        public void SetSeatedPreview(SeatShape shape, byte poseId, bool snap)
         {
             EnsureInit();
-            bool first = !sitting;
+            bool first = !sitting || snap;
             SetSitSeat(null, shape);
             sitting = true;
             sitFromValid = false;
