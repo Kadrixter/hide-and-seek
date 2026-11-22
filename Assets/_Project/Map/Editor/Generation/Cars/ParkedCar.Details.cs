@@ -100,8 +100,15 @@ namespace HideAndSeek.Map.Editor
                 var (rp, rn) = Side(FrontAxle + TireR + 0.18f, Mathf.Min(Belt - 0.12f, Sill + 0.5f), s);
                 CarKit.Lamp(Mb, rp, rn, Vector3.forward, CarKit.Rect(0.05f, 0.022f, 0.008f), Amber, Plastic, 0.004f, 0.015f);
                 Pm.Blinkers.Add(new Blinker(rp + rn * 0.004f, rn, new Vector2(0.05f, 0.022f)));
-                // bonnet shut lines
-                Body.ProjectedPatch(Mb, CarLoft.RectAt(W * 0.45f, Nose - 0.035f, W * 0.9f, 0.005f, 0.001f), 1f, s, 0.0015f, Seam, 2);
+                // bonnet shut line right over the lamps, bumper top line under them
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(W * 0.45f, Nose - 0.03f, W * 0.9f, 0.005f, 0.001f), 1f, s, 0.0015f, Seam, 2);
+                Body.ProjectedPatch(Mb, CarLoft.RectAt(W * 0.42f, Sill + 0.31f, W * 0.84f, 0.005f, 0.001f), 1f, s, 0.0015f, Seam, 2);
+                // fog lamps at the ends of the intake (better trims)
+                if (Variant == 1 && Body.Project(s * W * 0.62f, Sill + 0.19f, 1f, out var fp, out var fn))
+                {
+                    CarKit.Lamp(Mb, fp + fn * 0.003f, fn, Vector3.right * s, CarKit.Circle(0.045f, 12), Plastic, Plastic, 0.002f, 0.004f);
+                    CarWheels.Lathe(Mb, fp + fn * 0.006f, fn, new[] { new Vector2(0.036f, 0f), new Vector2(0f, 0.004f) }, 12, Lens);
+                }
             }
             if (Body.Project(0f, Sill + 0.26f, 1f, out var pc, out var pn))
                 CarKit.Plate(Mb, pc + pn * 0.012f, pn, PlateText, 0.9f);

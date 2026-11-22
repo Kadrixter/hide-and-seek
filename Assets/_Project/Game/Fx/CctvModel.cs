@@ -172,7 +172,9 @@ namespace HideAndSeek.Game
         {
             r.lightProbeUsage = LightProbeUsage.Off;
             r.reflectionProbeUsage = ReflectionProbeUsage.Off;
-            r.shadowCastingMode = ShadowCastingMode.On;
+            // no shadow: under a torch held just below it the camera threw a pitch-black copy of itself onto the
+            // ceiling (the garage has no ambient light), which read as a second, broken model
+            r.shadowCastingMode = ShadowCastingMode.Off;
         }
     }
 }

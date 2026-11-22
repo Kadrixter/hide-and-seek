@@ -205,6 +205,25 @@ namespace HideAndSeek.Game.Net
             Application.Quit();
         }
 
+        /// <summary>Furthest point up to <paramref name="max"/> m from <paramref name="from"/> along dir with a clear line back to it.</summary>
+        private static Vector3 ClearView(Vector3 from, Vector3 dir, float max)
+        {
+            dir.Normalize();
+            float d = max;
+            if (Physics.Raycast(from + dir * 0.5f, dir, out var hit, max - 0.5f, ~0, QueryTriggerInteraction.Ignore)) d = Mathf.Max(1f, hit.distance + 0.5f - 0.6f);
+            return from + dir * d;
+        }
+
+        /// <summary>Close-up under a torch that casts no shadows.</summary>
+        private static void FlatLitShot(string dir, string name, Vector3 pos, Vector3 at)
+        {
+            var lg = TestLight("TestFlatLight", LightType.Spot, pos + Vector3.up * 0.15f, 25f, 2.6f, new Color(1f, 0.95f, 0.85f), LightShadows.None);
+            lg.spotAngle = 70f;
+            lg.transform.LookAt(at);
+            CamShot(dir, name, pos, at);
+            Destroy(lg.gameObject);
+        }
+
         private System.Collections.IEnumerator CctvTest(string dir)
         {
             yield return WaitForGarageRound();
@@ -224,6 +243,8 @@ namespace HideAndSeek.Game.Net
                 LitShot(dir, $"cam_L{lv}_{idx}_a_front", cp + f * 0.75f + r * 0.35f - Vector3.up * 0.2f, cp - f * 0.15f);
                 LitShot(dir, $"cam_L{lv}_{idx}_b_side", cp + r * 0.85f - f * 0.2f + Vector3.up * 0.05f, cp - f * 0.15f + Vector3.up * 0.15f);
                 LitShot(dir, $"cam_L{lv}_{idx}_c_below", cp + f * 1.2f - r * 0.6f - Vector3.up * 1.3f, cp + Vector3.up * 0.25f);
+                // same front view with a shadowless torch: what hangs under the camera in the lit shots is its shadow on the ceiling
+                FlatLitShot(dir, $"cam_L{lv}_{idx}_e_front_noshadow", cp + f * 0.75f + r * 0.35f - Vector3.up * 0.2f, cp - f * 0.15f);
                 while (!sr.IdleBlipOn(lv, idx)) yield return null;
                 CamShot(dir, $"cam_L{lv}_{idx}_d_dark_idle_blip", cp + f * 1.6f + r * 0.7f - Vector3.up * 0.6f, cp);
                 yield return null;
@@ -240,7 +261,7 @@ namespace HideAndSeek.Game.Net
                 yield return new WaitForSeconds(0.6f);
                 while (Mathf.Repeat(Time.time * 1.25f, 1f) > 0.2f || Mathf.Repeat(Time.time * 1.25f, 1f) < 0.05f) yield return null;
                 CamShot(dir, $"cam_watched_{slot}_on_near", cp + f * 1.6f + r * 0.7f - Vector3.up * 0.6f, cp);
-                CamShot(dir, $"cam_watched_{slot}_on_far", cp + f * 9f + r * 2f - Vector3.up * 0.8f, cp);
+                CamShot(dir, $"cam_watched_{slot}_on_far", ClearView(cp, f + r * 0.2f - Vector3.up * 0.08f, 9f), cp);
                 while (Mathf.Repeat(Time.time * 1.25f, 1f) < 0.6f) yield return null;
                 CamShot(dir, $"cam_watched_{slot}_off_near", cp + f * 1.6f + r * 0.7f - Vector3.up * 0.6f, cp);
                 Debug.Log($"[CctvTest] watched camera L{wl} #{wi} shots");

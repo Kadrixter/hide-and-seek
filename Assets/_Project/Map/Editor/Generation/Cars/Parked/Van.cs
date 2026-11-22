@@ -15,7 +15,7 @@ namespace HideAndSeek.Map.Editor
             Kind = RearKind.Van;
             Cargo = variant == 0;
             L = 5.0f; W = 1.0f; Wb = 3.0f; FrontOver = 0.95f;
-            Sill = 0.3f; Nose = 0.92f; Cowl = 1.1f; Belt = 1.12f; RoofH = 1.98f;
+            Sill = 0.3f; Nose = 0.93f; Cowl = 1.12f; FaceDepth = 0.32f; Belt = 1.12f; RoofH = 1.98f;
             ScreenZ = 1.62f; RoofFrontZ = 0.78f; RoofRearZ = -2.3f; GlassEndZ = -2.37f;
             BPillar = 0.55f; CPillar = -0.62f; DPillar = -1.95f;
             Tumble = 0.08f; TireR = 0.34f; TireW = 0.215f; RimR = 0.21f;

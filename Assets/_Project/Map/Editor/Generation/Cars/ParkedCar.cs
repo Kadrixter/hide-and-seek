@@ -25,6 +25,7 @@ namespace HideAndSeek.Map.Editor
         protected abstract string Model { get; }
         protected RearKind Kind = RearKind.Hatch;
         protected float L = 4.3f, W = 0.87f, Wb = 2.62f, FrontOver = 0.86f;
+        protected float FaceDepth = 0.17f;
         protected float Sill = 0.2f, Nose = 0.72f, Cowl = 0.95f, Belt = 1.0f, RoofH = 1.46f, DeckH = 1.0f;
         /// <summary>Windscreen base, roof front / rear edges, rear glass base (z).</summary>
         protected float ScreenZ = 0.9f, RoofFrontZ = 0.05f, RoofRearZ = -1.6f, GlassEndZ = -1.95f;
@@ -99,17 +100,18 @@ namespace HideAndSeek.Map.Editor
 
         protected override BodyKey[] BodyKeys()
         {
-            float s = Sill, w = W, ym = Sill + 0.37f;
+            float s = Sill, w = W, ym = Sill + 0.37f, bt = Sill + 0.29f;
             var k = new List<BodyKey>
             {
-                // nose: near-vertical bumper face, then the lamp / grille face sloping back to the bonnet edge
-                K(ZF, s + 0.14f, w - 0.25f, w - 0.235f, s + 0.25f, w - 0.26f, s + 0.36f, s + 0.375f, 0f, 1f),
-                K(ZF - 0.01f, s + 0.08f, w - 0.17f, w - 0.155f, s + 0.26f, w - 0.18f, s + 0.4f, s + 0.415f, 0f, 0.7f),
-                K(ZF - 0.03f, s + 0.05f, w - 0.12f, w - 0.105f, s + 0.28f, w - 0.13f, Mathf.Lerp(s + 0.42f, Nose, 0.3f) - 0.015f, Mathf.Lerp(s + 0.42f, Nose, 0.3f)),
-                K(ZF - 0.07f, s + 0.035f, w - 0.08f, w - 0.065f, s + 0.3f, w - 0.095f, Mathf.Lerp(s + 0.42f, Nose, 0.62f) - 0.015f, Mathf.Lerp(s + 0.42f, Nose, 0.62f)),
-                K(ZF - 0.13f, s + 0.025f, w - 0.055f, w - 0.04f, s + 0.31f, w - 0.07f, Mathf.Lerp(s + 0.42f, Nose, 0.87f) - 0.015f, Mathf.Lerp(s + 0.42f, Nose, 0.87f)),
-                K(ZF - 0.21f, s + 0.02f, w - 0.04f, w - 0.025f, s + 0.32f, w - 0.055f, Nose - 0.005f, Nose + 0.01f),
-                K(ZF - 0.48f, s, w - 0.02f, w - 0.005f, ym - 0.02f, w - 0.035f, Mathf.Lerp(Nose, Cowl, 0.4f) - 0.02f, Mathf.Lerp(Nose, Cowl, 0.4f)),
+                // nose: low bumper face, a short lamp face up to a crisp bonnet edge (lamps sit right under it), then
+                // a nearly flat bonnet to the windscreen; FaceDepth sets how far the lamp face leans back
+                K(ZF, s + 0.07f, w - 0.24f, w - 0.225f, s + 0.2f, w - 0.25f, bt - 0.015f, bt, 0f, 1f),
+                K(ZF - 0.012f, s + 0.03f, w - 0.16f, w - 0.145f, s + 0.22f, w - 0.17f, bt + 0.02f, bt + 0.035f, 0f, 0.7f),
+                K(ZF - 0.03f, s + 0.015f, w - 0.11f, w - 0.095f, s + 0.25f, w - 0.12f, Mathf.Lerp(bt, Nose, 0.35f) - 0.015f, Mathf.Lerp(bt, Nose, 0.35f)),
+                K(ZF - Mathf.Max(0.05f, FaceDepth * 0.55f), s + 0.01f, w - 0.075f, w - 0.06f, s + 0.28f, w - 0.085f, Mathf.Lerp(bt, Nose, 0.75f) - 0.015f, Mathf.Lerp(bt, Nose, 0.75f)),
+                K(ZF - FaceDepth, s + 0.005f, w - 0.05f, w - 0.035f, s + 0.3f, w - 0.065f, Nose - 0.012f, Nose, 0f, 0.3f),
+                K(ZF - FaceDepth - 0.07f, s, w - 0.045f, w - 0.03f, s + 0.31f, w - 0.06f, Nose + 0.004f, Nose + 0.018f, 0f, 0.45f),
+                K(Mathf.Lerp(ZF - FaceDepth, ScreenZ, 0.5f), s, w - 0.02f, w - 0.005f, ym - 0.02f, w - 0.035f, Mathf.Lerp(Nose, Cowl, 0.56f) - 0.02f, Mathf.Lerp(Nose, Cowl, 0.56f)),
                 K(ScreenZ, s, w - 0.015f, w, ym, w - 0.03f, Cowl - 0.02f, Cowl),
                 K(ScreenZ - 0.13f, s, w - 0.015f, w, ym, w - 0.035f, Cowl - 0.005f, Cowl + 0.01f, 1f),
             };

@@ -11,7 +11,7 @@ namespace HideAndSeek.Map.Editor
         {
             Kind = RearKind.Hatch;
             L = 3.7f; W = 0.83f; Wb = 2.4f; FrontOver = 0.72f;
-            Sill = 0.19f; Nose = 0.73f; Cowl = 0.95f; Belt = 0.98f; RoofH = 1.5f;
+            Sill = 0.19f; Nose = 0.79f; Cowl = 0.95f; FaceDepth = 0.27f; Belt = 0.98f; RoofH = 1.5f;
             ScreenZ = 1.0f; RoofFrontZ = 0.18f; RoofRearZ = -1.42f; GlassEndZ = -1.73f;
             BPillar = -0.28f; CPillar = -1.02f;
             Tumble = 0.19f; TireR = 0.29f; TireW = 0.185f; RimR = 0.18f;
