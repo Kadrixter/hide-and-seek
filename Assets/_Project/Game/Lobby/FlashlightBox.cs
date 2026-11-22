@@ -65,7 +65,6 @@ namespace HideAndSeek.Game
             var wood = M("FlashTableWood", new Color(0.36f, 0.22f, 0.12f), 0.35f);
             var crate = M("FlashCrate", new Color(0.66f, 0.5f, 0.3f), 0.15f);
             var crateDark = M("FlashCrateDark", new Color(0.45f, 0.32f, 0.18f), 0.1f);
-            var plate = M("FlashSign", new Color(0.08f, 0.09f, 0.1f), 0.4f);
             var stripe = M("FlashSignStripe", new Color(0.95f, 0.75f, 0.1f), 0.4f);
 
             // Table: top, apron, four legs (one collider for the whole table).
@@ -83,7 +82,7 @@ namespace HideAndSeek.Game
 
             // Open crate: bottom, slatted walls, a darker gap between slats, rope handles.
             Vector3 c = CratePos;
-            const float W = 0.56f, D = 0.3f, H = 0.15f;
+            const float W = 0.62f, D = 0.36f;
             Box(t, "CrateBottom", c + new Vector3(0f, 0.01f, 0f), new Vector3(W, 0.02f, D), crateDark);
             for (int s = 0; s < 2; s++)
             {
@@ -100,26 +99,21 @@ namespace HideAndSeek.Game
             Box(t, "Label", c + new Vector3(0f, 0.105f, D * 0.5f + 0.01f), new Vector3(0.3f, 0.045f, 0.004f), stripe);
             Text(t, "LabelText", c + new Vector3(0f, 0.105f, D * 0.5f + 0.0125f), "LATARKI", 0.0055f, new Color(0.1f, 0.08f, 0.05f), new Vector2(0.28f, 0.04f));
 
-            // Lamps standing in two rows, lens up, slightly tilted at random.
+            // Riser in the back half so the back row shows over the front one.
+            Box(t, "Riser", c + new Vector3(0f, 0.045f, -D * 0.25f + 0.004f), new Vector3(W - 0.034f, 0.05f, D * 0.5f - 0.02f), crateDark);
+
+            // Lamps lying in two rows inside the walls (inner size 0.6 x 0.34 m), lenses towards the room, tipped up.
             var rnd = new System.Random(7);
             for (int i = 0; i < Slots; i++)
             {
                 int row = i / 5, col2 = i % 5;
                 var lamp = new GameObject("Lamp" + i).transform;
                 lamp.SetParent(t, false);
-                // Lying in two rows, lenses towards the room, tipped up so they peek over the front slat.
-                lamp.position = c + new Vector3(-0.21f + col2 * 0.105f, row == 0 ? 0.075f : 0.1f, row == 0 ? 0.06f : -0.07f);
-                lamp.rotation = Quaternion.Euler(row == 0 ? -18f : -28f, (float)(rnd.NextDouble() * 16 - 8), (float)(rnd.NextDouble() * 20 - 10));
+                lamp.position = c + new Vector3(-0.23f + col2 * 0.115f, row == 0 ? 0.068f : 0.118f, row == 0 ? 0.052f : -0.112f);
+                lamp.rotation = Quaternion.Euler(-15f, (float)(rnd.NextDouble() * 8 - 4), (float)(rnd.NextDouble() * 10 - 5));
                 LampModel.Build(lamp, false, 0);
                 _lamps[i] = lamp;
             }
-
-            // Sign on the wall above: dark plate, yellow stripe, white text.
-            Vector3 sp = new Vector3(TablePos.x, 1.42f, -5.975f);
-            Box(t, "SignPlate", sp, new Vector3(0.82f, 0.36f, 0.02f), plate);
-            Box(t, "SignStripe", sp + new Vector3(0f, -0.14f, 0.011f), new Vector3(0.82f, 0.03f, 0.004f), stripe);
-            Text(t, "SignTitle", sp + new Vector3(0f, 0.05f, 0.012f), "LATARKI", 0.022f, new Color(1f, 0.92f, 0.55f), new Vector2(0.74f, 0.15f));
-            Text(t, "SignSub", sp + new Vector3(0f, -0.075f, 0.012f), "weź jedną = jesteś gotowy", 0.0065f, new Color(0.9f, 0.9f, 0.9f), new Vector2(0.74f, 0.07f));
 
             // Warm little lamp light so the box reads in the room.
             var lg = new GameObject("BoxLight");

@@ -95,7 +95,12 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(2f);
             Vector3 box = FlashlightBox.AimPoint;
             ItemLitShot(dir, "fb_box_overview", box + new Vector3(1.6f, 0.7f, 2.4f), box);
+            Vector3 crate = FlashlightBox.CratePos + Vector3.up * 0.08f;
             ItemLitShot(dir, "fb_box_close", box + new Vector3(0.35f, 0.45f, 0.9f), box - new Vector3(0f, 0.1f, 0f));
+            ItemLitShot(dir, "fb_box_front", crate + new Vector3(0f, 0.12f, 0.75f), crate);
+            ItemLitShot(dir, "fb_box_left", crate + new Vector3(-0.7f, 0.2f, 0.25f), crate);
+            ItemLitShot(dir, "fb_box_right", crate + new Vector3(0.7f, 0.15f, 0.2f), crate);
+            ItemLitShot(dir, "fb_box_top", crate + new Vector3(0.05f, 0.75f, 0.3f), crate);
             int n = 0;
             float end = Time.time + 40f;
             float lastT = -1f;
