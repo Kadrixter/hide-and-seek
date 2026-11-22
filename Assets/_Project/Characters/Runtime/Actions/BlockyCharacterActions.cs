@@ -217,11 +217,12 @@ namespace HideAndSeek.Characters
         bool sitting;
         float sitW;
 
-        /// <summary>Sit on a seat (root on the floor in front of the seat, seat top ~0.45 m). Blends in/out over 0.35 s.</summary>
+        /// <summary>Sit on a seat (see <see cref="SetSitSeat"/> / <see cref="BeginSitFrom"/>). Blends in over 0.4-0.9 s, out over 0.45 s.</summary>
         public void SetSitting(bool value)
         {
             EnsureInit();
             sitting = value;
+            if (!value) sitFromValid = false;
         }
 
         public bool IsSitting => sitting;
@@ -390,10 +391,11 @@ namespace HideAndSeek.Characters
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
 
-            // 3b. Sitting (full body, one of the seated variants; only the head follows the look).
+            // 3b. Sitting (full body, one of the seated variants anchored to the seat; only the head follows the look).
             if (sitW > 0.001f)
             {
-                var sp = SitPoseVariant(lookPitch);
+                var sp = SitPoseRoot(lookPitch);
+                ShiftToSitFrom(ref p);
                 p = CharacterPose.Lerp(p, sp, ActionTimeline.SmoothStep01(sitW));
             }
 
@@ -560,7 +562,7 @@ namespace HideAndSeek.Characters
             bool canRevive = reviving && VisualLifeState == LifeState.Alive && action != ActionKind.StabbedReaction && action != ActionKind.KillReaction;
             reviveW = Mathf.MoveTowards(reviveW, canRevive ? 1f : 0f, dt / 0.3f);
             bool canSit = sitting && VisualLifeState == LifeState.Alive && action == ActionKind.None;
-            sitW = Mathf.MoveTowards(sitW, canSit ? 1f : 0f, dt / 0.35f);
+            AdvanceSit(dt, canSit);
             reviveTime += dt;
 
             // Springs.

@@ -214,10 +214,36 @@ namespace HideAndSeek.Characters
         {
             if (!IsBuilt) Build();
             firstPerson = fp;
+            ApplyRenderModes();
+        }
+
+        bool headHidden;
+
+        /// <summary>True while only the head (with the hat layer and photo face) is kept out of the camera.</summary>
+        public bool HeadHidden => headHidden;
+
+        /// <summary>
+        /// Local player sitting in the lobby: the body is drawn (<see cref="SetFirstPersonMode"/> false) but the head,
+        /// which the first-person camera sits inside, stays shadow-only.
+        /// </summary>
+        public void SetHeadHidden(bool hidden)
+        {
+            if (!IsBuilt) Build();
+            headHidden = hidden;
+            ApplyRenderModes();
+        }
+
+        void ApplyRenderModes()
+        {
+            Renderer headRenderer = head != null ? head.GetComponent<MeshRenderer>() : null;
             foreach (var r in skinRenderers)
-                if (r != null) r.shadowCastingMode = fp ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
+            {
+                if (r == null) continue;
+                bool hide = firstPerson || (headHidden && r == headRenderer);
+                r.shadowCastingMode = hide ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
+            }
             if (faceRenderer != null)
-                faceRenderer.shadowCastingMode = fp ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
+                faceRenderer.shadowCastingMode = firstPerson || headHidden ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
         }
 
         // ------------------------------------------------------------------ severed limbs

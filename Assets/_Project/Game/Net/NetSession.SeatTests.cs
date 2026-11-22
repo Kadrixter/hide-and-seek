@@ -10,6 +10,10 @@ namespace HideAndSeek.Game.Net
     ///      then every pose on a sofa seat and on a pouf with side / front shots of the own body, and head turning
     ///      (yaw clamp, body stays still).
     ///  -seatwatch (client, -seatshots dir): photographs the other player while seated (synced pose and head).
+    ///  -testseatfit (host, -seatshots dir): every seat x every pose: first-person shots (ahead, down, down-left,
+    ///      down-right, left, right; the look is clamped by the pose), the camera checked against the model's eyes
+    ///      (body drawn, head hidden, view model hidden), third-person side / front shots; then sitting down and
+    ///      standing up frame by frame on a sofa and a pouf (first-person shots every 0.1 s, largest camera step per frame).
     ///  -testbrickarea (host, -brickshots dir): bricks in the four corners of the bigger plate, towers at the corners
     ///      next to the furniture, overview shots.
     /// </summary>
@@ -19,6 +23,7 @@ namespace HideAndSeek.Game.Net
         {
             if (has("-testseats")) StartCoroutine(SeatsTest());
             if (has("-seatwatch")) StartCoroutine(SeatWatch());
+            if (has("-testseatfit")) StartCoroutine(SeatFitTest());
             if (has("-testbrickarea")) StartCoroutine(BrickAreaTest());
         }
 
@@ -31,6 +36,7 @@ namespace HideAndSeek.Game.Net
 
         private static void TestSitOn(NetPlayer me, LobbySeat seat)
         {
+            me.PrepareSit();
             var cc = me.GetComponent<CharacterController>();
             if (cc != null) cc.enabled = false;
             me.TeleportLocal(seat.transform.position, seat.transform.eulerAngles.y);
@@ -117,6 +123,102 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(0.5f);
             Debug.Log($"[SeatTest] stood up: look yaw delta from seat={Mathf.DeltaAngle(seatYaw, me.transform.eulerAngles.y):0.0} (head was {before:0.0})");
             Debug.Log("[SeatTest] done");
+        }
+
+        private IEnumerator SeatFitTest()
+        {
+            yield return WaitLobby();
+            var me = NetPlayer.Local;
+            string dir = ArgOr("-seatshots", "");
+            var seats = new System.Collections.Generic.List<LobbySeat>(LobbySeat.All);
+            var looks = new (string name, float yaw, float pitch)[]
+            {
+                ("ahead", 0f, 0f), ("down", 0f, -90f), ("downleft", -90f, -90f), ("downright", 90f, -90f), ("left", -90f, 0f), ("right", 90f, 0f)
+            };
+            foreach (var seat in seats)
+            {
+                for (int v = 0; v < BlockyCharacterActions.SitPoseCount; v++)
+                {
+                    NetPlayer.TestSitPose = v;
+                    TestSitOn(me, seat);
+                    yield return new WaitForSeconds(1.3f);
+                    var lim = SeatPoses.Limits(v, seat.Shape);
+                    foreach (var (name, yaw, pitch) in looks)
+                    {
+                        me.Motor.SetLook(me.transform.eulerAngles.y + yaw - me.SeatHeadYawNow, pitch);
+                        yield return new WaitForSeconds(0.4f);
+                        var cam = me.Camera.transform;
+                        Vector3 eye = me.Character.Head.position + cam.rotation * SeatPoses.EyeOffset;
+                        Debug.Log($"[SeatFit] {seat.name} ({seat.Shape.Kind}) pose {v} look {name}: head yaw {me.SeatHeadYawNow:0} pitch {me.Motor.LookPitch:0} " +
+                                  $"(limits yaw +-{lim.Yaw:0} up {lim.Up:0} down {lim.Down:0}), camera-eye {(cam.position - eye).magnitude * 100f:0.0} cm, " +
+                                  $"body shown {me.SeatBodyShown}, head hidden {me.Character.HeadHidden}, first person {me.Character.IsFirstPerson}");
+                        Shot(dir, $"fit_{seat.name}_p{v}_{name}");
+                        yield return null;
+                    }
+                    me.Motor.SetLook(me.transform.eulerAngles.y - me.SeatHeadYawNow, 0f);
+                    yield return new WaitForSeconds(0.3f);
+                    me.SetCinematicBody(true);
+                    var t = seat.transform;
+                    Vector3 at = t.position + Vector3.up * 0.75f - t.forward * 0.1f;
+                    CamShot(dir, $"fit_{seat.name}_p{v}_tpp_side", t.position + t.right * 1.9f + t.forward * 0.9f + Vector3.up * 1.2f, at);
+                    CamShot(dir, $"fit_{seat.name}_p{v}_tpp_front", t.position + t.forward * 2.2f - t.right * 0.6f + Vector3.up * 1.35f, at);
+                    CamShot(dir, $"fit_{seat.name}_p{v}_tpp_low", t.position + t.forward * 1.4f + t.right * 0.5f + Vector3.up * 0.35f, at - Vector3.up * 0.3f);
+                    me.SetCinematicBody(false);
+                    TestStandUp(me, seat);
+                    yield return new WaitForSeconds(0.8f);
+                }
+            }
+
+            // Sitting down / standing up: the camera follows the model's eyes, no jumps.
+            LobbySeat sofa = null, pouf = null;
+            foreach (var s in seats)
+            {
+                if (s.Shape.Kind == SeatKind.Pouf) { if (pouf == null) pouf = s; }
+                else if (sofa == null) sofa = s;
+            }
+            foreach (var seat in new[] { sofa, pouf })
+            {
+                if (seat == null) continue;
+                var t = seat.transform;
+                var cc = me.GetComponent<CharacterController>();
+                if (cc != null) cc.enabled = true;
+                me.TeleportLocal(t.position + t.forward * 1.5f + t.right * 0.3f, t.eulerAngles.y + 180f);
+                me.Motor.SetLook(t.eulerAngles.y + 180f, -25f);
+                yield return new WaitForSeconds(1f);
+                NetPlayer.TestSitPose = 0;
+                Vector3 last = me.Camera.transform.position;
+                float maxStep = 0f, start = Time.time;
+                int shot = 0;
+                float nextShot = 0f;
+                TestSitOn(me, seat);
+                while (Time.time - start < 1.2f)
+                {
+                    yield return null;
+                    Vector3 c = me.Camera.transform.position;
+                    maxStep = Mathf.Max(maxStep, (c - last).magnitude);
+                    last = c;
+                    if (Time.time - start >= nextShot) { nextShot += 0.1f; Shot(dir, $"fit_trans_{seat.name}_sit_{shot++:00}"); }
+                }
+                Debug.Log($"[SeatFit] sit down on {seat.name}: largest camera step per frame {maxStep * 100f:0.0} cm");
+                yield return new WaitForSeconds(0.5f);
+                maxStep = 0f;
+                start = Time.time;
+                shot = 0;
+                nextShot = 0f;
+                last = me.Camera.transform.position;
+                TestStandUp(me, seat);
+                while (Time.time - start < 1f)
+                {
+                    yield return null;
+                    Vector3 c = me.Camera.transform.position;
+                    maxStep = Mathf.Max(maxStep, (c - last).magnitude);
+                    last = c;
+                    if (Time.time - start >= nextShot) { nextShot += 0.1f; Shot(dir, $"fit_trans_{seat.name}_stand_{shot++:00}"); }
+                }
+                Debug.Log($"[SeatFit] stand up from {seat.name}: largest camera step per frame {maxStep * 100f:0.0} cm, body shown after {me.SeatBodyShown}");
+                yield return new WaitForSeconds(0.5f);
+            }
+            Debug.Log("[SeatFit] done");
         }
 
         private IEnumerator SeatWatch()

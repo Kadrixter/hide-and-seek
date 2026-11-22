@@ -8,13 +8,12 @@ namespace HideAndSeek.Game.Net
     /// <summary>
     /// Sitting in the lobby: every time the player sits down one of <see cref="BlockyCharacterActions.SitPoseCount"/>
     /// poses is picked (random, never the previous one). The body stays still facing away from the seat; the mouse only
-    /// turns the head (yaw within +-<see cref="SeatHeadYawMax"/>, pitch clamped). Pose and head yaw are owner-written
-    /// network variables, the head pitch comes with the regular motion pack.
+    /// turns the head within the pose's limits (<see cref="SeatPoses.Limits"/>). Pose and head yaw are owner-written
+    /// network variables, the head pitch comes with the regular motion pack. The own body is visible while seated
+    /// (<see cref="SeatedView"/>: camera in the model's eyes, head hidden).
     /// </summary>
     public partial class NetPlayer
     {
-        public const float SeatHeadYawMax = 75f, SeatPitchUp = 40f, SeatPitchDown = 55f;
-
         public readonly NetworkVariable<byte> SitPoseVar = new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public readonly NetworkVariable<sbyte> SitHeadYaw = new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -24,9 +23,52 @@ namespace HideAndSeek.Game.Net
         private int _lastSeatSeen = -1;
         private float _seatYaw, _headYaw, _headYawShown, _nextHeadSend;
         private HeadBob _seatBob;
+        private SeatedView _seatView;
+        private Vector3 _sitFromPos, _sitCamPos;
+        private Quaternion _sitFromRot = Quaternion.identity, _sitCamRot = Quaternion.identity;
+        private int _sitFromFrame = -10;
 
         /// <summary>Current head yaw relative to the body (owner: exact, others: smoothed).</summary>
         public float SeatHeadYawNow => _headYawShown;
+
+        /// <summary>Local player: the own body is drawn (seated in the lobby), see <see cref="SeatedView"/>.</summary>
+        public bool SeatBodyShown { get; private set; }
+
+        /// <summary>Outer look limits of the current seated pose (the pitch range also shrinks with the yaw, see <see cref="SeatPoses.ClampLook"/>).</summary>
+        public SeatPoses.LookLimits SeatLookLimits
+        {
+            get
+            {
+                var s = LobbySeat.Get(Seat.Value);
+                return SeatPoses.Limits(SitPoseVar.Value, s != null ? s.Shape : null);
+            }
+        }
+
+        /// <summary>
+        /// Owner, right before the root is moved onto a seat: remembers where the body stood and where the camera was
+        /// looking, so the body walks into the seat and the view turns round smoothly instead of jumping.
+        /// </summary>
+        public void PrepareSit()
+        {
+            if (Character != null)
+            {
+                _sitFromPos = Character.transform.position;
+                _sitFromRot = Character.transform.rotation;
+                _sitFromFrame = Time.frameCount;
+            }
+            if (Camera != null)
+            {
+                _sitCamPos = Camera.transform.position;
+                _sitCamRot = Camera.transform.rotation;
+            }
+        }
+
+        internal void SetSeatBodyShown(bool on)
+        {
+            if (SeatBodyShown == on) return;
+            SeatBodyShown = on;
+            ApplyOwnBodyMode();
+        }
 
         private void UpdateSeatLook(float dt)
         {
@@ -48,9 +90,12 @@ namespace HideAndSeek.Game.Net
                 if (seat >= 0)
                 {
                     // The motor turned the root with the mouse: move that turn into the head and put the body back.
-                    float turned = Mathf.DeltaAngle(_seatYaw, transform.eulerAngles.y);
-                    _headYaw = Mathf.Clamp(_headYaw + turned, -SeatHeadYawMax, SeatHeadYawMax);
-                    Motor.SetLook(_seatYaw, Mathf.Clamp(Motor.LookPitch, -SeatPitchDown, SeatPitchUp));
+                    // The look stays in the pose's range (the eyes never come near the own shoulders / chest).
+                    var s = LobbySeat.Get(seat);
+                    float yaw = _headYaw + Mathf.DeltaAngle(_seatYaw, transform.eulerAngles.y), pitch = Motor.LookPitch;
+                    SeatPoses.ClampLook(SitPoseVar.Value, s != null ? s.Shape : null, ref yaw, ref pitch);
+                    _headYaw = yaw;
+                    Motor.SetLook(_seatYaw, pitch);
                     sbyte sy = (sbyte)Mathf.RoundToInt(_headYaw);
                     if (SitHeadYaw.Value != sy && Time.unscaledTime >= _nextHeadSend)
                     {

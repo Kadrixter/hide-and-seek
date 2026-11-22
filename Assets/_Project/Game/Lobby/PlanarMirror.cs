@@ -114,6 +114,9 @@ namespace HideAndSeek.Game
             var lamp = restoreFp ? local.Character.GetComponentInChildren<ShoulderLamp>() : null;
             if (restoreFp) local.Character.SetFirstPersonMode(false);
             lamp?.SetFirstPerson(false);
+            // Seated: the body is already drawn, only the head is hidden from the own camera.
+            bool restoreHead = local != null && local.Character != null && local.Character.HeadHidden;
+            if (restoreHead) local.Character.SetHeadHidden(false);
 
             // Glare quads exist only for this render (the main camera never sees them).
             ShowGlares(camPos, true);
@@ -127,6 +130,7 @@ namespace HideAndSeek.Game
             ShowGlares(camPos, false);
             if (restoreFp) local.Character.SetFirstPersonMode(true);
             lamp?.SetFirstPerson(true);
+            if (restoreHead) local.Character.SetHeadHidden(true);
         }
 
         // ================================================================ flashlight bounce
