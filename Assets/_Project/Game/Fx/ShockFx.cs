@@ -87,8 +87,11 @@ namespace HideAndSeek.Game
             gr.sharedMaterial = FxUtil.Unlit;
             var mpb = new MaterialPropertyBlock();
 
+            // The runner outlives scenes: the round can start (lobby unloaded) in the middle of this, so every object
+            // made here may already be gone (the old code threw a NullReferenceException at the round start).
             for (float t = 0f; t < duration; t += Time.deltaTime)
             {
+                if (light == null || glow == null) break;
                 float flick = Random.value;
                 light.intensity = flick < 0.25f ? 0.4f : 2.5f + 4f * Random.value;
                 float s = 0.08f + 0.14f * Random.value;
@@ -97,8 +100,9 @@ namespace HideAndSeek.Game
                 gr.SetPropertyBlock(mpb);
                 yield return null;
             }
-            Object.Destroy(lg);
-            Object.Destroy(glow);
+            if (lg != null) Object.Destroy(lg);
+            if (glow != null) Object.Destroy(glow);
+            if (fork == null) yield break; // scene changed: nothing left to scorch
 
             // Scorch mark round the socket; smoking fork stays a bit longer.
             var scorch = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -112,9 +116,9 @@ namespace HideAndSeek.Game
             sr.SetPropertyBlock(smpb);
 
             yield return new WaitForSeconds(Mathf.Max(0f, forkLifetime - duration));
-            Object.Destroy(fork.gameObject);
+            if (fork != null) Object.Destroy(fork.gameObject);
             yield return new WaitForSeconds(20f);
-            Object.Destroy(scorch);
+            if (scorch != null) Object.Destroy(scorch);
         }
     }
 }

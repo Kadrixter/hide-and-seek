@@ -38,7 +38,7 @@ namespace HideAndSeek.Game.Net
             SecurityCrates.Value = 0;
             ResetRcCars();
             Phase.Value = MatchPhase.Loading;
-            NetworkManager.SceneManager.LoadScene(NetSession.GameScene, LoadSceneMode.Single);
+            LoadGameSceneOrStay("race start");
         }
 
         private void OnRaceSceneLoaded()
@@ -74,7 +74,7 @@ namespace HideAndSeek.Game.Net
                 }
                 if (cps > bestCps) { bestCps = cps; best = pl; }
             }
-            if (racers == 0) { BackToLobby(); return; }
+            if (racers == 0) { BackToLobby("race without racers"); return; }
             if (now >= PhaseEnd.Value && best != null) FinishRace(best);
         }
 

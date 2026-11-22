@@ -36,12 +36,28 @@ namespace HideAndSeek.Game
 
         public void End()
         {
+            if (_ended) return;
+            _ended = true;
             if (_me != null && _me.Camera != null)
             {
                 _me.Camera.enabled = true;
                 var l = _me.Camera.GetComponent<AudioListener>();
                 if (l != null) l.enabled = true;
             }
+        }
+
+        private bool _ended;
+
+        /// <summary>
+        /// Destroyed without <see cref="End"/> (the HUD dropping it when the session ends, any scene change): the own camera
+        /// and listener still come back. Before, a spectator destroyed with the map left the player's camera off in the
+        /// lobby - the picture stood still ("the game froze") although the game ran on.
+        /// </summary>
+        private void OnDestroy()
+        {
+            if (_ended) return;
+            Debug.LogWarning("[LobbyReturn] spectator camera destroyed without End - own camera turned back on");
+            End();
         }
 
         private void Cycle(int dir)

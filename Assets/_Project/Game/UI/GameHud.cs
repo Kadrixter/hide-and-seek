@@ -280,6 +280,8 @@ namespace HideAndSeek.Game
             var me = NetPlayer.Local;
             var mm = MatchManager.Instance;
             var phase = mm != null ? mm.Phase.Value : MatchPhase.Lobby;
+            // ---- spectator (first: whatever fails further down this frame, the view is handed back)
+            UpdateSpectator(me, phase);
             if (TestEsc && !_testEscDone)
             {
                 _testEscDone = true;
@@ -475,9 +477,6 @@ namespace HideAndSeek.Game
             // ---- crosshair
             _crosshair.enabled = inGame && me.Life.Value == LifeState.Alive && !blind;
 
-            // ---- spectator
-            UpdateSpectator(me, phase);
-
             // ---- banner / toast
             float bl = _bannerUntil - Time.unscaledTime;
             _bannerGroup.alpha = bl <= 0 ? 0f : Mathf.Clamp01(bl / 0.6f) * Mathf.Clamp01((_bannerLen - bl) / 0.25f + 0.2f);
@@ -605,12 +604,34 @@ namespace HideAndSeek.Game
             _prompt.localScale = Vector3.one * (lpc.Prompt == PromptKind.Knife && !far ? 1f + 0.08f * Mathf.Sin(Time.time * 10f) : 1f);
         }
 
+        /// <summary>
+        /// Safety net: no other view owns the screen (spectator, kill cam, RC car, race) and the local player is alive,
+        /// yet the own camera or listener is off - turn them back on. True when something had to be fixed (logged).
+        /// </summary>
+        public static bool RestoreOwnView(NetPlayer me, string why)
+        {
+            if (me == null || me.Camera == null || me.Life.Value == LifeState.Dead) return false;
+            if (KillCam.Active || RcCarView.Active != null || RaceSystem.Instance != null) return false;
+            if (_instance != null && _instance._spectator != null) return false;
+            bool fixedIt = false;
+            if (!me.Camera.enabled) { me.Camera.enabled = true; fixedIt = true; }
+            var l = me.Camera.GetComponent<AudioListener>();
+            if (l != null && !l.enabled) { l.enabled = true; fixedIt = true; }
+            if (fixedIt) Debug.LogWarning($"[LobbyReturn] own camera / listener were off with no other view active ({why}) - turned back on");
+            return fixedIt;
+        }
+
         private void UpdateSpectator(NetPlayer me, MatchPhase phase)
         {
             bool spectate = me.Life.Value == LifeState.Dead && (phase == MatchPhase.Seeking || phase == MatchPhase.Ended);
+            // Destroyed from outside (scene change): its OnDestroy gave the camera back, forget it.
+            if (!ReferenceEquals(_spectator, null) && _spectator == null) _spectator = null;
             if (spectate && _spectator == null)
             {
                 var go = new GameObject("SpectatorCamera");
+                // Kept across scene loads like the HUD: when the map unloads before "alive / lobby" arrives here (the
+                // scene event comes before the variable changes on a client), the camera is still ended properly below.
+                DontDestroyOnLoad(go);
                 _spectator = go.AddComponent<SpectatorCamera>();
                 _spectator.Begin(me);
             }
@@ -620,6 +641,7 @@ namespace HideAndSeek.Game
                 Destroy(_spectator.gameObject);
                 _spectator = null;
             }
+            if (phase == MatchPhase.Lobby && _spectator == null) RestoreOwnView(me, "lobby");
             _spectate.text = _spectator != null && _spectator.Target != null
                 ? $"Oglądasz: {_spectator.Target.Nick}" // "LPM / PPM - zmiana": KeyHints
                 : "";

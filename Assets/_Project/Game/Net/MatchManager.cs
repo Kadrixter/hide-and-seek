@@ -88,6 +88,7 @@ namespace HideAndSeek.Game.Net
             Instance = this;
             DontDestroyOnLoad(gameObject);
             Phase.OnValueChanged += OnPhaseChanged;
+            HookLobbyReturn();
             if (IsServer)
             {
                 NetworkManager.SceneManager.OnLoadEventCompleted += OnSceneLoaded;
@@ -99,6 +100,7 @@ namespace HideAndSeek.Game.Net
         public override void OnNetworkDespawn()
         {
             if (Instance == this) Instance = null;
+            UnhookLobbyReturn();
             if (IsServer && NetworkManager != null)
             {
                 if (NetworkManager.SceneManager != null) NetworkManager.SceneManager.OnLoadEventCompleted -= OnSceneLoaded;
@@ -112,6 +114,7 @@ namespace HideAndSeek.Game.Net
         {
             var local = NetPlayer.Local;
             Debug.Log($"[Match] phase {prev} -> {phase}, players {NetPlayer.All.Count}, me {(local != null ? local.Role.Value.ToString() : "-")}");
+            OnPhaseLobbyReturn(prev, phase);
             switch (phase)
             {
                 case MatchPhase.Hiding:
@@ -278,7 +281,7 @@ namespace HideAndSeek.Game.Net
             SecurityCrates.Value = 0;
             ResetRcCars();
             Phase.Value = MatchPhase.Loading;
-            NetworkManager.SceneManager.LoadScene(NetSession.GameScene, LoadSceneMode.Single);
+            LoadGameSceneOrStay("round start");
         }
 
         private void ResetPlayer(NetPlayer pl)
@@ -307,6 +310,7 @@ namespace HideAndSeek.Game.Net
 
         private void OnSceneLoaded(string sceneName, LoadSceneMode mode, List<ulong> completed, List<ulong> timedOut)
         {
+            if (sceneName == NetSession.GameScene && LobbyReturnBlocksRound(sceneName)) return;
             if (sceneName == NetSession.GameScene && Phase.Value == MatchPhase.Loading && RaceMode)
             {
                 OnRaceSceneLoaded();
@@ -325,14 +329,9 @@ namespace HideAndSeek.Game.Net
             }
             else if (sceneName == NetSession.LobbyScene)
             {
-                int i = 0;
-                var spawns = SpawnPoints.Lobby();
-                foreach (var pl in NetPlayer.All)
-                {
-                    if (pl == null) continue;
-                    var sp = spawns.Count > 0 ? spawns[i++ % spawns.Count] : null;
-                    if (sp != null) pl.TeleportRpc(sp.position, sp.eulerAngles.y);
-                }
+                // Each copy was placed when it reported its own load (MatchManager.LobbyReturn.cs); here only the rest
+                // (timed out / missed), so nobody who already walks around the lobby is pulled back to a spawn.
+                PlaceRemainingInLobby();
                 SceneBedRpc((byte)AmbientId.LobbyRoom);
             }
         }
@@ -449,15 +448,43 @@ namespace HideAndSeek.Game.Net
 
         private void Update()
         {
-            UpdateMedkitViews();
-            UpdateSyringeViews();
-            UpdateLobbyFun();
-            UpdateRcCars();
-            UpdateRods();
-            UpdateDrops();
-            UpdateFlashBox();
-            UpdateToyGuns();
-            UpdatePhones();
+            // The way back to the lobby first: nothing below (a broken effect, a missing scene object) may hold it up.
+            Step(_stepLobbyWatch ??= UpdateLobbyReturnWatch, "lobby watch");
+            if (IsServer) Step(_stepLobbyReturn ??= TryBackToLobby, "lobby return");
+            Step(_stepMedkits ??= UpdateMedkitViews, "medkits");
+            Step(_stepSyringes ??= UpdateSyringeViews, "syringes");
+            Step(_stepLobbyFun ??= UpdateLobbyFun, "lobby fun");
+            Step(_stepRcCars ??= UpdateRcCars, "rc cars");
+            Step(_stepRods ??= UpdateRods, "rods");
+            Step(_stepDrops ??= UpdateDrops, "drops");
+            Step(_stepFlashBox ??= UpdateFlashBox, "flash box");
+            Step(_stepToyGuns ??= UpdateToyGuns, "toy guns");
+            Step(_stepPhones ??= UpdatePhones, "phones");
+            Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
+            if (!IsServer) return;
+            Step(_stepServerProps ??= UpdateServerProps, "server props");
+            UpdateServerTimeline();
+        }
+
+        private System.Action _stepLobbyWatch, _stepLobbyReturn, _stepMedkits, _stepSyringes, _stepLobbyFun, _stepRcCars, _stepRods,
+            _stepDrops, _stepFlashBox, _stepToyGuns, _stepPhones, _stepSceneProps, _stepServerProps;
+        private readonly Dictionary<string, float> _stepErrorAt = new();
+
+        /// <summary>Runs one per-frame part; an exception is logged (at most every 5 s per part) instead of skipping the rest of the frame.</summary>
+        private void Step(System.Action part, string name)
+        {
+            try { part(); }
+            catch (System.Exception e)
+            {
+                if (_stepErrorAt.TryGetValue(name, out float at) && Time.unscaledTime - at < 5f) return;
+                _stepErrorAt[name] = Time.unscaledTime;
+                Debug.LogWarning($"[Match] {name} failed (phase {Phase.Value}, scene {SceneManager.GetActiveScene().name}): {e.GetType().Name}");
+                Debug.LogException(e);
+            }
+        }
+
+        private void UpdateSceneProps()
+        {
             BloodTracks.Ensure();
             var ph = Phase.Value;
             if (RaceMode && (ph == MatchPhase.Race || ph == MatchPhase.Ended) && SceneManager.GetActiveScene().name == NetSession.GameScene)
@@ -468,12 +495,21 @@ namespace HideAndSeek.Game.Net
                 CarAlarms.Ensure();
                 SecurityRooms.Ensure();
             }
-            if (!IsServer) return;
+        }
+
+        private void UpdateServerProps()
+        {
+            var ph = Phase.Value;
             bool watched = SecurityRooms.Instance != null && SecurityRooms.Instance.AnyoneWatching();
             if (SecurityWatched.Value != watched) SecurityWatched.Value = watched;
             if (ElevatorSystem.Instance != null && Elevators.Count > 0) ElevatorSystem.Instance.ServerTick(this, Now);
             if (ph == MatchPhase.Hiding || ph == MatchPhase.Seeking || ph == MatchPhase.Ended) UpdateRcServer();
             UpdateRadioServer();
+        }
+
+        /// <summary>Server: phase timers (hiding -> seeking -> end -> lobby), wins, hints.</summary>
+        private void UpdateServerTimeline()
+        {
             double now = Now;
             var s = Settings.Value;
             switch (Phase.Value)
@@ -506,7 +542,7 @@ namespace HideAndSeek.Game.Net
                     break;
 
                 case MatchPhase.Ended:
-                    if (now >= PhaseEnd.Value) BackToLobby();
+                    if (now >= PhaseEnd.Value && !_lobbyReturnPending) BackToLobby();
                     break;
             }
         }
@@ -586,32 +622,16 @@ namespace HideAndSeek.Game.Net
             MatchEndedRpc(w);
         }
 
-        private void BackToLobby()
-        {
-            _finisherRunning = false;
-            foreach (var pl in NetPlayer.All)
-            {
-                if (pl == null) continue;
-                pl.Role.Value = PlayerRole.None;
-                ResetPlayer(pl);
-            }
-            Medkits.Clear();
-            Syringes.Clear();
-            Elevators.Clear();
-            GlockPhase.Value = false;
-            ChainsawTaken.Value = false;
-            SecurityCrates.Value = 0;
-            ResetRcCars();
-            Phase.Value = MatchPhase.Lobby;
-            NetworkManager.SceneManager.LoadScene(NetSession.LobbyScene, LoadSceneMode.Single);
-        }
+        // BackToLobby: MatchManager.LobbyReturn.cs (load first, phase Lobby only once NGO accepted the load).
 
         private void OnClientLeft(ulong clientId)
         {
             if (Phase.Value == MatchPhase.Seeking || Phase.Value == MatchPhase.Hiding)
                 StartCoroutine(CheckAfterLeave());
             else if (Phase.Value == MatchPhase.Loading && NetPlayer.All.Count < 2)
-                BackToLobby();
+                BackToLobby("players left during the map load"); // the map load is still running: retried until NGO accepts it
+            if (_lobbyWaiting || _lobbyReturnPending)
+                LR($"server: client {clientId} left during the return to the lobby (phase {Phase.Value}, scene {ActiveSceneName})");
         }
 
         private IEnumerator CheckAfterLeave()
