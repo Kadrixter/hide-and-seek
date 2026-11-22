@@ -85,7 +85,7 @@ namespace HideAndSeek.Game
             _alpha = Mathf.MoveTowards(_alpha, want, Time.unscaledDeltaTime * 4f);
             _goo.color = new Color(1f, 1f, 1f, _alpha);
             _goo.enabled = _alpha > 0.001f;
-            _status.text = left > 0f ? $"OBLEPIONY GLUTEM  {left:0.0} s   (spowolniony, nóż i piła nie działają)" : "";
+            _status.text = "";
 
             // Shots left and the keys are shown by the hotbar (slot badge + hint above the bar).
             _ammo.text = "";

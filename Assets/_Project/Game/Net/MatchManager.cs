@@ -708,7 +708,6 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(BlockyCharacterActions.DustReleaseTime + 0.12f);
             if (seeker == null || !seeker.IsSpawned) yield break;
             seeker.BlindUntil.Value = Now + Tuning.DustBlindTime;
-            seeker.ToastRpc("Kurz w oczach! Nic nie widzisz.", 3f);
         }
 
         /// <summary>A player pressed a level button in a security room.</summary>

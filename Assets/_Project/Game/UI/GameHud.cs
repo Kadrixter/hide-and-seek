@@ -405,7 +405,7 @@ namespace HideAndSeek.Game
                 float a = Mathf.Clamp01((float)dustLeft / 1.2f);
                 float flick = 0.04f * Mathf.Sin(Time.time * 17f);
                 _dust.color = new Color(0.74f + flick, 0.66f + flick, 0.5f, Mathf.Clamp01(a * 0.97f));
-                _dustText.text = dustLeft > 1.2d ? $"Kurz w oczach!\n<size=22>{dustLeft:0.0} s</size>" : "";
+                _dustText.text = "";
                 _dustText.supportRichText = true;
             }
 
