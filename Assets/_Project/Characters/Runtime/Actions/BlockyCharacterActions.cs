@@ -386,6 +386,7 @@ namespace HideAndSeek.Characters
             ApplyPoke(ref p, dt, standing);
             ApplyFlashTake(ref p, dt);
             ApplyToyGun(ref p, dt, standing, lookPitch);
+            ApplyPaMic(ref p, dt, standing);
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
@@ -500,6 +501,7 @@ namespace HideAndSeek.Characters
         {
             if (VendingShowsCan) return HeldItem.Can;
             if (PhoneSmashing) return HeldItem.None;
+            if (PaMicBusy) return HeldItem.None;
             if (vendingOn || ShockHidesItem || GunHidesItem) return HeldItem.None;
             var rc = RcShownItem();
             if (rc != HeldItem.None || rcW > 0.5f) return rc;
@@ -676,6 +678,7 @@ namespace HideAndSeek.Characters
             socketR.localRotation = p.PropR;
             UpdateVendingProp(show);
             UpdateToyGunProp();
+            UpdatePaMicProp();
             var saw = props[(int)HeldItem.Chainsaw];
             if (saw != null && show == HeldItem.Chainsaw)
             {

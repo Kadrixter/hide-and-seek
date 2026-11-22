@@ -168,6 +168,10 @@ namespace HideAndSeek.Game.Voice
                 send = kb != null && kb.vKey.isPressed && !menu;
             }
             if (forceSend) send = true;
+            // Public address: the talk bar of the wall microphone sends (also without V / below the open-mic threshold).
+            var me = NetPlayer.Local;
+            bool pa = me != null && me.PaTransmitting;
+            if (pa) send = true;
             Transmitting = send;
             if (!send) return;
             _txPackets++;
@@ -176,28 +180,29 @@ namespace HideAndSeek.Game.Voice
             for (int i = 0; i < _frame.Length; i++) _encoded[i] = VoiceCodec.Encode(_frame[i]);
             byte lvl = (byte)Mathf.RoundToInt(_frameLevel * 255f);
 
-            if (nm.IsServer) Relay(nm, nm.LocalClientId, _seq, lvl, _encoded, _encoded.Length, stamp);
+            if (nm.IsServer) Relay(nm, nm.LocalClientId, _seq, lvl, _encoded, _encoded.Length, stamp, pa);
             else
             {
                 using var writer = new FastBufferWriter(_encoded.Length + 16, Allocator.Temp);
-                WriteFrame(writer, _seq, lvl, _encoded, _encoded.Length, stamp);
+                WriteFrame(writer, _seq, lvl, _encoded, _encoded.Length, stamp, pa);
                 nm.CustomMessagingManager.SendNamedMessage(Message, NetworkManager.ServerClientId, writer, Delivery);
             }
         }
 
         // ================================================================ network
 
-        private static void WriteFrame(FastBufferWriter w, ushort seq, byte level, byte[] data, int len, long stamp)
+        /// <summary>Flags byte: 1 = capture stamp follows, 2 = public-address talk bar down (client -> server).</summary>
+        private static void WriteFrame(FastBufferWriter w, ushort seq, byte level, byte[] data, int len, long stamp, bool pa = false)
         {
             w.WriteValueSafe(seq);
             w.WriteValueSafe(level);
-            w.WriteValueSafe((byte)(stamp != 0 ? 1 : 0));
+            w.WriteValueSafe((byte)((stamp != 0 ? 1 : 0) | (pa ? 2 : 0)));
             w.WriteValueSafe((ushort)len);
             w.WriteBytesSafe(data, len);
             if (stamp != 0) w.WriteValueSafe(stamp);
         }
 
-        private bool ReadFrame(FastBufferReader r, out ushort seq, out byte level, out int len, out long stamp)
+        private bool ReadFrame(FastBufferReader r, out ushort seq, out byte level, out int len, out long stamp, out bool pa)
         {
             r.ReadValueSafe(out seq);
             r.ReadValueSafe(out level);
@@ -205,6 +210,7 @@ namespace HideAndSeek.Game.Voice
             r.ReadValueSafe(out ushort l);
             len = l;
             stamp = 0;
+            pa = (flags & 2) != 0;
             if (len > _rx.Length) return false;
             r.ReadBytesSafe(ref _rx, len);
             if ((flags & 1) != 0) r.ReadValueSafe(out stamp);
@@ -218,26 +224,28 @@ namespace HideAndSeek.Game.Voice
             if (nm.IsServer && sender != NetworkManager.ServerClientId)
             {
                 // Client -> server: relay to the listeners allowed to hear it.
-                if (!ReadFrame(reader, out ushort seq, out byte lvl, out int len, out long stamp)) return;
-                Relay(nm, sender, seq, lvl, _rx, len, stamp);
+                if (!ReadFrame(reader, out ushort seq, out byte lvl, out int len, out long stamp, out bool pa)) return;
+                Relay(nm, sender, seq, lvl, _rx, len, stamp, pa);
             }
             else
             {
-                // Server -> client: play (channel bits: 1 = proximity, 2 = toy phone).
+                // Server -> client: play (channel bits: 1 = proximity, 2 = toy phone, 4 = public address).
                 reader.ReadValueSafe(out ulong speaker);
                 reader.ReadValueSafe(out byte channel);
-                if (!ReadFrame(reader, out ushort seq, out byte lvl, out int len, out long stamp)) return;
+                if (!ReadFrame(reader, out ushort seq, out byte lvl, out int len, out long stamp, out _)) return;
                 Play(speaker, channel, seq, lvl, _rx, len, stamp);
             }
         }
 
-        private void Relay(NetworkManager nm, ulong speakerId, ushort seq, byte level, byte[] data, int len, long stamp)
+        private void Relay(NetworkManager nm, ulong speakerId, ushort seq, byte level, byte[] data, int len, long stamp, bool pa)
         {
             var speaker = NetPlayer.FindByClient(speakerId);
             if (speaker == null) return;
             bool shout = level / 255f >= ShoutLevel;
+            // Public address: only the current holder of the wall microphone; everybody gets it (own speakers on every level).
+            bool paOk = pa && VoiceRules.PaLink(speaker);
 
-            var writers = new FastBufferWriter[4]; // per channel combination, built when first needed
+            var writers = new FastBufferWriter[8]; // per channel combination, built when first needed
             try
             {
                 foreach (var listener in NetPlayer.All)
@@ -246,8 +254,8 @@ namespace HideAndSeek.Game.Voice
                     // The dead talk on their own channel: their voice is never even sent to the living.
                     bool near = VoiceRules.Hears(listener, speaker, shout) || TestRelayAll;
                     bool phone = VoiceRules.PhoneLink(listener, speaker);
-                    if (!near && !phone) continue;
-                    byte ch = (byte)((near ? 1 : 0) | (phone ? 2 : 0));
+                    if (!near && !phone && !paOk) continue;
+                    byte ch = (byte)((near ? 1 : 0) | (phone ? 2 : 0) | (paOk ? 4 : 0));
 
                     if (listener.OwnerClientId == nm.LocalClientId) { Play(speakerId, ch, seq, level, data, len, stamp); continue; } // host listens locally
                     if (!writers[ch].IsInitialized)
@@ -270,6 +278,11 @@ namespace HideAndSeek.Game.Voice
         {
             var p = NetPlayer.FindByClient(speakerId);
             if (p == null || p.IsOwner) return;
+            if ((channel & 4) != 0 && VoiceRules.LocalPaLink(p) && PaVoice.Instance != null)
+            {
+                if (Instance != null) Instance._rxPa++;
+                PaVoice.Instance.Push(p, seq, data, len, stamp);
+            }
             if ((channel & 2) != 0 && VoiceRules.LocalPhoneLink(p))
             {
                 if (Instance != null) Instance._rxPhone++;

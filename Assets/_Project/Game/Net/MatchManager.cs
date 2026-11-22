@@ -458,6 +458,7 @@ namespace HideAndSeek.Game.Net
             UpdateFlashBox();
             UpdateToyGuns();
             UpdatePhones();
+            UpdatePa();
             BloodTracks.Ensure();
             var ph = Phase.Value;
             if (RaceMode && (ph == MatchPhase.Race || ph == MatchPhase.Ended) && SceneManager.GetActiveScene().name == NetSession.GameScene)
@@ -467,6 +468,7 @@ namespace HideAndSeek.Game.Net
                 ChainsawShelf.Ensure(ChainsawTaken.Value);
                 CarAlarms.Ensure();
                 SecurityRooms.Ensure();
+                PaSystem.Ensure();
             }
             if (!IsServer) return;
             bool watched = SecurityRooms.Instance != null && SecurityRooms.Instance.AnyoneWatching();

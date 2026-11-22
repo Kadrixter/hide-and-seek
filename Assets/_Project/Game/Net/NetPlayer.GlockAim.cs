@@ -33,7 +33,7 @@ namespace HideAndSeek.Game.Net
 
         private bool WantsGlockAim()
         {
-            if (!IsSeeker || !HasGlock.Value || Held.Value != HeldItem.Glock || Life.Value != LifeState.Alive || Busy.Value) return false;
+            if (!IsSeeker || !HasGlock.Value || Held.Value != HeldItem.Glock || Life.Value != LifeState.Alive || Busy.Value || HoldsPaMic) return false;
             var mm = MatchManager.Instance;
             if (mm == null || mm.Phase.Value != MatchPhase.Seeking || LocalPlayerController.MenuOpen || KillCam.Active) return false;
             if (mm.Now < BlindUntil.Value) return false;

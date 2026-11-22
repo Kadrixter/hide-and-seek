@@ -97,6 +97,7 @@ namespace HideAndSeek.Characters
             toyHands = false;
             if (FlashTakeHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (PhoneHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (PaMicHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (VendingHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (overrideOn && rig != null)
             {
@@ -655,6 +656,7 @@ namespace HideAndSeek.Characters
             UpdateVendingProp(show);
             UpdateFlashLamp();
             UpdateToyGunFp(dt);
+            UpdateVmPaMic();
             var sawProp = props[(int)HeldItem.Chainsaw];
             if (sawProp != null && show == HeldItem.Chainsaw)
             {

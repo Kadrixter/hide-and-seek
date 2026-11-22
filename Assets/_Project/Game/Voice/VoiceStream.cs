@@ -119,6 +119,7 @@ namespace HideAndSeek.Game.Voice
                     DiagRecord(data[i]);
                 }
             }
+            Post?.Process(data); // optional colouring (public-address horn); null for the normal voice
         }
 
         /// <summary>Main thread, every frame: each dropout while talking adds 60 ms; 8 s without one removes 20 ms.</summary>
