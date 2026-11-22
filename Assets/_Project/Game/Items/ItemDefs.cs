@@ -63,6 +63,11 @@ namespace HideAndSeek.Game
         public Func<NetPlayer, string> Badge;
         /// <summary>World model of a dropped one, built under the given root (any pivot: it is centred automatically).</summary>
         public Func<Transform, GameObject> Model;
+        /// <summary>The item this one turns into (and back) in the same slot - when one runs out while the other appears,
+        /// the newcomer takes the freed slot instead of the first free one (RC car on the floor -> its transmitter).</summary>
+        public HotbarItem SlotPartner = HotbarItem.None;
+        /// <summary>Client: E prompt for a dropped one (player, the drop's Extra), null = the normal "E  podnieś: ...".</summary>
+        public Func<NetPlayer, byte, string> FloorText;
     }
 
     /// <summary>Registry of all inventory items (built-in ones in <c>ItemDefs.Builtin.cs</c>).</summary>

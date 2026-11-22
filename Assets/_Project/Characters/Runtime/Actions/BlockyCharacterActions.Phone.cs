@@ -224,6 +224,7 @@ namespace HideAndSeek.Characters
         {
             if (phoneWorld != null) Destroy(phoneWorld.Root.gameObject);
             phoneWorld = null;
+            DestroyRemoteWorld();
         }
     }
 }

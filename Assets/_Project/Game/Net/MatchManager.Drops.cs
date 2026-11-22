@@ -250,7 +250,10 @@ namespace HideAndSeek.Game.Net
                 kind = d.Kind;
             }
             if (kind == HotbarItem.None) return false;
-            text = Inventory.PickupText(me, kind, "E  podnieś: " + ItemDefs.Name(kind));
+            var floorText = ItemDefs.Get(kind)?.FloorText;
+            byte extra = 0;
+            for (int i = 0; i < Drops.Count; i++) if (Drops[i].Id == id) extra = Drops[i].Extra;
+            text = floorText != null ? floorText(me, extra) : Inventory.PickupText(me, kind, "E  podnieś: " + ItemDefs.Name(kind));
             return true;
         }
 

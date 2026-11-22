@@ -394,6 +394,9 @@ namespace HideAndSeek.Characters
                     }
                     break;
                 }
+                case HeldItem.RcRemote:
+                    RemoteHoldHands(ref p, lookPitch, 0f); // transmitter in both hands (BlockyCharacterActions.RcRemote)
+                    break;
                 case HeldItem.Medkit:
                     p.ShoulderR = Quaternion.Euler(0f, 0f, 7f) * basePose.ShoulderR;
                     p.ElbowR = basePose.ElbowR * Quaternion.Euler(-6f, 0f, 0f);

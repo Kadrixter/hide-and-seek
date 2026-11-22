@@ -51,6 +51,7 @@ namespace HideAndSeek.Game.Net
                           (Phase.Value == MatchPhase.Hiding || Phase.Value == MatchPhase.Seeking || Phase.Value == MatchPhase.Ended);
             if (!inGame) return;
             RcCarShelf.Ensure();
+            RcRemoteFx.Ensure(); // wrecks of smashed transmitters (also for late joiners)
             for (int i = 0; i < RcCar.Count; i++)
             {
                 var s = RcSlot(i);
@@ -140,13 +141,14 @@ namespace HideAndSeek.Game.Net
             {
                 var s = RcSlot(i);
                 if (s.Mode is RcMode.Shelf or RcMode.Wreck or RcMode.Doomed or RcMode.Shot) continue;
-                if (s.Holder == RcDropHolder) continue; // lying on the floor as a dropped item (MatchManager.Drops)
+                if (s.Holder == RcDropHolder) continue; // lying on the floor as a dropped item / its transmitter does (MatchManager.Drops)
+                if (s.Holder == ulong.MaxValue) continue; // on the floor, nobody has its transmitter (anybody can take it)
                 var pl = NetPlayer.Find(s.Holder);
                 if (pl == null)
                 {
-                    // Holder left: a driven / parked car stays on the floor, a carried one goes back on the shelf.
+                    // Holder left: a driven / parked car stays on the floor (free for anybody), a carried one goes back on the shelf.
                     if (s.Mode == RcMode.Carried) RcVar(i).Value = RcSlotState.OnShelf;
-                    else if (s.Mode == RcMode.Driving) SetRc(i, RcMode.Parked, ulong.MaxValue, s.Pos, s.Yaw);
+                    else if (s.Mode is RcMode.Driving or RcMode.Parked) SetRc(i, RcMode.Parked, ulong.MaxValue, s.Pos, s.Yaw);
                     continue;
                 }
                 bool canDrive = RcPhase && pl.IsAliveHider && !pl.Busy.Value;
@@ -161,6 +163,8 @@ namespace HideAndSeek.Game.Net
                     Vector3 p = ItemPlacement.PutDown(pl.transform.position, pl.transform.position + pl.transform.right * 0.5f, ItemPlacement.Small, "rc car");
                     SetRc(i, RcMode.Parked, ulong.MaxValue, p, pl.transform.eulerAngles.y + 90f);
                 }
+                else if (s.Mode == RcMode.Parked && (pl.Life.Value == LifeState.Dead || !pl.IsHider))
+                    ServerSpillRcRemote(pl, i); // the transmitter falls next to the body (MatchManager.RcRemote)
             }
         }
 
@@ -171,6 +175,14 @@ namespace HideAndSeek.Game.Net
             if (RcSlotOf(pl) >= 0 && !(s.Holder == pl.NetworkObjectId && s.Mode == RcMode.Parked))
             {
                 pl.ToastRpc("Masz już samochodzik.", 2f);
+                return;
+            }
+            if (RcSlotOf(pl) < 0 && RcRemoteSlotOf(pl) >= 0) return; // still holds the transmitter of a destroyed car (thrown in a moment)
+            if (s.Mode == RcMode.Parked && s.Holder != pl.NetworkObjectId && s.Holder != ulong.MaxValue)
+            {
+                // The car goes with its transmitter: somebody has it / it lies somewhere on the floor.
+                pl.ToastRpc(s.Holder == RcDropHolder ? "Pilot do tego samochodzika leży gdzieś na podłodze - bez niego go nie weźmiesz."
+                    : "Ktoś ma pilota do tego samochodzika.", 3f);
                 return;
             }
             Vector3 at = s.Mode == RcMode.Shelf ? RcCarShelf.CarPos(i) : s.Pos;
@@ -207,6 +219,7 @@ namespace HideAndSeek.Game.Net
             if (s.Holder != pl.NetworkObjectId || s.Mode != RcMode.Driving) return;
             if (Vector3.Distance(pl.transform.position, pos) > Tuning.RcRange + 5f) RcWhere(i, out pos, out yaw);
             SetRc(i, RcMode.Parked, pl.NetworkObjectId, pos, yaw);
+            pl.ToastRpc("Pilot został w ekwipunku. LPM z pilotem albo 6 - wróć do sterowania.", 3.5f);
         }
 
         /// <summary>
@@ -221,6 +234,7 @@ namespace HideAndSeek.Game.Net
             RcWhere(i, out var pos, out float yaw);
             if (Vector3.Distance(hitPoint, pos) > 1.2f || Vector3.Distance(origin, pos) > Tuning.GlockRange + 3f) return false;
             SetRc(i, RcMode.Shot, s.Holder, pos, yaw);
+            ServerRcDestroyed(i);
             var h = NetPlayer.Find(s.Holder);
             if (h != null) h.ToastRpc("Szukający zestrzelił twój samochodzik!", 4f);
             shooter.ToastRpc("Zestrzeliłeś samochodzik. Kierowca jest gdzieś niedaleko...", 3f);
@@ -261,6 +275,7 @@ namespace HideAndSeek.Game.Net
             seeker.StompRpc((byte)i, pos);
             yield return new WaitForSeconds(RcTimeline.StompHit);
             SetRc(i, RcMode.Wreck, holder, pos, yaw);
+            ServerRcDestroyed(i);
             var h = NetPlayer.Find(holder);
             if (h != null) h.ToastRpc("Szukający rozdeptał twój samochodzik!", 4f);
             seeker.ToastRpc("Rozdeptałeś samochodzik. Ktoś się chowa niedaleko...", 3f);

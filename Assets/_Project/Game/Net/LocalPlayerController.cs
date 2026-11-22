@@ -611,7 +611,9 @@ namespace HideAndSeek.Game.Net
                     Vector3 cp = car != null && car.View != RcCar.ViewMode.Hidden ? car.transform.position : s.Mode == RcMode.Shelf ? RcCarShelf.CarPos(i) : s.Pos;
                     Vector3 aim = cp + Vector3.up * 0.1f;
                     float d = Vector3.Distance(eye, aim);
-                    if (_p.IsAliveHider && (s.Mode == RcMode.Shelf || s.Mode == RcMode.Parked) && (!hasCar || s.Holder == _p.NetworkObjectId))
+                    // A car on the floor goes with its transmitter: only its holder (or anybody when nobody has it) takes it.
+                    bool free = s.Mode == RcMode.Shelf || (s.Mode == RcMode.Parked && (s.Holder == _p.NetworkObjectId || s.Holder == ulong.MaxValue));
+                    if (_p.IsAliveHider && free && (!hasCar || s.Holder == _p.NetworkObjectId) && (hasCar || mmR.RcRemoteSlotOf(_p) < 0))
                     {
                         if (d <= Tuning.RcPickupRange && InView(eye, fwd, aim, 40f))
                         {
