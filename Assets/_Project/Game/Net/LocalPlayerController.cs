@@ -271,14 +271,15 @@ namespace HideAndSeek.Game.Net
             bool rc = _p.RcAnimating;
             bool gasp = _p.Gasping;
             _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp;
-            _p.Motor.LookEnabled = !locked && !arcade && !rc;
+            bool poseWheel = PoseWheel.IsOpen; // pose wheel: the mouse points at a slice instead of turning the head
+            _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel;
             var cc = _p.GetComponent<CharacterController>();
             bool ccOn = !dead && _p.Seat.Value < 0;
             if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;
             if (_p.Flashlight != null)
             {
                 bool glockOut = _p.Held.Value == HeldItem.Glock;
-                _p.Flashlight.ListenToInput = !glockOut && !locked && _p.Life.Value != LifeState.Downed && !rc && _p.HasFlashlight;
+                _p.Flashlight.ListenToInput = !glockOut && !locked && _p.Life.Value != LifeState.Downed && !rc && _p.HasFlashlight && !poseWheel;
                 if (dead && _p.Flashlight.IsOn) _p.Flashlight.SetOn(false, false);
             }
 
@@ -1045,7 +1046,9 @@ namespace HideAndSeek.Game.Net
                     break;
             }
 
-            // Hold H (rescue / heal other), hold G (heal self).
+            // Hold H (rescue / heal other), hold G (heal self). Seated in the lobby G opens the pose wheel instead.
+            bool gFree = !PoseWheel.OwnsG(_p);
+            bool gHeld = gFree && kb.gKey.isPressed, gDown = gFree && kb.gKey.wasPressedThisFrame;
             PromptKind wantHold = PromptKind.None;
             NetPlayer target2 = null;
             if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && (kb.hKey.isPressed || TestHoldH || HotbarInput.HoldH))
@@ -1058,17 +1061,17 @@ namespace HideAndSeek.Game.Net
                 wantHold = PromptKind.Resurrect;
                 target2 = Nearest(o => o.IsHider && o.Life.Value == LifeState.Dead);
             }
-            else if ((kb.gKey.isPressed || HotbarInput.HoldG) && _p.IsHider && _p.Life.Value == LifeState.Downed && _p.MedkitCount.Value > 0 && !MenuOpen)
+            else if ((gHeld || HotbarInput.HoldG) && _p.IsHider && _p.Life.Value == LifeState.Downed && _p.MedkitCount.Value > 0 && !MenuOpen)
             {
                 wantHold = PromptKind.SelfRevive;
                 target2 = _p;
             }
-            else if ((kb.gKey.isPressed || TestHoldG || HotbarInput.HoldG) && _p.MedkitCount.Value > 0 && (_p.Wounded.Value || _p.Limping.Value) && _p.IsAliveHider)
+            else if ((gHeld || TestHoldG || HotbarInput.HoldG) && _p.MedkitCount.Value > 0 && (_p.Wounded.Value || _p.Limping.Value) && _p.IsAliveHider)
             {
                 wantHold = PromptKind.Heal;
                 target2 = _p;
             }
-            else if (kb.gKey.wasPressedThisFrame && _p.MedkitCount.Value > 0 && !_p.Wounded.Value && !_p.Limping.Value)
+            else if (gDown && _p.MedkitCount.Value > 0 && !_p.Wounded.Value && !_p.Limping.Value)
             {
                 GameHud.Toast("Nie jesteś ranny.", 2f);
             }

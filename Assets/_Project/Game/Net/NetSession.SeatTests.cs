@@ -28,6 +28,7 @@ namespace HideAndSeek.Game.Net
             if (has("-seatwatch")) StartCoroutine(SeatWatch());
             if (has("-testseatfit")) StartCoroutine(SeatFitTest());
             if (has("-testbrickarea")) StartCoroutine(BrickAreaTest());
+            StartWheelTests(has);
         }
 
         private static IEnumerator WaitLobby()
