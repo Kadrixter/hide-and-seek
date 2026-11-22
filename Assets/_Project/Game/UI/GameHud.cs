@@ -97,6 +97,7 @@ namespace HideAndSeek.Game
 
             PlayerListHud.Create(root);
             KeyHints.Create(root);
+            PoseWheel.Create(root);
             DustBadge.Create(root);
 
             _lobbyInfo = UiKit.Label("LobbyInfo", root, "", 22, TextAnchor.UpperLeft);
@@ -267,6 +268,7 @@ namespace HideAndSeek.Game
                 _lastScreen = scr;
                 if (_canvas != null) UiKit.RefreshTexts(_canvas.transform);
             }
+            PoseWheel.Tick(); // pose wheel (G while seated); first, so Esc that closes it never opens the menu
             var nm = NetworkManager.Singleton;
             bool inSession = nm != null && nm.IsListening && NetPlayer.Local != null;
             _canvas.enabled = inSession && !KillCam.Active;
@@ -291,7 +293,7 @@ namespace HideAndSeek.Game
 
             // ---- Esc menu
             var kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape)
+            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape)
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
                 else if (_settingsPanel != null || _escMenu != null) CloseMenus();

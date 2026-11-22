@@ -206,6 +206,9 @@ namespace HideAndSeek.Characters
         /// </summary>
         private Texture2D customSkin;
 
+        /// <summary>The downloaded / received skin in use (null = library skin), e.g. for a preview copy of the player.</summary>
+        public Texture2D CustomSkin => customSkin;
+
         /// <summary>Uses a downloaded 64x64 Minecraft skin instead of the library skin (null = back to the library).</summary>
         public void SetCustomSkin(Texture2D tex)
         {

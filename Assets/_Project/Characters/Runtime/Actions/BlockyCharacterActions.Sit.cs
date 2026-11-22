@@ -30,7 +30,9 @@ namespace HideAndSeek.Characters
         /// <summary>Seated pose variant (0..<see cref="SitPoseCount"/>-1) and head yaw relative to the body (degrees).</summary>
         public void SetSitLook(int variant, float headYaw)
         {
-            sitVariant = Mathf.Clamp(variant, 0, SitPoseCount - 1);
+            int v = Mathf.Clamp(variant, 0, SitPoseCount - 1);
+            if (v != sitVariant) BeginSitPoseBlend(); // smooth change without standing up (SitPreview.cs)
+            sitVariant = v;
             sitHeadYaw = headYaw;
         }
 
@@ -73,7 +75,7 @@ namespace HideAndSeek.Characters
         /// <summary>Seated pose in character-root space (anchored to the seat when known).</summary>
         CharacterPose SitPoseRoot(float lookPitch)
         {
-            var p = SeatPoses.Evaluate(sitVariant, sitShape, sitHeadYaw, lookPitch);
+            var p = SitPoseSeat(lookPitch);
             if (sitAnchor == null) return p;
             Quaternion toRoot = Quaternion.Inverse(transform.rotation) * sitAnchor.rotation;
             p.PelvisPos = transform.InverseTransformPoint(sitAnchor.position) + toRoot * p.PelvisPos;
@@ -96,6 +98,7 @@ namespace HideAndSeek.Characters
             float time = canSit ? sitInTime : SitOutTime;
             sitW = Mathf.MoveTowards(sitW, canSit ? 1f : 0f, dt / time);
             if (sitW >= 1f || !sitting) sitFromValid = false;
+            AdvanceSitPoseBlend(dt);
         }
     }
 }

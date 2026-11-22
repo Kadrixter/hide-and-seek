@@ -81,7 +81,7 @@ namespace HideAndSeek.Game.UI
             switch (phase)
             {
                 case MatchPhase.Lobby:
-                    return "lobby";
+                    return me.Seat.Value >= 0 ? "seat" : "lobby";
                 case MatchPhase.Hiding:
                     return me.IsHider && me.Life.Value == LifeState.Alive ? "hide" : null;
                 case MatchPhase.Seeking:
@@ -108,6 +108,10 @@ namespace HideAndSeek.Game.UI
                     _tmp.Add(("E", "tablica na ścianie - ustawienia rundy"));
                     if (ptt) _tmp.Add(("V", "mów (przytrzymaj)"));
                     _tmp.Add(("Esc", "menu i ustawienia"));
+                    break;
+                case "seat":
+                    _tmp.Add(("G", "wybierz pozę"));
+                    _tmp.Add(("E / Spacja", "wstań"));
                     break;
                 case "hide":
                     _tmp.Add((LocalProfile.CrouchToggle ? "Ctrl / C" : "Ctrl", "kucanie"));
