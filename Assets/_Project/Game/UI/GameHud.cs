@@ -355,11 +355,11 @@ namespace HideAndSeek.Game
                     if (o.Ready.Value) readyCount++;
                 }
                 if (nm.IsServer)
-                    sb.Append($"\nGotowi: <b>{readyCount}/{need}</b>. Gdy wszyscy będą gotowi, pociągnij <color=#ff6a5a>dźwignię</color> (E).\n");
+                    sb.Append($"\nGotowi: <b>{readyCount}/{need}</b> (gotowy = wziął latarkę z pudełka). Gdy wszyscy będą gotowi, pociągnij <color=#ff6a5a>dźwignię</color> (E).\n");
                 else
                     sb.Append(me.Ready.Value
-                        ? "\n<color=#6dff7a>Jesteś gotowy.</color> R - cofnij. Czekaj, aż właściciel pokoju wystartuje.\n"
-                        : "\nWciśnij <b>R</b>, gdy będziesz gotowy.\n");
+                        ? "\n<color=#6dff7a>Masz latarkę - jesteś gotowy.</color> E przy pudełku - odłóż. Czekaj, aż właściciel pokoju wystartuje.\n"
+                        : "\nWeź <b>latarkę</b> z pudełka przy lustrze (E) - wtedy jesteś gotowy.\n");
                 sb.Append("E na kanapie / pufie - usiądź. Tablica na ścianie - ustawienia rundy.\nEsc - menu");
                 _lobbyInfo.text = sb.ToString();
             }
