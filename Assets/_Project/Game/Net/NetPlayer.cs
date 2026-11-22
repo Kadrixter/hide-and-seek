@@ -356,6 +356,7 @@ namespace HideAndSeek.Game.Net
             UpdateBrickHand();
             UpdateFlashCarry();
             UpdateToyGun();
+            UpdateRcRemote();
 
             float prone = Life.Value == LifeState.Alive ? Motor.ProneAmount : 0f;
             (Actions as BlockyCharacterActions)?.SetProneAmount(prone);
@@ -807,6 +808,12 @@ namespace HideAndSeek.Game.Net
         /// <summary>Called on every peer when one of the car slots changes and this player is (or was) its holder.</summary>
         public void OnRcSlotChanged(int i, RcSlotState old, RcSlotState now)
         {
+            // The car is gone and this holder smashes its transmitter (NetPlayer.RcRemote).
+            if (now.Holder == NetworkObjectId && now.Remote == RcRemoteFate.Thrown && old.Remote != RcRemoteFate.Thrown)
+            {
+                BeginRemoteThrow(i, now);
+                return;
+            }
             if (now.Holder == NetworkObjectId && now.Mode == RcMode.Driving && old.Mode != RcMode.Driving)
             {
                 _rcSlot = i;

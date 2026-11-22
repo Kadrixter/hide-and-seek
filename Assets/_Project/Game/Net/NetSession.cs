@@ -151,6 +151,7 @@ namespace HideAndSeek.Game.Net
             StartItemTests(Has);
             StartFlashToyTests(Has);
             StartPhoneTests(Has);
+            StartRcRemoteTests(Has);
             StartSeekerTests(Has);
             StartMapVizTests();
             if (Arg("-testheroes") is string heroDir) StartCoroutine(HeroCarTour(heroDir));

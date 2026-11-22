@@ -145,12 +145,26 @@ namespace HideAndSeek.Game.Net
         Shot = 6,     // shot to pieces with the Glock: smoking wreck until the round ends
     }
 
+    /// <summary>What happened to the transmitter of a destroyed car (<see cref="RcSlotState.Remote"/>).</summary>
+    public enum RcRemoteFate : byte
+    {
+        InHand = 0,   // still with the holder (thrown as soon as they can)
+        Thrown = 1,   // smashed on the floor (RemoteAt / RemotePos / RemoteYaw)
+        Lost = 2,     // the holder died / left before throwing it
+    }
+
     public struct RcSlotState : INetworkSerializable, IEquatable<RcSlotState>
     {
         public RcMode Mode;
         public ulong Holder;   // NetworkObjectId of the hider who has it (ulong.MaxValue = nobody)
         public Vector3 Pos;    // on the floor (parked / wreck / where it was put down)
         public float Yaw;
+        // The transmitter (pilot) after the car was destroyed (Wreck / Shot): still in the holder's hand, thrown at the
+        // floor at server time RemoteAt (its wreck lies at RemotePos / RemoteYaw until the round ends), or lost.
+        public RcRemoteFate Remote;
+        public double RemoteAt;
+        public Vector3 RemotePos;
+        public float RemoteYaw;
 
         public static RcSlotState OnShelf => new RcSlotState { Mode = RcMode.Shelf, Holder = ulong.MaxValue };
 
@@ -160,9 +174,14 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Holder);
             s.SerializeValue(ref Pos);
             s.SerializeValue(ref Yaw);
+            s.SerializeValue(ref Remote);
+            s.SerializeValue(ref RemoteAt);
+            s.SerializeValue(ref RemotePos);
+            s.SerializeValue(ref RemoteYaw);
         }
 
-        public bool Equals(RcSlotState o) => Mode == o.Mode && Holder == o.Holder && Pos == o.Pos && Yaw == o.Yaw;
+        public bool Equals(RcSlotState o) => Mode == o.Mode && Holder == o.Holder && Pos == o.Pos && Yaw == o.Yaw &&
+                                             Remote == o.Remote && RemoteAt == o.RemoteAt && RemotePos == o.RemotePos && RemoteYaw == o.RemoteYaw;
     }
 
     /// <summary>Driven RC car pose, written by the driver ~20 times per second.</summary>

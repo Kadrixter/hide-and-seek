@@ -95,7 +95,11 @@ namespace HideAndSeek.Game
             for (int i = 0; i < Slots; i++)
             {
                 var it = inv[i];
-                if (it != HotbarItem.None && (ItemDefs.Get(it) == null || Count(p, it) <= 0)) inv[i] = HotbarItem.None;
+                var def = ItemDefs.Get(it);
+                if (it == HotbarItem.None || (def != null && Count(p, it) > 0)) continue;
+                // Ran out: its partner (if it just appeared) takes over the same slot, else the slot is freed.
+                var partner = def != null ? def.SlotPartner : HotbarItem.None;
+                inv[i] = partner != HotbarItem.None && Count(p, partner) > 0 && inv.IndexOf(partner) < 0 ? partner : HotbarItem.None;
             }
             foreach (var d in ItemDefs.All)
             {

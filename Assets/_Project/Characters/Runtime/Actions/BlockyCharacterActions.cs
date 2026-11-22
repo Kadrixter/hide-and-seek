@@ -364,7 +364,7 @@ namespace HideAndSeek.Characters
             {
                 var ip = ItemHoldPose(p, show, lookPitch);
                 CharacterPose.LerpArm(ref p, ip, 0, itemW);
-                if (show == HeldItem.Glock || show == HeldItem.Chainsaw) CharacterPose.LerpArm(ref p, ip, 1, itemW);
+                if (show == HeldItem.Glock || show == HeldItem.Chainsaw || show == HeldItem.RcRemote) CharacterPose.LerpArm(ref p, ip, 1, itemW);
                 p.Torso = Quaternion.Slerp(p.Torso, ip.Torso, itemW);
             }
 
@@ -467,6 +467,7 @@ namespace HideAndSeek.Characters
             // 4b. Seeker stomping on a toy car (legs).
             if (visual == LifeState.Alive && !pathActive) ApplyStomp(ref p);
             ApplyPhoneSmash(ref p, dt, visual == LifeState.Alive && !pathActive); // 4c. toy phone thrown / stomped
+            ApplyRemoteThrow(ref p, dt, visual == LifeState.Alive && !pathActive, lookPitch); // 4d. RC transmitter smashed
 
             // 5b. Lobby easter egg: fork into the socket (overrides everything).
             if (shockT >= 0f)
@@ -500,6 +501,7 @@ namespace HideAndSeek.Characters
         {
             if (VendingShowsCan) return HeldItem.Can;
             if (PhoneSmashing) return HeldItem.None;
+            if (RemoteThrowing) return RemoteShownItem();
             if (vendingOn || ShockHidesItem || GunHidesItem) return HeldItem.None;
             var rc = RcShownItem();
             if (rc != HeldItem.None || rcW > 0.5f) return rc;
@@ -510,6 +512,7 @@ namespace HideAndSeek.Characters
             if (action == ActionKind.Kill && glockKill) return HeldItem.Glock;
             if (action == ActionKind.KnifeAttack || action == ActionKind.Kill) return HeldItem.Knife;
             if (action == ActionKind.Reload) return HeldItem.Glock;
+            if (heldItem == HeldItem.None && RemoteShownItem() != HeldItem.None) return HeldItem.RcRemote; // "Pilot RC" selected
             return heldItem;
         }
 

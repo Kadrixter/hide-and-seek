@@ -91,10 +91,10 @@ namespace HideAndSeek.Characters
             if (rcDriving)
             {
                 if (rcPlacing && rcT < RcTimeline.Release) return HeldItem.RcCar;
-                float show = rcPlacing ? RcTimeline.RemoteShowPlace : RcTimeline.RemoteShowResume;
+                float show = rcPlacing ? RcTimeline.RemoteShowPlace : remoteSelected ? 0f : RcTimeline.RemoteShowResume;
                 return rcT >= show ? HeldItem.RcRemote : HeldItem.None;
             }
-            return rcOutT < 0.3f ? HeldItem.RcRemote : HeldItem.None;
+            return rcOutT < 0.3f || remoteSelected ? HeldItem.RcRemote : HeldItem.None; // "Pilot RC" selected: stays in the hands
         }
 
         void UpdateRcProps(HeldItem show)
@@ -114,7 +114,7 @@ namespace HideAndSeek.Characters
             remoteRot = p.TorsoRoot * Quaternion.LookRotation(new Vector3(0f, 0.72f, -0.7f), new Vector3(0f, 0.7f, 0.72f))
                         * Quaternion.Euler(0f, 0f, -9f * input.x);
             Vector3 centre = p.TorsoPoint(new Vector3(0.0f, 0.24f, 0.3f)) + Vector3.up * 0.01f * input.y;
-            Vector3 right = centre + remoteRot * new Vector3(0.075f, 0f, 0f);
+            Vector3 right = centre - remoteRot * (BlockyProps.RcRemoteLeftGrip * 0.5f);
             Vector3 left = right + remoteRot * BlockyProps.RcRemoteLeftGrip;
             p.SolveArm(0, right, TorsoDir(p, 1f, -0.8f, -0.4f));
             p.SolveArm(1, left, TorsoDir(p, -1f, -0.8f, -0.4f));

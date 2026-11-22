@@ -97,6 +97,7 @@ namespace HideAndSeek.Characters
             toyHands = false;
             if (FlashTakeHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (PhoneHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (RemoteThrowHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (VendingHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (overrideOn && rig != null)
             {
@@ -216,6 +217,7 @@ namespace HideAndSeek.Characters
                 return true;
             }
             if (MedkitHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (RemoteHoldHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             return ToyGunHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft);
         }
 

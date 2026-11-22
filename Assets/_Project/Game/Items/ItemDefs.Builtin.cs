@@ -87,12 +87,29 @@ namespace HideAndSeek.Game
             {
                 Item = HotbarItem.RcCar, Name = "Samochodzik RC", Users = ItemUsers.Hider,
                 DropSfx = GameSfx.RcBump, DropVolume = 0.9f, Glow = new Color(1f, 0.85f, 0.3f, 0.45f),
-                Count = p => MatchManager.Instance != null && MatchManager.Instance.RcSlotOf(p) >= 0 ? 1 : 0,
+                SlotPartner = HotbarItem.RcRemote, // put on the floor: the slot keeps its transmitter
+                Count = p => MatchManager.Instance != null && MatchManager.Instance.RcCarriedSlotOf(p) >= 0 ? 1 : 0,
                 Give = (p, extra) => MatchManager.Instance != null && MatchManager.Instance.ServerGiveRc(p, extra),
                 Take = (NetPlayer p, out byte extra) => { extra = 0; return MatchManager.Instance != null && MatchManager.Instance.ServerTakeRc(p, out extra); },
                 Hint = _ => "LPM / 6 - postaw i steruj",
                 Use = (p, click, hold) => { if (click) HotbarInput.Six = true; },
                 Model = r => BlockyProps.CreateRcCar(r, 0).Root.gameObject,
+            };
+            // Transmitter of a car standing on the floor (MatchManager.Rc): LMB / 6 = steer it again, Q = it goes on the
+            // floor (Extra = the car's slot; whoever picks it up steers that car). When the car is destroyed the holder
+            // smashes it on the floor (MatchManager.RcRemote) and the slot is freed.
+            yield return new ItemDef
+            {
+                Item = HotbarItem.RcRemote, Name = "Pilot RC", Users = ItemUsers.Hider,
+                DropSfx = GameSfx.CanBounce, DropVolume = 0.75f, Glow = new Color(0.45f, 0.65f, 1f, 0.45f),
+                SlotPartner = HotbarItem.RcCar, // the car picked up again: back to "Samochodzik RC"
+                Count = p => MatchManager.Instance != null && MatchManager.Instance.RcRemoteSlotOf(p) >= 0 ? 1 : 0,
+                Give = (p, extra) => MatchManager.Instance != null && MatchManager.Instance.ServerGiveRcRemote(p, extra),
+                Take = (NetPlayer p, out byte extra) => { extra = 0; return MatchManager.Instance != null && MatchManager.Instance.ServerTakeRcRemote(p, out extra); },
+                Hint = p => MatchManager.Instance != null ? MatchManager.Instance.RcRemoteHint(p) : "",
+                Use = (p, click, hold) => { if (click) MatchManager.Instance?.UseRcRemote(p); },
+                FloorText = (p, extra) => MatchManager.Instance != null ? MatchManager.Instance.RcRemoteFloorText(p, extra) : "",
+                Model = r => RcRemoteModel.Create(r, 0).Root.gameObject,
             };
             yield return new ItemDef
             {

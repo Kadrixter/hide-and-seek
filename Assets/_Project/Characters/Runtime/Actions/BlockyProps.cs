@@ -73,9 +73,10 @@ namespace HideAndSeek.Characters
         public const float RcAntennaLength = 0.27f;
         /// <summary>Held car: the fist grips the cabin roof (prop origin = fist).</summary>
         public static readonly Vector3 RcCarInHand = new Vector3(0f, -0.185f, 0f);
-        /// <summary>Transmitter (prop origin = right fist on the right grip): left fist position and the two sticks.</summary>
-        public static readonly Vector3 RcRemoteLeftGrip = new Vector3(-0.15f, 0f, 0f);
-        public static readonly Vector3 RcStickR = new Vector3(-0.012f, 0.012f + RcRemoteLift, 0.012f), RcStickL = new Vector3(-0.138f, 0.012f + RcRemoteLift, 0.012f);
+        /// <summary>Transmitter (prop origin = right fist on the right handle, +X = the holder's left, +Z = face to the
+        /// eyes; see <see cref="RcRemoteModel"/>): left fist position and the two sticks.</summary>
+        public static readonly Vector3 RcRemoteLeftGrip = RcRemoteModel.LeftGrip;
+        public static readonly Vector3 RcStickR = RcRemoteModel.StickRLocal, RcStickL = RcRemoteModel.StickLLocal;
         const float RcRemoteLift = 0.058f;
 
         /// <summary>Syringe (prop space: needle tip along +Z, fist round the barrel): plunger travel when pressed.</summary>
@@ -201,11 +202,10 @@ namespace HideAndSeek.Characters
                 }
                 case HeldItem.RcRemote:
                 {
-                    AddPart(go.transform, "Transmitter", GetMesh("RcRemote"), layer);
-                    prop.Slide = AddPart(go.transform, "StickR", GetMesh("RcStick"), layer);
-                    prop.Slide.localPosition = RcStickR;
-                    prop.Mag = AddPart(go.transform, "StickL", GetMesh("RcStick"), layer);
-                    prop.Mag.localPosition = RcStickL;
+                    // Detailed transmitter in the cars' livery (also the "Pilot RC" inventory item in the hand).
+                    var tx = RcRemoteModel.Create(go.transform, layer);
+                    prop.Slide = tx.StickR;
+                    prop.Mag = tx.StickL;
                     break;
                 }
                 case HeldItem.Brick:
@@ -874,7 +874,7 @@ namespace HideAndSeek.Characters
         {
             if (Item != HeldItem.RcRemote) return;
             if (Mag != null) Mag.localRotation = Quaternion.Euler(-22f * input.y, 0f, 0f);
-            if (Slide != null) Slide.localRotation = Quaternion.Euler(0f, 22f * input.x, 0f);
+            if (Slide != null) Slide.localRotation = Quaternion.Euler(0f, -22f * input.x, 0f); // +X of the prop = the holder's left
         }
 
         MaterialPropertyBlock tintBlock;
