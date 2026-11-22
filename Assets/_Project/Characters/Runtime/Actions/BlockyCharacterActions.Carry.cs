@@ -48,7 +48,7 @@ namespace HideAndSeek.Characters
         /// <summary>Hands needed right now by something that cannot wait for the put-away motion.</summary>
         bool CarryHardBlocked =>
             VisualLifeState != LifeState.Alive || pathActive || action != ActionKind.None || shownItem != HeldItem.None ||
-            PhoneSmashing || shockT >= 0f || gunT >= 0f || flashT >= 0f || rodAttachT >= 0f || stompT >= 0f || Pushing ||
+            PhoneSmashing || shockT >= 0f || gunT >= 0f || overdoseT >= 0f || flashT >= 0f || rodAttachT >= 0f || stompT >= 0f || Pushing ||
             CrateSawing || vendingOn || slashT < SlashDuration || sawSlashT < SawSlashDuration || dustT < DustDuration;
 
         /// <summary>Hands busy (or about to be): the item goes back into the pocket with the normal motion.</summary>

@@ -11,7 +11,13 @@ namespace HideAndSeek.Game
     /// Takes sober reference shots, buys and drinks N cans at the lobby vending machine (real purchases), then records
     /// frame sequences: first person standing and walking in a slow circle (real screen, with the sway, the double
     /// image and the hands: fp_stand_XX / fp_walk_XX) and the body from outside (third person, the same animation other
-    /// players see: tpp_stand_XX / tpp_walk_XX). Logs the level and intensity, then quits.
+    /// players see: tpp_stand_XX / tpp_walk_XX). Logs the level, intensity and the own heartbeat (from 5 cans), then quits.
+    /// <para>
+    /// N &gt;= 8: the eighth can makes the body collapse. The whole collapse is recorded in first person (fall, the
+    /// view on the floor during the fit, getting up: fp_collapse_XX, with the heartbeat in the log), then it checks
+    /// that the player stays up (no collapse loop), drinks again until the second collapse (should take three cans)
+    /// and records that one from outside (tpp_collapse_XX: stagger, fall, seizures, getting up).
+    /// </para>
     /// </summary>
     public sealed class DrunkProbe : MonoBehaviour
     {
@@ -28,7 +34,7 @@ namespace HideAndSeek.Game
             DontDestroyOnLoad(g);
             var p = g.AddComponent<DrunkProbe>();
             int k = i + 1;
-            if (k < a.Length && int.TryParse(a[k], NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)) { p.cans = Mathf.Clamp(n, 0, 8); k++; }
+            if (k < a.Length && int.TryParse(a[k], NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)) { p.cans = Mathf.Clamp(n, 0, 12); k++; }
             p.dir = k < a.Length && !a[k].StartsWith("-") ? a[k] : System.IO.Path.Combine(Application.persistentDataPath, "drunktest");
         }
 
@@ -47,18 +53,21 @@ namespace HideAndSeek.Game
             yield return Record(p, "sober", 1, 0.1f);
             yield return RecordBody(p, "sober", 1, 0.1f, false);
 
-            for (int c = 0; c < cans; c++)
+            for (int c = 0; c < cans && !p.OverdoseActive; c++) yield return Drink(p, vend, c + 1);
+
+            if (p.OverdoseActive)
             {
-                p.Motor.Teleport(vend.transform.TransformPoint(new Vector3(-0.98f, 0f, 0.08f)), 90f);
-                yield return new WaitForSeconds(0.5f);
-                while (!vend.Free) yield return null;
-                p.RequestVendingRpc();
-                float wait = 0f;
-                while (!p.Busy.Value && wait < 3f) { wait += Time.deltaTime; yield return null; }
-                while (p.Busy.Value) yield return null;
-                yield return new WaitForSeconds(0.6f);
-                Debug.Log("[DrunkProbe] can " + (c + 1) + " level=" + p.DrunkLevel.ToString("0.00", CultureInfo.InvariantCulture)
-                          + " intensity=" + p.DrunkIntensity.ToString("0.00", CultureInfo.InvariantCulture));
+                // First person through the whole collapse: the fall, the floor during the fit, getting up.
+                yield return RecordCollapse(p, false);
+                yield return new WaitForSeconds(3f);
+                Debug.Log("[DrunkProbe] up again: collapsed=" + p.OverdoseActive + " busy=" + p.Busy.Value + " " + State(p)
+                          + (p.OverdoseActive ? " FAIL: still down" : " ok: no collapse loop"));
+
+                // Drink again until the next collapse and watch that one from outside.
+                int more = 0;
+                while (!p.OverdoseActive && more < 5) yield return Drink(p, vend, cans + ++more);
+                Debug.Log("[DrunkProbe] second collapse after " + more + " more cans (expected 3): " + p.OverdoseActive);
+                if (p.OverdoseActive) yield return RecordCollapse(p, true);
             }
 
             // Let it kick in (the view eases in over a few seconds).
@@ -84,6 +93,50 @@ namespace HideAndSeek.Game
                       + " intensity=" + p.DrunkIntensity.ToString("0.00", CultureInfo.InvariantCulture));
             yield return new WaitForSeconds(0.5f);
             Application.Quit();
+        }
+
+        /// <summary>One real purchase at the machine (returns early when the can made the body collapse).</summary>
+        IEnumerator Drink(NetPlayer p, LobbyVending vend, int no)
+        {
+            p.Motor.Teleport(vend.transform.TransformPoint(new Vector3(-0.98f, 0f, 0.08f)), 90f);
+            yield return new WaitForSeconds(0.5f);
+            while (!vend.Free) yield return null;
+            p.RequestVendingRpc();
+            float wait = 0f;
+            while (!p.Busy.Value && wait < 3f) { wait += Time.deltaTime; yield return null; }
+            while (p.Busy.Value && !p.OverdoseActive) yield return null;
+            if (!p.OverdoseActive) yield return new WaitForSeconds(0.6f);
+            Debug.Log("[DrunkProbe] can " + no + " " + State(p) + " collapsed=" + p.OverdoseActive);
+        }
+
+        static string State(NetPlayer p) =>
+            "level=" + p.DrunkLevel.ToString("0.00", CultureInfo.InvariantCulture)
+            + " intensity=" + p.DrunkIntensity.ToString("0.00", CultureInfo.InvariantCulture)
+            + " heart=" + p.HeartVolume.ToString("0.00", CultureInfo.InvariantCulture)
+            + "@" + p.HeartBpm.ToString("0", CultureInfo.InvariantCulture) + "bpm beats=" + p.HeartBeats;
+
+        /// <summary>
+        /// The whole collapse every 0.5 s: first person (the real screen) or the body from outside, with the collapse
+        /// clock and the heartbeat in the log; then waits until the player is up again.
+        /// </summary>
+        IEnumerator RecordCollapse(NetPlayer p, bool body)
+        {
+            Debug.Log("[DrunkProbe] collapse (" + (body ? "third" : "first") + " person) t=" + p.OverdoseTime.ToString("0.00", CultureInfo.InvariantCulture) + " " + State(p));
+            var log = StartCoroutine(LogCollapse(p));
+            if (body) yield return RecordBody(p, "collapse", 50, 0.5f, false);
+            else yield return Record(p, "collapse", 50, 0.5f);
+            while (p.OverdoseActive) yield return null;
+            StopCoroutine(log);
+            Debug.Log("[DrunkProbe] collapse over: " + State(p));
+        }
+
+        IEnumerator LogCollapse(NetPlayer p)
+        {
+            while (true)
+            {
+                Debug.Log("[DrunkProbe]   t=" + p.OverdoseTime.ToString("0.0", CultureInfo.InvariantCulture) + " " + State(p));
+                yield return new WaitForSeconds(1f);
+            }
         }
 
         /// <summary>First person: the real screen (camera sway, double image, hands).</summary>
