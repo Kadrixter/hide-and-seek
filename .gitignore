@@ -50,3 +50,6 @@ Thumbs.db
 Tools/
 AgentScripts/
 .codex/
+
+# Updater build output
+Updater/bin/

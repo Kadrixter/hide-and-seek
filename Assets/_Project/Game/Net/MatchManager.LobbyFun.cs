@@ -292,14 +292,14 @@ namespace HideAndSeek.Game.Net
         {
             get
             {
-                if (_best < 0) _best = PlayerPrefs.GetInt(BestKey, 0);
+                if (_best < 0) _best = Prefs.GetInt(BestKey, 0);
                 return _best;
             }
             private set
             {
                 _best = value;
-                PlayerPrefs.SetInt(BestKey, value);
-                PlayerPrefs.Save();
+                Prefs.SetInt(BestKey, value);
+                Prefs.Save();
             }
         }
         public static bool Crashed;

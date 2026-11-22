@@ -767,7 +767,7 @@ namespace HideAndSeek.Game
             SettingsUi.BuildAudio(panel);
             UiKit.Button("Back", panel, "Wróć", () =>
             {
-                PlayerPrefs.Save();
+                Prefs.Save();
                 Destroy(_escMenu.gameObject);
                 _escMenu = null;
                 ShowEscMenu();
@@ -784,7 +784,7 @@ namespace HideAndSeek.Game
             UiKit.Label("Info", panel, "Słychać cię z bliska (do 35 m), za ścianami ciszej. Szukający też cię usłyszy.", 20, TextAnchor.MiddleCenter, UiKit.TextDim).Height(30);
             UiKit.Button("Back", panel, "Wróć", () =>
             {
-                PlayerPrefs.Save();
+                Prefs.Save();
                 Destroy(_escMenu.gameObject);
                 _escMenu = null;
                 ShowEscMenu();

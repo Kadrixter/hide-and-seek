@@ -23,7 +23,7 @@ namespace HideAndSeek.Game.Net
 
         public static bool IsValidNick(string nick) => !string.IsNullOrEmpty(nick) && ValidNick.IsMatch(nick);
 
-        private static string CacheDir => Path.Combine(Application.persistentDataPath, "mcskins");
+        private static string CacheDir => Path.Combine(UserFiles.Root, "mcskins");
 
         /// <summary>Calls back with the prepared 64x64 texture, or null + error message (in Polish).</summary>
         public static void Get(string nick, Action<Texture2D, string> done)

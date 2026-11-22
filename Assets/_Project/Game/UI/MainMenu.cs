@@ -81,6 +81,7 @@ namespace HideAndSeek.Game.UI
 
             var ver = UiKit.Label("Version", root, "wersja " + Application.version, 20, TextAnchor.LowerRight, UiKit.TextDim);
             ver.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-20, 14), new Vector2(500, 30));
+            UpdateBanner.Create(root);
 
             _main = BuildMain(side.transform);
             _browser = BuildBrowser(side.transform);
@@ -206,7 +207,7 @@ namespace HideAndSeek.Game.UI
             UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 28).Height(60);
             UiKit.Button("Voice", page, "Czat głosowy", () => Show(_voicePage), 28).Height(60);
             UiKit.Rect("Gap", page).Height(20);
-            UiKit.Button("Back", page, "Wróć", () => { PlayerPrefs.Save(); Show(_main); }, 28).Height(60);
+            UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_main); }, 28).Height(60);
             return page;
         }
 
@@ -218,7 +219,7 @@ namespace HideAndSeek.Game.UI
             UiKit.Label("T", page, "CZAT GŁOSOWY", 34, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(42);
             SettingsUi.BuildVoice(page);
             UiKit.Label("Info", page, "Mikrofon działa po wejściu na serwer.", 20, TextAnchor.MiddleLeft, UiKit.TextDim).Height(28);
-            UiKit.Button("Back", page, "Wróć", () => { PlayerPrefs.Save(); Show(_options); }, 26).Height(52);
+            UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_options); }, 26).Height(52);
             return page;
         }
 
@@ -229,7 +230,7 @@ namespace HideAndSeek.Game.UI
             UiKit.VStack(page, 6);
             UiKit.Label("T", page, "DŹWIĘK", 34, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(42);
             SettingsUi.BuildAudio(page);
-            UiKit.Button("Back", page, "Wróć", () => { PlayerPrefs.Save(); Show(_options); }, 26).Height(52);
+            UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_options); }, 26).Height(52);
             return page;
         }
 
@@ -254,7 +255,7 @@ namespace HideAndSeek.Game.UI
         private void SaveNick()
         {
             LocalProfile.Nick = _nick.text;
-            PlayerPrefs.Save();
+            Prefs.Save();
         }
 
         private void Host()
@@ -326,7 +327,7 @@ namespace HideAndSeek.Game.UI
             if (nick.Length == 0)
             {
                 LocalProfile.McNick = "";
-                PlayerPrefs.Save();
+                Prefs.Save();
                 _mcStatus.text = "Używasz skina z gry.";
                 if (_preview != null) _preview.SetCustomSkin(null);
                 UpdateSkinLabel();
@@ -342,7 +343,7 @@ namespace HideAndSeek.Game.UI
                     return;
                 }
                 LocalProfile.McNick = nick;
-                PlayerPrefs.Save();
+                Prefs.Save();
                 _mcStatus.text = $"Skin {nick} ustawiony :]  (puste pole + Pobierz = skin z gry)";
                 if (_preview != null) _preview.SetCustomSkin(tex);
                 UpdateSkinLabel();

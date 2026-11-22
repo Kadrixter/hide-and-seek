@@ -188,7 +188,7 @@ namespace HideAndSeek.Game.Net
             if (!string.IsNullOrEmpty(ver) && ver != Application.version)
             {
                 lobby.Leave();
-                return (JoinResult.WrongVersion, 0, $"Inna wersja gry: masz {Application.version}, serwer ma {ver}. Pobierzcie tę samą wersję.");
+                return (JoinResult.WrongVersion, 0, $"Inna wersja gry: masz {Application.version}, serwer ma {ver}. " + (UpdateChecker.Compare(ver, Application.version) > 0 ? "Zaktualizuj grę (przycisk w menu)." : "Host musi zaktualizować grę."));
             }
             if (lobby.GetData("phase") == "game")
             {

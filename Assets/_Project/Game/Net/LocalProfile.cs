@@ -4,22 +4,22 @@ using UnityEngine;
 
 namespace HideAndSeek.Game.Net
 {
-    /// <summary>Local player preferences (PlayerPrefs).</summary>
+    /// <summary>Local player preferences (Prefs: Documents\HideAndSeek\ustawienia.txt).</summary>
     public static class LocalProfile
     {
-        /// <summary>Per-process nick (command line), so several copies on one PC do not share it through PlayerPrefs.</summary>
+        /// <summary>Per-process nick (command line), so several copies on one PC do not share it through Prefs.</summary>
         public static string SessionNick;
 
         public static string Nick
         {
-            get => SessionNick ?? PlayerPrefs.GetString("hns.nick", "Gracz" + Random.Range(10, 99));
-            set => PlayerPrefs.SetString("hns.nick", Sanitize(value));
+            get => SessionNick ?? Prefs.GetString("hns.nick", "Gracz" + Random.Range(10, 99));
+            set => Prefs.SetString("hns.nick", Sanitize(value));
         }
 
         public static int Skin
         {
-            get => Mathf.Clamp(PlayerPrefs.GetInt("hns.skin", 0), 0, 4);
-            set => PlayerPrefs.SetInt("hns.skin", Mathf.Clamp(value, 0, 4));
+            get => Mathf.Clamp(Prefs.GetInt("hns.skin", 0), 0, 4);
+            set => Prefs.SetInt("hns.skin", Mathf.Clamp(value, 0, 4));
         }
 
         /// <summary>Minecraft nick whose skin is used (empty = built-in skin).</summary>
@@ -28,34 +28,34 @@ namespace HideAndSeek.Game.Net
 
         public static string McNick
         {
-            get => SessionMcNick ?? PlayerPrefs.GetString("hns.mcnick", "");
-            set => PlayerPrefs.SetString("hns.mcnick", (value ?? "").Trim());
+            get => SessionMcNick ?? Prefs.GetString("hns.mcnick", "");
+            set => Prefs.SetString("hns.mcnick", (value ?? "").Trim());
         }
 
         public static string LastIp
         {
-            get => PlayerPrefs.GetString("hns.ip", "127.0.0.1");
-            set => PlayerPrefs.SetString("hns.ip", value);
+            get => Prefs.GetString("hns.ip", "127.0.0.1");
+            set => Prefs.SetString("hns.ip", value);
         }
 
         public static float MouseSensitivity
         {
-            get => PlayerPrefs.GetFloat("hns.sens", 0.11f);
-            set => PlayerPrefs.SetFloat("hns.sens", value);
+            get => Prefs.GetFloat("hns.sens", 0.11f);
+            set => Prefs.SetFloat("hns.sens", value);
         }
 
         /// <summary>Show the game status in Discord (rich presence).</summary>
         public static bool DiscordStatus
         {
-            get => PlayerPrefs.GetInt("hns.discord", 1) != 0;
-            set => PlayerPrefs.SetInt("hns.discord", value ? 1 : 0);
+            get => Prefs.GetInt("hns.discord", 1) != 0;
+            set => Prefs.SetInt("hns.discord", value ? 1 : 0);
         }
 
         /// <summary>Crouch key mode: true = press to switch (default), false = hold.</summary>
         public static bool CrouchToggle
         {
-            get => PlayerPrefs.GetInt("hns.crouchToggle", 1) != 0;
-            set => PlayerPrefs.SetInt("hns.crouchToggle", value ? 1 : 0);
+            get => Prefs.GetInt("hns.crouchToggle", 1) != 0;
+            set => Prefs.SetInt("hns.crouchToggle", value ? 1 : 0);
         }
 
         // ---------------------------------------------------------------- display
@@ -72,10 +72,10 @@ namespace HideAndSeek.Game.Net
 
         public static FullScreenMode DisplayMode
         {
-            get => (FullScreenMode)PlayerPrefs.GetInt("hns.display", (int)FullScreenMode.FullScreenWindow);
+            get => (FullScreenMode)Prefs.GetInt("hns.display", (int)FullScreenMode.FullScreenWindow);
             set
             {
-                PlayerPrefs.SetInt("hns.display", (int)value);
+                Prefs.SetInt("hns.display", (int)value);
                 ApplyDisplay();
             }
         }
@@ -98,47 +98,47 @@ namespace HideAndSeek.Game.Net
 
         // ---------------------------------------------------------------- audio
 
-        private static float Get(string key, float def) => PlayerPrefs.GetFloat(key, def);
+        private static float Get(string key, float def) => Prefs.GetFloat(key, def);
 
-        public static float MasterVolume { get => Get("hns.master", 1f); set { PlayerPrefs.SetFloat("hns.master", value); ApplyAudio(); } }
-        public static float SfxVolume { get => Get("hns.sfx", 1f); set { PlayerPrefs.SetFloat("hns.sfx", value); ApplyAudio(); } }
-        public static float MusicVolume { get => Get("hns.music", 0.7f); set { PlayerPrefs.SetFloat("hns.music", value); ApplyAudio(); } }
-        public static float FootstepVolume { get => Get("hns.steps", 1f); set { PlayerPrefs.SetFloat("hns.steps", value); ApplyAudio(); } }
-        public static float WeaponVolume { get => Get("hns.weapons", 1f); set { PlayerPrefs.SetFloat("hns.weapons", value); ApplyAudio(); } }
-        public static float VoiceVolume { get => Get("hns.voice", 1f); set { PlayerPrefs.SetFloat("hns.voice", value); ApplyAudio(); } }
-        public static float AmbientVolume { get => Get("hns.ambient", 1f); set { PlayerPrefs.SetFloat("hns.ambient", value); ApplyAudio(); } }
-        public static float UiVolume { get => Get("hns.ui", 0.8f); set { PlayerPrefs.SetFloat("hns.ui", value); ApplyAudio(); } }
+        public static float MasterVolume { get => Get("hns.master", 1f); set { Prefs.SetFloat("hns.master", value); ApplyAudio(); } }
+        public static float SfxVolume { get => Get("hns.sfx", 1f); set { Prefs.SetFloat("hns.sfx", value); ApplyAudio(); } }
+        public static float MusicVolume { get => Get("hns.music", 0.7f); set { Prefs.SetFloat("hns.music", value); ApplyAudio(); } }
+        public static float FootstepVolume { get => Get("hns.steps", 1f); set { Prefs.SetFloat("hns.steps", value); ApplyAudio(); } }
+        public static float WeaponVolume { get => Get("hns.weapons", 1f); set { Prefs.SetFloat("hns.weapons", value); ApplyAudio(); } }
+        public static float VoiceVolume { get => Get("hns.voice", 1f); set { Prefs.SetFloat("hns.voice", value); ApplyAudio(); } }
+        public static float AmbientVolume { get => Get("hns.ambient", 1f); set { Prefs.SetFloat("hns.ambient", value); ApplyAudio(); } }
+        public static float UiVolume { get => Get("hns.ui", 0.8f); set { Prefs.SetFloat("hns.ui", value); ApplyAudio(); } }
 
         // ---------------------------------------------------------------- voice chat
 
         public static bool VoiceEnabled
         {
-            get => PlayerPrefs.GetInt("hns.voice.on", 1) == 1;
-            set => PlayerPrefs.SetInt("hns.voice.on", value ? 1 : 0);
+            get => Prefs.GetInt("hns.voice.on", 1) == 1;
+            set => Prefs.SetInt("hns.voice.on", value ? 1 : 0);
         }
 
         /// <summary>false = push-to-talk (V), true = open mic with voice activation.</summary>
         public static bool VoiceOpenMic
         {
-            get => PlayerPrefs.GetInt("hns.voice.open", 0) == 1;
-            set => PlayerPrefs.SetInt("hns.voice.open", value ? 1 : 0);
+            get => Prefs.GetInt("hns.voice.open", 0) == 1;
+            set => Prefs.SetInt("hns.voice.open", value ? 1 : 0);
         }
 
         public static string MicDevice
         {
-            get => PlayerPrefs.GetString("hns.voice.device", "");
-            set => PlayerPrefs.SetString("hns.voice.device", value ?? "");
+            get => Prefs.GetString("hns.voice.device", "");
+            set => Prefs.SetString("hns.voice.device", value ?? "");
         }
 
-        public static float ChatVolume { get => Get("hns.voice.vol2", 1f); set => PlayerPrefs.SetFloat("hns.voice.vol2", value); }
-        public static float MicGain { get => Get("hns.voice.gain", 1.5f); set => PlayerPrefs.SetFloat("hns.voice.gain", value); }
+        public static float ChatVolume { get => Get("hns.voice.vol2", 1f); set => Prefs.SetFloat("hns.voice.vol2", value); }
+        public static float MicGain { get => Get("hns.voice.gain", 1.5f); set => Prefs.SetFloat("hns.voice.gain", value); }
         /// <summary>Voice-activation level 0..1 (open mic).</summary>
-        public static float MicThreshold { get => Get("hns.voice.thr2", 0.35f); set => PlayerPrefs.SetFloat("hns.voice.thr2", value); }
+        public static float MicThreshold { get => Get("hns.voice.thr2", 0.35f); set => Prefs.SetFloat("hns.voice.thr2", value); }
 
         public static bool Occlusion
         {
-            get => PlayerPrefs.GetInt("hns.occlusion", 1) == 1;
-            set { PlayerPrefs.SetInt("hns.occlusion", value ? 1 : 0); ApplyAudio(); }
+            get => Prefs.GetInt("hns.occlusion", 1) == 1;
+            set { Prefs.SetInt("hns.occlusion", value ? 1 : 0); ApplyAudio(); }
         }
 
         public static void ApplyAudio()

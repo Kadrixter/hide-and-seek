@@ -57,7 +57,7 @@ namespace HideAndSeek.Game.Net
             _stateSince = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             SteamService.JoinRequested += OnSteamJoinRequested;
             LocalProfile.ApplyAudio();
-            if (PlayerPrefs.HasKey("hns.display")) LocalProfile.ApplyDisplay();
+            if (Prefs.HasKey("hns.display")) LocalProfile.ApplyDisplay();
             Application.runInBackground = true;
         }
 
@@ -1365,7 +1365,7 @@ namespace HideAndSeek.Game.Net
             if (req.ClientNetworkId != NetworkManager.ServerClientId && theirVersion != Application.version)
             {
                 resp.Approved = false;
-                resp.Reason = $"Inna wersja gry: masz {theirVersion}, serwer ma {Application.version}. Pobierzcie tę samą wersję.";
+                resp.Reason = $"Inna wersja gry: masz {theirVersion}, serwer ma {Application.version}. " + (UpdateChecker.Compare(Application.version, theirVersion) > 0 ? "Zaktualizuj grę (przycisk w menu)." : "Host musi zaktualizować grę.");
                 return;
             }
 

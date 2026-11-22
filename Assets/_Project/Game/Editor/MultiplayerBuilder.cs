@@ -129,6 +129,7 @@ namespace HideAndSeek.Game.Editor
                     if (!File.Exists(to) || new FileInfo(to).Length != new FileInfo(f).Length) File.Copy(f, to, true);
                 }
             }
+            WriteUpdaterFiles(Path.GetDirectoryName(Path.GetFullPath(BuildOutput))!);
             Debug.Log($"[MultiplayerBuilder] Player built to {BuildOutput}");
         }
 
