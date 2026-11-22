@@ -918,7 +918,7 @@ namespace HideAndSeek.Game.Net
         private bool LevelRaycast(Vector3 origin, Vector3 dir, float maxDist, Transform ignore, out RaycastHit best)
         {
             best = default;
-            int n = Physics.RaycastNonAlloc(origin, dir, _hits, maxDist, ~(1 << PlayerAvatarBinder.LocalBodyLayer | 1 << 9),
+            int n = Physics.RaycastNonAlloc(origin, dir, _hits, maxDist, ~(1 << PlayerAvatarBinder.LocalBodyLayer | 1 << 9 | GameLayers.RagdollMask),
                 QueryTriggerInteraction.Ignore);
             float bestD = float.MaxValue;
             for (int i = 0; i < n; i++)

@@ -138,6 +138,7 @@ namespace HideAndSeek.Game.Net
 
             BuildCharacter();
             _shoulderLamp = ShoulderLamp.Attach(Character);
+            SetupRagdoll();
             if (Flashlight != null) Flashlight.HoldOffset = ShoulderLamp.EyeOffset;
             if (_steps != null) _steps.MasterVolume = LocalProfile.FootstepVolume;
             if (IsOwner) SetupLocal();
@@ -1236,7 +1237,7 @@ namespace HideAndSeek.Game.Net
         }
 
         [Rpc(SendTo.Everyone)]
-        public void ShotFxRpc(Vector3 hitPoint, ulong victimId, sbyte rcSlot = -1)
+        public void ShotFxRpc(Vector3 hitPoint, ulong victimId, sbyte rcSlot = -1, Vector3 shotDir = default)
         {
             Actions?.PlayShoot();
             Transform muzzle = null;
@@ -1258,6 +1259,7 @@ namespace HideAndSeek.Game.Net
             if (victim != null)
             {
                 victim.Actions?.PlayHitReaction();
+                victim.OnBulletHit(hitPoint, shotDir.sqrMagnitude > 0.01f ? shotDir : (hitPoint - from).normalized);
                 GameAudio.PlayAttached(GameSfx.HiderPain, victim.transform);
                 BloodFx.Spray(hitPoint, (hitPoint - from).normalized);
                 if (victim.IsOwner) GameHud.Hurt(1f);

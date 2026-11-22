@@ -225,6 +225,7 @@ namespace HideAndSeek.Game
             if (_cc == null)
             {
                 _cc = gameObject.AddComponent<CharacterController>();
+                _cc.excludeLayers = GameLayers.RagdollMask; // drives through dead bodies like before
                 _cc.radius = 0.1f;
                 _cc.height = 0.2f;
                 _cc.center = new Vector3(0f, 0.11f, 0f);

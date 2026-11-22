@@ -246,7 +246,7 @@ namespace HideAndSeek.Game.UI
             Vector3 d = to - from;
             float len = d.magnitude;
             if (len < 0.01f) return to;
-            int n = Physics.SphereCastNonAlloc(from, 0.2f, d / len, _hits, len, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore);
+            int n = Physics.SphereCastNonAlloc(from, 0.2f, d / len, _hits, len, ~((1 << 8) | (1 << 9) | GameLayers.RagdollMask), QueryTriggerInteraction.Ignore);
             float best = len;
             for (int i = 0; i < n; i++)
             {

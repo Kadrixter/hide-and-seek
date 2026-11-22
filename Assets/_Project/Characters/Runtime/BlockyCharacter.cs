@@ -68,6 +68,9 @@ namespace HideAndSeek.Characters
         public BlockyCharacterActions Actions => actions != null ? actions : (actions = GetComponent<BlockyCharacterActions>());
 
         public bool IsBuilt => built && pelvis != null;
+
+        /// <summary>The rig is driven by physics (<see cref="BlockyRagdoll"/>): the animator leaves the joints alone.</summary>
+        public bool IsRagdoll { get; internal set; }
         public int SkinIndex => skinIndex;
         public string PlayerNick => playerNick;
         public bool IsFirstPerson => firstPerson;
@@ -239,6 +242,8 @@ namespace HideAndSeek.Characters
             SetLimbVisible(head, null, (mask & Limb.Head) == 0);
             if (faceQuad != null && (mask & Limb.Head) != 0) faceQuad.gameObject.SetActive(false);
             else if (faceQuad != null && IsSpecialNick(playerNick) && GetPhotoMaterial() != null) faceQuad.gameObject.SetActive(true);
+            // Lying as a ragdoll: the missing part loses its body / collider, a returned one gets it back.
+            if (IsRagdoll && TryGetComponent<BlockyRagdoll>(out var ragdoll)) ragdoll.OnSeveredChanged();
         }
 
         static void SetLimbVisible(Transform a, Transform b, bool visible)
@@ -339,6 +344,8 @@ namespace HideAndSeek.Characters
             // Never push the players around.
             foreach (var cc in FindObjectsByType<CharacterController>(FindObjectsSortMode.None))
                 if (cc != null) Physics.IgnoreCollision(col, cc, true);
+            // Cut off a body lying as a ragdoll: the part starts inside it and must not be shot out of it.
+            if (IsRagdoll && TryGetComponent<BlockyRagdoll>(out var ragdoll)) ragdoll.IgnoreWith(col);
             rb.AddForce(impulse, ForceMode.VelocityChange);
             rb.AddTorque(UnityEngine.Random.onUnitSphere * 5f, ForceMode.VelocityChange);
             Destroy(root, 180f);
@@ -357,10 +364,11 @@ namespace HideAndSeek.Characters
             r.receiveShadows = true;
         }
 
-        /// <summary>Sets the layer of the whole character hierarchy.</summary>
+        /// <summary>Sets the layer of the whole character hierarchy (ragdoll colliders keep their physics layer).</summary>
         public void SetLayer(int layer)
         {
-            foreach (var t in GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
+            foreach (var t in GetComponentsInChildren<Transform>(true))
+                if (t.gameObject.layer != GameLayers.Ragdoll) t.gameObject.layer = layer;
         }
 
         public static bool IsSpecialNick(string nick)

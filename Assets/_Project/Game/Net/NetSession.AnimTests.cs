@@ -23,6 +23,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testheal")) StartCoroutine(HealTest());
             string cam = ArgOr("-animcam", "");
             if (!string.IsNullOrEmpty(cam)) StartCoroutine(AnimCam(cam));
+            StartRagdollTests(has);
         }
 
         private static IEnumerator WaitSeeking()

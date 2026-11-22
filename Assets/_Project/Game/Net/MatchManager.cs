@@ -51,6 +51,18 @@ namespace HideAndSeek.Game.Net
             SpawnMedkits();
             SpawnSyringes();
         }
+
+        /// <summary>Test: <paramref name="shooter"/> shoots <paramref name="victim"/> in the chest (same path as a real hit).</summary>
+        public void TestShoot(NetPlayer shooter, NetPlayer victim)
+        {
+            Vector3 from = shooter.EyePosition;
+            Vector3 hit = victim.ChestPosition;
+            Vector3 dir = (hit - from).normalized;
+            shooter.ShotFxRpc(hit, victim.NetworkObjectId, -1, dir);
+            if (victim.Life.Value == LifeState.Downed || victim.Wounded.Value) Kill(victim);
+            else if (victim.Limping.Value) Down(victim);
+            else Wound(victim);
+        }
         private readonly Dictionary<ulong, double> _lastShot = new();
         private readonly HashSet<ulong> _reloading = new();
 
@@ -930,7 +942,7 @@ namespace HideAndSeek.Game.Net
                 shooter.ShotFxRpc(hitPoint, ulong.MaxValue, rcSlot);
                 return;
             }
-            shooter.ShotFxRpc(hitPoint, valid ? victim.NetworkObjectId : ulong.MaxValue);
+            shooter.ShotFxRpc(hitPoint, valid ? victim.NetworkObjectId : ulong.MaxValue, -1, dir);
             if (!valid) return;
             if (victim.Life.Value == LifeState.Downed || victim.Wounded.Value) Kill(victim);
             else if (victim.Limping.Value) Down(victim);
