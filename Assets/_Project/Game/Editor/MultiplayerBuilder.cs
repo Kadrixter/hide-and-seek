@@ -157,6 +157,7 @@ namespace HideAndSeek.Game.Editor
             // D3D12 crashed ("Unrecoverable GPU device error") with several copies running; D3D11 is the safe choice here.
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, new[] { UnityEngine.Rendering.GraphicsDeviceType.Direct3D11 });
+            ApplyAppIcon();
         }
 
         private static void EnsureLayer(int index, string name)
