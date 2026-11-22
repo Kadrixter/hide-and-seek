@@ -8,7 +8,7 @@ namespace HideAndSeek.Audio
     /// <summary>
     /// 3D ambient loops scattered over a map at runtime: ventilation hum (objects named vent/duct/fan, or a sparse grid
     /// under the ceiling when the map has none), water drips in Water <see cref="FootstepSurface"/> zones, fluorescent
-    /// buzz near lamps (<see cref="Light"/> components) and muffled city noise near ramps/entrances.
+    /// buzz near lamps (<see cref="Light"/> components). No wind / outside rumble at ramps and entrances any more.
     /// Call <see cref="Populate"/> once after the map is loaded (on every client - audio is local only).
     /// Emitters far from the listener are paused, the rest get the same wall occlusion as <see cref="GameAudio"/>.
     /// </summary>
@@ -23,7 +23,6 @@ namespace HideAndSeek.Audio
         public int maxDrips = 16;
         public int maxVents = 12;
         public float ventGridSpacing = 28f;
-        public int maxCity = 4;
 
         private class Emitter
         {
@@ -141,18 +140,15 @@ namespace HideAndSeek.Audio
             }
 
             // vents: named objects first
+            // (ramps / entrances used to get a DistantCity emitter - a wind rumble - removed 22.11)
             var ventPoints = new List<Vector3>();
-            var cityPoints = new List<Vector3>();
             foreach (var t in root.GetComponentsInChildren<Transform>(true))
             {
+                if (ventPoints.Count >= maxVents) break;
                 string n = t.name.ToLowerInvariant();
-                if (ventPoints.Count < maxVents && (n.Contains("vent") || n.Contains("duct") || n.Contains("fan") || n.Contains("hvac") || n.Contains("exhaust")))
+                if (n.Contains("vent") || n.Contains("duct") || n.Contains("fan") || n.Contains("hvac") || n.Contains("exhaust"))
                 {
                     if (!TooClose(ventPoints, t.position, 8f)) ventPoints.Add(t.position);
-                }
-                else if (cityPoints.Count < maxCity && (n.Contains("ramp") || n.Contains("entrance") || n.Contains("exit") || n.Contains("gate")))
-                {
-                    if (!TooClose(cityPoints, t.position, 20f)) cityPoints.Add(t.position);
                 }
             }
             // fallback: sparse grid just below the ceiling of each level
@@ -160,7 +156,6 @@ namespace HideAndSeek.Audio
                 ventPoints.AddRange(GridUnderCeilings(bounds, ventGridSpacing, maxVents));
 
             foreach (var p in ventPoints) AddEmitter(AmbientId.Ventilation, p, Random.Range(0.6f, 1f));
-            foreach (var p in cityPoints) AddEmitter(AmbientId.DistantCity, p, 1f);
         }
 
         private static List<Vector3> GridUnderCeilings(Bounds b, float spacing, int max)

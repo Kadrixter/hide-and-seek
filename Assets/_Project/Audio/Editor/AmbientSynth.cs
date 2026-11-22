@@ -8,8 +8,10 @@ namespace HideAndSeek.Audio.Editor
     /// <summary>
     /// Synthesised replacements for two generated ambient loops that did not fit an underground garage:
     /// <list type="bullet">
-    /// <item>GarageBed: was a gusty wind rumble. Now a quiet, steady room tone: air from the ventilation (soft pink
-    /// noise below ~1 kHz), a faint far-away fan hum and a breath of high air. Stereo, 20 s, seamless loop.</item>
+    /// <item>GarageBed: was a gusty wind rumble, then a steady pink-noise rumble below ~1 kHz that still sounded like
+    /// wind. Now only what is left without that rumble: a faint far-away fan hum and a breath of high air, at the same
+    /// level as in the old mix (the rumble is still generated, only to keep the normalisation gain, and then dropped).
+    /// Stereo, 20 s, seamless loop. Air noise of the garage comes from the 3D Ventilation emitters.</item>
     /// <item>LampBuzz: was a 6-20 kHz crackle that sounded like crickets / worn brake pads. Now a real fluorescent
     /// ballast hum: 100 Hz (50 Hz mains, twice per cycle) with a few soft harmonics and a hint of buzz. Mono, 8 s.</item>
     /// </list>
@@ -49,6 +51,7 @@ namespace HideAndSeek.Audio.Editor
         {
             int fade = 2 * Rate;
             int n = (int)(seconds * Rate) + fade; // generated past the end, folded back by Loop
+            var rumble = new[] { new float[n], new float[n] }; // the old wind-like body: only sets the level, not written
             var ch = new[] { new float[n], new float[n] };
             var rng = new System.Random(3401);
             for (int c = 0; c < 2; c++)
@@ -59,9 +62,8 @@ namespace HideAndSeek.Audio.Editor
                 for (int i = 0; i < n; i++)
                 {
                     float w = (float)(rng.NextDouble() * 2 - 1);
-                    float body = hp.Tick(lp2.Tick(lp1.Tick(pink.Tick(w))));
-                    float hiss = airLp.Tick(air.Tick(w));
-                    ch[c][i] = 0.9f * body + 0.04f * hiss;
+                    rumble[c][i] = 0.9f * hp.Tick(lp2.Tick(lp1.Tick(pink.Tick(w))));
+                    ch[c][i] = 0.04f * airLp.Tick(air.Tick(w));
                 }
             }
             // far fan hum, the same in both ears, slowly breathing in level
@@ -71,10 +73,26 @@ namespace HideAndSeek.Audio.Editor
                 float wob = 1f + 0.25f * (float)Math.Sin(2 * Math.PI * 0.1 * t) + 0.1f * (float)Math.Sin(2 * Math.PI * 0.37 * t + 1.3);
                 float hum = (float)(Math.Sin(2 * Math.PI * 50 * t) * 0.5 + Math.Sin(2 * Math.PI * 100 * t + 0.4) * 0.35 + Math.Sin(2 * Math.PI * 150 * t + 1.1) * 0.12);
                 float slow = 1f + 0.08f * (float)Math.Sin(2 * Math.PI * 0.05 * t); // +-0.7 dB swell, never gusty
-                for (int c = 0; c < 2; c++) ch[c][i] = (ch[c][i] + 0.035f * wob * hum) * slow;
+                for (int c = 0; c < 2; c++)
+                {
+                    ch[c][i] = (ch[c][i] + 0.035f * wob * hum) * slow;
+                    rumble[c][i] *= slow;
+                }
             }
-            for (int c = 0; c < 2; c++) ch[c] = Loop(ch[c], fade, true);
-            Normalize(ch, -27f);
+            for (int c = 0; c < 2; c++)
+            {
+                ch[c] = Loop(ch[c], fade, true);
+                rumble[c] = Loop(rumble[c], fade, true);
+            }
+            // gain of the old full mix (rumble + air + hum at -27 dB RMS), so hum and air keep their old level
+            var full = new float[2][];
+            for (int c = 0; c < 2; c++)
+            {
+                full[c] = new float[ch[c].Length];
+                for (int i = 0; i < full[c].Length; i++) full[c][i] = ch[c][i] + rumble[c][i];
+            }
+            float g = NormalizeGain(full, -27f);
+            foreach (var b in ch) for (int i = 0; i < b.Length; i++) b[i] = Mathf.Clamp(b[i] * g, -0.98f, 0.98f);
             return ch;
         }
 
@@ -128,11 +146,17 @@ namespace HideAndSeek.Audio.Editor
 
         private static void Normalize(float[][] chans, float rmsDb)
         {
+            float g = NormalizeGain(chans, rmsDb);
+            foreach (var b in chans) for (int i = 0; i < b.Length; i++) b[i] = Mathf.Clamp(b[i] * g, -0.98f, 0.98f);
+        }
+
+        /// <summary>Gain that brings <paramref name="chans"/> to <paramref name="rmsDb"/> dBFS RMS.</summary>
+        private static float NormalizeGain(float[][] chans, float rmsDb)
+        {
             double sum = 0; long count = 0;
             foreach (var b in chans) foreach (var s in b) { sum += s * s; count++; }
             float rms = (float)Math.Sqrt(sum / Math.Max(1, count));
-            float g = Mathf.Pow(10f, rmsDb / 20f) / Mathf.Max(1e-6f, rms);
-            foreach (var b in chans) for (int i = 0; i < b.Length; i++) b[i] = Mathf.Clamp(b[i] * g, -0.98f, 0.98f);
+            return Mathf.Pow(10f, rmsDb / 20f) / Mathf.Max(1e-6f, rms);
         }
 
         private static void WriteMono(string assetPath, float[] s) => WriteStereo(assetPath, new[] { s });
