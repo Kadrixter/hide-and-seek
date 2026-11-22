@@ -251,6 +251,8 @@ namespace HideAndSeek.Player
         {
             if (spotLight == null) return;
             spotLight.type = LightType.Spot;
+            // always per-pixel (with its shadows): as a vertex light it would shine through the floor slabs
+            spotLight.renderMode = LightRenderMode.ForcePixel;
             spotLight.range = range;
             spotLight.spotAngle = spotAngle;
             spotLight.innerSpotAngle = spotAngle * 0.4f;

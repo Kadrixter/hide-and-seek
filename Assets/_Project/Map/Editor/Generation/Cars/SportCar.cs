@@ -52,6 +52,9 @@ namespace HideAndSeek.Map.Editor
         /// <summary>Extra crease lines of the body (ring indices, e.g. a crisp shoulder).</summary>
         protected virtual int[] SharpRings => new int[0];
         protected virtual Material FrontCap => Paint;
+        /// <summary>Station spacing of the body / greenhouse lofts (the parked cars use coarser ones).</summary>
+        protected virtual float BodyStep => 0.035f;
+        protected virtual float CabinStep => 0.03f;
         protected virtual Material RearCap => Paint;
 
         /// <summary>Reference outlines from real dimensions, drawn as guides in the studio only (not in the mesh):
@@ -83,7 +86,7 @@ namespace HideAndSeek.Map.Editor
             _tubZ = BKeys.OrderBy(k => k.Z).Select(k => k.Z).ToArray();
             _tubV = BKeys.OrderBy(k => k.Z).Select(k => k.Tub).ToArray();
             var arches = new[] { FrontArch, RearArch };
-            Body = CarShapes.Body(BKeys, arches, WellInset, TubWall, TubFloor, BodyBreaks, 0.035f, DeckRidge);
+            Body = CarShapes.Body(BKeys, arches, WellInset, TubWall, TubFloor, BodyBreaks, BodyStep, DeckRidge);
             foreach (int r in SharpRings) Body.SharpRing.Add(r);
             Body.Emit(mb, BodyMat);
             if (FrontCap != null) Body.Cap(mb, Body.Stations - 1, 1f, FrontCap);
@@ -98,14 +101,14 @@ namespace HideAndSeek.Map.Editor
                 {
                     CarWheels.Well(mb, a, yBot, xIn, xOut, s);
                     if (ArchLipBead > 0f) ArchFlare(a, yBot, s);
-                    CarWheels.Wheel(mb, new Vector3(s * wx, TireRadius, a.Z), s, TireRadius, TireWidth, RimRadius, Rim, RimMat, Caliper);
+                    BuildWheel(new Vector3(s * wx, TireRadius, a.Z), s);
                 }
             }
 
             CKeys = CabinKeys();
             if (CKeys != null)
             {
-                Cabin = CarShapes.Cabin(CKeys, CabinBreaks, RoofRound, 0.03f, RoofDip, SideFullness);
+                Cabin = CarShapes.Cabin(CKeys, CabinBreaks, RoofRound, CabinStep, RoofDip, SideFullness);
                 Cabin.Emit(mb, (i, j) => CabinMat(i, Mid(Cabin, j)));
                 Cabin.Emit(mb, (i, j) => CabinInner(i, Mid(Cabin, j)), inner: true);
             }
@@ -113,6 +116,10 @@ namespace HideAndSeek.Map.Editor
             Details();
             Colliders();
         }
+
+        /// <summary>One wheel at its hub centre (side = +1 right).</summary>
+        protected virtual void BuildWheel(Vector3 c, float side) =>
+            CarWheels.Wheel(Mb, c, side, TireRadius, TireWidth, RimRadius, Rim, RimMat, Caliper);
 
         protected static float Mid(CarLoft l, int j) => (l.Z[j] + l.Z[j + 1]) * 0.5f;
 

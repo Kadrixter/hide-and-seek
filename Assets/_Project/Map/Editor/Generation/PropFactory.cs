@@ -41,12 +41,13 @@ namespace HideAndSeek.Map.Editor
         /// <summary>Optional: mesh list for a named asset file (big meshes get a file of their own).</summary>
         public Func<string, List<Mesh>> StoreFor;
 
-        public PropMesh Get(string key, Action<MeshBuilder, PropMesh> build, List<Mesh> store = null)
+        public PropMesh Get(string key, Action<MeshBuilder, PropMesh> build, List<Mesh> store = null, bool weld = false)
         {
             if (_cache.TryGetValue(key, out var pm)) return pm;
             pm = new PropMesh();
             var mb = new MeshBuilder(_lib);
             build(mb, pm);
+            if (weld) mb.Weld();
             pm.Mesh = mb.ToMesh("Prop_" + key);
             pm.Materials = mb.Materials;
             if (pm.Colliders.Count == 0) pm.Colliders.Add(pm.Mesh.bounds);
@@ -59,147 +60,18 @@ namespace HideAndSeek.Map.Editor
 
         // ================================================================== cars
 
-        public PropMesh Car(CarType type) => Get("Car_" + type, (mb, pm) => BuildCar(mb, pm, type));
-
         /// <summary>Detailed hero car (one mesh per model, paint in slot 0).</summary>
         public PropMesh Hero(SportCar car) => Get("Hero_" + car.Name, (mb, pm) => car.Build(mb, pm), StoreFor?.Invoke("HeroCar_" + car.Name));
 
-
-        private void BuildCar(MeshBuilder mb, PropMesh pm, CarType type)
+        /// <summary>Ordinary parked car model (lofted body, light details, welded mesh; paint in slot 0).</summary>
+        public PropMesh Parked(ParkedCar car) => Get("Parked_" + car.Name, (mb, pm) =>
         {
-            // slot 0 is always the paint (swapped per instance)
-            mb.Reserve(M(MaterialLibrary.CarPaints[0]));
-            var paint = M(MaterialLibrary.CarPaints[0]);
-            var glass = M("Glass_Dark");
-            var rubber = M("Rubber");
-            var trim = M("Car_Trim");
-            var head = M("Car_Headlight");
-            var tail = M("Car_Taillight");
-            var ind = M("Car_Indicator");
-            var plate = M("Car_Plate");
-            var chrome = M("Car_Chrome");
+            mb.Alias = ParkedCar.MaterialAliases(mb.Lib, car);
+            CarLoft.PatchCoarse = 2.2f;
+            try { car.Build(mb, pm); }
+            finally { CarLoft.PatchCoarse = 1f; }
+        }, StoreFor?.Invoke("ParkedCars"), true);
 
-            float L, W, wheelR, bodyBottom, bodyTop, cabinH, cabinLen, cabinZ, wheelBase;
-            switch (type)
-            {
-                case CarType.Hatchback:
-                    L = 4.0f; W = 1.75f; wheelR = 0.31f; bodyBottom = 0.3f; bodyTop = 0.88f; cabinH = 0.55f;
-                    cabinLen = 2.25f; cabinZ = -0.55f; wheelBase = 1.25f; break;
-                case CarType.Suv:
-                    L = 4.7f; W = 1.9f; wheelR = 0.38f; bodyBottom = 0.38f; bodyTop = 1.12f; cabinH = 0.62f;
-                    cabinLen = 2.85f; cabinZ = -0.45f; wheelBase = 1.45f; break;
-                case CarType.Van:
-                    L = 5.1f; W = 2.0f; wheelR = 0.36f; bodyBottom = 0.36f; bodyTop = 1.1f; cabinH = 1.05f;
-                    cabinLen = 4.15f; cabinZ = -0.45f; wheelBase = 1.65f; break;
-                default:
-                    L = 4.55f; W = 1.8f; wheelR = 0.32f; bodyBottom = 0.3f; bodyTop = 0.86f; cabinH = 0.5f;
-                    cabinLen = 2.3f; cabinZ = -0.2f; wheelBase = 1.4f; break;
-            }
-            float hw = W * 0.5f, hl = L * 0.5f;
-            float bodyH = bodyTop - bodyBottom;
-
-            // underbody + main body
-            mb.Box(new Vector3(0, bodyBottom - 0.06f, 0), new Vector3(W - 0.25f, 0.14f, L - 0.7f), trim);
-            mb.Box(new Vector3(0, bodyBottom + bodyH * 0.5f, 0), new Vector3(W, bodyH, L), paint);
-            // bumpers
-            mb.Box(new Vector3(0, bodyBottom + 0.12f, hl + 0.04f), new Vector3(W - 0.02f, 0.22f, 0.1f), trim);
-            mb.Box(new Vector3(0, bodyBottom + 0.12f, -hl - 0.04f), new Vector3(W - 0.02f, 0.22f, 0.1f), trim);
-            // side skirts / door lines
-            mb.Box(new Vector3(hw + 0.005f, bodyBottom + 0.07f, 0), new Vector3(0.02f, 0.1f, L - 1.9f), trim);
-            mb.Box(new Vector3(-hw - 0.005f, bodyBottom + 0.07f, 0), new Vector3(0.02f, 0.1f, L - 1.9f), trim);
-            float doorTop = bodyTop - 0.04f;
-            foreach (float s in new[] { -1f, 1f })
-            {
-                float x = s * (hw + 0.004f);
-                mb.Box(new Vector3(x, (bodyBottom + 0.14f + doorTop) * 0.5f, cabinZ + 0.1f), new Vector3(0.012f, doorTop - bodyBottom - 0.14f, 0.015f), trim);
-                if (type != CarType.Van)
-                    mb.Box(new Vector3(x, (bodyBottom + 0.14f + doorTop) * 0.5f, cabinZ + cabinLen * 0.5f - 0.05f), new Vector3(0.012f, doorTop - bodyBottom - 0.14f, 0.015f), trim);
-                // door handles
-                mb.Box(new Vector3(s * (hw + 0.012f), bodyTop - 0.16f, cabinZ - 0.15f), new Vector3(0.02f, 0.03f, 0.14f), chrome);
-                mb.Box(new Vector3(s * (hw + 0.012f), bodyTop - 0.16f, cabinZ + 0.75f), new Vector3(0.02f, 0.03f, 0.14f), chrome);
-            }
-
-            // wheels (inside the body footprint, slightly sticking out)
-            foreach (float zs in new[] { -1f, 1f })
-            foreach (float xs in new[] { -1f, 1f })
-            {
-                var c = new Vector3(xs * (hw - 0.1f), wheelR, zs * wheelBase);
-                mb.Cylinder(c - Vector3.right * 0.13f, c + Vector3.right * 0.13f, wheelR, 14, rubber);
-                mb.Cylinder(c + Vector3.right * (xs * 0.13f), c + Vector3.right * (xs * 0.145f), wheelR * 0.58f, 10, chrome);
-                // dark wheel arch
-                mb.Box(new Vector3(xs * (hw - 0.02f), bodyBottom + 0.12f, zs * wheelBase), new Vector3(0.05f, 0.24f, wheelR * 2.3f), trim, null, MeshBuilder.Faces.PosX | MeshBuilder.Faces.NegX);
-            }
-
-            // lights / plates / grille
-            float lightY = bodyTop - 0.13f;
-            foreach (float xs in new[] { -1f, 1f })
-            {
-                mb.Box(new Vector3(xs * (hw - 0.3f), lightY, hl + 0.01f), new Vector3(0.36f, 0.12f, 0.03f), head);
-                mb.Box(new Vector3(xs * (hw - 0.06f), lightY, hl - 0.05f), new Vector3(0.1f, 0.1f, 0.1f), ind);
-                mb.Box(new Vector3(xs * (hw - 0.22f), lightY, -hl - 0.01f), new Vector3(0.32f, 0.13f, 0.03f), tail);
-                // hazard-light spots flush with the lamps (front indicator, outer tail lamp, wing repeater)
-                pm.Blinkers.Add(new Blinker(new Vector3(xs * (hw - 0.06f), lightY, hl + 0.001f), Vector3.forward, new Vector2(0.1f, 0.1f)));
-                pm.Blinkers.Add(new Blinker(new Vector3(xs * (hw - 0.12f), lightY, -hl - 0.026f), Vector3.back, new Vector2(0.11f, 0.12f)));
-                pm.Blinkers.Add(new Blinker(new Vector3(xs * (hw + 0.001f), bodyTop - 0.12f, Mathf.Min(wheelBase + 0.42f, hl - 0.25f)), Vector3.right * xs, new Vector2(0.1f, 0.035f)));
-
-                // mirrors
-                if (type != CarType.Van)
-                    mb.Box(new Vector3(xs * (hw + 0.09f), bodyTop + 0.08f, cabinZ + cabinLen * 0.5f - 0.2f), new Vector3(0.16f, 0.1f, 0.08f), paint);
-            }
-            mb.Box(new Vector3(0, lightY - 0.02f, hl + 0.01f), new Vector3(W - 1.0f, 0.14f, 0.03f), trim);
-            mb.Box(new Vector3(0, bodyBottom + 0.14f, hl + 0.095f), new Vector3(0.5f, 0.11f, 0.01f), plate);
-            mb.Box(new Vector3(0, bodyBottom + 0.3f, -hl - 0.025f), new Vector3(0.5f, 0.11f, 0.01f), plate);
-
-            float cabinBottom = bodyTop;
-            if (type == CarType.Van)
-            {
-                // tall box van: cab with windscreen, cargo body
-                float vanFrontZ = cabinZ + cabinLen * 0.5f;
-                mb.Box(new Vector3(0, cabinBottom + cabinH * 0.5f, cabinZ), new Vector3(W - 0.04f, cabinH, cabinLen), paint);
-                mb.Box(new Vector3(0, cabinBottom + cabinH * 0.55f, vanFrontZ + 0.01f), new Vector3(W - 0.2f, cabinH * 0.6f, 0.03f), glass);
-                foreach (float xs in new[] { -1f, 1f })
-                {
-                    mb.Box(new Vector3(xs * (hw - 0.01f), cabinBottom + cabinH * 0.55f, vanFrontZ - 0.45f), new Vector3(0.03f, cabinH * 0.5f, 0.7f), glass);
-                    mb.Box(new Vector3(xs * (hw + 0.08f), cabinBottom + 0.25f, vanFrontZ - 0.15f), new Vector3(0.1f, 0.22f, 0.06f), trim);
-                    // sliding door rail
-                    mb.Box(new Vector3(xs * (hw - 0.005f), cabinBottom + cabinH - 0.15f, cabinZ - 0.6f), new Vector3(0.02f, 0.03f, 2.0f), trim);
-                }
-                // rear door seam + windows
-                mb.Box(new Vector3(0, cabinBottom + cabinH * 0.5f - 0.2f, -hl - 0.005f), new Vector3(0.015f, cabinH + bodyH - 0.3f, 0.02f), trim);
-                mb.Box(new Vector3(0, cabinBottom + cabinH * 0.62f, -hl - 0.005f), new Vector3(W - 0.5f, 0.35f, 0.02f), glass);
-                pm.Colliders.Add(B(new Vector3(0, (bodyBottom + cabinBottom + cabinH) * 0.5f, 0), new Vector3(W, cabinBottom + cabinH - bodyBottom, L)));
-            }
-            else
-            {
-                float cw = W - 0.24f;
-                float ccz = cabinZ;
-                // glass cabin
-                mb.Box(new Vector3(0, cabinBottom + cabinH * 0.5f, ccz), new Vector3(cw, cabinH, cabinLen), glass);
-                // roof
-                mb.Box(new Vector3(0, cabinBottom + cabinH + 0.03f, ccz - 0.05f), new Vector3(cw + 0.04f, 0.06f, cabinLen - 0.25f), paint);
-                // pillars
-                float py = cabinBottom + cabinH * 0.5f;
-                float px = cw * 0.5f + 0.01f;
-                float[] pz = type == CarType.Hatchback
-                    ? new[] { ccz + cabinLen * 0.5f - 0.05f, ccz + 0.2f, ccz - cabinLen * 0.5f + 0.08f }
-                    : new[] { ccz + cabinLen * 0.5f - 0.05f, ccz + 0.1f, ccz - cabinLen * 0.5f + 0.08f };
-                foreach (float xs in new[] { -1f, 1f })
-                foreach (float z in pz)
-                    mb.Box(new Vector3(xs * px, py, z), new Vector3(0.06f, cabinH, 0.1f), paint);
-                // front/back pillar crossbars (windscreen frame)
-                mb.Box(new Vector3(0, cabinBottom + cabinH - 0.03f, ccz + cabinLen * 0.5f - 0.01f), new Vector3(cw + 0.02f, 0.06f, 0.04f), paint);
-                mb.Box(new Vector3(0, cabinBottom + cabinH - 0.03f, ccz - cabinLen * 0.5f + 0.01f), new Vector3(cw + 0.02f, 0.06f, 0.04f), paint);
-                if (type == CarType.Suv)
-                {
-                    foreach (float xs in new[] { -1f, 1f })
-                        mb.Box(new Vector3(xs * (cw * 0.5f - 0.1f), cabinBottom + cabinH + 0.09f, ccz - 0.05f), new Vector3(0.04f, 0.05f, cabinLen - 0.4f), trim);
-                    // spare wheel
-                    mb.Cylinder(new Vector3(0, bodyBottom + bodyH * 0.55f, -hl - 0.02f), new Vector3(0, bodyBottom + bodyH * 0.55f, -hl - 0.26f), 0.34f, 14, rubber);
-                }
-                pm.Colliders.Add(B(new Vector3(0, (bodyBottom - 0.1f + bodyTop) * 0.5f, 0), new Vector3(W, bodyTop - bodyBottom + 0.1f, L + 0.1f)));
-                pm.Colliders.Add(B(new Vector3(0, cabinBottom + cabinH * 0.5f, ccz), new Vector3(cw, cabinH, cabinLen)));
-            }
-        }
 
         // ================================================================== props
 
@@ -528,43 +400,11 @@ namespace HideAndSeek.Map.Editor
 
         // ================================================================== zone props
 
-        /// <summary>Blocky motorbike, length along Z.</summary>
-        public PropMesh Motorbike(string paint) => Get("Motorbike_" + paint, (mb, pm) =>
-        {
-            var p = M(paint);
-            var rubber = M("Rubber");
-            var chrome = M("Car_Chrome");
-            var dark = M("Car_Trim");
-            foreach (float z in new[] { -0.72f, 0.72f })
-            {
-                mb.Cylinder(new Vector3(-0.06f, 0.32f, z), new Vector3(0.06f, 0.32f, z), 0.32f, 14, rubber);
-                mb.Cylinder(new Vector3(-0.065f, 0.32f, z), new Vector3(0.065f, 0.32f, z), 0.15f, 10, chrome);
-            }
-            mb.Box(new Vector3(0, 0.55f, 0), new Vector3(0.18f, 0.12f, 1.25f), dark, Quaternion.Euler(-8f, 0, 0));
-            mb.Box(new Vector3(0, 0.5f, -0.05f), new Vector3(0.3f, 0.3f, 0.45f), M("Metal_Dark"));
-            mb.Box(new Vector3(0, 0.82f, 0.25f), new Vector3(0.34f, 0.22f, 0.45f), p);
-            mb.Box(new Vector3(0, 0.82f, -0.35f), new Vector3(0.28f, 0.1f, 0.6f), M("Plastic_Black"));
-            mb.Box(new Vector3(0, 0.75f, -0.75f), new Vector3(0.22f, 0.12f, 0.35f), p);
-            mb.Box(new Vector3(0, 0.75f, 0.62f), new Vector3(0.06f, 0.6f, 0.06f), chrome, Quaternion.Euler(20f, 0, 0));
-            mb.Box(new Vector3(0, 1.05f, 0.55f), new Vector3(0.7f, 0.035f, 0.035f), chrome);
-            mb.Box(new Vector3(0, 0.95f, 0.72f), new Vector3(0.16f, 0.14f, 0.08f), M("Car_Headlight"));
-            mb.Cylinder(new Vector3(0.17f, 0.35f, 0.1f), new Vector3(0.17f, 0.42f, -0.85f), 0.05f, 8, chrome);
-            pm.Colliders.Add(B(new Vector3(0, 0.6f, 0), new Vector3(0.5f, 1.2f, 2.1f)));
-        });
+        /// <summary>Motorbike, length along Z (see <see cref="TwoWheelers"/>).</summary>
+        public PropMesh Motorbike(string paint) => Get("Motorbike_" + paint, (mb, pm) => TwoWheelers.Motorbike(mb, pm, M(paint)), null, true);
 
-        public PropMesh Bicycle(string paint) => Get("Bicycle_" + paint, (mb, pm) =>
-        {
-            var p = M(paint);
-            foreach (float z in new[] { -0.52f, 0.52f })
-                mb.Cylinder(new Vector3(-0.02f, 0.34f, z), new Vector3(0.02f, 0.34f, z), 0.34f, 16, M("Rubber"));
-            mb.Box(new Vector3(0, 0.58f, 0.05f), new Vector3(0.04f, 0.04f, 0.65f), p);
-            mb.Box(new Vector3(0, 0.46f, -0.22f), new Vector3(0.04f, 0.04f, 0.6f), p, Quaternion.Euler(-35f, 0, 0));
-            mb.Box(new Vector3(0, 0.46f, 0.3f), new Vector3(0.04f, 0.04f, 0.55f), p, Quaternion.Euler(40f, 0, 0));
-            mb.Box(new Vector3(0, 0.62f, -0.28f), new Vector3(0.04f, 0.6f, 0.04f), p, Quaternion.Euler(-15f, 0, 0));
-            mb.Box(new Vector3(0, 0.92f, -0.33f), new Vector3(0.12f, 0.05f, 0.24f), M("Plastic_Black"));
-            mb.Box(new Vector3(0, 0.95f, 0.42f), new Vector3(0.5f, 0.03f, 0.03f), M("Car_Chrome"));
-            pm.Colliders.Add(B(new Vector3(0, 0.5f, 0), new Vector3(0.4f, 1.0f, 1.7f)));
-        });
+        /// <summary>City bicycle, length along Z.</summary>
+        public PropMesh Bicycle(string paint) => Get("Bicycle_" + paint, (mb, pm) => TwoWheelers.Bicycle(mb, pm, M(paint)), null, true);
 
         public PropMesh BikeRack(int slots) => Get("BikeRack" + slots, (mb, pm) =>
         {

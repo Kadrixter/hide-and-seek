@@ -23,6 +23,14 @@ namespace HideAndSeek.Map.Editor
             Make("CarPaint_Diamantschwarz", new Color(0.025f, 0.025f, 0.03f), null, 1f, 0.45f, 0.86f);
             Make("CarPaint_Sunflower", new Color(0.98f, 0.76f, 0.02f), null, 1f, 0.15f, 0.8f);
             Make("CarPaint_ReflexSilver", new Color(0.66f, 0.68f, 0.7f), null, 1f, 0.6f, 0.78f);
+            // extra paints of the ordinary parked cars (realistic mix, see ParkingGarageBuilder.ParkedCars)
+            Make("CarPaint_PearlWhite", new Color(0.88f, 0.87f, 0.82f), null, 1f, 0.3f, 0.82f);
+            Make("CarPaint_Gunmetal", new Color(0.2f, 0.21f, 0.23f), null, 1f, 0.65f, 0.78f);
+            Make("CarPaint_Burgundy", new Color(0.26f, 0.03f, 0.06f), null, 1f, 0.55f, 0.8f);
+            Make("CarPaint_Olive", new Color(0.22f, 0.24f, 0.13f), null, 1f, 0.4f, 0.75f);
+            Make("CarPaint_Beige", new Color(0.62f, 0.55f, 0.42f), null, 1f, 0.45f, 0.75f);
+            Make("CarPaint_Brown", new Color(0.24f, 0.13f, 0.07f), null, 1f, 0.55f, 0.78f);
+            Make("CarPaint_SkyBlue", new Color(0.32f, 0.52f, 0.7f), null, 1f, 0.5f, 0.8f);
             // glass and lenses
             Make("Car_Glass", new Color(0.1f, 0.13f, 0.15f, 0.62f), null, 1f, 0.3f, 0.96f, mode: Mode.Transparent);
             Make("Car_GlassDark", new Color(0.03f, 0.035f, 0.04f, 0.86f), null, 1f, 0.4f, 0.97f, mode: Mode.Transparent);

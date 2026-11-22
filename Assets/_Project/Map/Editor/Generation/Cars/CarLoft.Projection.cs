@@ -66,17 +66,20 @@ namespace HideAndSeek.Map.Editor
         /// Panel whose outline (x/y, right side; mirrored when side = -1) is projected onto the nose (dir 1) or tail
         /// (dir -1), lifted along the normal. Rings from the centroid outwards give a smooth curved lamp face.
         /// </summary>
+        /// <summary>Scales the tessellation of projected patches (1 = hero cars; the parked cars use a coarser one).</summary>
+        public static float PatchCoarse = 1f;
+
         public void ProjectedPatch(MeshBuilder mb, Vector2[] outline, float dir, float side, float lift, Material m, int rings = 4,
             float minNz = 0.3f)
         {
-            outline = Densify(outline, 0.03f); // long chords would cut under curved panels
+            outline = Densify(outline, 0.03f * PatchCoarse); // long chords would cut under curved panels
             Vector2 c = Vector2.zero;
             foreach (var o in outline) c += o;
             c /= outline.Length;
             int n = outline.Length;
             float reach = 0f;
             foreach (var o in outline) reach = Mathf.Max(reach, (o - c).magnitude);
-            rings = Mathf.Max(rings, Mathf.CeilToInt(reach / 0.035f));
+            rings = Mathf.Max(PatchCoarse > 1f ? 2 : rings, Mathf.CeilToInt(reach / (0.035f * PatchCoarse)));
             var P = new Vector3[rings + 1, n];
             var N = new Vector3[rings + 1, n];
             bool ok = true;
