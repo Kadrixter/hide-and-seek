@@ -39,12 +39,9 @@ namespace HideAndSeek.Game
             Box(root, "TapHot", wc + new Vector3(0.17f, 0.85f, 0.06f), new Vector3(0.03f, 0.04f, 0.04f), new Color(0.75f, 0.12f, 0.1f), false);
             Prim(root, PrimitiveType.Cylinder, "CupStack", wc + new Vector3(0.19f, 0.62f, 0.12f), new Vector3(0.06f, 0.08f, 0.06f), new Color(0.88f, 0.88f, 0.85f));
 
-            // Bin with crumpled paper, one ball missed.
+            // Perforated bin with crumpled papers, one ball missed (built by TrashBinProp, no probes like the rest).
             Vector3 bin = new Vector3(cx - 4.0f, y0, Z1 - 1.45f);
-            Prim(root, PrimitiveType.Cylinder, "Bin", bin + Vector3.up * 0.18f, new Vector3(0.28f, 0.18f, 0.28f), new Color(0.2f, 0.22f, 0.25f), null, false, Surf.T(SecurityTextures.Kind.Metal, 0.3f, 0.3f, 0.6f));
-            for (int i = 0; i < 4; i++)
-                Prim(root, PrimitiveType.Sphere, "PaperBall", bin + new Vector3(-0.06f + i * 0.04f, 0.36f + (i % 2) * 0.03f, (i % 2 == 0 ? 0.04f : -0.03f)), Vector3.one * 0.07f, new Color(0.85f, 0.85f, 0.8f));
-            Prim(root, PrimitiveType.Sphere, "PaperBallFloor", bin + new Vector3(0.35f, 0.035f, -0.25f), Vector3.one * 0.07f, new Color(0.85f, 0.85f, 0.8f));
+            TrashBinProp.Create(root, bin, 125f, 20 + lv, 1, false, false);
 
             // PC tower and UPS under the desk, power strip with a red switch.
             Vector3 pc = new Vector3(cx - 3.1f, y0, Z1 - 0.5f);
