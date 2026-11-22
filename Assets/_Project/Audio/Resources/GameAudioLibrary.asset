@@ -647,11 +647,6 @@ MonoBehaviour:
     volume: 0.22
     range: 5
     pitchJitter: 0.04
-  - id: 7
-    clip: {fileID: 8300000, guid: 97a6f5aff8fab4a479aaf52373116d40, type: 3}
-    volume: 0.22
-    range: 26
-    pitchJitter: 0.04
   - id: 8
     clip: {fileID: 8300000, guid: b69fd047d6a6f1f44bf882d75b332d34, type: 3}
     volume: 0.7

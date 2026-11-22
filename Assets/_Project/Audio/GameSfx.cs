@@ -115,7 +115,7 @@ namespace HideAndSeek.Audio
         Ventilation = 4,     // 3D emitters near vents
         Drips = 5,           // 3D emitters, flooded -3 floor
         LampBuzz = 6,        // 3D emitters near lamps
-        DistantCity = 7,     // muffled traffic near the entrance ramp
+        DistantCity = 7,     // retired: was only a wind rumble at the ramps (no clip, no emitters; value kept stable)
         TensionMusic = 8,    // last 2 minutes
     }
 }

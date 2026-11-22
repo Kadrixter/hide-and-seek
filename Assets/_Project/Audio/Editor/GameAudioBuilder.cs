@@ -124,14 +124,19 @@ namespace HideAndSeek.Audio.Editor
         private static readonly Dictionary<AmbientId, (float volume, float range, bool bed)> AmbientDefs = new Dictionary<AmbientId, (float, float, bool)>
         {
             { AmbientId.MenuMusic, (0.8f, 0f, true) },
-            { AmbientId.LobbyRoom, (0.12f, 0f, true) },     // was 0.5: the wind outside was far too loud
-            { AmbientId.GarageBed, (0.5f, 0f, true) },      // AmbientSynth room tone (no wind underground)
-            { AmbientId.Ventilation, (0.5f, 12f, false) },
+            { AmbientId.LobbyRoom, (0.12f, 0f, true) },     // wind rumble cut out of the clip (22.11), only room hum + hiss left
+            { AmbientId.GarageBed, (0.5f, 0f, true) },      // AmbientSynth: fan hum + faint air, no rumble / wind
+            { AmbientId.Ventilation, (0.5f, 12f, false) },  // clip: the dip + gust swell cut out, steady airflow only
             { AmbientId.Drips, (0.6f, 10f, false) },
             { AmbientId.LampBuzz, (0.22f, 5f, false) },     // AmbientSynth ballast hum (the old clip squealed)
-            { AmbientId.DistantCity, (0.22f, 26f, false) }, // was 0.5: gusty rumble near the ramps
             { AmbientId.TensionMusic, (0.7f, 0f, true) },
         };
+
+        /// <summary>
+        /// Ids with no clip on purpose (not reported as missing, no library entry). DistantCity was nothing but a wind
+        /// rumble blowing in at the ramps - removed with the rest of the wind (22.11).
+        /// </summary>
+        private static readonly HashSet<AmbientId> RetiredAmbient = new HashSet<AmbientId> { AmbientId.DistantCity };
 
         // ------------------------------------------------------------------ entry points
 
@@ -199,7 +204,7 @@ namespace HideAndSeek.Audio.Editor
             var ambient = new List<AmbientEntry>();
             foreach (AmbientId id in Enum.GetValues(typeof(AmbientId)))
             {
-                if (id == AmbientId.None) continue;
+                if (id == AmbientId.None || RetiredAmbient.Contains(id)) continue;
                 (float volume, float range, bool bed) def = AmbientDefs.TryGetValue(id, out var d) ? d : (0.5f, 15f, false);
                 var clip = Match(ambientClips, id.ToString()).FirstOrDefault();
                 if (clip != null)
