@@ -7,7 +7,7 @@ namespace HideAndSeek.Game
     /// 32 x 32 pixel-art icons for the hotbar (point filtered, dark outline), drawn in code in the blocky style of the
     /// game: medkit, adrenaline syringe, RC car, metal rod, knife, chainsaw, Glock.
     /// </summary>
-    public static class HotbarIcons
+    public static partial class HotbarIcons
     {
         private const int N = 32;
         private static readonly Dictionary<HotbarItem, Sprite> Cache = new();

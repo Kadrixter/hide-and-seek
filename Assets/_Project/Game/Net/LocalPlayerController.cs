@@ -38,6 +38,8 @@ namespace HideAndSeek.Game.Net
         RodPickup,      // E on a metal rod leaning on a rack / fence (hiders)
         FlashBox,       // E on the lobby flashlight box (take = ready / put back)
         ToyGunPickup,   // E on a toy slime blaster lying on the map (hiders)
+        PhonePickup,    // E on a toy phone on the floor (hiders)
+        PhoneStomp,     // F on a toy phone on the floor (seeker)
     }
 
     /// <summary>
@@ -311,6 +313,9 @@ namespace HideAndSeek.Game.Net
             // ---- lobby toy bricks: while building the mouse / E / 1-5 belong to the bricks.
             if (phase != MatchPhase.Lobby && LobbyBricks.Building) LobbyBricks.StopBuilding();
             if (LobbyBricks.LocalTick(_p, kb, mouse, _ignoreEThisFrame)) { CancelHold(); return; }
+
+            // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
+            if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
 
             // ---- RC car: 6 puts it down / parks it / takes control again; WASD drives while the car camera is on.
             if (UpdateRc(kb, phase)) { CancelHold(); return; }
@@ -669,6 +674,13 @@ namespace HideAndSeek.Game.Net
                 Offer(PromptKind.RodPickup, rodPos, rodText, rodD);
             }
 
+            // Toy phones: hiders pick up (E), the seeker stomps (F) - MatchManager.Phones.
+            if (MatchManager.Instance != null && MatchManager.Instance.TryPhonePrompt(eye, fwd, _p, phase, out var phKind, out int phId, out var phPos, out string phText, out float phD))
+            {
+                _phoneId = phId;
+                Offer(phKind, phPos, phText, phD);
+            }
+
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
             {
@@ -811,6 +823,7 @@ namespace HideAndSeek.Game.Net
         private int _syringeId;
         private int _rodId;
         private int _toyGunId;
+        private int _phoneId;
         private bool _ignoreEThisFrame;
         private int _elevCar, _elevFloor;
         private Vector3 _standPos;
@@ -1011,6 +1024,12 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.RcStomp:
                     if (kb.fKey.wasPressedThisFrame) _p.RequestRcStompRpc((byte)_rcSlotPrompt);
+                    break;
+                case PromptKind.PhonePickup:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestPickupPhoneRpc(_phoneId);
+                    break;
+                case PromptKind.PhoneStomp:
+                    if (kb.fKey.wasPressedThisFrame) _p.RequestPhoneStompRpc(_phoneId);
                     break;
             }
 

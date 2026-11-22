@@ -223,10 +223,11 @@ namespace HideAndSeek.Game.Voice
             }
             else
             {
-                // Server -> client: play.
+                // Server -> client: play (channel bits: 1 = proximity, 2 = toy phone).
                 reader.ReadValueSafe(out ulong speaker);
+                reader.ReadValueSafe(out byte channel);
                 if (!ReadFrame(reader, out ushort seq, out byte lvl, out int len, out long stamp)) return;
-                Play(speaker, seq, lvl, _rx, len, stamp);
+                Play(speaker, channel, seq, lvl, _rx, len, stamp);
             }
         }
 
@@ -236,25 +237,45 @@ namespace HideAndSeek.Game.Voice
             if (speaker == null) return;
             bool shout = level / 255f >= ShoutLevel;
 
-            using var writer = new FastBufferWriter(len + 24, Allocator.Temp);
-            writer.WriteValueSafe(speakerId);
-            WriteFrame(writer, seq, level, data, len, stamp);
-
-            foreach (var listener in NetPlayer.All)
+            var writers = new FastBufferWriter[4]; // per channel combination, built when first needed
+            try
             {
-                if (listener == null || listener.OwnerClientId == speakerId) continue;
-                // The dead talk on their own channel: their voice is never even sent to the living.
-                if (!VoiceRules.Hears(listener, speaker, shout) && !TestRelayAll) continue;
+                foreach (var listener in NetPlayer.All)
+                {
+                    if (listener == null || listener.OwnerClientId == speakerId) continue;
+                    // The dead talk on their own channel: their voice is never even sent to the living.
+                    bool near = VoiceRules.Hears(listener, speaker, shout) || TestRelayAll;
+                    bool phone = VoiceRules.PhoneLink(listener, speaker);
+                    if (!near && !phone) continue;
+                    byte ch = (byte)((near ? 1 : 0) | (phone ? 2 : 0));
 
-                if (listener.OwnerClientId == nm.LocalClientId) Play(speakerId, seq, level, data, len, stamp); // host listens locally
-                else nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writer, Delivery);
+                    if (listener.OwnerClientId == nm.LocalClientId) { Play(speakerId, ch, seq, level, data, len, stamp); continue; } // host listens locally
+                    if (!writers[ch].IsInitialized)
+                    {
+                        writers[ch] = new FastBufferWriter(len + 26, Allocator.Temp);
+                        writers[ch].WriteValueSafe(speakerId);
+                        writers[ch].WriteValueSafe(ch);
+                        WriteFrame(writers[ch], seq, level, data, len, stamp);
+                    }
+                    nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writers[ch], Delivery);
+                }
+            }
+            finally
+            {
+                foreach (var w in writers) if (w.IsInitialized) w.Dispose();
             }
         }
 
-        private static void Play(ulong speakerId, ushort seq, byte level, byte[] data, int len, long stamp)
+        private static void Play(ulong speakerId, byte channel, ushort seq, byte level, byte[] data, int len, long stamp)
         {
             var p = NetPlayer.FindByClient(speakerId);
             if (p == null || p.IsOwner) return;
+            if ((channel & 2) != 0 && VoiceRules.LocalPhoneLink(p))
+            {
+                if (Instance != null) Instance._rxPhone++;
+                PhoneVoice.For(p).Push(seq, data, len, stamp);
+            }
+            if ((channel & 1) == 0) return;
             // Second check on the receiving side (an older / modified server): the living never hear the dead.
             if (!VoiceRules.LocalMayHear(p))
             {
