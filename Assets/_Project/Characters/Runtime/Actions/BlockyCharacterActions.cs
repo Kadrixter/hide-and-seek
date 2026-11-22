@@ -380,9 +380,12 @@ namespace HideAndSeek.Characters
             ApplyLimpAndSlash(ref p, dt, standing, show);
             ApplyGoreLayers(ref p, dt, standing);
             ApplyPushLayer(ref p, dt);
+            ApplyLeverLayer(ref p, dt);
             ApplyRodLayers(ref p, dt, standing);
             ApplyArcade(ref p, dt, standing);
             ApplyPoke(ref p, dt, standing);
+            ApplyFlashTake(ref p, dt);
+            ApplyToyGun(ref p, dt, standing, lookPitch);
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
@@ -670,6 +673,7 @@ namespace HideAndSeek.Characters
             socketR.localPosition = CharacterPose.HandLocal;
             socketR.localRotation = p.PropR;
             UpdateVendingProp(show);
+            UpdateToyGunProp();
             var saw = props[(int)HeldItem.Chainsaw];
             if (saw != null && show == HeldItem.Chainsaw)
             {

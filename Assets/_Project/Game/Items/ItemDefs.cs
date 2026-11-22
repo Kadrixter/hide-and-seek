@@ -56,6 +56,8 @@ namespace HideAndSeek.Game
         public Func<NetPlayer, string> Hint = _ => "";
         /// <summary>Client: left mouse button on the selected slot (click = pressed this frame, hold = held down).</summary>
         public Action<NetPlayer, bool, bool> Use;
+        /// <summary>Text in the slot's corner instead of the "xN" count (e.g. shots left), null = the count.</summary>
+        public Func<NetPlayer, string> Badge;
         /// <summary>World model of a dropped one, built under the given root (any pivot: it is centred automatically).</summary>
         public Func<Transform, GameObject> Model;
     }

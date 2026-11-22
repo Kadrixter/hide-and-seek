@@ -288,7 +288,7 @@ namespace HideAndSeek.Game
 
             // ---- Esc menu
             var kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame)
+            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape)
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
                 else if (_settingsPanel != null || _escMenu != null) CloseMenus();
@@ -355,11 +355,11 @@ namespace HideAndSeek.Game
                     if (o.Ready.Value) readyCount++;
                 }
                 if (nm.IsServer)
-                    sb.Append($"\nGotowi: <b>{readyCount}/{need}</b>. Gdy wszyscy będą gotowi, pociągnij <color=#ff6a5a>dźwignię</color> (E).\n");
+                    sb.Append($"\nGotowi: <b>{readyCount}/{need}</b> (gotowy = wziął latarkę z pudełka). Gdy wszyscy będą gotowi, pociągnij <color=#ff6a5a>dźwignię</color> (E).\n");
                 else
                     sb.Append(me.Ready.Value
-                        ? "\n<color=#6dff7a>Jesteś gotowy.</color> R - cofnij. Czekaj, aż właściciel pokoju wystartuje.\n"
-                        : "\nWciśnij <b>R</b>, gdy będziesz gotowy.\n");
+                        ? "\n<color=#6dff7a>Masz latarkę - jesteś gotowy.</color> E przy pudełku - odłóż. Czekaj, aż właściciel pokoju wystartuje.\n"
+                        : "\nWeź <b>latarkę</b> z pudełka przy lustrze (E) - wtedy jesteś gotowy.\n");
                 sb.Append("E na kanapie / pufie - usiądź. Tablica na ścianie - ustawienia rundy.\nEsc - menu");
                 _lobbyInfo.text = sb.ToString();
             }
@@ -719,13 +719,14 @@ namespace HideAndSeek.Game
             UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
             UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 28).Height(60);
             UiKit.Button("PlayerVolumes", panel, "Głośność graczy", ShowPlayerVolumeMenu, 28).Height(60);
-            string leave = NetworkManager.Singleton.IsServer ? "Zamknij serwer" : "Rozłącz";
-            UiKit.Button("Leave", panel, leave, () =>
+            bool isHost = NetworkManager.Singleton.IsServer;
+            string leave = isHost ? "Zamknij serwer" : "Rozłącz";
+            UiKit.Button("Leave", panel, leave, () => ConfirmDialog.ConfirmLeave(isHost, () =>
             {
                 CloseMenus();
                 NetSession.Instance.Leave();
-            }, 30, new Color(0.35f, 0.1f, 0.1f)).Height(70);
-            UiKit.Button("Quit", panel, "Wyjdź z gry", Application.Quit).Height(60);
+            }), 30, new Color(0.35f, 0.1f, 0.1f)).Height(70);
+            UiKit.Button("Quit", panel, "Wyjdź z gry", ConfirmDialog.ConfirmQuit).Height(60);
         }
 
         /// <summary>Steam friends list with "Zaproś" buttons (+ the Steam overlay invite dialog).</summary>
@@ -816,7 +817,7 @@ namespace HideAndSeek.Game
             var mm = MatchManager.Instance;
             if (mm == null) return;
             bool host = NetworkManager.Singleton.IsServer;
-            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 1060 + 58));
+            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 1060 + 58 + 54));
             var panel = _settingsPanel.Find("Panel");
             var s = mm.Settings.Value;
             UiKit.Label("Title", panel, "USTAWIENIA RUNDY", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(56);
@@ -913,6 +914,16 @@ namespace HideAndSeek.Game
             }, 26);
             glockB.Height(50);
 
+            string TakeText() => "Szukający zabiera przedmioty (apteczki, strzykawki, pręty): " + (s.SeekerTakesItems ? "tak" : "nie");
+            Button takeB = null;
+            takeB = UiKit.Button("SeekerTakes", panel, TakeText(), () =>
+            {
+                s.SeekerTakesItems = !s.SeekerTakesItems;
+                takeB.GetComponentInChildren<Text>().text = TakeText();
+                Push();
+            }, 22);
+            takeB.Height(50);
+
             var bleedL = Row("");
             var bleed = UiKit.Slider("BleedOut", panel, 20, 180, s.BleedOut > 1f ? s.BleedOut : Tuning.BleedOutTime, true, v =>
             {
@@ -942,6 +953,7 @@ namespace HideAndSeek.Game
             foreach (var sl in new[] { hide, seek, hs, hi, med, bleed, syr }) sl.interactable = host;
             modeB.interactable = host;
             glockB.interactable = host;
+            takeB.interactable = host;
 
             UiKit.Button("Close", panel, "Zamknij", CloseMenus).Height(58);
         }

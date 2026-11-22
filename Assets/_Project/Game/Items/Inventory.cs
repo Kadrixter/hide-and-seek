@@ -18,6 +18,9 @@ namespace HideAndSeek.Game
 
         public static int Count(NetPlayer p, HotbarItem item) => ItemDefs.Count(p, item);
 
+        /// <summary>Lobby option: the seeker may take the hiders' items away (off by default).</summary>
+        public static bool SeekerTakesItems => MatchManager.Instance != null && MatchManager.Instance.Settings.Value.SeekerTakesItems;
+
         /// <summary>Item in a slot (None when empty or the amount already dropped to 0).</summary>
         public static HotbarItem At(NetPlayer p, int slot)
         {
@@ -60,14 +63,17 @@ namespace HideAndSeek.Game
             return c > 0 ? c < d.MaxStack : Kinds(p) < Slots;
         }
 
-        /// <summary>Who may pick it up: alive hiders in the round, the seeker only while seeking.</summary>
+        /// <summary>
+        /// Who may pick it up: alive hiders in the round; the seeker only while seeking - his weapons always, the hiders'
+        /// items (medkits, syringes, rods) only with the lobby option "Szukający zabiera przedmioty".
+        /// </summary>
         public static bool CanPickUp(NetPlayer p, HotbarItem item, MatchPhase phase)
         {
             var d = ItemDefs.Get(item);
             if (p == null || d == null || p.Life.Value != LifeState.Alive) return false;
             if (phase != MatchPhase.Hiding && phase != MatchPhase.Seeking) return false;
             if (p.IsHider) return (d.Users & ItemUsers.Hider) != 0;
-            if (p.IsSeeker) return phase == MatchPhase.Seeking && (d.Users & ItemUsers.Seeker) != 0;
+            if (p.IsSeeker) return phase == MatchPhase.Seeking && (d.Users & ItemUsers.Seeker) != 0 && (d.Weapon != HeldItem.None || SeekerTakesItems);
             return false;
         }
 

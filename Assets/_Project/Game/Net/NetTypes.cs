@@ -72,6 +72,7 @@ namespace HideAndSeek.Game.Net
         public byte Syringes;        // adrenaline syringes on the map (revive a dead hider)
         public byte Mode;            // GameMode (0 = hide and seek)
         public byte Laps;            // RC race: laps to win
+        public bool SeekerTakesItems; // the seeker may pick up hiders' items (medkits, syringes, rods) to deny them
 
         public static NetSettings Default => new NetSettings
         {
@@ -101,11 +102,13 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Syringes);
             s.SerializeValue(ref Mode);
             s.SerializeValue(ref Laps);
+            s.SerializeValue(ref SeekerTakesItems);
         }
 
         public bool Equals(NetSettings o) => HideTime == o.HideTime && SeekTime == o.SeekTime && HintStart == o.HintStart &&
                                              HintInterval == o.HintInterval && HintMode == o.HintMode && Glock == o.Glock &&
-                                             Medkits == o.Medkits && BleedOut == o.BleedOut && Syringes == o.Syringes && Mode == o.Mode && Laps == o.Laps;
+                                             Medkits == o.Medkits && BleedOut == o.BleedOut && Syringes == o.Syringes && Mode == o.Mode && Laps == o.Laps &&
+                                             SeekerTakesItems == o.SeekerTakesItems;
     }
 
     public struct MedkitState : INetworkSerializable, IEquatable<MedkitState>

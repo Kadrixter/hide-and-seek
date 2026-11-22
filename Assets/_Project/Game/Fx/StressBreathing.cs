@@ -11,6 +11,8 @@ namespace HideAndSeek.Game
     /// breathing harder and faster, loudest at <see cref="MaxDistance"/> m; it rises over a couple of seconds and calms
     /// down slowly. The local hider also hears their own heartbeat (2D, nobody else). Other players hear a hider's
     /// breathing quietly in 3D within a few metres (<see cref="OthersRange"/>) - tension, not a radar.
+    /// Breathing: recorded loops (<see cref="BreathLoops"/>, ElevenLabs), the synthesised breaths of
+    /// <see cref="StressSounds"/> only when those clips are missing. The heartbeat stays synthesised.
     /// Every client computes this from the synced positions, nothing extra goes over the network.
     /// </summary>
     public class StressBreathing : MonoBehaviour
@@ -25,6 +27,8 @@ namespace HideAndSeek.Game
             public bool InhaleNext = true;
             public int Variant;
             public Transform Mouth;
+            public BreathLoops Loops;      // recorded breathing (when the clips are in the build)
+            public float NextAccent;
         }
 
         private readonly Dictionary<NetPlayer, State> _states = new Dictionary<NetPlayer, State>();
@@ -42,6 +46,8 @@ namespace HideAndSeek.Game
         public int Breaths { get; private set; }
         public int Beats { get; private set; }
         public int RemoteBreaths { get; private set; }
+        /// <summary>Recorded breathing of a player on this client (null while silent or with the synthesised fallback).</summary>
+        public BreathLoops LoopsOf(NetPlayer p) => p != null && _states.TryGetValue(p, out var s) ? s.Loops : null;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
@@ -70,11 +76,29 @@ namespace HideAndSeek.Game
                 if (!_states.TryGetValue(p, out var st)) _states[p] = st = new State { Variant = Random.Range(0, 3) };
                 bool hider = seeking && p.Role.Value == PlayerRole.Hider && p.Life.Value == LifeState.Alive;
                 float target = hider ? Target(p) : 0f;
+                bool jump = hider && target - st.Stress > 0.25f && target > 0.35f && now >= st.NextAccent;
                 st.Stress = Mathf.MoveTowards(st.Stress, target, dt * (target > st.Stress ? RiseRate : FallRate));
-                if (!hider) { st.Stress = Mathf.MoveTowards(st.Stress, 0f, dt * 0.5f); continue; }
+                if (!hider) st.Stress = Mathf.MoveTowards(st.Stress, 0f, dt * 0.5f);
+                if (BreathLoops.Available)
+                {
+                    bool near = p.IsOwner || (listener != null && (listener.position - p.transform.position).sqrMagnitude < (OthersRange + 2f) * (OthersRange + 2f));
+                    if (hider && near && st.Stress >= 0.03f && st.Loops == null)
+                        st.Loops = BreathLoops.Create(p.IsOwner ? transform : st.Mouth != null ? st.Mouth : st.Mouth = MouthOf(p), p.IsOwner);
+                    if (st.Loops != null)
+                    {
+                        if (jump) { st.Loops.Accent(target); st.NextAccent = now + 8f; }
+                        st.Loops.Tick(hider && near ? st.Stress : 0f, dt);
+                        if (p.IsOwner) LastBreathVolume = st.Loops.Level;
+                    }
+                }
+                if (!hider) continue;
                 if (st.Stress < 0.03f) { st.NextBreath = Mathf.Max(st.NextBreath, now); continue; }
 
-                if (p.IsOwner)
+                if (BreathLoops.Available)
+                {
+                    if (p.IsOwner) Heart(st, now);
+                }
+                else if (p.IsOwner)
                 {
                     Heart(st, now);
                     Breathe(p, st, now, true);
@@ -87,7 +111,12 @@ namespace HideAndSeek.Game
             // forget players that left
             _gone.Clear();
             foreach (var kv in _states) if (kv.Key == null) _gone.Add(kv.Key);
-            foreach (var g in _gone) _states.Remove(g);
+            foreach (var g in _gone)
+            {
+                var loops = _states[g].Loops;
+                if (loops != null) Destroy(loops.gameObject); // the local one hangs under this object
+                _states.Remove(g);
+            }
         }
 
         /// <summary>0 at <see cref="StartDistance"/> m or more, 1 at <see cref="MaxDistance"/> m; only on the same floor.</summary>

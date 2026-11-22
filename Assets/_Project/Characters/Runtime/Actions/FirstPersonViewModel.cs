@@ -94,6 +94,8 @@ namespace HideAndSeek.Characters
             rightT = default;
             propRot = Quaternion.identity;
             float t = holdTime;
+            toyHands = false;
+            if (FlashTakeHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (VendingHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (overrideOn && rig != null)
             {
@@ -212,7 +214,8 @@ namespace HideAndSeek.Characters
                 SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -0.4f, -0.5f));
                 return true;
             }
-            return MedkitHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft);
+            if (MedkitHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            return ToyGunHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft);
         }
 
         /// <summary>Rotation from the body frame (camera yaw only, level) to rig space (camera space).</summary>
@@ -649,6 +652,8 @@ namespace HideAndSeek.Characters
             var brickProp = props[(int)HeldItem.Brick];
             if (brickProp != null && show == HeldItem.Brick) brickProp.SetTint(brickTint);
             UpdateVendingProp(show);
+            UpdateFlashLamp();
+            UpdateToyGunFp(dt);
             var sawProp = props[(int)HeldItem.Chainsaw];
             if (sawProp != null && show == HeldItem.Chainsaw)
             {

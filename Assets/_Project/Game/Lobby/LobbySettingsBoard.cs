@@ -37,8 +37,8 @@ namespace HideAndSeek.Game
         private Image _chipSound, _chipMap;
         private Text _chipSoundT, _chipMapT;
         private Image[] _medIcons = new Image[10], _syrIcons = new Image[6];
-        private Image _glockPill;
-        private Text _glockPillT;
+        private Image _glockPill, _takePill;
+        private Text _glockPillT, _takePillT;
         private Image[] _pChip = new Image[MaxChips], _pDot = new Image[MaxChips];
         private Text[] _pName = new Text[MaxChips], _pState = new Text[MaxChips];
         private Text _more;
@@ -117,6 +117,7 @@ namespace HideAndSeek.Game
             _chipSound = Chip(TileRt(2), 26, chipY, 150, out _chipSoundT, "DŹWIĘK");
             _chipMap = Chip(TileRt(2), 190, chipY, 130, out _chipMapT, "MAPA");
             _glockPill = Chip(TileRt(3), 26, chipY, 140, out _glockPillT, "");
+            _takePill = Chip(TileRt(3), 180, chipY, 200, out _takePillT, ""); // seeker takes the hiders' items
             for (int i = 0; i < _medIcons.Length; i++)
             {
                 _medIcons[i] = UiKit.Image("Med" + i, TileRt(4), MedRed).Rounded(true);
@@ -233,6 +234,7 @@ namespace HideAndSeek.Game
             Set(3, s.Glock ? "TAK" : "NIE", s.Glock ? "szukający, ostatnie 2 min" : "tylko nóż i piła", 0f);
             _value[3].color = s.Glock ? UiKit.Accent : MedRed;
             SetChip(_glockPill, _glockPillT, s.Glock, s.Glock ? "WŁĄCZONY" : "WYŁĄCZONY");
+            SetChip(_takePill, _takePillT, s.SeekerTakesItems, s.SeekerTakesItems ? "ZABIERA RZECZY" : "NIE ZABIERA");
             Set(4, s.Medkits.ToString(), "na mapie", 0f);
             for (int i = 0; i < _medIcons.Length; i++) _medIcons[i].enabled = i < s.Medkits;
             foreach (var t in _medIcons) t.GetComponentInChildren<Text>().enabled = t.enabled;

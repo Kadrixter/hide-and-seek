@@ -6,17 +6,23 @@ namespace HideAndSeek.Game
     /// <summary>
     /// Blocky flashlight strapped to the right shoulder (Dying Light style). The real spot light is positioned
     /// at the same place relative to the camera (see Flashlight.HoldOffset); this is the visible model, whose
-    /// lens glows while the light is on.
+    /// lens glows while the light is on. In the lobby the lamp can be hidden (still in the box) or carried in the
+    /// left hand while it is taken out of / put back into the box (<see cref="SetCarry"/>).
     /// </summary>
+    [DefaultExecutionOrder(150)] // after BlockyCharacterAnimator (100): the hand bones are posed for this frame
     public class ShoulderLamp : MonoBehaviour
     {
         /// <summary>Flashlight offset from the eye that matches the model on the shoulder.</summary>
-        public static readonly Vector3 EyeOffset = new Vector3(0.13f, -0.38f, 0.17f);
+        public static readonly Vector3 EyeOffset = FlashTakeTimeline.LampEyeOffset;
 
         private Renderer _lens;
+        private Renderer[] _renderers;
         private MaterialPropertyBlock _mpb;
-        private bool _on;
-        private static Material _body, _lensMat, _strap;
+        private bool _on, _visible = true;
+        private Transform _torso, _hand;
+        private Vector3 _restPos;
+        private Quaternion _restRot;
+        private float _toShoulder = 1f;
 
         public static ShoulderLamp Attach(BlockyCharacter character)
         {
@@ -24,49 +30,19 @@ namespace HideAndSeek.Game
             var root = new GameObject("ShoulderLamp").transform;
             root.SetParent(character.Torso, false);
             // Torso pivot is at the hips; the box is x +-4 px, y 0..12 px, z +-2 px (+z = front, +x = right).
-            const float px = BlockyMeshBuilder.Px;
-            root.localPosition = new Vector3(2.4f * px, 10.2f * px, 2f * px + 0.03f);
+            root.localPosition = FlashTakeTimeline.LampTorsoLocal;
             root.localRotation = Quaternion.identity;
             var lamp = root.gameObject.AddComponent<ShoulderLamp>();
-            lamp.Build(root);
+            lamp._torso = character.Torso;
+            lamp._restPos = root.localPosition;
+            lamp._restRot = root.localRotation;
+            lamp._lens = LampModel.Build(root, true, character.gameObject.layer);
+            lamp._renderers = root.GetComponentsInChildren<Renderer>(true);
+            lamp._mpb = new MaterialPropertyBlock();
+            lamp.SetOn(false);
             root.gameObject.layer = character.gameObject.layer;
             foreach (Transform t in root) t.gameObject.layer = character.gameObject.layer;
             return lamp;
-        }
-
-        private void Build(Transform root)
-        {
-            if (_body == null)
-            {
-                _body = new Material(Shader.Find("Standard")) { color = new Color(0.13f, 0.13f, 0.14f) };
-                _body.SetFloat("_Metallic", 0.6f);
-                _body.SetFloat("_Glossiness", 0.45f);
-                _lensMat = new Material(Shader.Find("Standard")) { color = new Color(0.85f, 0.85f, 0.8f) };
-                _lensMat.EnableKeyword("_EMISSION");
-                _strap = new Material(Shader.Find("Standard")) { color = new Color(0.05f, 0.05f, 0.05f) };
-            }
-            Part(root, "Body", new Vector3(0f, 0f, 0.02f), new Vector3(0.06f, 0.07f, 0.11f), _body);
-            Part(root, "Head", new Vector3(0f, 0f, 0.085f), new Vector3(0.08f, 0.09f, 0.03f), _body);
-            _lens = Part(root, "Lens", new Vector3(0f, 0f, 0.102f), new Vector3(0.06f, 0.07f, 0.006f), _lensMat);
-            Part(root, "Clip", new Vector3(0f, 0.045f, 0f), new Vector3(0.03f, 0.02f, 0.08f), _strap);
-            // Strap over the shoulder to the back.
-            Part(root, "StrapTop", new Vector3(0f, 0.11f, -0.11f), new Vector3(0.035f, 0.012f, 0.27f), _strap);
-            Part(root, "StrapFront", new Vector3(0f, 0.06f, -0.0f), new Vector3(0.035f, 0.1f, 0.012f), _strap);
-            _mpb = new MaterialPropertyBlock();
-            SetOn(false);
-        }
-
-        private static Renderer Part(Transform parent, string name, Vector3 pos, Vector3 size, Material m)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = name;
-            Destroy(go.GetComponent<Collider>());
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = pos;
-            go.transform.localScale = size;
-            var r = go.GetComponent<MeshRenderer>();
-            r.sharedMaterial = m;
-            return r;
         }
 
         public void SetOn(bool on)
@@ -83,6 +59,39 @@ namespace HideAndSeek.Game
         {
             foreach (var r in GetComponentsInChildren<Renderer>(true))
                 r.shadowCastingMode = fp ? UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly : UnityEngine.Rendering.ShadowCastingMode.On;
+        }
+
+        /// <summary>Shows / hides the whole lamp with its strap (lobby: still in the box).</summary>
+        public void SetVisible(bool visible)
+        {
+            if (_visible == visible || _renderers == null) return;
+            _visible = visible;
+            foreach (var r in _renderers) if (r != null) r.enabled = visible;
+        }
+
+        /// <summary>
+        /// Carried in the fist of <paramref name="elbow"/> (the left forearm), <paramref name="toShoulder"/> 0..1 slides
+        /// it onto its place on the shoulder; elbow null = back on the shoulder.
+        /// </summary>
+        public void SetCarry(Transform elbow, float toShoulder)
+        {
+            if (elbow == null && _hand != null)
+            {
+                transform.localPosition = _restPos;
+                transform.localRotation = _restRot;
+            }
+            _hand = elbow;
+            _toShoulder = toShoulder;
+        }
+
+        private void LateUpdate()
+        {
+            if (_hand == null || _torso == null) return;
+            Vector3 hp = _hand.TransformPoint(FlashTakeTimeline.LampInHandLocal);
+            Quaternion hr = _hand.rotation * FlashTakeTimeline.LampInHandRot;
+            Vector3 sp = _torso.TransformPoint(_restPos);
+            Quaternion sr = _torso.rotation * _restRot;
+            transform.SetPositionAndRotation(Vector3.Lerp(hp, sp, _toShoulder), Quaternion.Slerp(hr, sr, _toShoulder));
         }
     }
 }

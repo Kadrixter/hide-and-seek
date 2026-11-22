@@ -37,6 +37,8 @@ namespace HideAndSeek.Game.Net
         Vending,        // E on the lobby vending machine keypad
         RodPickup,      // E on a metal rod leaning on a rack / fence (hiders)
         DropPickup,     // E on an item somebody dropped (Q)
+        FlashBox,       // E on the lobby flashlight box (take = ready / put back)
+        ToyGunPickup,   // E on a toy slime blaster lying on the map (hiders)
     }
 
     /// <summary>
@@ -211,13 +213,7 @@ namespace HideAndSeek.Game.Net
 
             _ignoreEThisFrame = false;
 
-            // ---- R = ready / not ready in the lobby (the room owner starts with the lever)
-            var kbr = Keyboard.current;
-            if (phase == MatchPhase.Lobby && kbr != null && !MenuOpen && kbr.rKey.wasPressedThisFrame && !NetworkManager.Singleton.IsServer)
-            {
-                _p.SetReadyRpc(!_p.Ready.Value);
-                GameAudio.Play2D(GameSfx.UiClick, 0.8f);
-            }
+            // ---- ready in the lobby = flashlight taken from the box (FlashlightBox, E); R no longer toggles it
 
             // ---- input locks
             bool dead = _p.Life.Value == LifeState.Dead;
@@ -279,7 +275,7 @@ namespace HideAndSeek.Game.Net
             if (_p.Flashlight != null)
             {
                 bool glockOut = _p.Held.Value == HeldItem.Glock;
-                _p.Flashlight.ListenToInput = !glockOut && !locked && _p.Life.Value != LifeState.Downed && !rc;
+                _p.Flashlight.ListenToInput = !glockOut && !locked && _p.Life.Value != LifeState.Downed && !rc && _p.HasFlashlight;
                 if (dead && _p.Flashlight.IsOn) _p.Flashlight.SetOn(false, false);
             }
 
@@ -297,7 +293,7 @@ namespace HideAndSeek.Game.Net
                 return;
             }
 
-            if (ForceFlashlight && _p.Flashlight != null && !_p.Flashlight.IsOn && _p.Life.Value == LifeState.Alive) _p.Flashlight.SetOn(true, false);
+            if (ForceFlashlight && _p.Flashlight != null && !_p.Flashlight.IsOn && _p.Life.Value == LifeState.Alive && _p.HasFlashlight) _p.Flashlight.SetOn(true, false);
 
             // ---- lobby toy bricks: while building the mouse / E / 1-5 belong to the bricks.
             if (phase != MatchPhase.Lobby && LobbyBricks.Building) LobbyBricks.StopBuilding();
@@ -307,7 +303,11 @@ namespace HideAndSeek.Game.Net
             if (UpdateRc(kb, phase)) { CancelHold(); return; }
 
             // ---- T toggles the flashlight always (LMB is the gun while the Glock is out)
-            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.Life.Value != LifeState.Downed) _p.Flashlight.Toggle();
+            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.Life.Value != LifeState.Downed)
+            {
+                if (_p.HasFlashlight) _p.Flashlight.Toggle();
+                else if (phase == MatchPhase.Lobby) GameHud.Toast("Nie masz latarki. Weź ją z pudełka przy lustrze (E).", 2.5f);
+            }
 
             // ---- seeker: flashlight focus with the mouse wheel
             if (_p.IsSeeker && _p.Flashlight != null)
@@ -741,10 +741,21 @@ namespace HideAndSeek.Game.Net
                 }
             }
 
+            if (phase == MatchPhase.Lobby && _p.Seat.Value < 0 && FlashlightBox.TryPrompt(_p, eye, fwd, out var fbPos, out var fbText, out float fbD))
+                Offer(PromptKind.FlashBox, fbPos, fbText, fbD);
+
+            // Toy slime blasters (hiders): MatchManager.ToyGuns.
+            if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && _p.IsAliveHider && MatchManager.Instance != null &&
+                MatchManager.Instance.TryToyGunPrompt(eye, fwd, _p, out int toyId, out var toyPos, out string toyText, out float toyD) && toyD < best)
+            {
+                _toyGunId = toyId;
+                Offer(PromptKind.ToyGunPickup, toyPos, toyText, toyD);
+            }
+
             if (phase == MatchPhase.Lobby && _p.Seat.Value < 0)
             {
                 var button = LobbyButton.Instance;
-                if (button != null)
+                if (button != null && !button.Pulling)
                 {
                     Vector3 bp = button.AimPoint;
                     float d = Vector3.Distance(eye, bp);
@@ -793,6 +804,7 @@ namespace HideAndSeek.Game.Net
         private bool _wasArcade;
         private int _syringeId;
         private int _rodId;
+        private int _toyGunId;
         private bool _ignoreEThisFrame;
         private int _elevCar, _elevFloor;
         private Vector3 _standPos;
@@ -925,6 +937,12 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.RodPickup:
                     if (kb.eKey.wasPressedThisFrame) _p.RequestPickupRodRpc(_rodId);
+                    break;
+                case PromptKind.ToyGunPickup:
+                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupToyGunRpc(_toyGunId);
+                    break;
+                case PromptKind.FlashBox:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestFlashBoxRpc(!_p.Ready.Value);
                     break;
                 case PromptKind.ChainsawPickup:
                     if (kb.eKey.wasPressedThisFrame) _p.RequestPickupChainsawRpc();

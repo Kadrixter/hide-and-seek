@@ -146,7 +146,8 @@ namespace HideAndSeek.Game
                 bool has = item != HotbarItem.None;
                 _icon[i].sprite = has ? HotbarIcons.Get(item) : null;
                 _icon[i].enabled = has;
-                _count[i].text = n > 1 ? "x" + n : "";
+                var def = has ? ItemDefs.Get(item) : null;
+                _count[i].text = def?.Badge != null ? def.Badge(me) : n > 1 ? "x" + n : "";
                 _bg[i].color = selected ? new Color(0.2f, 0.215f, 0.24f, 0.95f) : has ? new Color(0.11f, 0.12f, 0.135f, 0.85f) : new Color(0.07f, 0.075f, 0.085f, 0.62f);
                 _ring[i].color = has ? new Color(1f, 1f, 1f, 0.16f) : UiStyle.Border;
                 _key[i].color = selected ? Color.white : has ? UiKit.TextDim : new Color(0.6f, 0.62f, 0.66f, 0.55f);

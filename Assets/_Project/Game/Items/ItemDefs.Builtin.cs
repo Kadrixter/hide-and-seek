@@ -105,13 +105,31 @@ namespace HideAndSeek.Game
                 Use = UseRod,
                 Model = r => RodModel.CreateLoose(r, 0).Root.gameObject,
             };
-            // Placeholders: wired up when the toy gun / phone branches are merged (Count / Give / Take on their state).
+            // Toy slime blaster (NetPlayer.ToyGun): the selected slot = in the hands (ToyGunControl.Out), the shots left
+            // travel with a dropped one (Extra).
             yield return new ItemDef
             {
                 Item = HotbarItem.ToyGun, Name = "Pistolecik z glutem", Users = ItemUsers.Hider,
-                DropSfx = GameSfx.RcPlace, Glow = new Color(0.5f, 1f, 0.4f, 0.45f),
-                Model = r => Placeholder(r, new Vector3(0.2f, 0.12f, 0.05f), new Color(0.35f, 0.85f, 0.3f)),
+                DropSfx = GameSfx.RcPlace, DropVolume = 0.85f, Glow = new Color(0.45f, 1f, 0.35f, 0.55f),
+                Count = p => p.HasToyGun ? 1 : 0,
+                Badge = p => p.ToyAmmo.Value.ToString(),
+                Give = (p, extra) => { p.ToyAmmo.Value = (byte)Mathf.Clamp(extra, 1, ToyTuning.Shots); return true; },
+                Take = (NetPlayer p, out byte extra) =>
+                {
+                    extra = p.ToyAmmo.Value;
+                    if (extra == 0) return false;
+                    p.ToyAmmo.Value = 0;
+                    return true;
+                },
+                Hint = p => $"LPM - strzał glutem ({p.ToyAmmo.Value}/{ToyTuning.Shots})",
+                Use = (p, click, hold) => { if (click) ToyGunControl.Use(p); },
+                Model = r =>
+                {
+                    var parts = ToyGunModel.Create(r, 0, true);
+                    return parts.Root.gameObject;
+                },
             };
+            // Placeholder: wired up when the phone branch is merged (Count / Give / Take on its state).
             yield return new ItemDef
             {
                 Item = HotbarItem.Phone, Name = "Telefon", Users = ItemUsers.Hider,

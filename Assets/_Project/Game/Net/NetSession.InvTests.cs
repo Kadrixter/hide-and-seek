@@ -77,7 +77,11 @@ namespace HideAndSeek.Game.Net
             InvLog(me, "start (hider)");
             var ns = mm.Settings.Value;
             ns.HintMode = 0; // only the test's own pings on the seeker's minimap
+            Debug.Log($"[InvTest] option off (default {NetSettings.Default.SeekerTakesItems}): seeker may take a medkit={Inventory.CanPickUp(seeker, HotbarItem.Medkit, MatchPhase.Seeking)}, his saw={Inventory.CanPickUp(seeker, HotbarItem.Chainsaw, MatchPhase.Seeking)}");
+            ns.SeekerTakesItems = true; // the seeker part takes a map medkit away
             mm.Settings.Value = ns;
+            yield return null;
+            Debug.Log($"[InvTest] option on: seeker may take a medkit={Inventory.CanPickUp(seeker, HotbarItem.Medkit, MatchPhase.Seeking)}");
             Shot(dir, "h01_empty");
 
             if (mm.Medkits.Count > 0)
@@ -152,6 +156,26 @@ namespace HideAndSeek.Game.Net
                 InvLog(me, $"rc taken back (slotOf {mm.RcSlotOf(me)}, mode {mm.RcSlot(0).Mode})");
             }
             else Debug.Log("[InvTest] FAIL: no rc drop");
+
+            // Toy gun: Q keeps the shots left, E takes it back with them.
+            me.ToyAmmo.Value = 5;
+            yield return new WaitForSeconds(0.4f);
+            Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.ToyGun);
+            yield return new WaitForSeconds(0.4f);
+            Debug.Log($"[InvTest] toy gun in slot {Hotbar.SlotOf(me, HotbarItem.ToyGun) + 1}: out={ToyGunControl.Out} netOut={me.ToyGunOut.Value}");
+            Shot(dir, "h08_toygun_slot");
+            Hotbar.TestDrop = true;
+            yield return new WaitForSeconds(2.6f);
+            if (FindDrop(HotbarItem.ToyGun, out var td))
+            {
+                Debug.Log($"[InvTest] toy gun dropped: shots kept {td.Extra}, settled={td.Settled}, out={ToyGunControl.Out}");
+                SafeLitShot(dir, "h09_toygun_floor", mm.DropPosition(td) + new Vector3(0.7f, 0.6f, -0.7f), mm.DropPosition(td));
+                yield return LookAt(me, mm.DropPosition(td), me.transform.position);
+                me.RequestPickupDropRpc(td.Id);
+                yield return new WaitForSeconds(0.7f);
+                InvLog(me, $"toy gun taken back (shots {me.ToyAmmo.Value})");
+            }
+            else Debug.Log("[InvTest] FAIL: no toy gun drop");
 
             // The seeker's chainsaw on the floor: no prompt for a hider, the server refuses.
             float end = Time.time + 40f;
