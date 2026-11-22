@@ -146,7 +146,13 @@ namespace HideAndSeek.Game.Editor
             PlayerSettings.SplashScreen.showUnityLogo = false;
             PlayerSettings.visibleInBackground = true;
             PlayerSettings.resizableWindow = true;
+            // First start: native monitor resolution, borderless full screen. At runtime DisplayDefaults re-applies it
+            // (or the player's saved choice) on every start, since Unity restores the last size from the registry.
             PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
+            PlayerSettings.defaultIsNativeResolution = true;
+            PlayerSettings.defaultScreenWidth = 1920;
+            PlayerSettings.defaultScreenHeight = 1080;
+            PlayerSettings.allowFullscreenSwitch = true;
             PlayerSettings.forceSingleInstance = false;
             // D3D12 crashed ("Unrecoverable GPU device error") with several copies running; D3D11 is the safe choice here.
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);

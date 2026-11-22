@@ -202,6 +202,7 @@ namespace HideAndSeek.Game.UI
             UiKit.Label("T", page, "USTAWIENIA", 36, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(46);
             SettingsUi.SensitivitySlider(page);
             SettingsUi.DisplayModeButton(page);
+            SettingsUi.ResolutionButton(page);
             SettingsUi.CrouchModeButton(page);
             SettingsUi.DiscordSwitch(page);
             UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 28).Height(60);

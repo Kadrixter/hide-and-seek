@@ -21,6 +21,20 @@ namespace HideAndSeek.Game.UI
             return rt;
         }
 
+        /// <summary>Resolution picker: "natywna (WxH)" (default) or one of the monitor's modes (<see cref="DisplayDefaults"/>).</summary>
+        public static RectTransform ResolutionButton(Transform parent)
+        {
+            var rt = UiStyle.Choice("Resolution", parent, "Rozdzielczość", () => DisplayDefaults.Label(DisplayDefaults.Chosen), step =>
+            {
+                var opts = DisplayDefaults.Options();
+                int i = Array.IndexOf(opts, DisplayDefaults.Chosen);
+                if (i < 0) i = 0;
+                DisplayDefaults.Chosen = opts[(i + step + opts.Length * 2) % opts.Length];
+            }, 22);
+            rt.Height(58);
+            return rt;
+        }
+
         /// <summary>Crouch key mode switch (on = press to toggle, off = hold).</summary>
         public static RectTransform CrouchModeButton(Transform parent, Action<bool> extra = null)
         {

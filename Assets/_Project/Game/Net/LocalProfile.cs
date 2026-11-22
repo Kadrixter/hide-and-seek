@@ -80,21 +80,8 @@ namespace HideAndSeek.Game.Net
             }
         }
 
-        public static void ApplyDisplay()
-        {
-            var mode = DisplayMode;
-            if (mode == FullScreenMode.Windowed)
-            {
-                var r = Screen.currentResolution;
-                int w = Mathf.Min(1600, r.width - 160), h = Mathf.Min(900, r.height - 160);
-                Screen.SetResolution(Mathf.Max(800, w), Mathf.Max(450, h), FullScreenMode.Windowed);
-            }
-            else
-            {
-                var r = Screen.currentResolution;
-                Screen.SetResolution(r.width, r.height, mode);
-            }
-        }
+        /// <summary>Mode + resolution from the settings (default: native, borderless) - see <see cref="UI.DisplayDefaults"/>.</summary>
+        public static void ApplyDisplay() => UI.DisplayDefaults.Apply();
 
         // ---------------------------------------------------------------- audio
 

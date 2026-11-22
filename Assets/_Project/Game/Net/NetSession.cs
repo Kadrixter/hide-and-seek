@@ -57,7 +57,6 @@ namespace HideAndSeek.Game.Net
             _stateSince = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             SteamService.JoinRequested += OnSteamJoinRequested;
             LocalProfile.ApplyAudio();
-            if (Prefs.HasKey("hns.display")) LocalProfile.ApplyDisplay();
             Application.runInBackground = true;
         }
 
