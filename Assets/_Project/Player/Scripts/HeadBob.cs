@@ -63,6 +63,26 @@ namespace HideAndSeek.Player
         private bool _lagInit;
         public float EyeOverride { get; set; }
         public float EyeOverrideWeight { get; set; }
+        /// <summary>
+        /// Seated: the eyes of the seated model (world space, written after the character is posed), so everything
+        /// that follows the camera earlier in the frame (flashlight) is already at the right spot.
+        /// </summary>
+        public Vector3 EyeAnchorWorld { get; set; }
+        public float EyeAnchorWeight { get; set; }
+
+        private Quaternion _turnFrom = Quaternion.identity;
+        private float _turnT = 1f, _turnTime = 0.5f;
+
+        /// <summary>
+        /// The view turns smoothly from <paramref name="worldRotation"/> to the regular look over <paramref name="duration"/>
+        /// seconds (sitting down: the player is turned to face away from the seat).
+        /// </summary>
+        public void BeginTurnFrom(Quaternion worldRotation, float duration)
+        {
+            _turnFrom = worldRotation;
+            _turnTime = Mathf.Max(0.05f, duration);
+            _turnT = 0f;
+        }
 
         private HeadBobProfile P
         {
@@ -242,9 +262,21 @@ namespace HideAndSeek.Player
             Vector3 offset = bobPos + breathPos + drunkPos + new Vector3(0f, landY, 0f);
             CurrentOffset = offset;
             float eye = Mathf.Lerp(motor.EyeHeight, EyeOverride, EyeOverrideWeight);
-            transform.localPosition = new Vector3(0f, eye, 0f) + offset + ExtraPosition;
+            Vector3 pos = new Vector3(0f, eye, 0f) + offset + ExtraPosition;
+            if (EyeAnchorWeight > 0f)
+            {
+                Vector3 anchor = transform.parent != null ? transform.parent.InverseTransformPoint(EyeAnchorWorld) : EyeAnchorWorld;
+                pos = Vector3.Lerp(pos, anchor + offset, EyeAnchorWeight);
+            }
+            transform.localPosition = pos;
             transform.localRotation = Quaternion.Euler(0f, YawOffset + drunkYaw, 0f) * Quaternion.Euler(-motor.LookPitch + bobPitch + landPitch + breathPitch + drunkPitch, 0f,
                 bobRoll + breathRoll + _strafeRoll + drunkRoll) * Quaternion.Euler(ExtraEuler + KickEuler);
+            if (_turnT < 1f)
+            {
+                _turnT = Mathf.Min(1f, _turnT + dt / _turnTime);
+                float s = _turnT * _turnT * (3f - 2f * _turnT);
+                transform.rotation = Quaternion.Slerp(_turnFrom, transform.rotation, s);
+            }
 
             // ---------------------------------------------------------- FOV kick
             if (targetCamera != null)

@@ -164,8 +164,8 @@ namespace HideAndSeek.Game.Net
             FlashOn.OnValueChanged += (_, v) => { if (!IsOwner && Flashlight != null) Flashlight.SetOn(v, true); };
             FlashFocus.OnValueChanged += (_, v) => { if (!IsOwner && Flashlight != null) Flashlight.SetFocus(v / 255f); };
             Reviving.OnValueChanged += (_, v) => ApplyReviving(v);
-            Seat.OnValueChanged += (_, v) => ApplySeat(v);
-            ApplySeat(Seat.Value);
+            Seat.OnValueChanged += (_, v) => ApplySeat(v, true);
+            ApplySeat(Seat.Value, false);
             Severed.OnValueChanged += (_, v) => ApplySevered(v, true);
             ApplySevered(Severed.Value, false);
 
@@ -304,6 +304,7 @@ namespace HideAndSeek.Game.Net
             if (Flashlight != null) Flashlight.Toggled += on => FlashOn.Value = on;
             ViewModel = ViewModelBridge.Create(Camera != null ? Camera.transform : transform, SkinVar.Value, Nick);
             gameObject.AddComponent<LocalPlayerController>();
+            _seatView = gameObject.AddComponent<SeatedView>();
             if (Camera != null) Camera.tag = "MainCamera";
         }
 
@@ -367,7 +368,7 @@ namespace HideAndSeek.Game.Net
             {
                 bool healing = HoldAnimVar.Value == (byte)HoldAnim.SelfHeal && Life.Value == LifeState.Downed;
                 bool vm = (Life.Value == LifeState.Alive && prone < 0.4f || healing) && !KillCam.Active && !_shockHideVm
-                          && !_rcCamOn && !(RcAnimating && !_rcHandsOn);
+                          && !_rcCamOn && !(RcAnimating && !_rcHandsOn) && !SeatBodyShown;
                 if (vm != _vmVisible) { _vmVisible = vm; ViewModel?.SetVisible(vm); }
             }
 
@@ -389,10 +390,8 @@ namespace HideAndSeek.Game.Net
             {
                 if (life == LifeState.Downed && _heartbeat == null) _heartbeat = GameAudio.StartLoop(GameSfx.HeartbeatLoop, null, 0.9f);
                 if (life != LifeState.Downed && _heartbeat != null) { GameAudio.StopLoop(_heartbeat, 1f); _heartbeat = null; }
-                if (life == LifeState.Dead) Character.SetFirstPersonMode(false);
-                else Character.SetFirstPersonMode(true);
-                _shoulderLamp?.SetFirstPerson(life != LifeState.Dead);
-                _vmVisible = life == LifeState.Alive;
+                ApplyOwnBodyMode();
+                _vmVisible = life == LifeState.Alive && !SeatBodyShown;
                 ViewModel?.SetVisible(_vmVisible);
             }
             if (changed)
@@ -416,9 +415,29 @@ namespace HideAndSeek.Game.Net
             if (!on && _reviveLoop != null) { GameAudio.StopLoop(_reviveLoop); _reviveLoop = null; }
         }
 
-        private void ApplySeat(sbyte seat)
+        private void ApplySeat(sbyte seat, bool changed)
         {
-            (Actions as BlockyCharacterActions)?.SetSitting(seat >= 0);
+            if (Actions is BlockyCharacterActions act)
+            {
+                if (seat >= 0)
+                {
+                    // The seated body is anchored to the seat; sitting down blends from where the player stood.
+                    var s = LobbySeat.Get(seat);
+                    act.SetSitSeat(s != null ? s.transform : null, s != null ? s.Shape : null);
+                    if (changed && Character != null)
+                    {
+                        bool prepared = Time.frameCount - _sitFromFrame <= 2;
+                        Vector3 from = prepared ? _sitFromPos : Character.transform.position;
+                        Quaternion fromRot = prepared ? _sitFromRot : Character.transform.rotation;
+                        if (s == null || (from - s.transform.position).sqrMagnitude < 3.5f * 3.5f)
+                        {
+                            act.BeginSitFrom(from, fromRot);
+                            if (IsOwner && prepared && Camera != null) _seatView?.BeginTurn(_sitCamRot, _sitCamPos, act.SitInTime);
+                        }
+                    }
+                }
+                act.SetSitting(seat >= 0);
+            }
             if (IsOwner) Motor.Seated = seat >= 0;
         }
 
@@ -1239,8 +1258,23 @@ namespace HideAndSeek.Game.Net
         public void SetCinematicBody(bool thirdPerson)
         {
             if (!IsOwner || Character == null) return;
-            bool fp = !thirdPerson && Life.Value != LifeState.Dead;
+            _cinematicBody = thirdPerson;
+            ApplyOwnBodyMode();
+        }
+
+        private bool _cinematicBody;
+
+        /// <summary>
+        /// Own body render mode: first person = shadows only; dead / cinematic camera = everything; seated in the
+        /// lobby (<see cref="SeatBodyShown"/>) = the body is drawn, only the head (camera inside it) stays hidden.
+        /// </summary>
+        private void ApplyOwnBodyMode()
+        {
+            if (!IsOwner || Character == null) return;
+            bool showAll = _cinematicBody || Life.Value == LifeState.Dead;
+            bool fp = !showAll && !SeatBodyShown;
             Character.SetFirstPersonMode(fp);
+            Character.SetHeadHidden(!showAll && SeatBodyShown);
             _shoulderLamp?.SetFirstPerson(fp);
         }
 

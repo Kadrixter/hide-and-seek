@@ -3,6 +3,7 @@
     "rootNamespace": "HideAndSeek.Game.Editor",
     "references": [
         "HideAndSeek.Core",
+        "HideAndSeek.Characters",
         "HideAndSeek.Game",
         "HideAndSeek.Player",
         "HideAndSeek.Player.Surfaces",

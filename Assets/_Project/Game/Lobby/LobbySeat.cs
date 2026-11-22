@@ -1,11 +1,13 @@
 using System.Collections.Generic;
+using HideAndSeek.Characters;
 using UnityEngine;
 
 namespace HideAndSeek.Game
 {
     /// <summary>
     /// A place to sit in the lobby (sofa cushion, pouf). The transform sits on the floor in front of the seat,
-    /// facing away from it; the seated pose puts the pelvis ~0.12 m behind and 0.5 m above this point.
+    /// facing away from it; the seated poses (<see cref="SeatPoses"/>) are fitted to <see cref="Shape"/>, which is
+    /// recognised from the furniture the seat belongs to (no scene data needed).
     /// </summary>
     public class LobbySeat : MonoBehaviour
     {
@@ -19,6 +21,19 @@ namespace HideAndSeek.Game
         public Vector3 AimPoint => transform.position + Vector3.up * 0.45f - transform.forward * 0.15f;
 
         public static LobbySeat Get(int index) => index >= 0 && index < Seats.Count ? Seats[index] : null;
+
+        private SeatShape _shape;
+
+        /// <summary>The furniture under this seat in seat space (sofa cushion with backrest and armrest, or a pouf).</summary>
+        public SeatShape Shape => _shape ??= DetectShape();
+
+        private SeatShape DetectShape()
+        {
+            string parent = transform.parent != null ? transform.parent.name : "";
+            if (parent.StartsWith("Sofa")) return SeatShape.Sofa(transform.localPosition.x);
+            if (parent.StartsWith("Pouf")) return SeatShape.Pouf();
+            return SeatShape.Generic();
+        }
 
         private void OnEnable()
         {

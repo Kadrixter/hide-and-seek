@@ -850,6 +850,7 @@ namespace HideAndSeek.Game.Net
             }
             if (best == null) return;
             _standPos = transform.position;
+            _p.PrepareSit(); // the body walks into the seat from here, the view turns round smoothly
             var cc = GetComponent<CharacterController>();
             if (cc != null) cc.enabled = false; // must be off before we land inside the sofa collider
             _p.TeleportLocal(best.transform.position, best.transform.eulerAngles.y);
@@ -862,7 +863,8 @@ namespace HideAndSeek.Game.Net
             _p.Seat.Value = -1;
             if (seat != null)
             {
-                // Step forward off the seat so the capsule does not end up inside the furniture.
+                // Step forward off the seat so the capsule does not end up inside the furniture (the seated body is
+                // anchored to the seat, so it stands up from there and the camera follows its eyes: no jump).
                 Vector3 off = seat.transform.position + seat.transform.forward * 0.6f;
                 var cc = GetComponent<CharacterController>();
                 if (cc != null) cc.enabled = true;
