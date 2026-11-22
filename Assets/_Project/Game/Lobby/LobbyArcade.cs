@@ -1,119 +1,178 @@
-using System;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// Arcade cabinet screen: a tiny procedural "snake chases dots" attract mode drawn into a 64x48 texture
-    /// (point filtered, emissive), plus a pulsing glow light.
+    /// SNAKE arcade cabinet in the lobby: draws the screen (live game from <see cref="ArcadeState"/>, the same on every
+    /// peer, or the attract demo while nobody plays) into a 256x192 point-filtered texture at 30 fps, moves the joystick,
+    /// pulses the glow light and owns the "do not block the player" helpers (<see cref="ArcadeKeepOut"/>).
     /// </summary>
     public class LobbyArcade : MonoBehaviour
     {
         public Renderer screen;
         public Light glow;
 
-        private const int W = 64, H = 48;
+        public static LobbyArcade Instance { get; private set; }
+
         private Texture2D _tex;
-        private Color32[] _px;
-        private readonly Vector2Int[] _snake = new Vector2Int[18];
-        private int _len = 6;
-        private Vector2Int _dir = Vector2Int.right, _food;
-        private float _step;
+        private readonly SnakeScreen _screen = new();
+        private readonly SnakeAttract _attract = new();
+        private readonly SnakeView _live = new();
+        private float _redraw;
         private float _glowBase;
-        private System.Random _rnd = new System.Random(5);
-        private int _score;
+
+        private void Awake() => Instance = this;
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
 
         private void Start()
         {
-            _tex = new Texture2D(W, H, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp };
-            _px = new Color32[W * H];
+            _tex = new Texture2D(SnakeScreen.TexW, SnakeScreen.TexH, TextureFormat.RGBA32, false)
+                { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, name = "SnakeScreen" };
             if (screen != null)
             {
                 var m = screen.material;
                 m.mainTexture = _tex;
                 if (m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", _tex);
             }
-            for (int i = 0; i < _snake.Length; i++) _snake[i] = new Vector2Int(10 - i, 20);
-            _food = new Vector2Int(40, 30);
             if (glow != null) _glowBase = glow.intensity;
+            gameObject.AddComponent<ArcadeKeepOut>();
+            ArcadeArt.Apply(transform);
+            FindButtons();
         }
+
+        /// <summary>Somebody is at the cabinet and the server is still sending (stale after 3 s, e.g. host gone).</summary>
+        public static bool LiveGame => ArcadeState.Live && Time.time - ArcadeState.Updated < 3f;
+
+        private void Update()
+        {
+            bool live = LiveGame;
+            if (!live) _attract.Tick(Time.deltaTime);
+            SnakeSounds.Tick();
+            _redraw += Time.deltaTime;
+            if (_redraw >= 1f / 30f)
+            {
+                _redraw = 0f;
+                _screen.Draw(live ? FillLive() : AttractView(), Time.time);
+                _tex.SetPixels32(_screen.Pixels);
+                _tex.Apply(false);
+            }
+            UpdateStick(live);
+            UpdateButtons(live);
+            if (glow != null)
+            {
+                float pulse = 0.85f + 0.15f * Mathf.Sin(Time.time * 3.1f);
+                if (live && ArcadeState.State == ArcadeState.Over) pulse *= 0.8f + 0.2f * Mathf.Sin(Time.time * 12f);
+                glow.intensity = _glowBase * pulse;
+            }
+        }
+
+        private SnakeView AttractView()
+        {
+            _attract.View.Best = ArcadeState.Best;
+            _attract.View.StateAge = 0f;
+            return _attract.View;
+        }
+
+        private SnakeView FillLive()
+        {
+            var v = _live;
+            v.Body.Clear();
+            v.Body.AddRange(ArcadeState.Body);
+            v.Food = ArcadeState.Food;
+            v.HasBonus = ArcadeState.HasBonus;
+            v.Bonus = ArcadeState.Bonus;
+            v.BonusLeft = ArcadeState.BonusRemaining;
+            v.Score = ArcadeState.Score;
+            v.Best = ArcadeState.BestAtStart;
+            v.Level = ArcadeState.Level;
+            v.Dir = ArcadeState.Dir;
+            v.State = ArcadeState.State;
+            v.StateAge = Time.time - ArcadeState.StateSince;
+            v.NewRecord = ArcadeState.NewRecord;
+            v.Popups = ArcadeState.Popups;
+            // The head looks where the snake is heading (the joystick may already show a queued turn).
+            if (v.Body.Count > 1)
+            {
+                var d = v.Body[0] - v.Body[1];
+                v.Dir = d == Vector2Int.up ? 0 : d == Vector2Int.right ? 1 : d == Vector2Int.down ? 2 : 3;
+            }
+            return v;
+        }
+
+        // ================================================================ buttons
+
+        private struct Btn
+        {
+            public Transform Cap, Dome;
+            public Vector3 CapPos, DomePos;
+            public Material Mat;
+            public Color Emission;
+            public float Press;
+        }
+
+        private Btn[] _buttons = System.Array.Empty<Btn>();
+        private int _seenSerial, _eats;
+
+        private void FindButtons()
+        {
+            var list = new System.Collections.Generic.List<Btn>();
+            foreach (Transform t in transform)
+            {
+                if (t.name != "Button" && t.name != "StartButton") continue;
+                var cap = t.Find("Cap");
+                var dome = t.Find("Dome");
+                if (cap == null || dome == null) continue;
+                var r = cap.GetComponent<Renderer>();
+                var m = r != null ? r.material : null;
+                if (m != null) dome.GetComponent<Renderer>().sharedMaterial = m;
+                list.Add(new Btn
+                {
+                    Cap = cap, Dome = dome, CapPos = cap.localPosition, DomePos = dome.localPosition, Mat = m,
+                    Emission = m != null && m.HasProperty("_EmissionColor") ? m.GetColor("_EmissionColor") : Color.black,
+                });
+            }
+            _buttons = list.ToArray();
+        }
+
+        /// <summary>Buttons glow softly and are pressed in on game events (start, eating, bonus).</summary>
+        private void UpdateButtons(bool live)
+        {
+            if (_buttons.Length == 0) return;
+            if (live && ArcadeState.EventSerial != _seenSerial)
+            {
+                _seenSerial = ArcadeState.EventSerial;
+                byte e = ArcadeState.LastEvents;
+                if ((e & ArcadeState.EvStart) != 0 && _buttons.Length > 4) _buttons[4].Press = 1f;
+                if ((e & ArcadeState.EvEat) != 0) _buttons[_eats++ % Mathf.Min(4, _buttons.Length)].Press = 1f;
+                if ((e & (ArcadeState.EvBonusEat | ArcadeState.EvLevelUp)) != 0)
+                    for (int i = 0; i < Mathf.Min(4, _buttons.Length); i++) _buttons[i].Press = 1f;
+            }
+            for (int i = 0; i < _buttons.Length; i++)
+            {
+                ref var b = ref _buttons[i];
+                b.Press = Mathf.MoveTowards(b.Press, 0f, Time.deltaTime * 5f);
+                float down = Mathf.Clamp01(b.Press * 1.6f) * 0.006f;
+                b.Cap.localPosition = b.CapPos - Vector3.up * down;
+                b.Dome.localPosition = b.DomePos - Vector3.up * down;
+                if (b.Mat != null)
+                {
+                    float pulse = live ? 1f : 0.85f + 0.15f * Mathf.Sin(Time.time * 2f + i);
+                    b.Mat.SetColor("_EmissionColor", b.Emission * (pulse + 2.2f * b.Press));
+                }
+            }
+        }
+
+        // ================================================================ joystick
 
         private Transform _stick, _ball;
         private Vector3 _stickPos, _ballPos, _pivot;
         private Quaternion _stickRot;
-        private Vector2 _tilt;
-
-        private void Update()
-        {
-            bool live = ArcadeState.Live && Time.time - ArcadeState.Updated < 3f;
-            _step += Time.deltaTime;
-            if (_step >= (live ? 0.05f : 0.08f))
-            {
-                _step = 0f;
-                if (live) DrawLive();
-                else
-                {
-                    Advance();
-                    Draw();
-                }
-            }
-            UpdateStick(live);
-            if (glow != null) glow.intensity = _glowBase * (0.85f + 0.15f * Mathf.Sin(Time.time * 3.1f));
-        }
-
-        private void Advance()
-        {
-            var head = _snake[0];
-            // Simple AI: turn towards the food, sometimes wiggle.
-            Vector2Int want = _dir;
-            if (head.x != _food.x && (_rnd.Next(4) > 0 || head.y == _food.y)) want = new Vector2Int(Math.Sign(_food.x - head.x), 0);
-            else if (head.y != _food.y) want = new Vector2Int(0, Math.Sign(_food.y - head.y));
-            if (want + _dir != Vector2Int.zero) _dir = want;
-            for (int i = _snake.Length - 1; i > 0; i--) _snake[i] = _snake[i - 1];
-            var n = head + _dir;
-            n.x = (n.x + W) % W;
-            n.y = (n.y - 6 + (H - 8)) % (H - 8) + 6;
-            _snake[0] = n;
-            if (n == _food)
-            {
-                _score++;
-                _len = Mathf.Min(_snake.Length, _len + 2);
-                if (_len >= _snake.Length) _len = 6;
-                _food = new Vector2Int(_rnd.Next(4, W - 4), _rnd.Next(8, H - 4));
-            }
-        }
-
-        private void Draw()
-        {
-            var bg = new Color32(4, 6, 18, 255);
-            for (int i = 0; i < _px.Length; i++) _px[i] = bg;
-            // border + score bar
-            for (int x = 0; x < W; x++) { Set(x, 4, new Color32(40, 60, 160, 255)); Set(x, H - 1, new Color32(40, 60, 160, 255)); }
-            for (int i = 0; i < Mathf.Min(_score % 30, 30); i++) Set(2 + i * 2, 2, new Color32(255, 220, 60, 255));
-            // food blinks
-            if ((Time.frameCount / 8) % 2 == 0)
-            {
-                Set(_food.x, _food.y, new Color32(255, 60, 90, 255));
-                Set(_food.x + 1, _food.y, new Color32(255, 60, 90, 255));
-                Set(_food.x, _food.y + 1, new Color32(255, 60, 90, 255));
-                Set(_food.x + 1, _food.y + 1, new Color32(255, 60, 90, 255));
-            }
-            for (int i = 0; i < _len; i++)
-            {
-                byte g = (byte)(255 - i * 8);
-                Set(_snake[i].x, _snake[i].y, new Color32(40, g, 90, 255));
-            }
-            // scanlines
-            for (int y = 0; y < H; y += 2)
-            for (int x = 0; x < W; x++)
-            {
-                var c = _px[y * W + x];
-                _px[y * W + x] = new Color32((byte)(c.r * 0.75f), (byte)(c.g * 0.75f), (byte)(c.b * 0.75f), 255);
-            }
-            _tex.SetPixels32(_px);
-            _tex.Apply(false);
-        }
+        private Vector2 _tilt, _lastWant;
 
         /// <summary>Joystick follows the snake's direction while somebody plays.</summary>
         private void UpdateStick(bool live)
@@ -129,7 +188,7 @@ namespace HideAndSeek.Game
                 _pivot = _stickPos - Vector3.up * _stick.lossyScale.y;
             }
             Vector2 want = Vector2.zero;
-            if (live && !ArcadeState.Crashed)
+            if (live && ArcadeState.State == ArcadeState.Playing)
                 want = ArcadeState.Dir switch { 0 => Vector2.up, 1 => Vector2.right, 2 => Vector2.down, _ => Vector2.left };
             if (want != _lastWant && want != Vector2.zero) HideAndSeek.Audio.GameAudio.PlayAt(HideAndSeek.Audio.GameSfx.ArcadeStick, _ballPos, 0.7f);
             _lastWant = want;
@@ -137,66 +196,6 @@ namespace HideAndSeek.Game
             var rot = Quaternion.Euler(_tilt.y * 20f, 0f, -_tilt.x * 20f);
             _stick.SetPositionAndRotation(_pivot + rot * (_stickPos - _pivot), rot * _stickRot);
             _ball.position = _pivot + rot * (_ballPos - _pivot);
-        }
-
-        private Vector2 _lastWant;
-
-        private static readonly string[] Digits =
-        {
-            "111101101101111", "010110010010111", "111001111100111", "111001111001111", "101101111001001",
-            "111100111001111", "111100111101111", "111001010010010", "111101111101111", "111101111001111",
-        };
-
-        private void DrawNumber(int value, int x, int y, Color32 c)
-        {
-            string str = Mathf.Max(0, value).ToString();
-            for (int i = 0; i < str.Length; i++)
-            {
-                string g = Digits[str[i] - '0'];
-                for (int r = 0; r < 5; r++)
-                for (int col = 0; col < 3; col++)
-                    if (g[r * 3 + col] == '1') Set(x + i * 4 + col, y + 4 - r, c);
-            }
-        }
-
-        private void DrawLive()
-        {
-            var bg = new Color32(3, 5, 14, 255);
-            for (int i = 0; i < _px.Length; i++) _px[i] = bg;
-            var border = new Color32(40, 70, 190, 255);
-            for (int x = 0; x < W; x++) { Set(x, 5, border); Set(x, H - 1, border); }
-            for (int y = 5; y < H; y++) { Set(0, y, border); Set(W - 1, y, border); }
-            DrawNumber(ArcadeState.Score, 2, 0, new Color32(255, 220, 60, 255));
-            DrawNumber(ArcadeState.Best, W - 2 - 4 * Mathf.Max(1, ArcadeState.Best.ToString().Length), 0, new Color32(120, 200, 255, 255));
-            void Cell(Vector2Int c, Color32 col)
-            {
-                int px = c.x * 2, py = 6 + c.y * 2;
-                Set(px, py, col); Set(px + 1, py, col); Set(px, py + 1, col); Set(px + 1, py + 1, col);
-            }
-            if ((int)(Time.time * 4f) % 2 == 0 || ArcadeState.Crashed) Cell(ArcadeState.Food, new Color32(255, 60, 90, 255));
-            bool blink = ArcadeState.Crashed && (int)(Time.time * 6f) % 2 == 0;
-            var body = ArcadeState.Body;
-            for (int i = 0; i < body.Count; i++)
-            {
-                byte g = (byte)Mathf.Max(90, 255 - i * 5);
-                Color32 col = ArcadeState.Crashed ? (blink ? new Color32(255, 40, 40, 255) : new Color32(120, 20, 20, 255))
-                    : i == 0 ? new Color32(190, 255, 170, 255) : new Color32(40, g, 90, 255);
-                Cell(body[i], col);
-            }
-            for (int y = 0; y < H; y += 2)
-            for (int x = 0; x < W; x++)
-            {
-                var c = _px[y * W + x];
-                _px[y * W + x] = new Color32((byte)(c.r * 0.8f), (byte)(c.g * 0.8f), (byte)(c.b * 0.8f), 255);
-            }
-            _tex.SetPixels32(_px);
-            _tex.Apply(false);
-        }
-
-        private void Set(int x, int y, Color32 c)
-        {
-            if (x < 0 || y < 0 || x >= W || y >= H) return;
-            _px[y * W + x] = c;
         }
     }
 }

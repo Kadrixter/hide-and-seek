@@ -252,7 +252,7 @@ namespace HideAndSeek.Game.Net
             if (arcade)
             {
                 var kba = Keyboard.current;
-                if (!_wasArcade) _p.Motor.SetLook(0f, -24f);
+                if (!_wasArcade) _p.Motor.SetLook(0f, -26f); // eye -> centre of the arcade screen
                 if (kba != null && !MenuOpen)
                 {
                     if (kba.wKey.wasPressedThisFrame || kba.upArrowKey.wasPressedThisFrame) _p.ArcadeDirRpc(0);
