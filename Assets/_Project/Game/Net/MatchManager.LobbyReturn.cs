@@ -311,8 +311,7 @@ namespace HideAndSeek.Game.Net
                 for (int i = 0; i < perPlayer; i++)
                 {
                     Vector3 dir = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
-                    SpawnDrop(kinds[i % kinds.Length], 0, pl.transform.position + Vector3.up * 1.2f + dir * 0.4f,
-                        Quaternion.LookRotation(dir), dir * 2f + Vector3.up * 1.5f);
+                    ThrowDrop(pl, kinds[i % kinds.Length], 0, dir, 0.4f, 1.2f, 2f, 1.5f, Quaternion.LookRotation(dir));
                 }
             }
         }

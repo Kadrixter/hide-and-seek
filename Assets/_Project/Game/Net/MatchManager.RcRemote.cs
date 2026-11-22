@@ -137,8 +137,8 @@ namespace HideAndSeek.Game.Net
             var s = RcSlot(i);
             SetRc(i, RcMode.Parked, RcDropHolder, s.Pos, s.Yaw);
             Vector3 side = pl.transform.right;
-            SpawnDrop(HotbarItem.RcRemote, (byte)i, pl.transform.position + side * 0.4f + Vector3.up * 0.9f,
-                Quaternion.Euler(0f, pl.transform.eulerAngles.y + 90f, 0f), side * 0.8f + Vector3.up * 0.5f);
+            ThrowDrop(pl, HotbarItem.RcRemote, (byte)i, side, 0.4f, 0.9f, 0.8f, 0.5f,
+                Quaternion.Euler(0f, pl.transform.eulerAngles.y + 90f, 0f));
             Debug.Log($"[RcRemote] {pl.Nick}: transmitter of car {i} fell next to the body");
         }
 
@@ -183,7 +183,7 @@ namespace HideAndSeek.Game.Net
             Vector3 chest = pl.transform.position + Vector3.up * 0.9f;
             if (Physics.Raycast(chest, fwd, out var wall, 0.9f, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore) && !wall.transform.IsChildOf(pl.transform))
                 reach = Mathf.Clamp(wall.distance - 0.3f, 0.2f, reach);
-            Vector3 land = FloorUnder(pl.transform.position + fwd * reach + pl.transform.right * 0.1f);
+            Vector3 land = FloorUnder(pl.transform.position, pl.transform.position + fwd * reach + pl.transform.right * 0.1f);
             float yaw = pl.transform.eulerAngles.y + Random.Range(-50f, 50f);
             var st = RcSlot(i);
             st.Remote = RcRemoteFate.Thrown;
