@@ -417,7 +417,8 @@ namespace HideAndSeek.Game
             if (inGame && me.IsHider)
             {
                 if (me.Wounded.Value) st.Append("<color=#f66>Ranny</color> - kolejne złapanie = śmierć\n");
-                else if ((me.Severed.Value & Limb.Legs) != 0) st.Append("<color=#f66>Odcięta noga</color> - skaczesz powoli, kolejny atak piłą = śmierć\n");
+                else if ((me.Severed.Value & Limb.Legs) != 0) st.Append(me.FreeStump == 0 ? "<color=#ffb070>Noga z pręta</color> - kolejny atak piłą = śmierć\n"
+                    : "<color=#f66>Odcięta noga</color> - skaczesz powoli, kolejny atak piłą = śmierć\n" + (me.RodCount.Value > 0 ? "<color=#cfd8e0>Masz pręt: 4, potem LPM - zrób z niego nogę</color>\n" : ""));
                 else if (me.Limping.Value) st.Append("<color=#ffb070>Zraniony</color> - utykasz, kolejny atak = wykrwawianie\n");
                 if (phase == MatchPhase.Seeking && me.Life.Value == LifeState.Alive && mm != null)
                 {
