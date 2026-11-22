@@ -111,7 +111,7 @@ namespace HideAndSeek.Game
             if (transform.position.y < _start.y - 8f)
             {
                 // Fell through a gap in the map: put it on the floor under the start point.
-                pos = Physics.Raycast(_start + Vector3.up * 0.5f, Vector3.down, out var hit, 6f, ~0, QueryTriggerInteraction.Ignore)
+                pos = Physics.Raycast(_start + Vector3.up * 0.5f, Vector3.down, out var hit, 6f, ~HideAndSeek.Core.GameLayers.RagdollMask, QueryTriggerInteraction.Ignore)
                     ? hit.point + Vector3.up * (_col.size.y * 0.5f) : _start;
                 rot = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
                 return true;

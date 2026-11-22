@@ -16,8 +16,8 @@ namespace HideAndSeek.Game
         private static readonly Color Drop = new Color(0.5f, 0.02f, 0.025f, 1f);
         private static readonly Color DropDark = new Color(0.24f, 0.0f, 0.01f, 1f);
 
-        /// <summary>Layers blood may land on: no RC cars / ignore-raycast, local body, triggers layer 9.</summary>
-        public static readonly int SurfaceMask = ~((1 << 2) | (1 << PlayerAvatarBinder.LocalBodyLayer) | (1 << 9));
+        /// <summary>Layers blood may land on: no RC cars / ignore-raycast, local body, triggers layer 9, ragdolls of dead bodies.</summary>
+        public static readonly int SurfaceMask = ~((1 << 2) | (1 << PlayerAvatarBinder.LocalBodyLayer) | (1 << 9) | HideAndSeek.Core.GameLayers.RagdollMask);
 
         // ================================================================ public API
 

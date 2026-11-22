@@ -93,7 +93,7 @@ namespace HideAndSeek.Game
             // Keep the camera out of walls.
             Vector3 dir = desired - pivot;
             if (Physics.SphereCast(pivot, 0.2f, dir.normalized, out RaycastHit hit, dir.magnitude,
-                    ~0, QueryTriggerInteraction.Ignore) && !hit.transform.IsChildOf(transform))
+                    ~HideAndSeek.Core.GameLayers.RagdollMask, QueryTriggerInteraction.Ignore) && !hit.transform.IsChildOf(transform))
                 desired = pivot + dir.normalized * Mathf.Max(0.3f, hit.distance - 0.1f);
 
             Transform tp = _tpCamera.transform;

@@ -152,6 +152,22 @@ namespace HideAndSeek.Characters
         public void SetLifeState(LifeState state)
         {
             EnsureInit();
+            if (state != LifeState.Dead && IsRagdolled)
+            {
+                // Leaving death while lying as a ragdoll: the transition starts from where the body really lies.
+                bool early = lifeState != LifeState.Dead; // ragdoll from the end of a finisher, Dead never arrived
+                StopRagdoll();
+                if (early)
+                {
+                    lifeState = LifeState.Dead;
+                    action = ActionKind.None;
+                    knifeVictim = null;
+                    killer = null;
+                    pendingDowned = false;
+                    pathActive = false;
+                }
+            }
+            if (state == LifeState.Dead && lifeState != LifeState.Dead) deathTime = Time.time;
             LifeState shown = VisualLifeState;
             if (state == lifeState)
             {
@@ -210,6 +226,7 @@ namespace HideAndSeek.Characters
         public void PlayHitReaction()
         {
             EnsureInit();
+            if (JoltRagdoll()) return;
             hitVel += 16f;
             hitSide = Rand01() < 0.5f ? -1f : 1f;
         }
@@ -268,6 +285,12 @@ namespace HideAndSeek.Characters
         public void SetLifeStateImmediate(LifeState state)
         {
             EnsureInit();
+            if (state != LifeState.Dead && IsRagdolled) ragdoll.End();
+            if (state == LifeState.Dead && !IsRagdolled)
+            {
+                deathTime = Time.time;
+                snappedDead = true; // the pose jumps to the dead pose: the ragdoll starts at rest
+            }
             lifeState = state;
             pendingDowned = false;
             pathActive = false;
@@ -337,7 +360,7 @@ namespace HideAndSeek.Characters
         public void ApplyLayer(float dt)
         {
             EnsureInit();
-            if (!initialized || dt <= 0f) return;
+            if (!initialized || dt <= 0f || IsRagdolled) return;
             time += dt;
 
             ICharacterMotionSource source = animator != null ? animator.Source : null;
@@ -494,6 +517,7 @@ namespace HideAndSeek.Characters
             hasLast = true;
 
             UpdateProps(p, show);
+            UpdateRagdollStart();
         }
 
         HeldItem ResolveShownItem()

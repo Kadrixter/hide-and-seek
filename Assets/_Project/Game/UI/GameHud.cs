@@ -564,7 +564,7 @@ namespace HideAndSeek.Game
         private bool Blocked(Vector3 from, Vector3 to, Transform target, Transform self)
         {
             Vector3 d = to - from;
-            int n = Physics.RaycastNonAlloc(from, d.normalized, _tagHits, d.magnitude, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore);
+            int n = Physics.RaycastNonAlloc(from, d.normalized, _tagHits, d.magnitude, ~((1 << 8) | (1 << 9) | GameLayers.RagdollMask), QueryTriggerInteraction.Ignore);
             for (int i = 0; i < n; i++)
             {
                 var t = _tagHits[i].transform;

@@ -86,7 +86,7 @@ namespace HideAndSeek.Game
             Quaternion rot = Quaternion.Euler(_pitch, _yaw, 0f);
             Vector3 desired = pivot - rot * Vector3.forward * 3.4f;
             Vector3 dir = desired - pivot;
-            if (Physics.SphereCast(pivot, 0.2f, dir.normalized, out var hit, dir.magnitude, ~(1 << PlayerAvatarBinder.LocalBodyLayer), QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(pivot, 0.2f, dir.normalized, out var hit, dir.magnitude, ~((1 << PlayerAvatarBinder.LocalBodyLayer) | GameLayers.RagdollMask), QueryTriggerInteraction.Ignore))
                 desired = pivot + dir.normalized * Mathf.Max(0.4f, hit.distance - 0.1f);
             transform.position = Vector3.SmoothDamp(transform.position, desired, ref _vel, 0.08f);
             transform.rotation = Quaternion.LookRotation(pivot - transform.position);

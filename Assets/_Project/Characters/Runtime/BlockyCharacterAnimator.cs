@@ -128,6 +128,7 @@ namespace HideAndSeek.Characters
         {
             if (character == null) character = GetComponent<BlockyCharacter>();
             if (character == null || !character.IsBuilt) return;
+            if (character.IsRagdoll) return; // a dead body lies as a ragdoll: physics owns the joints
             if (!initialized) Init();
             if (dt <= 0f) return;
             dt = Mathf.Min(dt, 0.1f);

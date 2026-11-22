@@ -219,6 +219,9 @@ namespace HideAndSeek.Player
         private void Awake()
         {
             _cc = GetComponent<CharacterController>();
+            // Dead bodies (ragdolls) never block, lift or get pushed by a player, nor stop them from standing up.
+            _cc.excludeLayers = _cc.excludeLayers | GameLayers.RagdollMask;
+            obstacleMask = obstacleMask & ~GameLayers.RagdollMask;
             if (input == null) input = GetComponent<PlayerInputReader>();
             if (_baseStepOffset < 0f) _baseStepOffset = _cc.stepOffset;
             ApplyCapsuleHeight();
