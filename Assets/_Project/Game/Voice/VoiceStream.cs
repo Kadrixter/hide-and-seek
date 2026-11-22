@@ -9,10 +9,11 @@ namespace HideAndSeek.Game.Voice
     /// 3D panning / rolloff and the filters after it (echo, low-pass) still apply. Unlike a streamed AudioClip there is
     /// no read-ahead: a sample leaves the buffer one DSP block before it is heard.
     /// <para>Adaptive delay (<c>VoiceStream.Adapt.cs</c>): the target follows the measured arrival jitter of the last
-    /// seconds (frames are 20 ms apart at the sender, so how late each one lands is known), and the buffer is steered to
-    /// it by playing up to 5 % faster / 4 % slower - never by inserting silence. When it still runs dry mid-sentence (a
-    /// hitch on either machine), the last pitch period is repeated and faded (no hole) and playback resumes as soon as a
-    /// little audio is back instead of waiting for the full target. Lost packets are concealed the same way.</para>
+    /// seconds (frames are 20 ms apart at the sender, so how late each one lands is known); a sentence end is not a
+    /// dropout. The voice always plays at its natural speed (Hermite 16 -> 48 kHz): a burst after a long stall is cut
+    /// back to the target with a 3 ms fade, a dry buffer fades out and restarts at the full target, a lost packet is a
+    /// short faded gap - no time-stretching and no synthetic repeats (they coloured the voice; -voicev1928 brings that
+    /// 22.11 behaviour back for comparisons).</para>
     /// </summary>
     [RequireComponent(typeof(AudioSource))]
     public partial class VoiceStream : MonoBehaviour
@@ -27,6 +28,9 @@ namespace HideAndSeek.Game.Voice
         private readonly object _lock = new object();
         private int _write, _read, _count;
         private bool _started, _dry, _dryCounted;
+        private float _prevSample, _tailOut;
+        /// <summary>-voicev1928 (tests): the playback of 22.11 (linear, 4-5 % speed steering, pitch repeat, early resume).</summary>
+        private static readonly bool Legacy = Array.IndexOf(Environment.GetCommandLineArgs(), "-voicev1928") >= 0;
         private float _frac, _step = 1f / 3f, _fadeIn = 1f, _fadeStep = 1f / 96f;
         private int _target = Rate * StartTargetMs / 1000;
         private volatile int _underruns;
@@ -92,21 +96,38 @@ namespace HideAndSeek.Game.Voice
                 if (missing > 0)
                 {
                     Lost += missing;
-                    // Fill the hole with a repeat of the last pitch period, faded out (crossfaded into the next frame).
                     int hole = missing * length;
-                    ConcealInto(hole);
+                    if (Legacy) ConcealInto(hole); // 22.11: repeat of the last pitch period
+                    else
+                    {
+                        // Short, clean hole: fade out what is queued, silence, fade the next frame in (no synthetic sound).
+                        int n = Mathf.Min(Fade, _count);
+                        for (int i = 0; i < n; i++)
+                        {
+                            int idx = (_write - n + i + BufferSize) % BufferSize;
+                            _ring[idx] *= 1f - (i + 1) / (float)n;
+                        }
+                        for (int i = 0; i < hole; i++) Put(0f);
+                    }
                 }
                 int crossStart = _count;
-                for (int i = 0; i < length; i++) Put(VoiceCodec.Decode(data[i]));
-                if (missing > 0) Crossfade(crossStart);
+                for (int i = 0; i < length; i++)
+                {
+                    float x = VoiceCodec.Decode(data[i]);
+                    if (missing > 0 && !Legacy && i < Fade) x *= i / (float)Fade;
+                    Put(x);
+                }
+                if (missing > 0 && Legacy) Crossfade(crossStart);
                 if (stamp != 0) Stamp(stamp, length);
-                // far behind (after a long stall): drop the oldest audio back to the target delay
-                if (_count > _target + Rate * 150 / 1000)
+                // Far behind (a burst after a long stall): drop the oldest audio back to the target delay, with a 3 ms
+                // fade-in at the cut. (No speeding up / slowing down: that bends the pitch of the voice.)
+                if (_count > _target + Rate * (Legacy ? 150 : 100) / 1000)
                 {
                     int drop = _count - _target;
                     _read = (_read + drop) % BufferSize;
                     _readAbs += drop;
                     _count -= drop;
+                    for (int i = 0; i < Fade && i < _count; i++) _ring[(_read + i) % BufferSize] *= i / (float)Fade;
                 }
             }
             return true;
@@ -140,29 +161,39 @@ namespace HideAndSeek.Game.Voice
             lock (_lock)
             {
                 DiagCallback(t0, data.Length / channels);
-                if (!_started && _count >= (_dry && !OldPolicy ? Mathf.Min(_target, Rate * ResumeMs / 1000) : _target))
+                if (!_started && _count >= (_dry && Legacy ? Mathf.Min(_target, Rate * ResumeMs / 1000) : _target))
                 {
                     _started = true;
                     _fadeIn = 0f;
                 }
-                // Steer the delay to the target: up to 5 % faster when too much is queued (a burst after a hitch, or
-                // the sender's clock runs a bit fast), 4 % slower when the cushion is too thin - unnoticeable.
-                int excess = _count - _target;
-                float step = excess > Rate * 120 / 1000 ? _step * 1.05f
-                           : excess > Rate * 25 / 1000 ? _step * 1.025f
-                           : excess < -Rate * 15 / 1000 && !OldPolicy ? _step * 0.96f
-                           : _step;
+                // Always the natural speed. (-voicev1928: the 22.11 steering, up to 5 % faster / 4 % slower.)
+                float step = _step;
+                if (Legacy)
+                {
+                    int excess = _count - _target;
+                    step = excess > Rate * 120 / 1000 ? _step * 1.05f
+                         : excess > Rate * 25 / 1000 ? _step * 1.025f
+                         : excess < -Rate * 15 / 1000 ? _step * 0.96f
+                         : _step;
+                }
                 for (int i = 0; i < data.Length; i += channels)
                 {
                     float x;
-                    if (_started && _count >= 2)
+                    if (_started && _count >= 3)
                     {
                         float a = _ring[_read], b = _ring[(_read + 1) % BufferSize];
-                        x = a + (b - a) * _frac;
+                        if (Legacy) x = a + (b - a) * _frac; // linear
+                        else
+                        {
+                            // 4-point Hermite (Catmull-Rom): 16 -> 48 kHz without the metallic images of linear.
+                            float p0 = _prevSample, p3 = _ring[(_read + 2) % BufferSize], t = _frac;
+                            x = a + 0.5f * t * (b - p0 + t * (2f * p0 - 5f * a + 4f * b - p3 + t * (3f * (a - b) + p3 - p0)));
+                        }
                         _frac += step;
                         while (_frac >= 1f)
                         {
                             _frac -= 1f;
+                            _prevSample = _ring[_read];
                             Remember(_ring[_read]);
                             _read = (_read + 1) % BufferSize;
                             _readAbs++;
@@ -170,20 +201,24 @@ namespace HideAndSeek.Game.Voice
                         }
                         if (_fadeIn < 1f)
                         {
-                            // Coming back from a dropout: crossfade from the concealment tail into the new audio.
-                            x = x * _fadeIn + PlcSample(_step) * (1f - _fadeIn);
+                            // Coming back from a dropout: crossfade from the faded tail into the new audio (2 ms).
+                            x = x * _fadeIn + (Legacy ? PlcSample(_step) : _tailOut) * (1f - _fadeIn);
                             _fadeIn += _fadeStep;
                         }
                         _dry = false;
+                        _tailOut = x;
                     }
                     else
                     {
-                        if (_started) { _started = false; _dry = true; _dryCounted = false; StartConceal(); } // ran dry: conceal, resume early
+                        if (_started) { _started = false; _dry = true; _dryCounted = false; if (Legacy) StartConceal(); }
                         if (_dry) _dryFrames++;
-                        x = PlcSample(_step);
+                        // Ran dry: the last sample fades out (as before 22.11) - no synthetic repeat.
+                        if (Legacy) x = PlcSample(_step);
+                        else { _tailOut *= 0.985f; x = _tailOut; }
                     }
                     x *= gain;
                     x /= 1f + 0.35f * Mathf.Abs(x); // soft clip: the boost never crackles
+                    if (_recOwner == this) DiagRecord(x);
                     for (int c = 0; c < channels; c++) data[i + c] *= x;
                 }
                 if (_stampCount > 0) MeasureStamps();

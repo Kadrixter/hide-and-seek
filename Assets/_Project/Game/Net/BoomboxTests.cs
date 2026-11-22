@@ -39,6 +39,8 @@ namespace HideAndSeek.Game.Net
         }
 
         // ---- main-thread hitches
+        private string _recName;
+        private int _recs;
         private float _maxDt;
         private int _hitches;
 
@@ -148,6 +150,14 @@ namespace HideAndSeek.Game.Net
                     MatchManager.Instance.ServerRadio(NetPlayer.Local, RadioOp.Toggle, null);
                     Debug.Log($"[VcMusic] t={t:0} radio paused");
                 }
+                // -vcwav dir: the received voice as played, 8 s without and 8 s with music.
+                string wavDir = ArgOr("-vcwav", "");
+                if (!string.IsNullOrEmpty(wavDir) && (t >= 12f && _recs == 0 || t >= 44f && _recs == 1))
+                    foreach (var vp in FindObjectsByType<VoicePlayback>(FindObjectsInactive.Exclude))
+                        if (vp.Stream != null) { vp.Stream.StartRecording(8f); _recs++; _recName = (t < 30f ? "vc_off_" : "vc_on_") + (host ? "host" : "client"); break; }
+                if (_recName != null)
+                    foreach (var vp in FindObjectsByType<VoicePlayback>(FindObjectsInactive.Exclude))
+                        if (vp.Stream != null && vp.Stream.SaveRecording(System.IO.Path.Combine(wavDir, _recName + ".wav"))) { Debug.Log($"[VcMusic] saved {_recName}.wav"); _recName = null; break; }
                 var b = buckets[Boombox.Instance != null && Boombox.Instance.MusicAudible ? "on" : "off"];
                 b.Seconds++;
                 foreach (var vp in FindObjectsByType<VoicePlayback>(FindObjectsInactive.Exclude))

@@ -4,23 +4,21 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// Boombox output on the audio thread. The AudioSource loops a constant 1.0 clip (3D panning, rolloff and volume
-    /// still apply to it) and this filter multiplies it by the music, like the voice playback does: no read-ahead of a
-    /// streamed clip, so a start / pause / skip is heard within one DSP block and every copy plays the same moment.
-    /// Chain: bass shelf (90 Hz, up to +14 dB) -> loudness boost -> peak limiter (no clipping) -> bass envelope for the
-    /// speaker cones (<see cref="Kick"/>) and a level for the LEDs.
+    /// Boombox output on the audio thread. The AudioSource loops a constant 1.0 STEREO clip (3D panning, rolloff and
+    /// volume still apply to it, the same way as to the old stereo stream) and this filter multiplies its left / right by
+    /// the music's left / right: no read-ahead of a streamed clip, so a start / pause / skip is heard within one DSP block
+    /// and every copy plays the same moment.
+    /// Chain (the sound and level of the boombox before 22.11): bass shelf (90 Hz, up to +14 dB, with make-up) -> source
+    /// volume (0.9 at 100 %, as before) -> a safety soft clip of the panned output only above -1 dBFS (transparent below,
+    /// instead of the old 0.7 knee) -> bass envelope for the speaker cones (<see cref="Kick"/>) and a level for the LEDs.
+    /// No compression / limiter.
     /// </summary>
     [RequireComponent(typeof(AudioSource))]
     public class BoomboxAudio : MonoBehaviour
     {
         const int Ch = RadioStream.Ch;
-        /// <summary>
-        /// Loudness: drive into the limiter (+7.6 dB) and make-up after it (+3.2 dB), the source volume is 1.0 at 100 %
-        /// (was 0.9). Measured at the listener 1.6 m away at 100 %: the old chain clipped (peaks +2 dBFS, 4.6 % of the
-        /// samples over full scale); this one stays at about -1 dBFS and is ~3.5 dB louder wherever the old one did not clip.
-        /// </summary>
-        public const float Boost = 2.4f, Post = 1.45f;
-        const float Ceiling = 0.78f;
+        /// <summary>Safety soft clip: untouched below this (-1 dBFS), rounded off above it up to full scale.</summary>
+        const float Knee = 0.89f;
 
         public volatile RadioStream Stream;
         public volatile float Bass;
@@ -29,11 +27,9 @@ namespace HideAndSeek.Game
         public float Kick => _kick;
         /// <summary>Output level 0..1 (LEDs).</summary>
         public float Level => _level;
-        /// <summary>Largest gain reduction of the limiter since the last read (dB, tests).</summary>
-        public float TakeLimiterDb() { float r = _grMaxDb; _grMaxDb = 0f; return r; }
         public float TakePeak() { float r = _peak; _peak = 0f; return r; }
 
-        private volatile float _kick, _level, _grMaxDb, _peak;
+        private volatile float _kick, _level, _peak;
         private float[] _buf = new float[4096 * Ch];
         private int _outRate = 48000;
 
@@ -41,7 +37,6 @@ namespace HideAndSeek.Game
         private float _gainFor = -1f;
         private float _b0, _b1, _b2, _a1, _a2, _makeup = 1f;
         private readonly float[] _x1 = new float[Ch], _x2 = new float[Ch], _y1 = new float[Ch], _y2 = new float[Ch];
-        private float _limGain = 1f;
         private float _lp1, _lp2, _bassEnv, _bassAvg = 0.05f;
         private float _att, _rel, _limRel, _lpk, _avgK;
 
@@ -49,8 +44,8 @@ namespace HideAndSeek.Game
         {
             _outRate = AudioSettings.outputSampleRate > 0 ? AudioSettings.outputSampleRate : 48000;
             var src = GetComponent<AudioSource>();
-            var dc = AudioClip.Create("boombox-dc", _outRate, 1, _outRate, false);
-            var ones = new float[_outRate];
+            var dc = AudioClip.Create("boombox-dc", _outRate, 2, _outRate, false);
+            var ones = new float[_outRate * 2];
             for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
             dc.SetData(ones, 0);
             src.clip = dc;
@@ -58,7 +53,6 @@ namespace HideAndSeek.Game
             float r = _outRate;
             _att = 1f - Mathf.Exp(-1f / (0.004f * r));     // bass envelope attack 4 ms
             _rel = 1f - Mathf.Exp(-1f / (0.11f * r));      // release 110 ms: separate kicks
-            _limRel = 1f - Mathf.Exp(-1f / (0.12f * r));   // limiter release 120 ms
             _lpk = 1f - Mathf.Exp(-2f * Mathf.PI * 140f / r); // bass band: 2 x one-pole at 140 Hz
             _avgK = 1f - Mathf.Exp(-1f / (2.5f * r));      // slow loudness average (2.5 s)
         }
@@ -83,20 +77,13 @@ namespace HideAndSeek.Game
             }
             UpdateFilter();
             double sum = 0;
-            float peak = 0f, grMin = 1f;
+            float peak = 0f;
             for (int f = 0; f < frames; f++)
             {
-                float l = Shelf(_buf[f * Ch], 0) * _makeup * Boost;
-                float r = Shelf(_buf[f * Ch + 1], 1) * _makeup * Boost;
-                // Peak limiter: instant attack, smooth release - loud, never clipped or crunched.
-                float a = Mathf.Max(Mathf.Abs(l), Mathf.Abs(r));
-                float need = a > Ceiling ? Ceiling / a : 1f;
-                _limGain = need < _limGain ? need : _limGain + (1f - _limGain) * _limRel;
-                l *= _limGain * Post;
-                r *= _limGain * Post;
-                if (_limGain < grMin) grMin = _limGain;
+                float l = Shelf(_buf[f * Ch], 0) * _makeup;
+                float r = Shelf(_buf[f * Ch + 1], 1) * _makeup;
                 // Bass envelope (mono, ~<140 Hz).
-                float m = (l + r) * (0.5f / Post);
+                float m = (l + r) * 0.5f;
                 _lp1 += (m - _lp1) * _lpk;
                 _lp2 += (_lp1 - _lp2) * _lpk;
                 float b = Mathf.Abs(_lp2);
@@ -105,8 +92,9 @@ namespace HideAndSeek.Game
                 if (channels == 1) data[f] *= m;
                 else
                 {
-                    data[f * channels] *= l;
-                    data[f * channels + 1] *= r;
+                    // The safety clip works on what actually leaves the source (after 3D panning / rolloff / volume).
+                    data[f * channels] = SafeClip(data[f * channels] * l);
+                    data[f * channels + 1] = SafeClip(data[f * channels + 1] * r);
                     for (int c = 2; c < channels; c++) data[f * channels + c] *= m;
                 }
                 sum += m * m;
@@ -117,9 +105,16 @@ namespace HideAndSeek.Game
             // Above the average = a kick: the cone rests near 0 between the beats and jumps out on them.
             _kick = Mathf.Clamp((_bassEnv / Mathf.Max(0.012f, _bassAvg) - 0.7f) * 1.25f, 0f, 1.6f);
             _level = Mathf.Clamp01(Mathf.Sqrt((float)(sum / Mathf.Max(1, frames))) * 2.2f);
-            float grDb = -20f * Mathf.Log10(Mathf.Max(1e-4f, grMin));
-            if (grDb > _grMaxDb) _grMaxDb = grDb;
             if (peak > _peak) _peak = peak;
+        }
+
+        /// <summary>Identity below <see cref="Knee"/>; above it a smooth curve that never passes full scale.</summary>
+        private static float SafeClip(float x)
+        {
+            float a = Mathf.Abs(x);
+            if (a <= Knee) return x;
+            const float room = 1f - Knee;
+            return Mathf.Sign(x) * (Knee + room * (1f - Mathf.Exp(-(a - Knee) / room)));
         }
 
         private bool HasSignal(int frames)

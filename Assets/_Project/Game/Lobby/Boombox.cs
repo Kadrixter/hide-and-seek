@@ -143,7 +143,7 @@ namespace HideAndSeek.Game
                 }
             }
             _status = StatusText(r, url);
-            _src.volume = r.Volume / 100f;
+            _src.volume = r.Volume / 100f * 0.9f; // the level from before 22.11
 
             // Prefetch the next entry (held at 0:00) so "next" / the end of a track switch at once.
             string nextUrl = r.Index + 1 >= 0 && r.Index + 1 < mm.RadioQueue.Count ? mm.RadioQueue[r.Index + 1].ToString() : null;
