@@ -762,7 +762,7 @@ namespace HideAndSeek.Game.Net
             if (phase == MatchPhase.Lobby && _p.Seat.Value < 0)
             {
                 var button = LobbyButton.Instance;
-                if (button != null)
+                if (button != null && !button.Pulling)
                 {
                     Vector3 bp = button.AimPoint;
                     float d = Vector3.Distance(eye, bp);
