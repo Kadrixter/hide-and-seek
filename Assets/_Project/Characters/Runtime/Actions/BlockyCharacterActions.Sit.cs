@@ -16,7 +16,8 @@ namespace HideAndSeek.Characters
     public partial class BlockyCharacterActions
     {
         public const int SitPoseCount = SeatPoses.Count;
-        const float SitOutTime = 0.45f;
+        /// <summary>Standing up takes longer from a lying pose (the body first swings round to sit).</summary>
+        float SitOutTime => SeatPoses.Lying(sitVariant) ? 0.8f : 0.45f;
 
         int sitVariant;
         float sitHeadYaw;

@@ -423,6 +423,7 @@ namespace HideAndSeek.Characters
             if (sitW > 0.001f)
             {
                 var sp = SitPoseRoot(lookPitch);
+                ApplySitIdle(ref sp); // pin-up poses: breathing, a swinging foot
                 ShiftToSitFrom(ref p);
                 p = CharacterPose.Lerp(p, sp, ActionTimeline.SmoothStep01(sitW));
             }
@@ -598,6 +599,7 @@ namespace HideAndSeek.Characters
             reviveW = Mathf.MoveTowards(reviveW, canRevive ? 1f : 0f, dt / 0.3f);
             bool canSit = sitting && VisualLifeState == LifeState.Alive && action == ActionKind.None;
             AdvanceSit(dt, canSit);
+            AdvanceSitIdle(dt);
             reviveTime += dt;
 
             // Springs.

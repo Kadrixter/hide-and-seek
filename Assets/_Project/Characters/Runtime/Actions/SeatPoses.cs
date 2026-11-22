@@ -21,7 +21,9 @@ namespace HideAndSeek.Characters
     /// Variants: 0 upright, leaning a little forward, hands on the knees; 1 sofa: lounging against the backrest,
     /// outer forearm on the armrest, inner hand on the hip, legs stretched out / pouf: casual, right hand on the
     /// knee, left hand on the hip, left leg out; 2 bent forward, elbows on the knees, hands together; 3 right
-    /// ankle on the left knee (figure four).
+    /// ankle on the left knee (figure four). Pin-up poses (chosen from the pose wheel, see SitPoseCatalog and
+    /// SeatPoses.Glamour.cs): 4-7 sofa only (4-6 lie along the cushions and need the neighbouring seat free),
+    /// 8-11 pouf only.
     /// <para>
     /// The rig's 25 cm thick arms rule out folded arms or hands in the lap (the forearm would have to pass through
     /// the belly); hands go where the arm can reach from outside: knees, hips, armrest.
@@ -29,13 +31,16 @@ namespace HideAndSeek.Characters
     /// </summary>
     public static partial class SeatPoses
     {
-        public const int Count = 4;
+        public const int Count = 12;
+
+        /// <summary>Poses picked at random when sitting down (the rest only from the pose wheel).</summary>
+        public const int RandomCount = 4;
 
         /// <summary>
         /// Bump when a recipe, the solver or a seat shape changes: baked results (SeatPoses.Baked.cs, written by the
         /// editor seat check) of another version are ignored and the poses are solved at runtime instead.
         /// </summary>
-        public const int SolverVersion = 1;
+        public const int SolverVersion = 2;
 
         /// <summary>Use the baked results when they match <see cref="SolverVersion"/> (the editor check turns this off to solve afresh).</summary>
         public static bool UseBaked = true;
@@ -48,14 +53,24 @@ namespace HideAndSeek.Characters
         /// <summary>Closest the first-person eye may come to the own (visible) body: near clip 3 cm + its half diagonal + margin.</summary>
         public const float EyeClearance = 0.08f;
 
+        /// <summary>
+        /// Look range of a pose: head yaw within <see cref="Center"/> +- <see cref="Yaw"/> (relative to the seat), pitch
+        /// between -<see cref="Down"/> and <see cref="Up"/>; the neutral look is (<see cref="Center"/>, <see cref="Pitch"/>).
+        /// <see cref="Roll"/>: the head is tilted by this much (degrees, + = top to the left) on top of the look (the
+        /// camera does not roll, only the eye moves with the head).
+        /// </summary>
         public struct LookLimits
         {
-            public float Yaw, Up, Down;
-            public LookLimits(float yaw, float up, float down) { Yaw = yaw; Up = up; Down = down; }
+            public float Yaw, Up, Down, Center, Pitch, Roll;
+            public LookLimits(float yaw, float up, float down, float center = 0f, float pitch = 0f, float roll = 0f)
+            {
+                Yaw = yaw; Up = up; Down = down; Center = center; Pitch = pitch; Roll = roll;
+            }
         }
 
         const float Margin = 0.008f;      // clearance kept from the (already conservative) seat solids
         const float SelfAllow = 0.01f;    // arms may sink this much into the own clothes (both have a 1.4 cm layer)
+        const float HeadAllow = 0.015f;   // the head may touch a fist / forearm this much while looking around
 
         const int MTorso = 1 << 0, MHead = 1 << 1, MUpperR = 1 << 2, MForeR = 1 << 3, MUpperL = 1 << 4, MForeL = 1 << 5;
         const int MThighR = 1 << 6, MShinR = 1 << 7, MThighL = 1 << 8, MShinL = 1 << 9;
@@ -66,6 +81,7 @@ namespace HideAndSeek.Characters
 
         sealed class Entry
         {
+            public int Variant;
             public CharacterPose Body;
             public LookLimits Limits;
             public float[] Up, Down;
@@ -82,11 +98,35 @@ namespace HideAndSeek.Characters
         /// <summary>Full pose: body plus the head looking at (yaw relative to the seat, pitch up +), clamped.</summary>
         public static CharacterPose Evaluate(int variant, SeatShape shape, float yaw, float pitch)
         {
-            var p = Get(variant, shape).Body;
+            var e = Get(variant, shape);
+            var p = e.Body;
             ClampLook(variant, shape, ref yaw, ref pitch);
-            p.Head = Quaternion.Inverse(p.TorsoRoot) * LookRot(yaw, pitch);
+            p.Head = Quaternion.Inverse(p.TorsoRoot) * HeadRot(e.Limits, yaw, pitch);
             return p;
         }
+
+        /// <summary>The pose can be used on this seat (sofa poses on sofas, pouf poses on poufs, 0-3 everywhere).</summary>
+        public static bool Supports(SeatShape shape, int variant)
+        {
+            if (variant < 0 || variant >= Count) return false;
+            if (variant < RandomCount) return true;
+            if (shape == null) return false;
+            if (variant <= 7) return shape.Kind == SeatKind.Sofa && shape.HasBack && shape.ArmSide != 0 && (variant == 7 || shape.Wide != null);
+            return shape.Kind == SeatKind.Pouf;
+        }
+
+        /// <summary>The pose lies along the sofa over the neighbouring seat too (that seat must be free).</summary>
+        public static bool SpansNeighbour(int variant) => variant >= 4 && variant <= 6;
+
+        /// <summary>The body lies (longer blends in and out, the pelvis lifts while changing poses).</summary>
+        public static bool Lying(int variant) => SpansNeighbour(variant);
+
+        /// <summary>How long changing from one pose to another on the same seat takes (seconds).</summary>
+        public static float SwitchTime(int from, int to) =>
+            Lying(from) && Lying(to) ? 0.85f : Lying(from) || Lying(to) ? 1.0f : 0.6f;
+
+        /// <summary>How far the pelvis lifts half way through a pose change (clears the cushion while the legs swing round).</summary>
+        public static float SwitchLift(int from, int to) => Lying(from) || Lying(to) ? 0.07f : 0.035f;
 
         /// <summary>
         /// Clamps a look (head yaw relative to the seat, pitch up +) to what the pose allows: the yaw to the pose's
@@ -95,8 +135,9 @@ namespace HideAndSeek.Characters
         public static void ClampLook(int variant, SeatShape shape, ref float yaw, ref float pitch)
         {
             var e = Get(variant, shape);
-            yaw = Mathf.Clamp(yaw, -e.Limits.Yaw, e.Limits.Yaw);
-            float f = Mathf.Clamp((yaw + 90f) / TableStep, 0f, TableSize - 1.001f);
+            float c = e.Limits.Center;
+            yaw = Mathf.Clamp(yaw, c - e.Limits.Yaw, c + e.Limits.Yaw);
+            float f = Mathf.Clamp((yaw - c + 90f) / TableStep, 0f, TableSize - 1.001f);
             int i = (int)f;
             float t = f - i;
             float up = Mathf.Lerp(e.Up[i], e.Up[i + 1], t), down = Mathf.Lerp(e.Down[i], e.Down[i + 1], t);
@@ -113,16 +154,21 @@ namespace HideAndSeek.Characters
         public static Vector3 Eye(int variant, SeatShape shape, float yaw, float pitch)
         {
             ClampLook(variant, shape, ref yaw, ref pitch);
-            return Neck(variant, shape) + LookRot(yaw, pitch) * EyeOffset;
+            return Neck(variant, shape) + HeadRot(Limits(variant, shape), yaw, pitch) * EyeOffset;
         }
 
         static Quaternion LookRot(float yaw, float pitch) => Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(-pitch, 0f, 0f);
+
+        /// <summary>Head rotation in seat space for a look: the look plus the pose's head tilt.</summary>
+        static Quaternion HeadRot(in LookLimits lim, float yaw, float pitch) =>
+            lim.Roll == 0f ? LookRot(yaw, pitch) : LookRot(yaw, pitch) * Quaternion.Euler(0f, 0f, lim.Roll);
 
         static Entry Get(int variant, SeatShape shape)
         {
             if (shape == null) shape = SeatShape.Generic();
             variant = Mathf.Clamp(variant, 0, Count - 1);
-            int key = shape.Id * 8 + variant;
+            if (!Supports(shape.MirrorSource ?? shape, variant)) variant = 0;
+            int key = shape.Id * 16 + variant;
             if (Cache.TryGetValue(key, out var e)) return e;
             if (shape.MirrorSource == null && UseBaked && TryBaked(key, out e))
             {
@@ -133,7 +179,10 @@ namespace HideAndSeek.Characters
             {
                 // The seat is the mirror image of another one (sofa seat with the armrest on the left): same pose, mirrored.
                 var src = Get(variant, shape.MirrorSource);
-                e = new Entry { Limits = src.Limits, Body = Mirror(src.Body), Up = new float[TableSize], Down = new float[TableSize] };
+                var lim = src.Limits;
+                lim.Center = -lim.Center;
+                lim.Roll = -lim.Roll;
+                e = new Entry { Limits = lim, Body = Mirror(src.Body), Up = new float[TableSize], Down = new float[TableSize] };
                 for (int i = 0; i < TableSize; i++)
                 {
                     e.Up[i] = src.Up[TableSize - 1 - i];
@@ -142,10 +191,14 @@ namespace HideAndSeek.Characters
                 Cache[key] = e;
                 return e;
             }
-            e = new Entry { Limits = NominalLimits(variant, shape) };
+            e = new Entry { Variant = variant, Limits = NominalLimits(variant, shape) };
             Trace?.AppendLine($"  solving {shape.Kind} (id {shape.Id}) pose {variant}");
-            e.Body = Build(variant, shape, e.Limits);
-            SolveLookTable(e, shape);
+            // Lying along the sofa: solved against the whole sofa (the neighbouring seat is free then).
+            var solve = SpansNeighbour(variant) && shape.Wide != null ? shape.Wide : shape;
+            e.Body = Build(variant, solve, e.Limits);
+            // Down onto the real cushion (the solids are conservative), see SeatShape.Sink.
+            e.Body.PelvisPos.y -= solve.Sink + (variant == 4 || variant == 7 ? 0.008f : variant == 5 ? -0.012f : 0f); // on the side / against the arm: deeper; on the back the head lies near the cushion: less
+            SolveLookTable(e, solve);
             Cache[key] = e;
             return e;
         }
@@ -155,7 +208,7 @@ namespace HideAndSeek.Characters
 
         // ------------------------------------------------------------------ baking
 
-        const int BakedStride = 2 + 3 + 12 * 4 + 3 + 2 * TableSize;
+        const int BakedStride = 2 + 3 + 12 * 4 + 6 + 2 * TableSize;
         static Dictionary<int, Entry> _baked;
 
         static bool TryBaked(int key, out Entry e)
@@ -179,8 +232,8 @@ namespace HideAndSeek.Characters
             p.Pelvis = Q(); p.Torso = Q(); p.Head = Q();
             p.ShoulderR = Q(); p.ElbowR = Q(); p.ShoulderL = Q(); p.ElbowL = Q();
             p.HipR = Q(); p.KneeR = Q(); p.HipL = Q(); p.KneeL = Q(); p.PropR = Q();
-            var e = new Entry { Body = p, Limits = new LookLimits(d[i], d[i + 1], d[i + 2]), Up = new float[TableSize], Down = new float[TableSize] };
-            i += 3;
+            var e = new Entry { Body = p, Limits = new LookLimits(d[i], d[i + 1], d[i + 2], d[i + 3], d[i + 4], d[i + 5]), Up = new float[TableSize], Down = new float[TableSize] };
+            i += 6;
             for (int k = 0; k < TableSize; k++) e.Up[k] = d[i++];
             for (int k = 0; k < TableSize; k++) e.Down[k] = d[i++];
             return e;
@@ -193,7 +246,7 @@ namespace HideAndSeek.Characters
         public static float[] Bake(int variant, SeatShape shape)
         {
             var e = Get(variant, shape);
-            var d = new List<float> { shape.Id * 8 + variant, SolverVersion };
+            var d = new List<float> { shape.Id * 16 + variant, SolverVersion };
             var p = e.Body;
             d.Add(p.PelvisPos.x); d.Add(p.PelvisPos.y); d.Add(p.PelvisPos.z);
             foreach (var q in new[] { p.Pelvis, p.Torso, p.Head, p.ShoulderR, p.ElbowR, p.ShoulderL, p.ElbowL, p.HipR, p.KneeR, p.HipL, p.KneeL, p.PropR })
@@ -201,6 +254,7 @@ namespace HideAndSeek.Characters
                 d.Add(q.x); d.Add(q.y); d.Add(q.z); d.Add(q.w);
             }
             d.Add(e.Limits.Yaw); d.Add(e.Limits.Up); d.Add(e.Limits.Down);
+            d.Add(e.Limits.Center); d.Add(e.Limits.Pitch); d.Add(e.Limits.Roll);
             d.AddRange(e.Up);
             d.AddRange(e.Down);
             return d.ToArray();
@@ -226,7 +280,8 @@ namespace HideAndSeek.Characters
             {
                 case 1: return lounge ? new LookLimits(70f, 30f, 45f) : new LookLimits(75f, 40f, 50f);
                 case 2: return new LookLimits(65f, 22f, 55f);
-                default: return new LookLimits(75f, 40f, 55f);
+                case 0: case 3: return new LookLimits(75f, 40f, 55f);
+                default: return GlamourLimits(variant);
             }
         }
 
@@ -239,7 +294,8 @@ namespace HideAndSeek.Characters
                 case 1: return s.Kind == SeatKind.Sofa && s.HasBack ? Lounge(s, lim) : BestLean(s, Casual, 0f, 16f, -6f);
                 case 2: return Forward(s);
                 case 3: return BestLean(s, FigureFour, 0f, 12f, -10f);
-                default: return BestLean(s, Upright, 4f, 30f);
+                case 0: return BestLean(s, Upright, 4f, 30f);
+                default: return BuildGlamour(v, s, lim);
             }
         }
 
@@ -448,16 +504,21 @@ namespace HideAndSeek.Characters
         {
             Vector3 hip = p.HipPos(0);
             Vector3 lk = BodyBoxes.KneePos(p, 1);
-            // The ankle rests on top of the left knee (both 25 cm thick), a little to its outside.
-            Vector3 sole = lk + new Vector3(-0.04f, 0.245f, 0.01f);
-            // Knee: thigh length from the hip and shin length from the ankle, out to the right.
-            Vector3 mid = (hip + sole) * 0.5f;
-            Vector3 axis = (sole - hip).normalized;
-            float d = Mathf.Min((sole - hip).magnitude, RigIK.Thigh + RigIK.Shin - 0.01f);
-            float h = Mathf.Sqrt(Mathf.Max(0f, RigIK.Thigh * RigIK.Thigh - d * d * 0.25f));
-            Vector3 outDir = Vector3.ProjectOnPlane(new Vector3(1f, 0.35f, 0.25f), axis).normalized;
-            Vector3 knee = mid + outDir * h;
-            p.SolveLeg(0, sole, knee - mid);
+            // The ankle rests on top of the left knee (both 25 cm thick), a little to its outside; raised until the
+            // shin is clear of the thigh under it.
+            for (float lift = 0.245f; lift < 0.36f; lift += 0.01f)
+            {
+                Vector3 sole = lk + new Vector3(-0.04f, lift, 0.01f);
+                // Knee: thigh length from the hip and shin length from the ankle, out to the right.
+                Vector3 mid = (hip + sole) * 0.5f;
+                Vector3 axis = (sole - hip).normalized;
+                float d = Mathf.Min((sole - hip).magnitude, RigIK.Thigh + RigIK.Shin - 0.01f);
+                float h = Mathf.Sqrt(Mathf.Max(0f, RigIK.Thigh * RigIK.Thigh - d * d * 0.25f));
+                Vector3 outDir = Vector3.ProjectOnPlane(new Vector3(1f, 0.35f, 0.25f), axis).normalized;
+                Vector3 knee = mid + outDir * h;
+                p.SolveLeg(0, sole, knee - mid);
+                if (LegCross(p) <= 0f) break;
+            }
         }
 
         // ================================================================== limbs
@@ -600,14 +661,14 @@ namespace HideAndSeek.Characters
                 if ((selfMask & (1 << b)) == 0 || b == up || b == fore) continue;
                 float d = BodyBoxes.Penetration(Boxes[fore], Boxes[b]);
                 if (d > worst) { worst = d; what = $"forearm x {(BodyPart)b}"; }
-                if (b == 0) continue;
+                if (b <= 1) continue; // the upper arm meets the torso and the head at the shoulder
                 d = BodyBoxes.Penetration(Boxes[up], Boxes[b]);
                 if (d > worst) { worst = d; what = $"upper arm x {(BodyPart)b}"; }
             }
             return what;
         }
 
-        /// <summary>Deepest overlap of the arm with own parts: the forearm against any of them, the upper arm against all but the torso (they meet at the shoulder).</summary>
+        /// <summary>Deepest overlap of the arm with own parts: the forearm against any of them, the upper arm against all but the torso and the head (they meet at the shoulder).</summary>
         static float SelfPenetration(in CharacterPose p, int arm, int selfMask)
         {
             BodyBoxes.Get(p, Boxes);
@@ -619,7 +680,7 @@ namespace HideAndSeek.Characters
             {
                 if ((selfMask & (1 << b)) == 0 || b == up || b == fore) continue;
                 worst = Mathf.Max(worst, BodyBoxes.Penetration(Boxes[fore], Boxes[b]));
-                if (b != 0) worst = Mathf.Max(worst, BodyBoxes.Penetration(Boxes[up], Boxes[b]));
+                if (b > 1) worst = Mathf.Max(worst, BodyBoxes.Penetration(Boxes[up], Boxes[b]));
             }
             return worst;
         }
@@ -632,9 +693,9 @@ namespace HideAndSeek.Characters
         {
             var q = p;
             foreach (float yaw in ProbeYaws)
-            foreach (float pitch in new[] { lim.Up, 0f, -lim.Down * 0.5f })
+            foreach (float pitch in new[] { lim.Up, lim.Pitch, Mathf.Lerp(lim.Pitch, -lim.Down, 0.5f) })
             {
-                q.Head = Quaternion.Inverse(q.TorsoRoot) * LookRot(Mathf.Clamp(yaw, -lim.Yaw, lim.Yaw), pitch);
+                q.Head = Quaternion.Inverse(q.TorsoRoot) * HeadRot(lim, lim.Center + Mathf.Clamp(yaw, -lim.Yaw, lim.Yaw), pitch);
                 if (Hits(q, s, MHead)) return true;
             }
             return false;
@@ -642,7 +703,8 @@ namespace HideAndSeek.Characters
 
         /// <summary>
         /// Per yaw: the lowest pitch where the eyes are still <see cref="EyeClearance"/> away from the own body and the
-        /// highest where the head is clear of the seat (and the eyes of the body).
+        /// highest where the head is clear of the seat (and the eyes of the body); the head never sinks into the own
+        /// arms / legs either (a hand in the hair, a chin on the fists). Scanned outwards from the pose's neutral pitch.
         /// </summary>
         static void SolveLookTable(Entry e, SeatShape s)
         {
@@ -652,33 +714,99 @@ namespace HideAndSeek.Characters
             BodyBoxes.Get(p, Boxes);
             var body = (PartBox[])Boxes.Clone();
             Vector3 neck = p.TorsoPoint(BlockyCharacter.NeckRest);
+            var lim = e.Limits;
+            _headVsLimbs = e.Variant >= RandomCount;
+            float start = Mathf.Clamp(lim.Pitch, -lim.Down, lim.Up);
+            if (_headVsLimbs)
+            {
+                // Neutral look not possible (the head in a fist): the nearest look that is.
+                string why = LookWhy(p, s, body, neck, lim, lim.Center, start);
+                if (why != null)
+                {
+                    bool found = false;
+                    for (float r = 1f; r <= 30f && !found; r += 1f)
+                    foreach (var (dy, dp) in new[] { (0f, r), (0f, -r), (r, 0f), (-r, 0f), (r, r), (-r, r), (r, -r), (-r, -r) })
+                    {
+                        float pp = Mathf.Clamp(start + dp, -lim.Down, lim.Up);
+                        if (!LookOk(p, s, body, neck, lim, lim.Center + dy, pp)) continue;
+                        Trace?.AppendLine($"   neutral look ({lim.Center:0}, {start:0}) not possible ({why}), moved to ({lim.Center + dy:0}, {pp:0})");
+                        lim.Center += dy;
+                        lim.Pitch = start = pp;
+                        found = true;
+                        break;
+                    }
+                    if (!found) Trace?.AppendLine($"   neutral look ({lim.Center:0}, {start:0}) not possible ({why}), nothing near it is either");
+                }
+                // Yaw range: as far both ways from the neutral look as the head can turn at the neutral pitch (a hand in
+                // the hair stops it on that side); the range is re-centred on what is left.
+                float lo = 0f, hi = 0f;
+                for (float d = 1f; d <= lim.Yaw && LookOk(p, s, body, neck, lim, lim.Center + d, start); d += 1f) hi = d;
+                for (float d = -1f; d >= -lim.Yaw && LookOk(p, s, body, neck, lim, lim.Center + d, start); d -= 1f) lo = d;
+                if (hi - lo < 2f * lim.Yaw - 0.5f)
+                {
+                    Trace?.AppendLine($"   look yaw {lim.Center:0}+-{lim.Yaw:0} narrowed to {lim.Center + lo:0}..{lim.Center + hi:0}");
+                    lim.Center += (lo + hi) * 0.5f;
+                    lim.Yaw = (hi - lo) * 0.5f;
+                }
+                e.Limits = lim;
+            }
             for (int i = 0; i < TableSize; i++)
             {
-                float yaw = Mathf.Clamp(-90f + i * TableStep, -e.Limits.Yaw, e.Limits.Yaw);
-                float down = 0f, up = 0f;
-                for (float pitch = 0f; pitch >= -e.Limits.Down; pitch -= 1f)
+                float yaw = lim.Center + Mathf.Clamp(-90f + i * TableStep, -lim.Yaw, lim.Yaw);
+                float down = -start, up = start;
+                for (float pitch = start; pitch >= -lim.Down; pitch -= 1f)
                 {
-                    if (!LookOk(p, s, body, neck, yaw, pitch)) break;
+                    if (!LookOk(p, s, body, neck, lim, yaw, pitch)) break;
                     down = -pitch;
                 }
-                for (float pitch = 0f; pitch <= e.Limits.Up; pitch += 1f)
+                for (float pitch = start; pitch <= lim.Up; pitch += 1f)
                 {
-                    if (!LookOk(p, s, body, neck, yaw, pitch)) break;
+                    if (!LookOk(p, s, body, neck, lim, yaw, pitch)) break;
                     up = pitch;
                 }
                 e.Down[i] = down;
                 e.Up[i] = up;
             }
+            // The clamp interpolates between entries 5 degrees apart: keep every entry within its neighbours' range.
+            var u = (float[])e.Up.Clone();
+            var dn = (float[])e.Down.Clone();
+            for (int i = 0; i < TableSize; i++)
+            {
+                int a = Mathf.Max(0, i - 1), b = Mathf.Min(TableSize - 1, i + 1);
+                e.Up[i] = Mathf.Min(u[a], Mathf.Min(u[i], u[b]));
+                e.Down[i] = Mathf.Min(dn[a], Mathf.Min(dn[i], dn[b]));
+            }
         }
 
-        static bool LookOk(CharacterPose p, SeatShape s, PartBox[] body, Vector3 neck, float yaw, float pitch)
+        static readonly PartBox[] LookBoxes = new PartBox[BodyBoxes.Count];
+
+        /// <summary>Parts the head must not sink into while looking around: forearms (fists) and legs.</summary>
+        public static readonly int[] HeadVs =
         {
-            Quaternion look = LookRot(yaw, pitch);
+            (int)BodyPart.ForearmR, (int)BodyPart.ForearmL, (int)BodyPart.ThighR, (int)BodyPart.ShinR, (int)BodyPart.ThighL, (int)BodyPart.ShinL
+        };
+
+        /// <summary>Pin-up poses: the head is also kept out of the own forearms / legs (the original four keep their ranges).</summary>
+        static bool _headVsLimbs;
+
+        static bool LookOk(CharacterPose p, SeatShape s, PartBox[] body, Vector3 neck, in LookLimits lim, float yaw, float pitch) =>
+            LookWhy(p, s, body, neck, lim, yaw, pitch) == null;
+
+        /// <summary>Why the look is not allowed (null = it is).</summary>
+        static string LookWhy(CharacterPose p, SeatShape s, PartBox[] body, Vector3 neck, in LookLimits lim, float yaw, float pitch)
+        {
+            Quaternion look = HeadRot(lim, yaw, pitch);
             Vector3 eye = neck + look * EyeOffset;
             for (int b = 0; b < body.Length; b++)
-                if (b != (int)BodyPart.Head && body[b].Distance(eye) < EyeClearance) return false;
+                if (b != (int)BodyPart.Head && body[b].Distance(eye) < EyeClearance) return $"eye near {(BodyPart)b}";
             p.Head = Quaternion.Inverse(p.TorsoRoot) * look;
-            return !Hits(p, s, MHead);
+            if (Hits(p, s, MHead)) return "head in the seat";
+            if (!_headVsLimbs) return null;
+            // The head against the own forearms and legs (the upper arms meet it at the shoulders anyway).
+            BodyBoxes.Get(p, LookBoxes);
+            foreach (int b in HeadVs)
+                if (BodyBoxes.Penetration(LookBoxes[(int)BodyPart.Head], body[b]) > HeadAllow) return $"head in {(BodyPart)b}";
+            return null;
         }
 
         // ================================================================== solver
