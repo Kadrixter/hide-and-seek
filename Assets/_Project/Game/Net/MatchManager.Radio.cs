@@ -5,16 +5,21 @@ using UnityEngine;
 
 namespace HideAndSeek.Game.Net
 {
-    /// <summary>Lobby boombox state (server-written). Position of the current track = Now - StartTime while playing.</summary>
+    /// <summary>
+    /// Lobby boombox state (server-written). Position of the current track = Now - StartTime while playing.
+    /// Loading: a new track is being buffered by every copy; StartTime is set once they are ready.
+    /// </summary>
     public struct RadioState : INetworkSerializable, IEquatable<RadioState>
     {
         public int Index;        // current queue entry (-1 = none)
         public int Seq;          // bumps on every track change / restart
         public bool Playing;
+        public bool Loading;     // waiting for the copies to buffer the start of the track
         public double StartTime; // server time at which the track position was 0
         public float PausedAt;   // position while paused
         public byte Volume;      // 0..100
         public byte Bass;        // 0..100
+        public byte Ready, Peers; // loading: copies that reported ready / copies waited for
 
         public static RadioState Default => new RadioState { Index = -1, Volume = 60, Bass = 30 };
 
@@ -23,21 +28,27 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Index);
             s.SerializeValue(ref Seq);
             s.SerializeValue(ref Playing);
+            s.SerializeValue(ref Loading);
             s.SerializeValue(ref StartTime);
             s.SerializeValue(ref PausedAt);
             s.SerializeValue(ref Volume);
             s.SerializeValue(ref Bass);
+            s.SerializeValue(ref Ready);
+            s.SerializeValue(ref Peers);
         }
 
-        public bool Equals(RadioState o) => Index == o.Index && Seq == o.Seq && Playing == o.Playing && StartTime == o.StartTime &&
-                                           PausedAt == o.PausedAt && Volume == o.Volume && Bass == o.Bass;
+        public bool Equals(RadioState o) => Index == o.Index && Seq == o.Seq && Playing == o.Playing && Loading == o.Loading &&
+                                           StartTime == o.StartTime && PausedAt == o.PausedAt && Volume == o.Volume && Bass == o.Bass &&
+                                           Ready == o.Ready && Peers == o.Peers;
     }
 
     public enum RadioOp : byte { Add = 0, Toggle = 1, Next = 2, VolUp = 3, VolDown = 4, BassUp = 5, BassDown = 6, Prev = 7 }
 
     /// <summary>
-    /// Lobby boombox: a shared queue of YouTube links. Every peer streams the current track itself (yt-dlp + ffmpeg)
-    /// at the position given by the server clock, so everybody hears the same music in sync.
+    /// Lobby boombox: a shared queue of YouTube links. Every copy streams the current track itself (yt-dlp + ffmpeg).
+    /// A new track starts Loading; each copy reports when it has buffered the beginning (<see cref="ReportRadioReady"/>),
+    /// and when everybody is ready (or the slow ones ran out of time) the server sets a common start just ahead, so the
+    /// song begins from 0:00 at the same moment everywhere (<c>MatchManager.RadioSync.cs</c>).
     /// </summary>
     public partial class MatchManager
     {
@@ -57,7 +68,7 @@ namespace HideAndSeek.Game.Net
             return h == "youtu.be" || h == "youtube.com" || h.EndsWith(".youtube.com");
         }
 
-        private float RadioPosition(in RadioState r) => r.Playing ? (float)(Now - r.StartTime) : r.PausedAt;
+        private float RadioPosition(in RadioState r) => r.Playing && !r.Loading ? (float)(Now - r.StartTime) : r.PausedAt;
 
         public void ServerRadio(NetPlayer pl, RadioOp op, string url)
         {
@@ -72,10 +83,7 @@ namespace HideAndSeek.Game.Net
                     if (!r.Playing && (r.Index < 0 || r.Index >= RadioQueue.Count - 1 && r.PausedAt <= 0f))
                     {
                         r.Index = RadioQueue.Count - 1;
-                        r.Seq++;
-                        r.Playing = Phase.Value == MatchPhase.Lobby;
-                        r.PausedAt = 0f;
-                        r.StartTime = Now;
+                        BeginRadioLoad(ref r);
                     }
                     pl.ToastRpc("Dodano do kolejki radia.", 2f);
                     break;
@@ -88,20 +96,22 @@ namespace HideAndSeek.Game.Net
                     }
                     else if (Phase.Value == MatchPhase.Lobby)
                     {
-                        r.StartTime = Now - r.PausedAt;
                         r.Playing = true;
+                        if (r.Loading) _radioLoadSince = Time.unscaledTime;
+                        else r.StartTime = Now + RadioLead - r.PausedAt; // everybody resumes on the same sample
                     }
                     break;
                 case RadioOp.Next:
                 case RadioOp.Prev:
                 {
                     int to = r.Index + (op == RadioOp.Next ? 1 : -1);
-                    if (to < 0 || to >= RadioQueue.Count) { if (op == RadioOp.Next) { r.Playing = false; r.PausedAt = 0f; r.Index = RadioQueue.Count; r.Seq++; } break; }
+                    if (to < 0 || to >= RadioQueue.Count)
+                    {
+                        if (op == RadioOp.Next) { r.Playing = false; r.Loading = false; r.PausedAt = 0f; r.Index = RadioQueue.Count; r.Seq++; }
+                        break;
+                    }
                     r.Index = to;
-                    r.Seq++;
-                    r.PausedAt = 0f;
-                    r.StartTime = Now;
-                    r.Playing = Phase.Value == MatchPhase.Lobby;
+                    BeginRadioLoad(ref r);
                     break;
                 }
                 case RadioOp.VolUp: r.Volume = (byte)Mathf.Min(100, r.Volume + 10); break;
@@ -119,14 +129,17 @@ namespace HideAndSeek.Game.Net
             var r = Radio.Value;
             if (r.Seq != seq || !r.Playing) return;
             r.Index++;
-            r.Seq++;
-            r.PausedAt = 0f;
-            r.StartTime = Now;
-            r.Playing = r.Index < RadioQueue.Count;
+            if (r.Index < RadioQueue.Count) BeginRadioLoad(ref r);
+            else
+            {
+                r.Seq++;
+                r.Playing = r.Loading = false;
+                r.PausedAt = 0f;
+            }
             Radio.Value = r;
         }
 
-        /// <summary>Music only in the lobby: pause when a round starts.</summary>
+        /// <summary>Music only in the lobby: pause when a round starts; start a loaded track together.</summary>
         private void UpdateRadioServer()
         {
             var r = Radio.Value;
@@ -136,6 +149,7 @@ namespace HideAndSeek.Game.Net
                 r.Playing = false;
                 Radio.Value = r;
             }
+            UpdateRadioLoading();
         }
     }
 }

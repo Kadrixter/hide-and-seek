@@ -8,31 +8,33 @@ namespace HideAndSeek.Game.Voice
     /// The AudioSource next to it loops a constant 1.0 clip; this filter multiplies it by the voice, so the source's
     /// 3D panning / rolloff and the filters after it (echo, low-pass) still apply. Unlike a streamed AudioClip there is
     /// no read-ahead: a sample leaves the buffer one DSP block before it is heard.
-    /// <para>Adaptive delay: starts at <see cref="StartTargetMs"/>, grows when the buffer runs dry mid-speech, slowly
-    /// shrinks back while the connection is steady. Lost / late packets are concealed with a short fade (no clicks).</para>
+    /// <para>Adaptive delay (<c>VoiceStream.Adapt.cs</c>): the target follows the measured arrival jitter of the last
+    /// seconds (frames are 20 ms apart at the sender, so how late each one lands is known), and the buffer is steered to
+    /// it by playing up to 5 % faster / 4 % slower - never by inserting silence. When it still runs dry mid-sentence (a
+    /// hitch on either machine), the last pitch period is repeated and faded (no hole) and playback resumes as soon as a
+    /// little audio is back instead of waiting for the full target. Lost packets are concealed the same way.</para>
     /// </summary>
     [RequireComponent(typeof(AudioSource))]
-    public class VoiceStream : MonoBehaviour
+    public partial class VoiceStream : MonoBehaviour
     {
         public const int Rate = VoiceCodec.SampleRate;
-        public const int StartTargetMs = 70, MinTargetMs = 45, MaxTargetMs = 400;
+        public const int StartTargetMs = 60, MinTargetMs = 40, MaxTargetMs = 300;
         private const int BufferSize = Rate * 2;
         private const int Fade = 48; // samples (3 ms) of fade around a concealed gap
+        private const int ResumeMs = 30;   // after running dry mid-speech: restart with this much, the target is rebuilt by stretching
 
         private readonly float[] _ring = new float[BufferSize];
         private readonly object _lock = new object();
         private int _write, _read, _count;
-        private bool _started;
-        private float _frac, _step = 1f / 3f, _fadeIn = 1f, _fadeStep = 1f / 96f, _last;
+        private bool _started, _dry, _dryCounted;
+        private float _frac, _step = 1f / 3f, _fadeIn = 1f, _fadeStep = 1f / 96f;
         private int _target = Rate * StartTargetMs / 1000;
         private volatile int _underruns;
         private volatile float _gain = 1f;
-        private int _seenUnderruns;
-        private float _steadySince;
 
         // packet order (frames carry a sequence number; the transport may drop or reorder them)
         private ushort _lastSeq;
-        private bool _haveSeq, _fadeNext;
+        private bool _haveSeq;
         private float _lastPushTime = -10f;
 
         /// <summary>Linear gain applied to the voice (boost x chat volume x per-player volume).</summary>
@@ -46,6 +48,7 @@ namespace HideAndSeek.Game.Voice
         {
             int outRate = AudioSettings.outputSampleRate > 0 ? AudioSettings.outputSampleRate : 48000;
             _step = Rate / (float)outRate;
+            _outRate = outRate;
             _fadeStep = 1000f / (2f * outRate); // 2 ms fade-in after every (re)start
             var src = GetComponent<AudioSource>();
             var dc = AudioClip.Create("voice-dc", outRate, 1, outRate, false);
@@ -74,31 +77,30 @@ namespace HideAndSeek.Game.Voice
             }
             _haveSeq = true;
             _lastSeq = seq;
+            Arrived(seq, fresh, length);
 
             lock (_lock)
             {
+                // Ran dry and the talker is still talking: that was a real dropout (not the end of a sentence).
+                if (_dry && !fresh)
+                {
+                    if (!_dryCounted) _underruns++;
+                    _dryCounted = true;
+                    _gapFrames += _dryFrames;
+                }
+                _dryFrames = 0;
                 if (missing > 0)
                 {
                     Lost += missing;
-                    // fade out what is still waiting in the buffer, fill the hole with silence, fade the next frame in
-                    int n = Mathf.Min(Fade, _count);
-                    for (int i = 0; i < n; i++)
-                    {
-                        int idx = (_write - n + i + BufferSize) % BufferSize;
-                        _ring[idx] *= 1f - (i + 1) / (float)n;
-                    }
-                    for (int i = 0; i < missing * length; i++) Put(0f);
-                    _fadeNext = true;
+                    // Fill the hole with a repeat of the last pitch period, faded out (crossfaded into the next frame).
+                    int hole = missing * length;
+                    ConcealInto(hole);
                 }
-                for (int i = 0; i < length; i++)
-                {
-                    float x = VoiceCodec.Decode(data[i]);
-                    if (_fadeNext && i < Fade) x *= i / (float)Fade;
-                    Put(x);
-                }
-                _fadeNext = false;
+                int crossStart = _count;
+                for (int i = 0; i < length; i++) Put(VoiceCodec.Decode(data[i]));
+                if (missing > 0) Crossfade(crossStart);
                 if (stamp != 0) Stamp(stamp, length);
-                // far behind (after a stall): drop the oldest audio back to the target delay
+                // far behind (after a long stall): drop the oldest audio back to the target delay
                 if (_count > _target + Rate * 150 / 1000)
                 {
                     int drop = _count - _target;
@@ -124,63 +126,69 @@ namespace HideAndSeek.Game.Voice
             _count++;
         }
 
-        /// <summary>Main thread, every frame: adaptive delay.</summary>
+        /// <summary>Main thread, every frame: adaptive delay from the measured jitter.</summary>
         public void Tick(bool speaking)
         {
-            int u = _underruns;
-            if (u != _seenUnderruns)
-            {
-                if (speaking) _target = Mathf.Min(Rate * MaxTargetMs / 1000, _target + Rate * 30 / 1000);
-                _seenUnderruns = u;
-                _steadySince = Time.unscaledTime;
-            }
-            else if (Time.unscaledTime - _steadySince > 6f && _target > Rate * MinTargetMs / 1000)
-            {
-                _target = Mathf.Max(Rate * MinTargetMs / 1000, _target - Rate * 10 / 1000);
-                _steadySince = Time.unscaledTime;
-            }
+            if (OldPolicy) OldTick(speaking);
+            else AdaptTarget();
         }
 
         private void OnAudioFilterRead(float[] data, int channels)
         {
             float gain = _gain;
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             lock (_lock)
             {
-                if (!_started && _count >= _target) { _started = true; _fadeIn = 0f; }
-                // More queued than needed (a burst, or the sender's clock runs a bit fast): play up to 5 % faster until
-                // the delay is back at the target - unnoticeable, and the excess never sticks around.
+                DiagCallback(t0, data.Length / channels);
+                if (!_started && _count >= (_dry && !OldPolicy ? Mathf.Min(_target, Rate * ResumeMs / 1000) : _target))
+                {
+                    _started = true;
+                    _fadeIn = 0f;
+                }
+                // Steer the delay to the target: up to 5 % faster when too much is queued (a burst after a hitch, or
+                // the sender's clock runs a bit fast), 4 % slower when the cushion is too thin - unnoticeable.
                 int excess = _count - _target;
-                float step = excess > Rate * 120 / 1000 ? _step * 1.05f : excess > Rate * 25 / 1000 ? _step * 1.025f : _step;
+                float step = excess > Rate * 120 / 1000 ? _step * 1.05f
+                           : excess > Rate * 25 / 1000 ? _step * 1.025f
+                           : excess < -Rate * 15 / 1000 && !OldPolicy ? _step * 0.96f
+                           : _step;
                 for (int i = 0; i < data.Length; i += channels)
                 {
                     float x;
                     if (_started && _count >= 2)
                     {
                         float a = _ring[_read], b = _ring[(_read + 1) % BufferSize];
-                        x = (a + (b - a) * _frac) * gain;
+                        x = a + (b - a) * _frac;
                         _frac += step;
                         while (_frac >= 1f)
                         {
                             _frac -= 1f;
+                            Remember(_ring[_read]);
                             _read = (_read + 1) % BufferSize;
                             _readAbs++;
                             _count--;
                         }
-                        if (_fadeIn < 1f) { x *= _fadeIn; _fadeIn += _fadeStep; }
-                        x /= 1f + 0.35f * Mathf.Abs(x); // soft clip: the boost never crackles
-                        _last = x;
+                        if (_fadeIn < 1f)
+                        {
+                            // Coming back from a dropout: crossfade from the concealment tail into the new audio.
+                            x = x * _fadeIn + PlcSample(_step) * (1f - _fadeIn);
+                            _fadeIn += _fadeStep;
+                        }
+                        _dry = false;
                     }
                     else
                     {
-                        if (_started) _underruns++; // ran dry mid-speech: buffer more next time
-                        _started = false;
-                        _last *= 0.985f;            // fade instead of a hard click
-                        x = _last;
+                        if (_started) { _started = false; _dry = true; _dryCounted = false; StartConceal(); } // ran dry: conceal, resume early
+                        if (_dry) _dryFrames++;
+                        x = PlcSample(_step);
                     }
+                    x *= gain;
+                    x /= 1f + 0.35f * Mathf.Abs(x); // soft clip: the boost never crackles
                     for (int c = 0; c < channels; c++) data[i + c] *= x;
                 }
                 if (_stampCount > 0) MeasureStamps();
             }
+            DiagCost(t0);
         }
 
         // ================================================================ latency measurement (test tone only)
@@ -207,6 +215,7 @@ namespace HideAndSeek.Game.Voice
             {
                 double ms = (now - _stampTicks[_stampHead]) / 10000.0;
                 _latSum += ms; _latN++;
+                DiagLatency(ms);
                 if (ms < _latMin) _latMin = ms;
                 if (ms > _latMax) _latMax = ms;
                 _stampHead = (_stampHead + 1) % _stampPos.Length;
