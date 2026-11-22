@@ -29,7 +29,8 @@ namespace HideAndSeek.Characters
         {
             rightT = default;
             propRot = Quaternion.identity;
-            if (!toyWanted && toyRaise <= 0.001f) return false;
+            // Waits until a carried inventory item is put away (switch swaps it out at the bottom).
+            if (toyRaise <= 0.001f && (!toyWanted || carryShownGrip != null)) return false;
             if (show != HeldItem.None) return false;
             float lower = 1f - ActionTimeline.SmoothStep01(toyRaise);
             float k = toyFpKick * toyFpKick * (3f - 2f * toyFpKick);
@@ -46,7 +47,7 @@ namespace HideAndSeek.Characters
 
         void UpdateToyGunFp(float dt)
         {
-            toyRaise = Mathf.MoveTowards(toyRaise, toyWanted ? 1f : 0f, dt / 0.22f);
+            toyRaise = Mathf.MoveTowards(toyRaise, toyWanted && carryShownGrip == null ? 1f : 0f, dt / 0.22f);
             toyFpKick = Mathf.MoveTowards(toyFpKick, 0f, dt * 3.2f);
             if (toyHands && toyFp == null)
             {

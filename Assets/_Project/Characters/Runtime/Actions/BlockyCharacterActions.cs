@@ -146,6 +146,7 @@ namespace HideAndSeek.Characters
             EnsureInit();
             if (item == heldItem) return;
             heldItem = item;
+            if (!hasLast) drawnItem = item; // nothing drawn yet (new character, late joiner): no put-away motion
             BeginCrossfade();
         }
 
@@ -299,6 +300,8 @@ namespace HideAndSeek.Characters
             reviveW = 0f;
             hasLast = false;
             fadeT = 1f;
+            drawnItem = heldItem;
+            carryW = 0f;
         }
 
         // ================================================================== setup
@@ -381,7 +384,7 @@ namespace HideAndSeek.Characters
             bool standing = (visual == LifeState.Alive && !pathActive) || action == ActionKind.StabbedReaction || action == ActionKind.KillReaction;
 
             // 1. Item hold (arms).
-            float targetItemW = show != HeldItem.None ? 1f : 0f;
+            float targetItemW = show != HeldItem.None && !Holstering(show) ? 1f : 0f;
             itemW = Damp(itemW, targetItemW, 12f, dt);
             if (show != HeldItem.None && itemW > 0.001f)
             {
@@ -409,6 +412,7 @@ namespace HideAndSeek.Characters
             ApplyPoke(ref p, dt, standing);
             ApplyFlashTake(ref p, dt);
             ApplyToyGun(ref p, dt, standing, lookPitch);
+            ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
@@ -523,6 +527,8 @@ namespace HideAndSeek.Characters
 
         HeldItem ResolveShownItem()
         {
+            // Actions and lying down show their own item: the hand needs no put-away motion afterwards.
+            if (action != ActionKind.None || VisualLifeState != LifeState.Alive) drawnItem = heldItem;
             if (VendingShowsCan) return HeldItem.Can;
             if (PhoneSmashing) return HeldItem.None;
             if (RemoteThrowing) return RemoteShownItem();
@@ -537,7 +543,7 @@ namespace HideAndSeek.Characters
             if (action == ActionKind.KnifeAttack || action == ActionKind.Kill) return HeldItem.Knife;
             if (action == ActionKind.Reload) return HeldItem.Glock;
             if (heldItem == HeldItem.None && RemoteShownItem() != HeldItem.None) return HeldItem.RcRemote; // "Pilot RC" selected
-            return heldItem;
+            return DrawnItem();
         }
 
         void AdvanceTimers(float dt, float speed)
@@ -703,6 +709,7 @@ namespace HideAndSeek.Characters
             socketR.localRotation = p.PropR;
             UpdateVendingProp(show);
             UpdateToyGunProp();
+            UpdateCarryProp();
             var saw = props[(int)HeldItem.Chainsaw];
             if (saw != null && show == HeldItem.Chainsaw)
             {

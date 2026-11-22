@@ -21,6 +21,7 @@ namespace HideAndSeek.Game.Net
             if (has("-rodwatch")) { StartCoroutine(RodWatch()); StartCoroutine(SeekerHotbarTest()); }
             StartInvTests(has);
             StartPlaceTests(has);
+            StartHeldTests(has);
         }
 
         private static string ItemShots => ArgOr("-itemshots", "");

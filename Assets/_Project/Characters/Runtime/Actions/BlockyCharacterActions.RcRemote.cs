@@ -64,7 +64,7 @@ namespace HideAndSeek.Characters
         HeldItem RemoteShownItem()
         {
             if (remoteThrowT >= 0f) return remoteThrowT < RcRemoteTimeline.Release ? HeldItem.RcRemote : HeldItem.None;
-            if (remoteHeld && action == ActionKind.None && VisualLifeState == LifeState.Alive && !pathActive && sitW < 0.01f && proneW < 0.3f)
+            if (remoteHeld && carryW < 0.01f && action == ActionKind.None && VisualLifeState == LifeState.Alive && !pathActive && sitW < 0.01f && proneW < 0.3f)
                 return HeldItem.RcRemote;
             return HeldItem.None;
         }

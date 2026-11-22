@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HideAndSeek.Audio;
+using HideAndSeek.Characters;
 using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using UnityEngine;
@@ -21,8 +22,12 @@ namespace HideAndSeek.Game
     /// 3. register an <see cref="ItemDef"/> (see <c>ItemDefs.Builtin.cs</c>): <see cref="Count"/>, <see cref="Give"/>,
     ///    <see cref="Take"/> on that state, plus <see cref="Use"/> / <see cref="Hint"/> / <see cref="Model"/>;
     /// 4. draw an icon in <see cref="HotbarIcons"/>;
-    /// 5. before the server adds one to a player (pickup), check <see cref="Inventory.HasRoomFor"/>.
-    /// The slot layout, Q (drop), E on dropped items, the hotbar and the minimap then work on their own.
+    /// 5. before the server adds one to a player (pickup), check <see cref="Inventory.HasRoomFor"/>;
+    /// 6. in the hand: set <see cref="Hand"/> (a <see cref="HandGrip"/>: grip point on the model, third-person fist and
+    ///    rotation, first-person fist and rotation) - the model is <see cref="Model"/> unless the grip has its own.
+    ///    Leave it null for items with their own hand animation (seeker weapons through <see cref="Weapon"/>, the toy gun).
+    /// The slot layout, Q (drop), E on dropped items, the hotbar, the minimap and the item in the hand (seen by
+    /// everybody, synced through NetPlayer.HandSlot, with the put-away / draw motion) then work on their own.
     /// </para>
     /// </summary>
     public sealed class ItemDef
@@ -68,6 +73,12 @@ namespace HideAndSeek.Game
         public HotbarItem SlotPartner = HotbarItem.None;
         /// <summary>Client: E prompt for a dropped one (player, the drop's Extra), null = the normal "E  podnieś: ...".</summary>
         public Func<NetPlayer, byte, string> FloorText;
+        /// <summary>
+        /// How it is held while its slot is selected (third and first person, see <see cref="HandGrip"/>); its model
+        /// defaults to <see cref="Model"/>, so the hand and the floor show the same thing. Null = nothing in the hand
+        /// from this mechanism (weapons via <see cref="Weapon"/>, items with their own hand view).
+        /// </summary>
+        public HandGrip Hand;
     }
 
     /// <summary>Registry of all inventory items (built-in ones in <c>ItemDefs.Builtin.cs</c>).</summary>
@@ -98,6 +109,7 @@ namespace HideAndSeek.Game
         {
             EnsureBuiltins();
             if (def == null || def.Item == HotbarItem.None) return;
+            Wire(def);
             if (Map.TryGetValue(def.Item, out var old)) List[List.IndexOf(old)] = def;
             else List.Add(def);
             Map[def.Item] = def;
@@ -118,9 +130,16 @@ namespace HideAndSeek.Game
             _init = true;
             foreach (var d in Builtins())
             {
+                Wire(d);
                 Map[d.Item] = d;
                 List.Add(d);
             }
+        }
+
+        /// <summary>The hand shows the dropped item's model unless the grip brings its own.</summary>
+        private static void Wire(ItemDef d)
+        {
+            if (d.Hand != null && d.Hand.Model == null) d.Hand.Model = d.Model;
         }
 
         private static void Toast(string text, float seconds = 2.5f) => GameHud.Toast(text, seconds);

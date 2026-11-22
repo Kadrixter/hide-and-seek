@@ -37,7 +37,7 @@ namespace HideAndSeek.Characters
         {
             bool can = toyOn && standing && VisualLifeState == LifeState.Alive && action == ActionKind.None && !pathActive &&
                        shownItem == HeldItem.None && sitW < 0.01f && proneW < 0.3f && rcW < 0.01f && injectW < 0.01f &&
-                       medW < 0.01f && !vendingOn && shockT < 0f && gunT < 0f && flashT < 0f;
+                       medW < 0.01f && !vendingOn && shockT < 0f && gunT < 0f && flashT < 0f && carryW < 0.01f;
             toyW = Mathf.MoveTowards(toyW, can ? 1f : 0f, dt / 0.2f);
             toyKick = Mathf.MoveTowards(toyKick, 0f, dt * 3.2f);
             gooW = Mathf.MoveTowards(gooW, gooTarget, dt / 0.3f);
@@ -74,7 +74,7 @@ namespace HideAndSeek.Characters
                 float sh = Mathf.Sin(time * 17f), sh2 = Mathf.Sin(time * 15f + 1.3f);
                 g.SolveArm(1, g.TorsoPoint(new Vector3(-0.42f, 0.18f + 0.06f * sh, 0.12f + 0.05f * sh2)), TorsoDir(g, -1f, -1f, 0.2f));
                 CharacterPose.LerpArm(ref p, g, 1, w);
-                if (shownItem == HeldItem.None && toyW < 0.01f)
+                if (shownItem == HeldItem.None && toyW < 0.01f && carryW < 0.01f)
                 {
                     g.SolveArm(0, g.TorsoPoint(new Vector3(0.42f, 0.2f + 0.06f * sh2, 0.1f + 0.05f * sh)), TorsoDir(g, 1f, -1f, 0.2f));
                     CharacterPose.LerpArm(ref p, g, 0, w);
