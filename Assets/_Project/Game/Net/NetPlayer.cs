@@ -1316,8 +1316,13 @@ namespace HideAndSeek.Game.Net
             if (animate && fresh != 0)
             {
                 Vector3 from = transform.position - transform.forward;
+                float near = float.MaxValue; // the nearest seeker cut it (there can be several)
                 foreach (var s in All)
-                    if (s != null && s.IsSeeker) { from = s.transform.position; break; }
+                {
+                    if (s == null || !s.IsSeeker) continue;
+                    float d = (s.transform.position - transform.position).sqrMagnitude;
+                    if (d < near) { near = d; from = s.transform.position; }
+                }
                 for (int bit = 1; bit <= Limb.Head; bit <<= 1)
                     if ((fresh & bit) != 0) SeverLocal(bit, from);
             }

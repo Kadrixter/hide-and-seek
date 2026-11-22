@@ -24,7 +24,7 @@ namespace HideAndSeek.Game.Net
         /// </summary>
         public static readonly Info[] All =
         {
-            new Info { Id = GameMode.HideAndSeek, Name = "Chowany", Tagline = "Jeden szuka, reszta się chowa na parkingu.", Ready = true },
+            new Info { Id = GameMode.HideAndSeek, Name = "Chowany", Tagline = "Szukający (jeden lub kilku) polują, reszta się chowa na parkingu.", Ready = true },
             new Info { Id = GameMode.RcRace, Name = "Wyścigi RC", Tagline = "Wyścig samochodzików RC na torze z rampami i tunelami (wersja testowa).", Ready = true },
         };
 

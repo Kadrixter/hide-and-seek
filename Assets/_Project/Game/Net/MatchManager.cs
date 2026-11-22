@@ -43,29 +43,6 @@ namespace HideAndSeek.Game.Net
         private float CurrentHintInterval => GlockPhase.Value
             ? Mathf.Min(Settings.Value.HintInterval, Tuning.GlockHintInterval)
             : Settings.Value.HintInterval;
-        private ulong _lastSeekerClient = ulong.MaxValue;
-        private readonly HashSet<string> _seekerHistory = new();
-
-        /// <summary>
-        /// Fair rotation: everybody is the seeker once (random order), then a new random round of turns starts.
-        /// The previous seeker is never picked twice in a row when somebody else is available.
-        /// </summary>
-        public NetPlayer PickSeeker(List<NetPlayer> players)
-        {
-            var candidates = players.FindAll(x => !_seekerHistory.Contains(x.Nick) && x.OwnerClientId != _lastSeekerClient);
-            if (candidates.Count == 0)
-            {
-                _seekerHistory.Clear();
-                candidates = players.FindAll(x => x.OwnerClientId != _lastSeekerClient);
-            }
-            if (candidates.Count == 0) candidates = players;
-            var seeker = candidates[Random.Range(0, candidates.Count)];
-            _seekerHistory.Add(seeker.Nick);
-            _lastSeekerClient = seeker.OwnerClientId;
-            Debug.Log($"[Match] seeker {seeker.Nick} (this turn so far: {string.Join(", ", _seekerHistory)})");
-            return seeker;
-        }
-
         public void TestDown(NetPlayer pl) => Down(pl);
         public void TestKill(NetPlayer pl) => Kill(pl);
         private readonly Dictionary<ulong, double> _lastShot = new();
@@ -115,6 +92,7 @@ namespace HideAndSeek.Game.Net
             {
                 NetworkManager.SceneManager.OnLoadEventCompleted += OnSceneLoaded;
                 NetworkManager.OnClientDisconnectCallback += OnClientLeft;
+                ApplySeekerArg();
             }
         }
 
@@ -139,13 +117,18 @@ namespace HideAndSeek.Game.Net
                 case MatchPhase.Hiding:
                     GameAudio.Play2D(GameSfx.RoundStart);
                     if (local != null)
+                    {
+                        int many = SeekersNow();
+                        string mates = local.IsSeeker && many > 1 ? OtherSeekerNames(local) : "";
                         GameHud.Banner(local.IsSeeker ? "SZUKASZ" : "CHOWASZ SIĘ",
-                            local.IsSeeker ? "Czekaj, aż wszyscy się schowają..." : "Uciekaj i schowaj się, zanim szukający wyruszy!", 4f,
+                            local.IsSeeker ? (mates.Length > 0 ? $"Szukasz razem z: {mates}. Czekaj, aż wszyscy się schowają..." : "Czekaj, aż wszyscy się schowają...")
+                                : many > 1 ? $"Uciekaj i schowaj się, zanim szukający wyruszą! Jest ich {many}." : "Uciekaj i schowaj się, zanim szukający wyruszy!", 4f,
                             local.IsSeeker ? Color.red : UI.UiKit.HiderColor);
+                    }
                     break;
                 case MatchPhase.Seeking:
                     GameAudio.Play2D(GameSfx.SeekerReleased);
-                    GameHud.Banner("SZUKAJĄCY WYRUSZYŁ", local != null && local.IsSeeker ? "Znajdź ich wszystkich." : "Nie daj się złapać.", 3f, Color.red);
+                    GameHud.Banner(SeekersNow() > 1 ? "SZUKAJĄCY WYRUSZYLI" : "SZUKAJĄCY WYRUSZYŁ", local != null && local.IsSeeker ? "Znajdź ich wszystkich." : "Nie daj się złapać.", 3f, Color.red);
                     break;
                 case MatchPhase.Ended:
                     break;
@@ -162,7 +145,7 @@ namespace HideAndSeek.Game.Net
             bool iWon = local != null && (local.IsSeeker == seekerWon);
             GameAudio.Play2D(iWon ? GameSfx.WinSting : GameSfx.LoseSting);
             GameAudio.SetBed(AmbientId.None);
-            GameHud.Banner(seekerWon ? "WYGRYWA SZUKAJĄCY" : "WYGRYWAJĄ UKRYCI",
+            GameHud.Banner(seekerWon ? (SeekersNow() > 1 ? "WYGRYWAJĄ SZUKAJĄCY" : "WYGRYWA SZUKAJĄCY") : "WYGRYWAJĄ UKRYCI",
                 iWon ? "Wygrana :D" : "Przegrana :/", Tuning.EndScreenTime - 1f, iWon ? UI.UiKit.Accent : UI.UiKit.Danger);
         }
 
@@ -191,16 +174,18 @@ namespace HideAndSeek.Game.Net
             AlarmPinged?.Invoke(pos); // minimap shows pins to the seeker only (from any level, unlike hint pings)
         }
 
+        /// <summary>Glock phase begins. <paramref name="floorIds"/>: seekers whose inventory was full (their Glock lies next to them).</summary>
         [Rpc(SendTo.Everyone)]
-        private void GlockGivenRpc(bool onFloor)
+        private void GlockGivenRpc(ulong[] floorIds)
         {
             GameAudio.SetBed(AmbientId.TensionMusic, 3f);
             var local = NetPlayer.Local;
+            bool onFloor = local != null && floorIds != null && System.Array.IndexOf(floorIds, local.NetworkObjectId) >= 0;
             if (local != null && local.IsSeeker)
                 GameHud.Banner("GLOCK", onFloor ? "Ostatnie 2 minuty. Ekwipunek pełny - glock leży obok ciebie (zaznaczony na mapie)."
                     : "Ostatnie 2 minuty. Glock jest w ekwipunku (1-5). LPM - strzał, PPM - celowanie, R - przeładuj.", 5f, Color.yellow);
             else
-                GameHud.Banner("UWAGA", "Szukający dostał pistolet. Ostatnie 2 minuty.", 4f, Color.yellow);
+                GameHud.Banner("UWAGA", SeekersNow() > 1 ? "Szukający dostali pistolety. Ostatnie 2 minuty." : "Szukający dostał pistolet. Ostatnie 2 minuty.", 4f, Color.yellow);
         }
 
         // ================================================================ settings / start (from lobby)
@@ -218,6 +203,7 @@ namespace HideAndSeek.Game.Net
             s.BleedOut = Mathf.Clamp(s.BleedOut, 20f, 300f);
             if (s.Mode >= GameModes.All.Length) s.Mode = 0;
             s.Laps = (byte)Mathf.Clamp(s.Laps == 0 ? 3 : s.Laps, 1, 10);
+            s.Seekers = (byte)Mathf.Clamp(s.SeekerCount, 1, MaxSeekersSetting);
             Settings.Value = s;
         }
 
@@ -240,6 +226,12 @@ namespace HideAndSeek.Game.Net
             if (NetPlayer.All.Count < GameSettings.MinPlayers && !RaceMode)
             {
                 starter?.ToastRpc("Potrzeba co najmniej 2 graczy.", 3f);
+                return false;
+            }
+            if (SeekerCountProblem() is string tooMany)
+            {
+                Debug.Log("[Match] start refused: " + tooMany);
+                starter?.ToastRpc("Nie można zacząć: " + tooMany, 6f);
                 return false;
             }
             var mode = GameModes.Get(Settings.Value.Mode);
@@ -273,17 +265,11 @@ namespace HideAndSeek.Game.Net
             if (RaceMode) { StartRace(); return; }
             var players = new List<NetPlayer>(NetPlayer.All);
             players.RemoveAll(x => x == null);
-            var pickFrom = players;
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-forcehider") >= 0 && players.Count > 1)
-                pickFrom = players.FindAll(x => x.OwnerClientId != NetworkManager.ServerClientId);
-            var seeker = PickSeeker(pickFrom);
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-forceseeker") >= 0)
-                seeker = NetPlayer.FindByClient(NetworkManager.ServerClientId) ?? seeker;
-            _lastSeekerClient = seeker.OwnerClientId;
+            var seekers = ChooseSeekers(players);
 
             foreach (var pl in players)
             {
-                pl.Role.Value = pl == seeker ? PlayerRole.Seeker : PlayerRole.Hider;
+                pl.Role.Value = seekers.Contains(pl) ? PlayerRole.Seeker : PlayerRole.Hider;
                 ResetPlayer(pl);
             }
             Winner.Value = MatchWinner.None;
@@ -359,14 +345,16 @@ namespace HideAndSeek.Game.Net
             var hiderSpawns = SpawnPoints.Hider();
             Shuffle(hiderSpawns);
             var seekerSpawn = SpawnPoints.Seeker();
-            int i = 0;
+            int i = 0, k = 0, seekers = SeekersNow();
             foreach (var pl in NetPlayer.All)
             {
                 if (pl == null) continue;
                 Transform sp = pl.IsSeeker ? seekerSpawn : (hiderSpawns.Count > 0 ? hiderSpawns[i++ % hiderSpawns.Count] : null);
                 if (sp == null) sp = seekerSpawn;
-                if (sp != null) pl.TeleportRpc(sp.position + Vector3.up * 0.05f, sp.eulerAngles.y);
-                pl.ToastRpc(pl.IsSeeker ? "Jesteś SZUKAJĄCYM" : "Jesteś CHOWAJĄCYM SIĘ", 4f);
+                Vector3 at = sp == null ? Vector3.zero : pl.IsSeeker ? SeekerSpot(sp, k++, seekers) : sp.position;
+                if (sp != null) pl.TeleportRpc(at + Vector3.up * 0.05f, sp.eulerAngles.y);
+                string mates = pl.IsSeeker && seekers > 1 ? OtherSeekerNames(pl) : "";
+                pl.ToastRpc(pl.IsSeeker ? (mates.Length > 0 ? "Jesteś SZUKAJĄCYM (razem z: " + mates + ")" : "Jesteś SZUKAJĄCYM") : "Jesteś CHOWAJĄCYM SIĘ", 4f);
             }
         }
 
@@ -556,18 +544,18 @@ namespace HideAndSeek.Game.Net
             foreach (var pl in NetPlayer.All)
                 if (pl != null && pl.IsHider)
                     pl.NextHintAt.Value = System.Math.Min(pl.NextHintAt.Value, Now + Random.Range(3f, Tuning.GlockHintInterval));
-            bool onFloor = false;
-            foreach (var pl in NetPlayer.All)
+            var onFloor = new List<ulong>();
+            foreach (var pl in NetPlayer.All) // every seeker gets his own gun and magazines
             {
                 if (pl == null || !pl.IsSeeker) continue;
                 pl.Ammo.Value = Tuning.MagSize;
                 pl.SpareMags.Value = Tuning.Mags - 1;
-                if (!Inventory.HasRoomFor(pl, HotbarItem.Glock)) { ServerGlockToFloor(pl); onFloor = true; continue; } // full: it lands next to him
+                if (!Inventory.HasRoomFor(pl, HotbarItem.Glock)) { ServerGlockToFloor(pl); onFloor.Add(pl.NetworkObjectId); continue; } // full: it lands next to him
                 pl.HasGlock.Value = true;
                 pl.Held.Value = HeldItem.Glock;
                 pl.SfxRpc(GameSfx.GlockEquip, 1f);
             }
-            GlockGivenRpc(onFloor);
+            GlockGivenRpc(onFloor.ToArray());
         }
 
         private bool CheckWin(out MatchWinner winner)
@@ -629,6 +617,7 @@ namespace HideAndSeek.Game.Net
         private IEnumerator CheckAfterLeave()
         {
             yield return null; // let the player object despawn
+            ServerChainsawLostCheck();
             if (CheckWin(out var w)) EndMatch(w);
         }
 

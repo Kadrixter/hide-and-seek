@@ -8,10 +8,10 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// Big screen on the lobby wall with the round settings: game mode header, a grid of tiles (times with bars,
-    /// hint mode chips, Glock on / off, medkit and syringe icons, bleed-out, map) and the player list with ready
-    /// lights. Drawn as a world-space UI canvas in front of the board. E opens the settings (host edits, others view).
+    /// hint mode chips, Glock on / off, medkit and syringe icons, bleed-out, killer count / RC laps) and the player list
+    /// with ready lights. Drawn as a world-space UI canvas in front of the board. E opens the settings (host edits, others view).
     /// </summary>
-    public class LobbySettingsBoard : MonoBehaviour
+    public partial class LobbySettingsBoard : MonoBehaviour
     {
         public static LobbySettingsBoard Instance { get; private set; }
 
@@ -93,7 +93,7 @@ namespace HideAndSeek.Game
             At(line.rectTransform, 44, 236, W - 88, 3);
 
             // ---- tiles (4 x 2)
-            string[] titles = { "CHOWANIE", "SZUKANIE", "PODPOWIEDZI", "GLOCK", "APTECZKI", "ADRENALINA", "WYKRWAWIANIE", "MAPA / TOR" };
+            string[] titles = { "CHOWANIE", "SZUKANIE", "PODPOWIEDZI", "GLOCK", "APTECZKI", "ADRENALINA", "WYKRWAWIANIE", "ZABÓJCY" };
             const float gx = 44f, gy = 262f, gap = 24f;
             float tw = (W - gx * 2f - gap * 3f) / 4f, th = 252f;
             for (int i = 0; i < 8; i++)
@@ -104,7 +104,8 @@ namespace HideAndSeek.Game
                 var edge = UiStyle.Ring("Edge", tile.transform, TileEdge);
                 edge.rectTransform.Stretch();
                 var tr = tile.rectTransform;
-                Lbl(tr, titles[i], 26, 16, tw - 40, 36, 26, UiKit.TextDim, FontStyle.Bold);
+                var title = Lbl(tr, titles[i], 26, 16, tw - 40, 36, 26, UiKit.TextDim, FontStyle.Bold);
+                if (i == 7) _lastTitle = title; // killers, or laps in the RC race (LobbySettingsBoard.Seekers)
                 _value[i] = Lbl(tr, "", 24, 52, tw - 40, 86, 70, UiKit.Text, FontStyle.Bold);
                 _sub[i] = Lbl(tr, "", 26, 140, tw - 44, 40, 25, UiKit.TextDim);
                 if (i == 2 || i == 3 || i == 4 || i == 5) continue;
@@ -242,8 +243,7 @@ namespace HideAndSeek.Game
             for (int i = 0; i < _syrIcons.Length; i++) _syrIcons[i].enabled = i < s.Syringes;
             float bleed = s.BleedOut > 1f ? s.BleedOut : 78f;
             Set(6, $"{bleed:0} s", "po złapaniu", bleed / 180f);
-            if (s.Mode == (byte)GameMode.RcRace) Set(7, $"{(s.Laps == 0 ? 3 : s.Laps)} okr.", "tor RC: rampy, tunele", 1f);
-            else Set(7, "Parking", "3 poziomy, 180 x 120 m", 1f);
+            RefreshLastTile(s, players);
 
             // Players.
             int n = 0;

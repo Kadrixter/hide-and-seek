@@ -152,6 +152,7 @@ namespace HideAndSeek.Game.Net
             StartItemTests(Has);
             StartFlashToyTests(Has);
             StartPhoneTests(Has);
+            StartSeekerTests(Has);
             StartMapVizTests();
             if (Arg("-testheroes") is string heroDir) StartCoroutine(HeroCarTour(heroDir));
         }
@@ -490,7 +491,8 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(1f);
             var list = new List<NetPlayer>(NetPlayer.All);
             var order = new List<string>();
-            for (int i = 0; i < 12; i++) order.Add(MatchManager.Instance.PickSeeker(list).Nick);
+            int per = int.TryParse(ArgOr("-seekers", "1"), out int sn) ? Mathf.Clamp(sn, 1, list.Count) : 1; // -seekers N: N per round
+            for (int i = 0; i < 12; i++) order.Add(string.Join("+", MatchManager.Instance.PickSeekers(list, per).ConvertAll(p => p.Nick)));
             Debug.Log("[SeekerTest] order: " + string.Join(" ", order));
         }
 

@@ -557,6 +557,7 @@ namespace HideAndSeek.Game
                     }
                 }
             }
+            used = UpdateSeekerAllies(me, pos, pxPerM, edge, used); // several seekers: the others (Minimap.Allies)
             // Seeker: hiders brought back with adrenaline blink blue every few seconds (clamped to the edge).
             if (me.IsSeeker)
             {

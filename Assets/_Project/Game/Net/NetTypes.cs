@@ -73,6 +73,10 @@ namespace HideAndSeek.Game.Net
         public byte Mode;            // GameMode (0 = hide and seek)
         public byte Laps;            // RC race: laps to win
         public bool SeekerTakesItems; // the seeker may pick up hiders' items (medkits, syringes, rods) to deny them
+        public byte Seekers;         // killers (seekers) per round, 1..players-1 (0 = old default = 1)
+
+        /// <summary>Wanted number of seekers (at least 1); the lever refuses a start when it leaves no hider.</summary>
+        public int SeekerCount => Seekers < 1 ? 1 : Seekers;
 
         public static NetSettings Default => new NetSettings
         {
@@ -87,6 +91,7 @@ namespace HideAndSeek.Game.Net
             Syringes = 2,
             Mode = (byte)GameMode.HideAndSeek,
             Laps = 3,
+            Seekers = 1,
         };
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
@@ -103,12 +108,13 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Mode);
             s.SerializeValue(ref Laps);
             s.SerializeValue(ref SeekerTakesItems);
+            s.SerializeValue(ref Seekers);
         }
 
         public bool Equals(NetSettings o) => HideTime == o.HideTime && SeekTime == o.SeekTime && HintStart == o.HintStart &&
                                              HintInterval == o.HintInterval && HintMode == o.HintMode && Glock == o.Glock &&
                                              Medkits == o.Medkits && BleedOut == o.BleedOut && Syringes == o.Syringes && Mode == o.Mode && Laps == o.Laps &&
-                                             SeekerTakesItems == o.SeekerTakesItems;
+                                             SeekerTakesItems == o.SeekerTakesItems && Seekers == o.Seekers;
     }
 
     public struct MedkitState : INetworkSerializable, IEquatable<MedkitState>

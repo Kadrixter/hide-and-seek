@@ -87,6 +87,7 @@ namespace HideAndSeek.Game.Net
         {
             if (NetPlayer.All.Count < GameSettings.MinPlayers && !RaceMode) return "za mało graczy.";
             if (!GameModes.Get(Settings.Value.Mode).Ready) return "wybrany tryb nie jest gotowy.";
+            if (SeekerCountProblem() is string tooMany) return tooMany;
             var notReady = new List<string>();
             foreach (var pl in NetPlayer.All)
                 if (pl != null && pl.OwnerClientId != NetworkManager.ServerClientId && !pl.Ready.Value) notReady.Add(pl.Nick);
