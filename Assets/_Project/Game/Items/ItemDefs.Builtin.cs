@@ -67,6 +67,7 @@ namespace HideAndSeek.Game
                 Hint = MedkitHint,
                 Use = UseMedkit,
                 Model = r => Prop(r, HeldItem.Medkit),
+                Hand = Grips.Medkit,
             };
             yield return new ItemDef
             {
@@ -82,6 +83,7 @@ namespace HideAndSeek.Game
                     else if (click) Toast("Podejdź do ciała martwego chowającego i przytrzymaj LPM.");
                 },
                 Model = r => Prop(r, HeldItem.Syringe),
+                Hand = Grips.Syringe,
             };
             yield return new ItemDef
             {
@@ -93,6 +95,7 @@ namespace HideAndSeek.Game
                 Hint = _ => "LPM / 6 - postaw i steruj",
                 Use = (p, click, hold) => { if (click) HotbarInput.Six = true; },
                 Model = r => BlockyProps.CreateRcCar(r, 0).Root.gameObject,
+                Hand = Grips.RcCar,
             };
             yield return new ItemDef
             {
@@ -104,6 +107,7 @@ namespace HideAndSeek.Game
                 Hint = p => p.FreeStump != 0 ? "LPM - zrób z pręta nogę" : "proteza, gdy stracisz nogę",
                 Use = UseRod,
                 Model = r => RodModel.CreateLoose(r, 0).Root.gameObject,
+                Hand = Grips.Rod,
             };
             // Toy slime blaster (NetPlayer.ToyGun): the selected slot = in the hands (ToyGunControl.Out), the shots left
             // travel with a dropped one (Extra).
@@ -137,6 +141,7 @@ namespace HideAndSeek.Game
                 Count = p => p.HasPhone ? 1 : 0,
                 CustomDrop = p => MatchManager.Instance?.ServerDropPhone(p, p.transform.position + p.transform.forward * 0.8f),
                 Hint = p => p.PhoneRinging ? "DZWONI!  E - rzuć i zdepcz" : "V - słyszą cię inni, którzy mają telefon",
+                Hand = Grips.Phone,
             };
         }
 
@@ -164,6 +169,75 @@ namespace HideAndSeek.Game
         }
 
         private static GameObject Prop(Transform root, HeldItem item) => BlockyProps.Create(item, root, 0).gameObject;
+
+        /// <summary>
+        /// How the built-in items sit in the hand (see <see cref="HandGrip"/> for the spaces). Knife, chainsaw and Glock
+        /// are seeker weapons with their own holds (ItemDef.Weapon), the toy gun has its own two-handed view.
+        /// </summary>
+        private static class Grips
+        {
+            /// <summary>By the carry handle at the side like a small case (the same hang as the medkit animations);
+            /// first person: held by the bottom edge at the lower right, the red cross turned to the eye.</summary>
+            public static readonly HandGrip Medkit = new()
+            {
+                Hang = true,
+                FpGrip = new Vector3(0f, -0.36f, -0.15f),
+                FpHand = new Vector3(0.34f, -0.38f, 0.6f),
+                FpRotation = new Vector3(2f, -70f, 0f),
+                FpScale = 0.75f,
+            };
+
+            /// <summary>Ready to use: in the fist at the chest, needle up (the plunger clear of the forearm);
+            /// first person: across the lower right, needle to the left.</summary>
+            public static readonly HandGrip Syringe = new()
+            {
+                Hand = new Vector3(0.2f, 0.36f, 0.3f),
+                Rotation = HandGrip.Aim(Vector3.forward, new Vector3(-0.2f, 0.95f, 0.15f), Vector3.up, Vector3.back),
+                Look = 0.25f,
+                FpHand = new Vector3(0.3f, -0.3f, 0.58f),
+                FpRotation = HandGrip.Aim(Vector3.forward, new Vector3(-0.85f, 0.2f, 0.35f), Vector3.up, Vector3.up),
+                FpScale = 0.7f,
+            };
+
+            /// <summary>By the cabin roof, hanging at the side (the same grip as putting it down to drive); first
+            /// person: by its right flank, nose forward-left.</summary>
+            public static readonly HandGrip RcCar = new()
+            {
+                Grip = -BlockyProps.RcCarInHand,
+                Hang = true,
+                FpGrip = new Vector3(0.21f, 0.07f, 0f),
+                FpHand = new Vector3(0.34f, -0.3f, 0.58f),
+                FpRotation = new Vector3(8f, -25f, 0f),
+                FpScale = 0.75f,
+            };
+
+            /// <summary>A short way below its top end, carried at the side pointing forward and a little down (across
+            /// the fist, clear of the forearm and the leg); first person: across the lower right corner.</summary>
+            public static readonly HandGrip Rod = new()
+            {
+                Grip = new Vector3(0f, -0.2f, 0f),
+                Hang = true,
+                Rotation = new Vector3(-70f, 0f, 0f),
+                FpHand = new Vector3(0.3f, -0.34f, 0.55f),
+                FpRotation = HandGrip.Aim(Vector3.down, new Vector3(0.75f, -0.55f, 0.35f), Vector3.forward, Vector3.up),
+                FpScale = 0.8f,
+            };
+
+            /// <summary>Upright in the fist like a walkie-talkie, screen to the face (the size of the phone in the smash
+            /// animation, which pulls the same model out of the hand).</summary>
+            public static readonly HandGrip Phone = new()
+            {
+                Model = r => PhoneModel.Create(r, 0).Root.gameObject,
+                Grip = new Vector3(0f, PhoneModel.Thick * 0.5f, -0.07f),
+                Scale = PhoneTimeline.HandScale,
+                Hand = new Vector3(0.24f, 0.32f, 0.26f),
+                Rotation = HandGrip.Aim(Vector3.forward, new Vector3(0f, 0.85f, 0.5f), Vector3.up, new Vector3(0f, 0.5f, -0.85f)),
+                Look = 0.3f,
+                FpHand = new Vector3(0.26f, -0.28f, 0.58f),
+                FpRotation = HandGrip.Aim(Vector3.forward, new Vector3(-0.1f, 0.9f, 0.35f), Vector3.up, new Vector3(0.15f, 0.3f, -0.94f)),
+                FpScale = 0.65f,
+            };
+        }
 
     }
 }

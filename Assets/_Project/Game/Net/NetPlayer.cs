@@ -356,6 +356,7 @@ namespace HideAndSeek.Game.Net
             UpdateBrickHand();
             UpdateFlashCarry();
             UpdateToyGun();
+            UpdateHandItem();
 
             float prone = Life.Value == LifeState.Alive ? Motor.ProneAmount : 0f;
             (Actions as BlockyCharacterActions)?.SetProneAmount(prone);

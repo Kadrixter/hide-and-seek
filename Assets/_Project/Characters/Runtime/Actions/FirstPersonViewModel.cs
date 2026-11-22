@@ -400,8 +400,7 @@ namespace HideAndSeek.Characters
             heldItem = item;
             if (action != Action.None) action = Action.None;
             // Lower, swap at the bottom, raise again (instant when hidden).
-            switchTime = visible ? 0f : 99f;
-            if (!visible) shownItem = item;
+            BeginSwitch();
         }
 
         float slashTime = 99f;
@@ -459,6 +458,7 @@ namespace HideAndSeek.Characters
             else
             {
                 shownItem = heldItem;
+                SwapCarried();
                 if (switchTime < LowerTime + RaiseTime) lower = 1f - ActionTimeline.SmoothStep01((switchTime - LowerTime) / RaiseTime);
             }
 
@@ -525,6 +525,7 @@ namespace HideAndSeek.Characters
             Vector3 gunPosForMag = Vector3.zero;
             Quaternion gunRotForMag = Quaternion.identity;
 
+            carryHands = false;
             bool holding = HoldHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft);
             UpdateVmKit();
             if (!holding)
@@ -631,6 +632,7 @@ namespace HideAndSeek.Characters
                     break;
                 }
                 default:
+                    if (CarryHands(show, out rightT, out propRot, ref leftT, ref wantLeft)) break; // selected inventory item
                     rightT = new Vector3(0.28f, -0.4f, 0.68f);
                     propRot = Quaternion.identity;
                     SolveArm(shR, elR, ShoulderR, rightT, new Vector3(1f, -1f, -0.4f));
@@ -655,6 +657,7 @@ namespace HideAndSeek.Characters
             UpdateVendingProp(show);
             UpdateFlashLamp();
             UpdateToyGunFp(dt);
+            UpdateCarryFp();
             var sawProp = props[(int)HeldItem.Chainsaw];
             if (sawProp != null && show == HeldItem.Chainsaw)
             {
