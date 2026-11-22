@@ -35,7 +35,7 @@ namespace HideAndSeek.Game.Editor
             CeilingFan(deco, new Vector3(-1.5f, RoomH, 0.8f), darkWood, metal);
             SofaLeds(deco);
             CorkBoard(deco, new Vector3(7.96f, 1.85f, -4.35f), cctv, trim);
-            TrashBin(deco, new Vector3(7.35f, 0f, -1.35f), metal);
+            TrashBin(deco, new Vector3(7.35f, 0f, -1.35f)); // MultiplayerBuilder.TrashBin
             Rugs(deco);
             BuildLobbyDetails(root, darkWood, metal, trim);
         }
@@ -576,23 +576,7 @@ namespace HideAndSeek.Game.Editor
             }
         }
 
-        // ================================================================ bin, rugs, cushions
-
-        private static void TrashBin(Transform p, Vector3 pos, Material metal)
-        {
-            var t = new GameObject("TrashBin").transform;
-            t.SetParent(p, false);
-            Cyl("Bin", t, pos + new Vector3(0, 0.28f, 0), 0.36f, 0.56f, Mat("LobbyBin", new Color(0.18f, 0.2f, 0.22f), null, 0.5f, Vector2.one, 0.6f), null, true);
-            Cyl("BinInside", t, pos + new Vector3(0, 0.555f, 0), 0.32f, 0.01f, Mat("LobbyBinInside", new Color(0.02f, 0.02f, 0.02f), null, 0f, Vector2.one));
-            var paper = Mat("LobbyCrumpled", new Color(0.92f, 0.91f, 0.86f), null, 0.05f, Vector2.one);
-            var rnd = new System.Random(11);
-            foreach (var off in new[] { new Vector3(0.02f, 0.58f, 0.04f), new Vector3(-0.06f, 0.6f, -0.03f), new Vector3(-0.38f, 0.04f, 0.2f), new Vector3(-0.3f, 0.04f, -0.32f), new Vector3(-0.5f, 0.04f, -0.05f), new Vector3(0.08f, 0.04f, 0.38f) })
-            {
-                float s = 0.07f + (float)rnd.NextDouble() * 0.03f;
-                var g = Ball("Paper", t, pos + off, new Vector3(s, s * 0.85f, s * 1.1f), paper);
-                g.transform.rotation = Quaternion.Euler((float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 360f, 0);
-            }
-        }
+        // ================================================================ rugs, cushions
 
         private static void Rugs(Transform p)
         {
