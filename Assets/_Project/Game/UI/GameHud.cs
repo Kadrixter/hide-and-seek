@@ -648,6 +648,9 @@ namespace HideAndSeek.Game
             dim.raycastTarget = true;
             var panel = UiStyle.Panel("Panel", dim.transform, UiKit.Panel);
             panel.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size);
+            // The canvas is laid out for 1080 px height: a taller panel (e.g. round settings) is scaled down to fit.
+            const float maxH = 1030f;
+            if (size.y > maxH) panel.rectTransform.localScale = Vector3.one * (maxH / size.y);
             UiKit.VStack(panel.rectTransform, 10, 30).padding.top = 34;
             return dim.rectTransform;
         }
