@@ -380,6 +380,7 @@ namespace HideAndSeek.Characters
             ApplyLimpAndSlash(ref p, dt, standing, show);
             ApplyGoreLayers(ref p, dt, standing);
             ApplyPushLayer(ref p, dt);
+            ApplyRodLayers(ref p, dt, standing);
             ApplyArcade(ref p, dt, standing);
             ApplyPoke(ref p, dt, standing);
 

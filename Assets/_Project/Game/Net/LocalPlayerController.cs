@@ -35,6 +35,7 @@ namespace HideAndSeek.Game.Net
         SecurityButton, // E on a camera-level button in a security room
         SecurityCrate,  // E on the crate blocking the security room door
         Vending,        // E on the lobby vending machine keypad
+        RodPickup,      // E on a metal rod leaning on a rack / fence (hiders)
     }
 
     /// <summary>
@@ -397,7 +398,7 @@ namespace HideAndSeek.Game.Net
         private bool UpdateRc(Keyboard kb, MatchPhase phase)
         {
             var mm = MatchManager.Instance;
-            bool six = kb.digit6Key.wasPressedThisFrame || kb.numpad6Key.wasPressedThisFrame || TestSix;
+            bool six = kb.digit6Key.wasPressedThisFrame || kb.numpad6Key.wasPressedThisFrame || TestSix || HotbarInput.Six;
             TestSix = false;
             int slot = mm != null ? mm.RcSlotOf(_p) : -1;
             bool roundPhase = phase == MatchPhase.Hiding || phase == MatchPhase.Seeking;
@@ -660,6 +661,14 @@ namespace HideAndSeek.Game.Net
                 }
             }
 
+            // Metal rods (hiders, peg leg): MatchManager.Rods.
+            if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && _p.IsAliveHider && MatchManager.Instance != null &&
+                MatchManager.Instance.TryRodPrompt(eye, fwd, _p, out int rodId, out var rodPos, out string rodText, out float rodD) && rodD < best)
+            {
+                _rodId = rodId;
+                Offer(PromptKind.RodPickup, rodPos, rodText, rodD);
+            }
+
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
             {
@@ -789,6 +798,7 @@ namespace HideAndSeek.Game.Net
         private int _outletIdx;
         private bool _wasArcade;
         private int _syringeId;
+        private int _rodId;
         private bool _ignoreEThisFrame;
         private int _elevCar, _elevFloor;
         private Vector3 _standPos;
@@ -919,6 +929,9 @@ namespace HideAndSeek.Game.Net
                 case PromptKind.PickupSyringe:
                     if (kb.eKey.wasPressedThisFrame) _p.RequestPickupSyringeRpc(_syringeId);
                     break;
+                case PromptKind.RodPickup:
+                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupRodRpc(_rodId);
+                    break;
                 case PromptKind.ChainsawPickup:
                     if (kb.eKey.wasPressedThisFrame) _p.RequestPickupChainsawRpc();
                     break;
@@ -986,22 +999,22 @@ namespace HideAndSeek.Game.Net
             // Hold H (rescue / heal other), hold G (heal self).
             PromptKind wantHold = PromptKind.None;
             NetPlayer target2 = null;
-            if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && (kb.hKey.isPressed || TestHoldH))
+            if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && (kb.hKey.isPressed || TestHoldH || HotbarInput.HoldH))
             {
                 wantHold = Prompt;
                 target2 = Nearest(o => o.IsHider && (Prompt == PromptKind.Rescue ? o.Life.Value == LifeState.Downed : (o.Wounded.Value || o.Limping.Value)));
             }
-            else if (Prompt == PromptKind.Resurrect && kb.hKey.isPressed)
+            else if (Prompt == PromptKind.Resurrect && (kb.hKey.isPressed || HotbarInput.HoldH))
             {
                 wantHold = PromptKind.Resurrect;
                 target2 = Nearest(o => o.IsHider && o.Life.Value == LifeState.Dead);
             }
-            else if (kb.gKey.isPressed && _p.IsHider && _p.Life.Value == LifeState.Downed && _p.MedkitCount.Value > 0 && !MenuOpen)
+            else if ((kb.gKey.isPressed || HotbarInput.HoldG) && _p.IsHider && _p.Life.Value == LifeState.Downed && _p.MedkitCount.Value > 0 && !MenuOpen)
             {
                 wantHold = PromptKind.SelfRevive;
                 target2 = _p;
             }
-            else if ((kb.gKey.isPressed || TestHoldG) && _p.MedkitCount.Value > 0 && (_p.Wounded.Value || _p.Limping.Value) && _p.IsAliveHider)
+            else if ((kb.gKey.isPressed || TestHoldG || HotbarInput.HoldG) && _p.MedkitCount.Value > 0 && (_p.Wounded.Value || _p.Limping.Value) && _p.IsAliveHider)
             {
                 wantHold = PromptKind.Heal;
                 target2 = _p;

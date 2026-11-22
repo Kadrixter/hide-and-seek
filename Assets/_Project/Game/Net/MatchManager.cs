@@ -98,6 +98,7 @@ namespace HideAndSeek.Game.Net
             VendingCans = new NetworkList<VendingState>();
             InitBricks();
             InitRadio();
+            InitRods();
         }
 
         public override void OnNetworkSpawn()
@@ -458,6 +459,7 @@ namespace HideAndSeek.Game.Net
             UpdateSyringeViews();
             UpdateLobbyFun();
             UpdateRcCars();
+            UpdateRods();
             BloodTracks.Ensure();
             var ph = Phase.Value;
             if (RaceMode && (ph == MatchPhase.Race || ph == MatchPhase.Ended) && SceneManager.GetActiveScene().name == NetSession.GameScene)

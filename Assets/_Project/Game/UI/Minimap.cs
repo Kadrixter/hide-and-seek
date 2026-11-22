@@ -17,7 +17,7 @@ namespace HideAndSeek.Game
     /// (with up / down arrows for other floors), pulsing downed hiders, hint pings with ripples, stairs and lifts,
     /// level tabs with teammate counts, compass and scale bar.
     /// </summary>
-    public class Minimap : MonoBehaviour
+    public partial class Minimap : MonoBehaviour
     {
         private const float Cell = 0.5f;
         private static readonly float[] Zooms = { 30f, 56f, 100f };
@@ -373,6 +373,7 @@ namespace HideAndSeek.Game
             float pxPerM = size / _viewShown;
             UpdateScale(pxPerM);
             UpdatePoi(pos, pxPerM, floor);
+            UpdateItemMarkers(me, pos, pxPerM, size);
             UpdateTabs(me, floor);
             UpdateTeamDots(me, pos, pxPerM, size);
             UpdatePins(pos, pxPerM, size);
