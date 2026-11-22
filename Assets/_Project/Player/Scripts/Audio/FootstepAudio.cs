@@ -458,10 +458,10 @@ namespace HideAndSeek.Player
 
         private static Vector3 ListenerPos(out bool ok)
         {
-            if ((_listener == null || !_listener.isActiveAndEnabled) && Time.unscaledTime >= _nextListenerSearch)
+            if (!ActiveListener.Valid(_listener) && Time.unscaledTime >= _nextListenerSearch)
             {
                 _nextListenerSearch = Time.unscaledTime + 0.5f;
-                _listener = FindAnyObjectByType<AudioListener>();
+                _listener = ActiveListener.Find(); // the enabled one, never a remote player's disabled listener
             }
             ok = _listener != null;
             return ok ? _listener.transform.position : Vector3.zero;

@@ -269,12 +269,29 @@ namespace HideAndSeek.Audio
             }
         }
 
+        /// <summary>Test / debug: one line per playing pooled voice whose clip name contains <paramref name="filter"/>.</summary>
+        public string Describe(string filter)
+        {
+            var sb = new System.Text.StringBuilder();
+            Vector3 lp = _listener != null ? _listener.transform.position : Vector3.zero;
+            foreach (var v in _voices)
+            {
+                var s = v.Source;
+                if (s == null || !s.isPlaying || s.clip == null) continue;
+                if (!string.IsNullOrEmpty(filter) && s.clip.name.IndexOf(filter, System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+                sb.Append($"\n  {s.clip.name}: vol {s.volume:0.000} (base {v.BaseVolume:0.000}) virtual={s.isVirtual} loop={s.loop} " +
+                          $"dist {Vector3.Distance(lp, s.transform.position):0.0}/{s.maxDistance:0} occ {v.Occlusion:0.00} floorGain {v.FloorGain:0.00} " +
+                          $"lp {(v.LowPass.enabled ? v.LowPass.cutoffFrequency.ToString("0") : "off")} fade {v.FadeOut:0.00} prio {s.priority} t {s.time:0.00}");
+            }
+            return sb.ToString();
+        }
+
         private void RefreshListener(float now)
         {
-            if (_listener != null && _listener.isActiveAndEnabled) return;
+            if (ActiveListener.Valid(_listener)) return;
             if (now < _nextListenerSearch) return;
-            _nextListenerSearch = now + 0.5f;
-            _listener = FindAnyObjectByType<AudioListener>();
+            _nextListenerSearch = now + 0.1f; // camera switches (spectate, kill cam, RC car) pick the new one up at once
+            _listener = ActiveListener.Find(); // never a remote player's disabled listener
         }
 
         /// <summary>World position of the active AudioListener (or null when none).</summary>

@@ -135,19 +135,19 @@ namespace HideAndSeek.Game.Net
                 dist = d;
             }
             if (dist == float.MaxValue) return false;
-            text = me.RodCount.Value >= ItemTuning.MaxRodsCarried ? "E  (masz już pręt)" : "E  podnieś metalowy pręt";
+            text = me.RodCount.Value >= ItemTuning.MaxRodsCarried ? "E  (masz już pręt)" : Inventory.PickupText(me, HotbarItem.Rod, "E  podnieś metalowy pręt");
             return true;
         }
 
         public void ServerPickupRod(NetPlayer pl, int id)
         {
-            if (pl == null || !pl.IsAliveHider) return;
-            if (Phase.Value != MatchPhase.Seeking && Phase.Value != MatchPhase.Hiding) return;
+            if (!Inventory.CanPickUp(pl, HotbarItem.Rod, Phase.Value)) return;
             if (pl.RodCount.Value >= ItemTuning.MaxRodsCarried)
             {
                 pl.ToastRpc("Masz już pręt.", 2f);
                 return;
             }
+            if (!Inventory.HasRoomFor(pl, HotbarItem.Rod)) { pl.ToastRpc(Inventory.FullText, 2.5f); return; }
             for (int i = 0; i < Rods.Count; i++)
             {
                 var r = Rods[i];
@@ -155,10 +155,12 @@ namespace HideAndSeek.Game.Net
                 if (Vector3.Distance(pl.transform.position, r.Middle) > Tuning.PickupRange + 1.5f) return;
                 r.Taken = true;
                 Rods[i] = r;
+                int slot = Inventory.PredictSlot(pl, HotbarItem.Rod) + 1;
                 pl.RodCount.Value++;
                 pl.SfxRpc(GameSfx.MedkitPickup, 0.7f);
-                pl.ToastRpc(pl.FreeStump != 0 ? "Masz pręt: wybierz go (4) i kliknij LPM, żeby zrobić z niego nogę."
-                    : "Masz pręt (slot 4). Przyda się, jeśli stracisz nogę.", 4f);
+                pl.ToastRpc(pl.IsSeeker ? "Zabrałeś chowającym pręt (Q - wyrzuć)."
+                    : pl.FreeStump != 0 ? $"Masz pręt: wybierz go ({slot}) i kliknij LPM, żeby zrobić z niego nogę."
+                    : $"Masz pręt (slot {slot}). Przyda się, jeśli stracisz nogę.", 4f);
                 return;
             }
         }

@@ -39,6 +39,7 @@ namespace HideAndSeek.Audio
         private readonly List<Emitter> _emitters = new List<Emitter>();
         private int _cursor;
         private Transform _listener;
+        private AudioListener _listenerComp;
         private float _nextListenerSearch;
 
         public int Count => _emitters.Count;
@@ -224,11 +225,11 @@ namespace HideAndSeek.Audio
         {
             if (_emitters.Count == 0) return;
             float now = Time.unscaledTime;
-            if ((_listener == null || !_listener.gameObject.activeInHierarchy) && now >= _nextListenerSearch)
+            if (!ActiveListener.Valid(_listenerComp) && now >= _nextListenerSearch)
             {
                 _nextListenerSearch = now + 0.5f;
-                var l = FindAnyObjectByType<AudioListener>();
-                _listener = l != null ? l.transform : null;
+                _listenerComp = ActiveListener.Find(); // the enabled one, never a remote player's disabled listener
+                _listener = _listenerComp != null ? _listenerComp.transform : null;
             }
             if (_listener == null) return;
             Vector3 lp = _listener.position;

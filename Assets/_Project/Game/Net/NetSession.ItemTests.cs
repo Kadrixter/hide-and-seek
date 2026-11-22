@@ -19,6 +19,7 @@ namespace HideAndSeek.Game.Net
         {
             if (has("-testrod")) StartCoroutine(RodTest());
             if (has("-rodwatch")) { StartCoroutine(RodWatch()); StartCoroutine(SeekerHotbarTest()); }
+            StartInvTests(has);
         }
 
         private static string ItemShots => ArgOr("-itemshots", "");
@@ -57,13 +58,15 @@ namespace HideAndSeek.Game.Net
             // Hotbar with items; LMB on the rod with both legs = hint only.
             me.MedkitCount.Value = 2;
             me.SyringeCount.Value = 1;
-            Hotbar.TestSelect = 3;
+            yield return new WaitForSeconds(0.3f); // slot layout follows the counts (server)
+            Debug.Log($"[RodTest] slots {me.Inv.Value}");
+            Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Rod);
             yield return null;
             Hotbar.TestClick = true;
             yield return new WaitForSeconds(0.4f);
             Debug.Log($"[RodTest] click with both legs: rods={me.RodCount.Value} legs={me.RodLegs.Value}");
             Shot(dir, "hotbar_items");
-            Hotbar.TestSelect = 0;
+            Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Medkit);
             yield return new WaitForSeconds(0.3f);
             Shot(dir, "hotbar_medkit");
 
@@ -88,8 +91,8 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[RodTest] after saw: severed={me.Severed.Value} free={me.FreeStump} scale={me.Motor.SpeedScale:0.00}");
             yield return new WaitForSeconds(1.5f);
 
-            // Fit the rod from the hotbar (slot 4 + LMB), first-person shots along the way.
-            Hotbar.TestSelect = 3;
+            // Fit the rod from the hotbar (its slot + LMB), first-person shots along the way.
+            Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Rod);
             yield return null;
             Shot(dir, "hotbar_stump");
             Hotbar.TestClick = true;
@@ -123,7 +126,8 @@ namespace HideAndSeek.Game.Net
             me.Severed.Value = (byte)(me.Severed.Value | Limb.Legs);
             yield return new WaitForSeconds(1.5f);
             Debug.Log($"[RodTest] both legs cut: free={me.FreeStump} walking={drv.RodWalking}");
-            Hotbar.TestSelect = 3;
+            yield return new WaitForSeconds(0.3f);
+            Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Rod);
             yield return null;
             Hotbar.TestClick = true;
             yield return new WaitForSeconds(RodTimeline.Duration + 1f);
@@ -172,24 +176,25 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(0.5f);
         }
 
-        /// <summary>Seeker side of the hotbar: knife selected, 2 picks the chainsaw once the seeker has it.</summary>
+        /// <summary>Seeker side of the hotbar: knife in slot 1, an empty slot = empty hands, the saw's slot takes the saw.</summary>
         private IEnumerator SeekerHotbarTest()
         {
             yield return WaitSeeking();
             var me = NetPlayer.Local;
             if (!me.IsSeeker) yield break;
+            yield return new WaitForSeconds(0.5f);
             Shot(ItemShots, "seeker_hotbar_knife");
             Hotbar.TestSelect = 1;
-            yield return new WaitForSeconds(0.5f);
-            Debug.Log($"[SeekerHotbar] 2 without a saw: held={me.Held.Value}");
+            yield return new WaitForSeconds(0.8f);
+            Debug.Log($"[SeekerHotbar] empty slot 2: held={me.Held.Value} slots={me.Inv.Value}");
             float end = Time.time + 40f;
             while (!me.HasChainsaw.Value && Time.time < end) yield return null;
             yield return new WaitForSeconds(6f);
             Hotbar.TestSelect = 0;
             yield return new WaitForSeconds(1f);
-            Hotbar.TestSelect = 1;
+            Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Chainsaw);
             yield return new WaitForSeconds(1.5f);
-            Debug.Log($"[SeekerHotbar] 2 with the saw: held={me.Held.Value} selected={Hotbar.Selected(me) + 1}");
+            Debug.Log($"[SeekerHotbar] saw slot: held={me.Held.Value} selected={Hotbar.Selected(me) + 1} slots={me.Inv.Value}");
             Shot(ItemShots, "seeker_hotbar_saw");
         }
 

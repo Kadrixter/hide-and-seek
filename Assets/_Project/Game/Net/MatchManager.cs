@@ -37,6 +37,8 @@ namespace HideAndSeek.Game.Net
 
         /// <summary>Raised on every client for hint pings (seeker minimap). Args: world position.</summary>
         public static event System.Action<Vector3> HintPinged;
+        /// <summary>Raised on every client when a car alarm goes off (seeker minimap pin, seen from every level).</summary>
+        public static event System.Action<Vector3> AlarmPinged;
 
         private float CurrentHintInterval => GlockPhase.Value
             ? Mathf.Min(Settings.Value.HintInterval, Tuning.GlockHintInterval)
@@ -99,6 +101,7 @@ namespace HideAndSeek.Game.Net
             InitBricks();
             InitRadio();
             InitRods();
+            InitDrops();
         }
 
         public override void OnNetworkSpawn()
@@ -183,16 +186,17 @@ namespace HideAndSeek.Game.Net
             var alarms = CarAlarms.Instance;
             alarms.PlayAlarm(car, duration);
             Vector3 pos = alarms.CarPosition(car);
-            HintPinged?.Invoke(pos); // minimap shows pins to the seeker only
+            AlarmPinged?.Invoke(pos); // minimap shows pins to the seeker only (from any level, unlike hint pings)
         }
 
         [Rpc(SendTo.Everyone)]
-        private void GlockGivenRpc()
+        private void GlockGivenRpc(bool onFloor)
         {
             GameAudio.SetBed(AmbientId.TensionMusic, 3f);
             var local = NetPlayer.Local;
             if (local != null && local.IsSeeker)
-                GameHud.Banner("GLOCK", "Ostatnie 2 minuty. Q - wyciągnij / schowaj, LPM - strzał, PPM - celowanie, R - przeładuj.", 5f, Color.yellow);
+                GameHud.Banner("GLOCK", onFloor ? "Ostatnie 2 minuty. Ekwipunek pełny - glock leży obok ciebie (zaznaczony na mapie)."
+                    : "Ostatnie 2 minuty. Glock jest w ekwipunku (1-5). LPM - strzał, PPM - celowanie, R - przeładuj.", 5f, Color.yellow);
             else
                 GameHud.Banner("UWAGA", "Szukający dostał pistolet. Ostatnie 2 minuty.", 4f, Color.yellow);
         }
@@ -305,6 +309,7 @@ namespace HideAndSeek.Game.Net
             pl.Held.Value = HeldItem.None;
             pl.HasGlock.Value = false;
             pl.HasChainsaw.Value = false;
+            pl.Inv.Value = default;
             pl.Ammo.Value = 0;
             pl.SpareMags.Value = 0;
             pl.Busy.Value = false;
@@ -460,6 +465,7 @@ namespace HideAndSeek.Game.Net
             UpdateLobbyFun();
             UpdateRcCars();
             UpdateRods();
+            UpdateDrops();
             BloodTracks.Ensure();
             var ph = Phase.Value;
             if (RaceMode && (ph == MatchPhase.Race || ph == MatchPhase.Ended) && SceneManager.GetActiveScene().name == NetSession.GameScene)
@@ -546,16 +552,18 @@ namespace HideAndSeek.Game.Net
             foreach (var pl in NetPlayer.All)
                 if (pl != null && pl.IsHider)
                     pl.NextHintAt.Value = System.Math.Min(pl.NextHintAt.Value, Now + Random.Range(3f, Tuning.GlockHintInterval));
+            bool onFloor = false;
             foreach (var pl in NetPlayer.All)
             {
                 if (pl == null || !pl.IsSeeker) continue;
-                pl.HasGlock.Value = true;
                 pl.Ammo.Value = Tuning.MagSize;
                 pl.SpareMags.Value = Tuning.Mags - 1;
+                if (!Inventory.HasRoomFor(pl, HotbarItem.Glock)) { ServerGlockToFloor(pl); onFloor = true; continue; } // full: it lands next to him
+                pl.HasGlock.Value = true;
                 pl.Held.Value = HeldItem.Glock;
                 pl.SfxRpc(GameSfx.GlockEquip, 1f);
             }
-            GlockGivenRpc();
+            GlockGivenRpc(onFloor);
         }
 
         private bool CheckWin(out MatchWinner winner)
@@ -722,23 +730,24 @@ namespace HideAndSeek.Game.Net
         {
             if (!Seeking || pl == null || !pl.IsSeeker || pl.Busy.Value || ChainsawTaken.Value) return;
             if (Vector3.Distance(pl.transform.position, ChainsawShelf.Position) > 3.2f) return;
+            if (!Inventory.HasRoomFor(pl, HotbarItem.Chainsaw)) { pl.ToastRpc(Inventory.FullText, 2.5f); return; }
             ChainsawTaken.Value = true;
             pl.HasChainsaw.Value = true;
             pl.Held.Value = HeldItem.Chainsaw;
             pl.SfxRpc(GameSfx.ChainsawStart, 1f);
-            pl.ToastRpc("Masz piłę! F (przytrzymaj) - odpal i wejdź w chowającego. Q - zmiana broni.", 6f);
+            pl.ToastRpc("Masz piłę! F (przytrzymaj) - odpal i wejdź w chowającego. 1-5 - zmiana broni, Q - wyrzuć.", 6f);
         }
 
-        /// <summary>Seeker weapon switch (Q cycles knife -> chainsaw -> Glock).</summary>
+        /// <summary>Seeker weapon switch (hotbar keys 1-5; None = empty hands on a slot without a weapon).</summary>
         public void ServerEquip(NetPlayer pl, HeldItem item)
         {
             if (pl == null || !pl.IsSeeker || pl.Busy.Value || _reloading.Contains(pl.OwnerClientId)) return;
             if (item == HeldItem.Glock && !pl.HasGlock.Value) return;
             if (item == HeldItem.Chainsaw && !pl.HasChainsaw.Value) return;
-            if (item != HeldItem.Knife && item != HeldItem.Glock && item != HeldItem.Chainsaw) return;
+            if (item != HeldItem.Knife && item != HeldItem.Glock && item != HeldItem.Chainsaw && item != HeldItem.None) return;
             if (pl.Held.Value == item) return;
             pl.Held.Value = item;
-            pl.SfxRpc(item == HeldItem.Glock ? GameSfx.GlockEquip : item == HeldItem.Chainsaw ? GameSfx.ChainsawStart : GameSfx.KnifeDraw, 0.8f);
+            if (item != HeldItem.None) pl.SfxRpc(item == HeldItem.Glock ? GameSfx.GlockEquip : item == HeldItem.Chainsaw ? GameSfx.ChainsawStart : GameSfx.KnifeDraw, 0.8f);
         }
 
         private bool IsLastHider(NetPlayer victim)
@@ -967,13 +976,13 @@ namespace HideAndSeek.Game.Net
 
         public void ServerPickupSyringe(NetPlayer pl, int id)
         {
-            if (pl == null || !pl.IsAliveHider) return;
-            if (Phase.Value != MatchPhase.Seeking && Phase.Value != MatchPhase.Hiding) return;
+            if (!Inventory.CanPickUp(pl, HotbarItem.Syringe, Phase.Value)) return;
             if (pl.SyringeCount.Value >= Tuning.MaxSyringes)
             {
                 pl.ToastRpc($"Masz już {Tuning.MaxSyringes} strzykawki.", 2f);
                 return;
             }
+            if (!Inventory.HasRoomFor(pl, HotbarItem.Syringe)) { pl.ToastRpc(Inventory.FullText, 2.5f); return; }
             for (int i = 0; i < Syringes.Count; i++)
             {
                 var m = Syringes[i];
@@ -983,7 +992,7 @@ namespace HideAndSeek.Game.Net
                 Syringes[i] = m;
                 pl.SyringeCount.Value++;
                 pl.SfxRpc(GameSfx.MedkitPickup, 0.8f);
-                pl.ToastRpc("Masz adrenalinę: przytrzymaj H przy martwym chowającym, żeby go wskrzesić.", 4f);
+                pl.ToastRpc(pl.IsSeeker ? "Zabrałeś chowającym adrenalinę (Q - wyrzuć)." : "Masz adrenalinę: przytrzymaj H przy martwym chowającym, żeby go wskrzesić.", 4f);
                 return;
             }
         }
@@ -1020,13 +1029,13 @@ namespace HideAndSeek.Game.Net
 
         public void ServerPickup(NetPlayer pl, int medkitId)
         {
-            if (pl == null || !pl.IsAliveHider) return;
+            if (!Inventory.CanPickUp(pl, HotbarItem.Medkit, Phase.Value)) return;
             if (pl.MedkitCount.Value >= Tuning.MaxMedkits)
             {
                 pl.ToastRpc($"Masz już {Tuning.MaxMedkits} apteczki.", 2f);
                 return;
             }
-            if (Phase.Value != MatchPhase.Seeking && Phase.Value != MatchPhase.Hiding) return;
+            if (!Inventory.HasRoomFor(pl, HotbarItem.Medkit)) { pl.ToastRpc(Inventory.FullText, 2.5f); return; }
             for (int i = 0; i < Medkits.Count; i++)
             {
                 var m = Medkits[i];
@@ -1036,7 +1045,7 @@ namespace HideAndSeek.Game.Net
                 Medkits[i] = m;
                 pl.MedkitCount.Value++;
                 pl.SfxRpc(GameSfx.MedkitPickup, 1f);
-                pl.ToastRpc($"Apteczki: {pl.MedkitCount.Value}. G - ulecz siebie, H - ulecz rannego.", 4f);
+                pl.ToastRpc(pl.IsSeeker ? "Zabrałeś chowającym apteczkę (Q - wyrzuć)." : $"Apteczki: {pl.MedkitCount.Value}. G - ulecz siebie, H - ulecz rannego.", 4f);
                 return;
             }
         }

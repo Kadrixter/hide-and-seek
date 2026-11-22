@@ -93,6 +93,9 @@ namespace HideAndSeek.Audio
             if (source != null && _runner != null) _runner.Stop(source, fade);
         }
 
+        /// <summary>Test / debug: playing pooled voices (clip name filter), with volume, floor gain, occlusion, virtual state.</summary>
+        public static string DebugVoices(string filter = null) => _runner != null ? _runner.Describe(filter) : "";
+
         /// <summary>Fades out every pooled sfx voice (e.g. when leaving a match).</summary>
         public static void StopAll(float fade = 0.2f)
         {

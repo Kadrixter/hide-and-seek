@@ -32,7 +32,13 @@ namespace HideAndSeek.Game
         private RectTransform _arrow, _cone;
         private Text _floorLabel, _northLabel, _scaleLabel;
         private RectTransform _scaleBar;
-        private readonly List<(RectTransform rt, Vector3 world, float until, float born)> _pins = new();
+        // anyFloor: car alarms; hint pings (forced sounds of hiders) only show while the seeker is on their level.
+        private readonly List<(RectTransform rt, Vector3 world, float until, float born, bool anyFloor)> _pins = new();
+
+        /// <summary>Test: hint / alarm pins drawn in the last frame.</summary>
+        public static int VisiblePins { get; private set; }
+        /// <summary>Test: hint pins alive but hidden (pinged on another level).</summary>
+        public static int HiddenPins { get; private set; }
         private readonly List<Text> _tabs = new();
         private readonly List<Text> _tabCounts = new();
 
@@ -135,6 +141,7 @@ namespace HideAndSeek.Game
             }
 
             MatchManager.HintPinged += OnHint;
+            MatchManager.AlarmPinged += OnAlarm;
             _root.gameObject.SetActive(false);
         }
 
@@ -151,9 +158,17 @@ namespace HideAndSeek.Game
             rt.sizeDelta = amin.y == amax.y ? new Vector2(0, size.y) : new Vector2(size.x, 0);
         }
 
-        private void OnDestroy() => MatchManager.HintPinged -= OnHint;
+        private void OnDestroy()
+        {
+            MatchManager.HintPinged -= OnHint;
+            MatchManager.AlarmPinged -= OnAlarm;
+        }
 
-        private void OnHint(Vector3 world)
+        private void OnHint(Vector3 world) => AddPin(world, false);
+
+        private void OnAlarm(Vector3 world) => AddPin(world, true);
+
+        private void AddPin(Vector3 world, bool anyFloor)
         {
             var me = NetPlayer.Local;
             if (me == null || !me.IsSeeker) return;
@@ -161,7 +176,7 @@ namespace HideAndSeek.Game
             pin.sprite = RingSprite();
             pin.raycastTarget = false;
             pin.rectTransform.sizeDelta = new Vector2(30, 30);
-            _pins.Add((pin.rectTransform, world, Time.time + Tuning.HintPinTime, Time.time));
+            _pins.Add((pin.rectTransform, world, Time.time + Tuning.HintPinTime, Time.time, anyFloor));
         }
 
         public void SetVisible(bool visible)
@@ -376,7 +391,8 @@ namespace HideAndSeek.Game
             UpdateItemMarkers(me, pos, pxPerM, size);
             UpdateTabs(me, floor);
             UpdateTeamDots(me, pos, pxPerM, size);
-            UpdatePins(pos, pxPerM, size);
+            UpdatePins(pos, pxPerM, size, floor);
+            UpdateSeekerDrops(me, pos, pxPerM, size);
         }
 
         private void UpdateScale(float pxPerM)
@@ -437,17 +453,23 @@ namespace HideAndSeek.Game
             return best;
         }
 
-        private void UpdatePins(Vector3 pos, float pxPerM, float size)
+        private void UpdatePins(Vector3 pos, float pxPerM, float size, int floor)
         {
+            int visible = 0, hidden = 0;
             for (int i = _pins.Count - 1; i >= 0; i--)
             {
-                var (rt, world, until, born) = _pins[i];
+                var (rt, world, until, born, anyFloor) = _pins[i];
                 if (rt == null || Time.time > until)
                 {
                     if (rt != null) Destroy(rt.gameObject);
                     _pins.RemoveAt(i);
                     continue;
                 }
+                // A hint ping marks a hider's chest: only shown while the viewer stands on that level.
+                bool show = anyFloor || NearestFloor(world.y - 1f) == floor;
+                if (rt.gameObject.activeSelf != show) rt.gameObject.SetActive(show);
+                if (!show) { hidden++; continue; }
+                visible++;
                 Vector2 off = new Vector2(world.x - pos.x, world.z - pos.z) * pxPerM;
                 float edge = size * 0.5f - 10f;
                 bool clamped = Mathf.Abs(off.x) > edge || Mathf.Abs(off.y) > edge;
@@ -461,6 +483,8 @@ namespace HideAndSeek.Game
                 var img = rt.GetComponent<Image>();
                 img.color = new Color(1f, 0.25f, 0.18f, Mathf.Clamp01(left) * (clamped ? 0.9f : 1f - ripple * 0.8f));
             }
+            VisiblePins = visible;
+            HiddenPins = hidden;
         }
 
         // ================================================================ team dots

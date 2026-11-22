@@ -5,7 +5,7 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// 32 x 32 pixel-art icons for the hotbar (point filtered, dark outline), drawn in code in the blocky style of the
-    /// game: medkit, adrenaline syringe, RC car, metal rod, knife, chainsaw, Glock.
+    /// game: medkit, adrenaline syringe, RC car, metal rod, knife, chainsaw, Glock (+ placeholder toy gun and phone).
     /// </summary>
     public static class HotbarIcons
     {
@@ -26,6 +26,8 @@ namespace HideAndSeek.Game
                 case HotbarItem.Knife: Knife(px); break;
                 case HotbarItem.Chainsaw: Saw(px); break;
                 case HotbarItem.Glock: Glock(px); break;
+                case HotbarItem.ToyGun: ToyGun(px); break;
+                case HotbarItem.Phone: Phone(px); break;
             }
             Outline(px);
             var tex = new Texture2D(N, N, TextureFormat.RGBA32, false) { filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.DontSave };
@@ -148,6 +150,26 @@ namespace HideAndSeek.Game
             Rect(px, 14, 11, 29, 16, C(0.62f, 0.64f, 0.67f));   // bar
             for (int x = 14; x <= 29; x += 2) { Rect(px, x, 10, x, 10, C(0.16f, 0.16f, 0.17f)); Rect(px, x + 1, 17, x + 1, 17, C(0.16f, 0.16f, 0.17f)); }
             Rect(px, 6, 11, 10, 15, C(0.2f, 0.2f, 0.22f));      // engine cover
+        }
+
+        /// <summary>Placeholder: green toy pistol with an orange tip and a blob of slime.</summary>
+        private static void ToyGun(Color32[] px)
+        {
+            Rect(px, 6, 16, 24, 22, C(0.35f, 0.82f, 0.3f));     // body
+            Rect(px, 24, 17, 27, 21, C(1f, 0.55f, 0.1f));       // orange tip
+            Line(px, 10f, 16f, 7f, 5f, 2.6f, C(0.95f, 0.45f, 0.7f)); // pink grip
+            Rect(px, 13, 12, 16, 13, C(0.95f, 0.45f, 0.7f));    // trigger guard
+            Rect(px, 8, 22, 14, 25, C(0.25f, 0.65f, 0.22f));    // tank
+            Rect(px, 28, 18, 30, 21, C(0.55f, 1f, 0.35f));      // slime
+        }
+
+        /// <summary>Placeholder: pink phone with a dark screen.</summary>
+        private static void Phone(Color32[] px)
+        {
+            Rect(px, 10, 3, 21, 28, C(1f, 0.55f, 0.78f));       // case
+            Rect(px, 12, 8, 19, 25, C(0.1f, 0.11f, 0.14f));     // screen
+            Rect(px, 13, 21, 18, 23, C(0.35f, 0.6f, 0.95f));    // something on the screen
+            Rect(px, 14, 5, 17, 6, C(0.85f, 0.35f, 0.6f));      // button
         }
 
         private static void Glock(Color32[] px)

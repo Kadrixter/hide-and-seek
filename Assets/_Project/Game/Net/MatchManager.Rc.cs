@@ -140,6 +140,7 @@ namespace HideAndSeek.Game.Net
             {
                 var s = RcSlot(i);
                 if (s.Mode is RcMode.Shelf or RcMode.Wreck or RcMode.Doomed or RcMode.Shot) continue;
+                if (s.Holder == RcDropHolder) continue; // lying on the floor as a dropped item (MatchManager.Drops)
                 var pl = NetPlayer.Find(s.Holder);
                 if (pl == null)
                 {
@@ -174,6 +175,7 @@ namespace HideAndSeek.Game.Net
             }
             Vector3 at = s.Mode == RcMode.Shelf ? RcCarShelf.CarPos(i) : s.Pos;
             if (s.Mode != RcMode.Shelf && s.Mode != RcMode.Parked) return;
+            if (RcSlotOf(pl) < 0 && !Inventory.HasRoomFor(pl, HotbarItem.RcCar)) { pl.ToastRpc(Inventory.FullText, 2.5f); return; }
             if (Vector3.Distance(pl.transform.position + Vector3.up * 0.9f, at) > Tuning.RcPickupRange + 1.2f) return;
             SetRc(i, RcMode.Carried, pl.NetworkObjectId, at, 0f);
             pl.SfxRpc(GameSfx.RcPlace, 0.7f);

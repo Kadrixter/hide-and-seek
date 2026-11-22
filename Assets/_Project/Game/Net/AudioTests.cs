@@ -28,7 +28,7 @@ namespace HideAndSeek.Game.Net
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
-            if (!Has("-testvoicechan") && !Has("-testpvol") && !Has("-voiceprobe") && !Has("-testfloorsnd") && !Has("-teststress")) return;
+            if (!Has("-testvoicechan") && !Has("-testpvol") && !Has("-voiceprobe") && !Has("-testfloorsnd") && !Has("-teststress") && !Has("-testsawsound")) return;
             var go = new GameObject("[AudioTests]");
             DontDestroyOnLoad(go);
             var t = go.AddComponent<AudioTests>();
@@ -37,6 +37,7 @@ namespace HideAndSeek.Game.Net
             if (Has("-voiceprobe")) t.StartCoroutine(t.StreamProbe());
             if (Has("-testfloorsnd")) t.StartCoroutine(t.FloorSoundTest());
             if (Has("-teststress")) t.StartCoroutine(t.StressTest());
+            if (Has("-testsawsound")) t.StartCoroutine(t.SawSoundTest());
         }
 
         private static IEnumerator WaitPhase(MatchPhase phase)
@@ -55,7 +56,8 @@ namespace HideAndSeek.Game.Net
         /// <summary>Records what the player hears: attached to the active AudioListener, sums the final mix.</summary>
         private static ListenerTap Tap()
         {
-            var l = FindAnyObjectByType<AudioListener>();
+            AudioListener l = null;
+            foreach (var a in FindObjectsByType<AudioListener>(FindObjectsInactive.Exclude)) if (a.isActiveAndEnabled) l = a; // the one that hears
             if (l == null) return null;
             var tap = l.GetComponent<ListenerTap>();
             return tap != null ? tap : l.gameObject.AddComponent<ListenerTap>();

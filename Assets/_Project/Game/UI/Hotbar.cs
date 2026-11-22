@@ -8,8 +8,8 @@ using UnityEngine.SceneManagement;
 
 namespace HideAndSeek.Game
 {
-    /// <summary>Kinds of items shown in the hotbar.</summary>
-    public enum HotbarItem : byte { None, Medkit, Syringe, RcCar, Rod, Knife, Chainsaw, Glock }
+    /// <summary>Kinds of inventory items (definitions in <see cref="ItemDefs"/>). New kinds go at the END (synced as a byte).</summary>
+    public enum HotbarItem : byte { None, Medkit, Syringe, RcCar, Rod, Knife, Chainsaw, Glock, ToyGun, Phone }
 
     /// <summary>
     /// Requests from the hotbar to <see cref="LocalPlayerController"/> for this frame (left mouse button on the
@@ -21,64 +21,34 @@ namespace HideAndSeek.Game
     }
 
     /// <summary>
-    /// Hotbar logic (local player): fixed slots per role, all counts come from the server-written inventory.
-    /// Hider: 1 medkit, 2 adrenaline, 3 RC car, 4 rod; seeker: 1 knife, 2 chainsaw, 3 Glock.
-    /// Keys 1-4 select (seeker: equips through the server, Q still cycles); left mouse button uses the selected item.
-    /// Only active in a hide-and-seek round (never in the lobby, where 1-5 pick the brick colour, nor in the beta scene).
+    /// Hotbar logic (local player): 5 inventory slots (<see cref="Inventory"/>), empty until something is picked up.
+    /// Keys 1-5 select (the seeker takes the weapon of the slot into his hand, an empty / non-weapon slot = empty hands),
+    /// Q drops one of the selected item, the left mouse button uses it. Only active in a hide-and-seek round (never in
+    /// the lobby, where 1-5 pick the brick colour, nor in the race).
     /// </summary>
     public static class Hotbar
     {
-        public const int Slots = 4;
-        private static int _hiderSel;
-        private static readonly int[] _lastCounts = new int[Slots];
+        public const int Slots = Inventory.Slots;
+        private static int _sel;
+        private static readonly HotbarItem[] _last = new HotbarItem[Slots];
+        private static HeldItem _lastHeld;
+        private static float _nextEquip, _followUntil;
 
         // Test hooks (scripted tests drive the same code path as the keyboard / mouse).
         public static int TestSelect = -1;
-        public static bool TestClick, TestHold;
+        public static bool TestClick, TestHold, TestDrop;
 
-        public static HotbarItem ItemAt(NetPlayer p, int slot)
-        {
-            if (p == null) return HotbarItem.None;
-            if (p.IsSeeker) return slot switch { 0 => HotbarItem.Knife, 1 => HotbarItem.Chainsaw, 2 => HotbarItem.Glock, _ => HotbarItem.None };
-            return slot switch { 0 => HotbarItem.Medkit, 1 => HotbarItem.Syringe, 2 => HotbarItem.RcCar, 3 => HotbarItem.Rod, _ => HotbarItem.None };
-        }
+        public static HotbarItem ItemAt(NetPlayer p, int slot) => Inventory.At(p, slot);
 
-        /// <summary>How many of the item the player has (0 = empty slot).</summary>
-        public static int Count(NetPlayer p, HotbarItem item)
-        {
-            var mm = MatchManager.Instance;
-            return item switch
-            {
-                HotbarItem.Medkit => p.MedkitCount.Value,
-                HotbarItem.Syringe => p.SyringeCount.Value,
-                HotbarItem.RcCar => mm != null && mm.RcSlotOf(p) >= 0 ? 1 : 0,
-                HotbarItem.Rod => p.RodCount.Value,
-                HotbarItem.Knife => 1,
-                HotbarItem.Chainsaw => p.HasChainsaw.Value ? 1 : 0,
-                HotbarItem.Glock => p.HasGlock.Value ? 1 : 0,
-                _ => 0,
-            };
-        }
+        /// <summary>How many of the item the player has (0 = not in the inventory).</summary>
+        public static int Count(NetPlayer p, HotbarItem item) => Inventory.Count(p, item);
 
-        public static string Name(HotbarItem item) => item switch
-        {
-            HotbarItem.Medkit => "Apteczka",
-            HotbarItem.Syringe => "Adrenalina",
-            HotbarItem.RcCar => "Samochodzik RC",
-            HotbarItem.Rod => "Pręt",
-            HotbarItem.Knife => "Nóż",
-            HotbarItem.Chainsaw => "Piła łańcuchowa",
-            HotbarItem.Glock => "Glock",
-            _ => "",
-        };
+        public static string Name(HotbarItem item) => ItemDefs.Name(item);
 
-        /// <summary>Selected slot 0..3 (seeker: follows the weapon in hand).</summary>
-        public static int Selected(NetPlayer p)
-        {
-            if (p != null && p.IsSeeker)
-                return p.Held.Value == HeldItem.Chainsaw ? 1 : p.Held.Value == HeldItem.Glock ? 2 : 0;
-            return _hiderSel;
-        }
+        public static int SlotOf(NetPlayer p, HotbarItem item) => Inventory.SlotOf(p, item);
+
+        /// <summary>Selected slot 0..4.</summary>
+        public static int Selected(NetPlayer p) => _sel;
 
         /// <summary>The hotbar is shown and takes input (round running, alive or downed, not in a cut-scene).</summary>
         public static bool Active(NetPlayer p)
@@ -94,30 +64,20 @@ namespace HideAndSeek.Game
         /// <summary>Hint for the selected item (what the left mouse button does now).</summary>
         public static string Hint(NetPlayer p, HotbarItem item)
         {
-            var lpc = LocalPlayerController.Instance;
-            var prompt = lpc != null ? lpc.Prompt : PromptKind.None;
-            switch (item)
-            {
-                case HotbarItem.Medkit:
-                    if (p.Life.Value == LifeState.Downed) return "LPM przytrzymaj - podnieś się";
-                    if (prompt == PromptKind.Heal) return "LPM przytrzymaj - ulecz rannego";
-                    return p.Wounded.Value || p.Limping.Value ? "LPM przytrzymaj - ulecz się" : "lecz rany (LPM / G, H na rannym)";
-                case HotbarItem.Syringe: return prompt == PromptKind.Resurrect ? "LPM przytrzymaj - wskrześ" : "LPM przy ciele martwego - wskrzesza";
-                case HotbarItem.RcCar: return "LPM / 6 - postaw i steruj";
-                case HotbarItem.Rod: return p.FreeStump != 0 ? "LPM - zrób z pręta nogę" : "proteza, gdy stracisz nogę";
-                case HotbarItem.Knife: return "F - atak";
-                case HotbarItem.Chainsaw: return "F przytrzymaj - gaz";
-                case HotbarItem.Glock: return "LPM - strzał, R - przeładuj";
-                default: return "";
-            }
+            var def = ItemDefs.Get(item);
+            if (def == null) return "";
+            if (p.IsSeeker && def.Weapon == HeldItem.None) return "zabrane chowającym - Q wyrzuć";
+            string h = def.Hint != null ? def.Hint(p) : "";
+            return def.Droppable && h.Length > 0 && h.IndexOf("Q -", System.StringComparison.Ordinal) < 0 ? h + "   |   Q - wyrzuć" : h;
         }
 
-        /// <summary>Reads keys 1-4 and the left mouse button. Called every frame before the player controller.</summary>
+        /// <summary>Reads keys 1-5, Q and the left mouse button. Called every frame before the player controller.</summary>
         public static void Tick(NetPlayer p)
         {
             HotbarInput.HoldG = HotbarInput.HoldH = HotbarInput.Six = false;
-            if (!Active(p)) { _hiderSel = 0; System.Array.Clear(_lastCounts, 0, Slots); return; }
+            if (!Active(p)) { _sel = 0; System.Array.Clear(_last, 0, Slots); _lastHeld = HeldItem.None; TestDrop = false; return; }
             AutoSelect(p);
+            FollowHeld(p);
             var kb = Keyboard.current;
             var mouse = Mouse.current;
             if (kb == null || mouse == null || LocalPlayerController.MenuOpen || p.Busy.Value || p.RcControlling || p.RcAnimating) return;
@@ -129,74 +89,98 @@ namespace HideAndSeek.Game
                 if (kb[Key.Digit1 + i].wasPressedThisFrame || kb[Key.Numpad1 + i].wasPressedThisFrame) pick = i;
             if (pick >= 0) Select(p, pick);
 
-            if (!p.IsHider) return;
+            bool drop = kb.qKey.wasPressedThisFrame || TestDrop;
+            TestDrop = false;
+            if (drop) Drop(p);
+
             bool locked = p.InputReader == null || p.InputReader.CursorLocked;
             bool click = (mouse.leftButton.wasPressedThisFrame && locked) || TestClick;
             bool hold = (mouse.leftButton.isPressed && locked) || TestHold || TestClick;
             TestClick = false;
-            Use(p, ItemAt(p, _hiderSel), click, hold);
+            Use(p, ItemAt(p, _sel), click, hold);
         }
 
         private static void Select(NetPlayer p, int slot)
         {
-            var item = ItemAt(p, slot);
-            if (p.IsSeeker)
-            {
-                var mm = MatchManager.Instance;
-                if (item == HotbarItem.None || mm == null || mm.Phase.Value != MatchPhase.Seeking) return;
-                if (Count(p, item) == 0) { GameHud.Toast(item == HotbarItem.Chainsaw ? "Nie masz piły (leży w generatorowni, poziom -1)." : "Glock dostaniesz pod koniec rundy.", 2.5f); return; }
-                var want = item == HotbarItem.Chainsaw ? HeldItem.Chainsaw : item == HotbarItem.Glock ? HeldItem.Glock : HeldItem.Knife;
-                if (p.Held.Value != want) p.RequestEquipRpc(want);
-                return;
-            }
-            if (_hiderSel != slot) GameAudio.Play2D(GameSfx.UiClick, 0.35f);
-            _hiderSel = slot;
+            if (_sel != slot) GameAudio.Play2D(GameSfx.UiClick, 0.35f);
+            _sel = slot;
+            _nextEquip = 0f;
+            if (p.IsSeeker) EquipSelected(p);
         }
 
-        /// <summary>A newly picked up item gets selected when the current slot is empty.</summary>
+        /// <summary>Q: one of the selected item goes on the floor (the server checks what may be dropped).</summary>
+        private static void Drop(NetPlayer p)
+        {
+            var item = ItemAt(p, _sel);
+            var def = ItemDefs.Get(item);
+            if (def == null) return;
+            if (!def.Droppable) { GameHud.Toast($"{def.Name} to twoja podstawowa broń - nie da się go wyrzucić.", 2f); return; }
+            if (p.Life.Value != LifeState.Alive) return;
+            p.RequestDropRpc((byte)_sel);
+        }
+
+        /// <summary>Seeker: the hand follows the selected slot (weapon of the slot, else empty hands).</summary>
+        private static void EquipSelected(NetPlayer p)
+        {
+            var mm = MatchManager.Instance;
+            if (mm == null || mm.Phase.Value != MatchPhase.Seeking || p.Life.Value != LifeState.Alive || Time.time < _nextEquip) return;
+            var def = ItemDefs.Get(ItemAt(p, _sel));
+            var want = def != null ? def.Weapon : HeldItem.None;
+            if (p.Held.Value == want) return;
+            _nextEquip = Time.time + 0.5f;
+            p.RequestEquipRpc(want);
+        }
+
+        /// <summary>
+        /// Seeker: when the server puts a weapon in his hand (knife attack, Glock time, pickup) the selection jumps to
+        /// that slot; otherwise the hand catches up with the selected slot (e.g. a weapon picked up into it).
+        /// </summary>
+        private static void FollowHeld(NetPlayer p)
+        {
+            if (!p.IsSeeker) return;
+            var held = p.Held.Value;
+            if (held != _lastHeld)
+            {
+                _lastHeld = held;
+                _followUntil = held != HeldItem.None ? Time.time + 1.5f : 0f;
+            }
+            if (_followUntil > 0f)
+            {
+                // The slot layout may arrive a moment after the weapon (new pickup): wait for it, never fight the server.
+                for (int i = 0; i < Slots; i++)
+                {
+                    var d = ItemDefs.Get(ItemAt(p, i));
+                    if (d != null && d.Weapon == held) { _sel = i; _followUntil = 0f; break; }
+                }
+                if (Time.time < _followUntil) return;
+                _followUntil = 0f;
+            }
+            if (!p.Busy.Value) EquipSelected(p);
+        }
+
+        /// <summary>Hider: a newly picked up item gets selected when the current slot is empty.</summary>
         private static void AutoSelect(NetPlayer p)
         {
-            if (!p.IsHider) return;
-            bool curEmpty = Count(p, ItemAt(p, _hiderSel)) == 0;
+            bool curEmpty = ItemAt(p, _sel) == HotbarItem.None;
             for (int i = 0; i < Slots; i++)
             {
-                int c = Count(p, ItemAt(p, i));
-                if (c > _lastCounts[i] && curEmpty) { _hiderSel = i; curEmpty = false; }
-                _lastCounts[i] = c;
+                var it = ItemAt(p, i);
+                if (p.IsHider && it != HotbarItem.None && _last[i] == HotbarItem.None && curEmpty) { _sel = i; curEmpty = false; }
+                _last[i] = it;
             }
         }
 
         private static void Use(NetPlayer p, HotbarItem item, bool click, bool hold)
         {
             if (!click && !hold) return;
-            if (Count(p, item) == 0)
+            var def = ItemDefs.Get(item);
+            if (def == null) return; // empty slot: the left mouse button keeps its other uses (Glock, flashlight...)
+            if (p.IsSeeker)
             {
-                if (click) GameHud.Toast(item == HotbarItem.None ? "Pusty slot." : $"{Name(item)}: nie masz.", 1.5f);
-                return;
+                if (def.Weapon == HeldItem.None && click) GameHud.Toast($"{def.Name}: jako szukający tego nie użyjesz (zabrane chowającym). Q - wyrzuć.", 2.5f);
+                return; // weapons: F / LPM are handled by the player controller
             }
-            var lpc = LocalPlayerController.Instance;
-            var prompt = lpc != null ? lpc.Prompt : PromptKind.None;
-            switch (item)
-            {
-                case HotbarItem.Medkit:
-                    if (prompt == PromptKind.Heal && p.Life.Value == LifeState.Alive) HotbarInput.HoldH = hold;
-                    else if (p.Life.Value == LifeState.Downed || p.Wounded.Value || p.Limping.Value) HotbarInput.HoldG = hold;
-                    else if (click) GameHud.Toast("Nie jesteś ranny. Apteczką możesz też uleczyć rannego (spójrz na niego).", 2.5f);
-                    break;
-                case HotbarItem.Syringe:
-                    if (prompt == PromptKind.Resurrect) HotbarInput.HoldH = hold;
-                    else if (click) GameHud.Toast("Podejdź do ciała martwego chowającego i przytrzymaj LPM.", 2.5f);
-                    break;
-                case HotbarItem.RcCar:
-                    if (click) HotbarInput.Six = true;
-                    break;
-                case HotbarItem.Rod:
-                    if (!click || p.Life.Value != LifeState.Alive) break;
-                    if (p.FreeStump == 0) GameHud.Toast("Masz obie nogi. Pręt przyda się, jeśli stracisz nogę.", 2.5f);
-                    else if (!p.Motor.IsGrounded) break;
-                    else p.RequestRodAttachRpc();
-                    break;
-            }
+            def.Use?.Invoke(p, click, hold);
         }
     }
 }

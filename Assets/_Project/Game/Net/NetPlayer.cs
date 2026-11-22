@@ -1143,7 +1143,7 @@ namespace HideAndSeek.Game.Net
         }
 
         /// <summary>Chainsaw engine: idle loop while held, loud throttle loop while F is held; drives the animations.</summary>
-        private float _sawOutAt = -99f, _sawBlood;
+        private float _sawOutAt = -99f, _sawBlood, _sawSlashUntil = -99f;
         private bool _wasSawOut;
 
         /// <summary>Called when the saw cut somebody: the chain is soaked, it wipes clean over ~40 s of running.</summary>
@@ -1153,7 +1153,7 @@ namespace HideAndSeek.Game.Net
         {
             bool sawOut = Held.Value == HeldItem.Chainsaw && Life.Value == LifeState.Alive;
             bool killing = Busy.Value && sawOut && IsSeeker;
-            bool rev = sawOut && (SawRev.Value || killing);
+            bool rev = sawOut && (SawRev.Value || killing || Time.time < _sawSlashUntil);
             if (sawOut && !_wasSawOut && !rev) _sawOutAt = Time.time;
             _wasSawOut = sawOut;
             // The engine only runs after the pull-start (the start sound plays with the switch).
@@ -1355,7 +1355,7 @@ namespace HideAndSeek.Game.Net
         {
             var victim = Find(victimId);
             (Actions as BlockyCharacterActions)?.PlaySawSlash(victim != null ? victim.Character : null, limb);
-            GameAudio.PlayAttached(GameSfx.ChainsawStart, transform, 0.9f);
+            _sawSlashUntil = Time.time + 1.1f; // the running saw revs up for the swing (no pull-start sound: it is already running)
             StartCoroutine(SawSlashHit(victim, limb));
         }
 

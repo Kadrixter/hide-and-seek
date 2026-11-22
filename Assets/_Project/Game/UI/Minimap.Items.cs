@@ -39,6 +39,7 @@ namespace HideAndSeek.Game
             {
                 used = Place(mm.Medkits, MedSprite(), new Color(1f, 1f, 1f, 0.9f), pos, pxPerM, size, used);
                 used = Place(mm.Syringes, SyrSprite(), new Color(1f, 1f, 1f, 0.9f), pos, pxPerM, size, used);
+                used = PlaceDrops(me, mm, pos, pxPerM, size, used); // dropped medkits / syringes (Minimap.Drops)
             }
             for (int i = used; i < _itemMarks.Count; i++)
                 if (_itemMarks[i].gameObject.activeSelf) _itemMarks[i].gameObject.SetActive(false);

@@ -36,6 +36,7 @@ namespace HideAndSeek.Game.Net
         SecurityCrate,  // E on the crate blocking the security room door
         Vending,        // E on the lobby vending machine keypad
         RodPickup,      // E on a metal rod leaning on a rack / fence (hiders)
+        DropPickup,     // E on an item somebody dropped (Q)
     }
 
     /// <summary>
@@ -55,20 +56,6 @@ namespace HideAndSeek.Game.Net
         private float _nextShot;
         private float _nextSawTry, _nextDustTry;
         private int _secFloor;
-
-        private HeldItem NextWeapon(HeldItem cur)
-        {
-            HeldItem[] order = { HeldItem.Knife, HeldItem.Chainsaw, HeldItem.Glock };
-            int i = System.Array.IndexOf(order, cur);
-            for (int k = 1; k <= order.Length; k++)
-            {
-                var next = order[(i + k + order.Length) % order.Length];
-                if (next == HeldItem.Chainsaw && !_p.HasChainsaw.Value) continue;
-                if (next == HeldItem.Glock && !_p.HasGlock.Value) continue;
-                return next;
-            }
-            return HeldItem.Knife;
-        }
 
         /// <summary>Alive hider the running chainsaw touches (close, in front).</summary>
         /// <summary>Seconds until the seeker's next melee attack is allowed (8 s cooldown).</summary>
@@ -339,9 +326,7 @@ namespace HideAndSeek.Game.Net
                 }
             }
 
-            // ---- seeker: weapon switch (Q cycles knife -> chainsaw -> Glock)
-            if (_p.IsSeeker && phase == MatchPhase.Seeking && (_p.HasGlock.Value || _p.HasChainsaw.Value) && kb.qKey.wasPressedThisFrame && _p.InputReader.InputEnabled)
-                _p.RequestEquipRpc(NextWeapon(_p.Held.Value));
+            // ---- weapon switch: hotbar keys 1-5 (Hotbar.cs); Q drops the selected item
 
             // ---- hider: X = throw dust into the seeker's eyes
             if (_p.IsHider && phase == MatchPhase.Seeking && _p.Life.Value == LifeState.Alive && !_p.Busy.Value &&
@@ -353,7 +338,7 @@ namespace HideAndSeek.Game.Net
 
             // ---- seeker: chainsaw (hold F = full throttle, walk into a hider = kill)
             bool sawRev = _p.IsSeeker && phase == MatchPhase.Seeking && _p.Held.Value == HeldItem.Chainsaw &&
-                          _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && kb.fKey.isPressed;
+                          _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev);
             if (_p.SawRev.Value != sawRev) _p.SawRev.Value = sawRev;
             if (sawRev && Time.time >= _nextSawTry)
             {
@@ -390,7 +375,7 @@ namespace HideAndSeek.Game.Net
         private bool _rcLights = true;
 
         // ---- test hooks (scripted tests drive the same code path as the keyboard)
-        public static bool TestSix, TestHoldG, TestShoot, TestHoldH;
+        public static bool TestSix, TestHoldG, TestShoot, TestHoldH, TestSawRev;
         public static Vector2 TestRcInput;
         public static bool TestRcBoost, TestRcHorn, TestRcActive;
 
@@ -606,7 +591,7 @@ namespace HideAndSeek.Game.Net
             {
                 Vector3 sp = ChainsawShelf.Instance.SawPoint;
                 float d = Vector3.Distance(eye, sp);
-                if (d <= 2.6f && InView(eye, fwd, sp, 60f)) Offer(PromptKind.ChainsawPickup, sp, "E  weź piłę łańcuchową", d);
+                if (d <= 2.6f && InView(eye, fwd, sp, 60f)) Offer(PromptKind.ChainsawPickup, sp, Inventory.PickupText(_p, HotbarItem.Chainsaw, "E  weź piłę łańcuchową"), d);
             }
 
             // RC cars: hiders pick one up (shelf or floor), the seeker stomps on one lying on the floor.
@@ -626,7 +611,7 @@ namespace HideAndSeek.Game.Net
                         if (d <= Tuning.RcPickupRange && InView(eye, fwd, aim, 40f))
                         {
                             _rcSlotPrompt = i;
-                            Offer(PromptKind.RcPickup, aim + Vector3.up * 0.1f, "E  weź samochodzik RC", d);
+                            Offer(PromptKind.RcPickup, aim + Vector3.up * 0.1f, hasCar ? "E  weź samochodzik RC" : Inventory.PickupText(_p, HotbarItem.RcCar, "E  weź samochodzik RC"), d);
                         }
                     }
                     else if (_p.IsSeeker && phase == MatchPhase.Seeking && (s.Mode == RcMode.Driving || s.Mode == RcMode.Parked))
@@ -643,7 +628,7 @@ namespace HideAndSeek.Game.Net
             }
 
             // Adrenaline syringes (hiders).
-            if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && _p.IsAliveHider && MatchManager.Instance != null)
+            if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && Inventory.CanPickUp(_p, HotbarItem.Syringe, phase) && MatchManager.Instance != null)
             {
                 var mmS = MatchManager.Instance;
                 bool fullS = _p.SyringeCount.Value >= Tuning.MaxSyringes;
@@ -656,13 +641,13 @@ namespace HideAndSeek.Game.Net
                     if (d < best && d <= Tuning.PickupRange + 1f && InView(eye, fwd, mp, 55f))
                     {
                         _syringeId = m.Id;
-                        Offer(PromptKind.PickupSyringe, mp, fullS ? "E  (masz już max strzykawek)" : "E  podnieś strzykawkę z adrenaliną", d);
+                        Offer(PromptKind.PickupSyringe, mp, fullS ? "E  (masz już max strzykawek)" : Inventory.PickupText(_p, HotbarItem.Syringe, "E  podnieś strzykawkę z adrenaliną"), d);
                     }
                 }
             }
 
             // Metal rods (hiders, peg leg): MatchManager.Rods.
-            if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && _p.IsAliveHider && MatchManager.Instance != null &&
+            if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && Inventory.CanPickUp(_p, HotbarItem.Rod, phase) && MatchManager.Instance != null &&
                 MatchManager.Instance.TryRodPrompt(eye, fwd, _p, out int rodId, out var rodPos, out string rodText, out float rodD) && rodD < best)
             {
                 _rodId = rodId;
@@ -673,7 +658,7 @@ namespace HideAndSeek.Game.Net
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
             {
                 var mm = MatchManager.Instance;
-                if (_p.IsAliveHider && mm != null)
+                if (Inventory.CanPickUp(_p, HotbarItem.Medkit, phase) && mm != null)
                 {
                     bool full = _p.MedkitCount.Value >= Tuning.MaxMedkits;
                     for (int i = 0; i < mm.Medkits.Count; i++)
@@ -685,10 +670,18 @@ namespace HideAndSeek.Game.Net
                         if (d < best && d <= Tuning.PickupRange + 1f && InView(eye, fwd, mp, 55f))
                         {
                             _pickupId = m.Id;
-                            Offer(PromptKind.Pickup, mp, full ? "E  (masz już max apteczek)" : "E  podnieś apteczkę", d);
+                            Offer(PromptKind.Pickup, mp, full ? "E  (masz już max apteczek)" : Inventory.PickupText(_p, HotbarItem.Medkit, "E  podnieś apteczkę"), d);
                         }
                     }
                 }
+            }
+
+            // Items somebody dropped (Q): MatchManager.Drops (hiders never get a prompt for the seeker's weapons).
+            if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && MatchManager.Instance != null &&
+                MatchManager.Instance.TryDropPrompt(eye, fwd, _p, (pos, view) => InView(eye, fwd, pos, 55f, view), out int dropId, out var dropPos, out string dropText, out float dropD))
+            {
+                _dropId = dropId;
+                Offer(PromptKind.DropPickup, dropPos + Vector3.up * 0.15f, dropText, dropD - 0.05f);
             }
 
             var mmL = MatchManager.Instance;
@@ -792,6 +785,7 @@ namespace HideAndSeek.Game.Net
         }
 
         private int _pickupId;
+        private int _dropId;
         private int _crateLevel;
         private CrateAction _crateAct;
         private int _rcSlotPrompt;
@@ -934,6 +928,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.ChainsawPickup:
                     if (kb.eKey.wasPressedThisFrame) _p.RequestPickupChainsawRpc();
+                    break;
+                case PromptKind.DropPickup:
+                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupDropRpc(_dropId);
                     break;
                 case PromptKind.SecurityCrate:
                     if (_crateAct == CrateAction.Saw ? kb.fKey.wasPressedThisFrame : kb.eKey.wasPressedThisFrame)

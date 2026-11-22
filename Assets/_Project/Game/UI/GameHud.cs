@@ -411,14 +411,14 @@ namespace HideAndSeek.Game
                 _ammo.text = $"{me.Ammo.Value} / {me.SpareMags.Value * Tuning.MagSize}" + (me.Ammo.Value == 0 ? "   R - przeładuj" : "");
                 _ammo.color = me.Ammo.Value == 0 ? UiKit.Danger : UiKit.Text;
             }
-            else _ammo.text = me.HasGlock.Value ? "Q - glock" : "";
+            else _ammo.text = me.HasGlock.Value && Hotbar.SlotOf(me, HotbarItem.Glock) >= 0 ? $"{Hotbar.SlotOf(me, HotbarItem.Glock) + 1} - glock" : "";
 
             var st = new StringBuilder();
             if (inGame && me.IsHider)
             {
                 if (me.Wounded.Value) st.Append("<color=#f66>Ranny</color> - kolejne złapanie = śmierć\n");
                 else if ((me.Severed.Value & Limb.Legs) != 0) st.Append(me.FreeStump == 0 ? "<color=#ffb070>Noga z pręta</color> - kolejny atak piłą = śmierć\n"
-                    : "<color=#f66>Odcięta noga</color> - skaczesz powoli, kolejny atak piłą = śmierć\n" + (me.RodCount.Value > 0 ? "<color=#cfd8e0>Masz pręt: 4, potem LPM - zrób z niego nogę</color>\n" : ""));
+                    : "<color=#f66>Odcięta noga</color> - skaczesz powoli, kolejny atak piłą = śmierć\n" + (me.RodCount.Value > 0 ? $"<color=#cfd8e0>Masz pręt: {Hotbar.SlotOf(me, HotbarItem.Rod) + 1}, potem LPM - zrób z niego nogę</color>\n" : ""));
                 else if (me.Limping.Value) st.Append("<color=#ffb070>Zraniony</color> - utykasz, kolejny atak = wykrwawianie\n");
                 if (phase == MatchPhase.Seeking && me.Life.Value == LifeState.Alive && mm != null)
                 {
