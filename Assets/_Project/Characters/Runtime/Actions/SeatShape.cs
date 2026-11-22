@@ -73,10 +73,23 @@ namespace HideAndSeek.Characters
         public float ArmInnerX, ArmTopY;
         /// <summary>Stable id for pose caching.</summary>
         public int Id;
+        /// <summary>
+        /// How far a solved pose is lowered into the solids at the end (they are conservative: rounded cushions count as
+        /// square, so a body resting on them would hover over the real cushion). Measured by the editor seat check:
+        /// the body then touches the real furniture, sinking at most ~1.5 cm into the soft cushion.
+        /// </summary>
+        public float Sink;
+        /// <summary>Sofa: inner face (|x|, on the side away from <see cref="ArmSide"/>) of the far armrest, 0 = none.</summary>
+        public float OtherArmInnerX;
         /// <summary>Backrest top (0 = none).</summary>
         public float BackTopY;
         /// <summary>This seat is the mirror image (x -> -x) of that one: its poses are mirrored from it.</summary>
         public SeatShape MirrorSource;
+        /// <summary>
+        /// Sofa: the same seat without the block that stands for the neighbouring seat's sitter, so a pose may take the
+        /// whole sofa (lying along the cushions, see <see cref="SeatPoses.SpansNeighbour"/>). Null = no such room.
+        /// </summary>
+        public SeatShape Wide;
 
         public bool HasBack => !float.IsNaN(BackZ);
 
@@ -151,11 +164,28 @@ namespace HideAndSeek.Characters
                 ArmInnerX = 0.5f,
                 ArmTopY = 0.91f,
                 BackTopY = 1.16f,
+                Sink = 0.024f,
             };
+            // Lying along the cushions: the whole sofa, the neighbouring seat must be free (checked by the game).
+            s.Wide = new SeatShape
+            {
+                Kind = s.Kind, Id = s.Id, ArmSide = s.ArmSide, EdgeZ = s.EdgeZ, TopY = s.TopY, BackZ = s.BackZ, RearZ = s.RearZ,
+                ArmInnerX = s.ArmInnerX, ArmTopY = s.ArmTopY, BackTopY = s.BackTopY, Sink = s.Sink,
+                Solids = WithoutLast(s.Solids), // everything but the neighbour block
+                OtherArmInnerX = 2.1f - s.ArmInnerX,
+            };
+            s.OtherArmInnerX = s.Wide.OtherArmInnerX;
             Sofas[idx] = s;
             // The right-hand seat (armrest on the left) mirrors the left-hand one.
             if (idx == 1) s.MirrorSource = Sofa(-0.55f);
             return s;
+        }
+
+        static SeatSolid[] WithoutLast(SeatSolid[] a)
+        {
+            var r = new SeatSolid[a.Length - 1];
+            System.Array.Copy(a, r, r.Length);
+            return r;
         }
 
         /// <summary>Lobby pouf (seat point 0.14 m in front of its centre).</summary>
@@ -177,6 +207,7 @@ namespace HideAndSeek.Characters
                 EdgeZ = c.z + 0.3175f,
                 TopY = 0.456f,
                 RearZ = c.z - 0.24f,
+                Sink = 0.008f,
             };
         }
 

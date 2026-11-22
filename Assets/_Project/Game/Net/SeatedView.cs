@@ -65,6 +65,8 @@ namespace HideAndSeek.Game.Net
             // turned smoothly by the head bob). Position: the model's eyes at that look.
             Quaternion look = _pivot.rotation;
             Vector3 offset = Vector3.Lerp(SeatPoses.StandEyeOffset, SeatPoses.EyeOffset, w);
+            // Pin-up poses tilt the head: the eyes move with it, the camera itself stays level.
+            if (act.SitHeadRoll != 0f) offset = Quaternion.Euler(0f, 0f, act.SitHeadRoll) * offset;
             Vector3 eye = _p.Character.Head.position + look * offset;
             // Standing up: hand back to the regular camera over the last part of the blend.
             float k = seated ? 1f : Mathf.Clamp01(w * 3f);

@@ -16,13 +16,21 @@ namespace HideAndSeek.Game.Editor
     /// tested against the triangles of every renderer around (separating axis test, penetration depth), plus:
     /// the head over the whole look range (TPP), the first-person eye's clearance from the own body and the
     /// furniture, forearms vs the own legs / torso, bodies on neighbouring seats against each other (any pose pair),
-    /// and how high the feet hang. The old (pre-fit) poses are checked too, for comparison.
+    /// and how high the feet hang. The old (pre-fit) poses are checked too, for comparison. Only the poses a seat offers
+    /// are checked (<see cref="SeatPoses.Supports"/>); the pin-up poses also over their idle motion (breathing, swinging
+    /// foot: several moments of <see cref="SeatPoses.IdlePeriod"/>), legs against each other, and the head against the
+    /// own limbs over the look range. Poses lying along the sofa (<see cref="SeatPoses.SpansNeighbour"/>) are not paired
+    /// with the other seat of the same sofa (it must be free then). Also writes Logs/seatposes_views.txt: side / front /
+    /// top views of every pin-up pose as text (geometry only, nothing rendered).
     /// Batch: -executeMethod HideAndSeek.Game.Editor.SeatFitCheck.RunLobby  (report: Logs/seatfit.txt)
     /// Menu: Hide and Seek/Lobby/Seat fit check
     /// </summary>
     public static class SeatFitCheck
     {
-        const float Tolerance = 0.002f;     // penetration below 2 mm is ignored (rounding of the soft meshes)
+        // Penetration up to 1.5 cm is accepted (soft cushions give: the body must visibly rest on the furniture,
+        // touching beats hovering); deeper is a problem.
+        const float Tolerance = 0.015f;
+        const float ContactMax = 0.012f;     // a resting body further than this from the furniture hovers
         const float EyeBodyMin = 0.07f;     // near clip 0.03 + the near plane's half diagonal + margin
         const float EyeFurnitureMin = 0.08f;
         const float SelfAllow = 0.015f;     // forearm sinking into the own clothes (both have a 1.4 cm layer)
@@ -76,6 +84,7 @@ namespace HideAndSeek.Game.Editor
             sb.AppendLine();
             sb.AppendLine("=== Solver trace ===");
             sb.Append(trace);
+            WriteViews(seats);
             SeatPoses.UseBaked = true;
             SeatPoses.ClearCache();
             string path = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "seatfit.txt");
@@ -100,14 +109,43 @@ namespace HideAndSeek.Game.Editor
                 string where = $"{seat.name} ({Kind(seat)})";
                 for (int v = 0; v < SeatPoses.Count; v++)
                 {
-                    var pose = legacy ? Legacy(v) : SeatPoses.Evaluate(v, shape, 0f, 0f);
+                    if (legacy ? v >= SeatPoses.RandomCount : !SeatPoses.Supports(shape.MirrorSource ?? shape, v)) continue;
+                    var lim0 = SeatPoses.Limits(v, shape);
+                    var pose = legacy ? Legacy(v) : SeatPoses.Evaluate(v, shape, lim0.Center, lim0.Pitch);
                     var hits = new List<Hit>();
                     BodyBoxes.Get(pose, boxes);
                     for (int i = 0; i < boxes.Length; i++)
                         Furniture(World(Breath(boxes[i]), t), meshes, hits);
+                    // Idle motion (pin-up poses): the body at several moments of the cycle.
+                    var idleSelf = new List<string>();
+                    if (!legacy && v >= SeatPoses.RandomCount)
+                    {
+                        var ib = new PartBox[BodyBoxes.Count];
+                        for (int k = 1; k < IdleSamples; k++)
+                        {
+                            float time = k * SeatPoses.IdlePeriod / IdleSamples;
+                            var ip = SeatPoses.Evaluate(v, shape, lim0.Center, lim0.Pitch, time);
+                            BodyBoxes.Get(ip, ib);
+                            var ih = new List<Hit>();
+                            for (int i = 0; i < ib.Length; i++)
+                                if (i != (int)BodyPart.Head) Furniture(World(Breath(ib[i]), t), meshes, ih);
+                            foreach (var h in ih) hits.Add(new Hit { Part = h.Part + " (idle)", What = h.What, Depth = h.Depth });
+                            float lc = SeatPoses.LegCross(ip, ib, out string lw);
+                            if (lc > 0f) idleSelf.Add($"legs (idle t {time:0.0}): {lw} {lc * 100f:0.0} cm");
+                            BodyBoxes.Get(ip, ib);
+                            foreach (int a in new[] { (int)BodyPart.ForearmR, (int)BodyPart.ForearmL })
+                            foreach (int b in new[] { (int)BodyPart.ThighR, (int)BodyPart.ThighL, (int)BodyPart.ShinR, (int)BodyPart.ShinL, (int)BodyPart.Torso })
+                            {
+                                float d = BodyBoxes.Penetration(ib[a], ib[b]);
+                                if (d > SelfAllow) idleSelf.Add($"{(BodyPart)a}x{(BodyPart)b} (idle t {time:0.0}) {d * 100f:0.0} cm");
+                            }
+                        }
+                    }
 
                     // Head over the whole look range (what other players see).
                     var lim = SeatPoses.Limits(v, shape);
+                    var headSelf = new Dictionary<string, float>();
+                    var headAt = new Dictionary<string, string>();
                     if (!legacy)
                     {
                         foreach (var (yaw, pitch) in LookGrid(lim))
@@ -117,6 +155,14 @@ namespace HideAndSeek.Game.Editor
                             var hh = new List<Hit>();
                             Furniture(World(boxes[(int)BodyPart.Head], t), meshes, hh);
                             foreach (var h in hh) hits.Add(new Hit { Part = $"Head(yaw {yaw:0} pitch {pitch:0})", What = h.What, Depth = h.Depth });
+                            // The head against the own arms / legs (a hand in the hair, the chin on the fists).
+                            if (v >= SeatPoses.RandomCount) // pin-up poses (the original four predate this check)
+                            foreach (int b in SeatPoses.HeadVs)
+                            {
+                                float d = BodyBoxes.Penetration(boxes[(int)BodyPart.Head], boxes[b]);
+                                string key = $"Head x {(BodyPart)b}";
+                                if (d > SelfAllow && (!headSelf.TryGetValue(key, out float o) || d > o)) { headSelf[key] = d; headAt[key] = $"yaw {yaw:0} pitch {pitch:0}"; }
+                            }
                         }
                         BodyBoxes.Get(pose, boxes);
                     }
@@ -131,18 +177,44 @@ namespace HideAndSeek.Game.Editor
                         float d = BodyBoxes.Penetration(boxes[a], boxes[b]);
                         if (d > SelfAllow) self.Add($"{(BodyPart)a}x{(BodyPart)b} {d * 100f:0.0} cm");
                     }
+                    if (!legacy)
+                    {
+                        float lc = SeatPoses.LegCross(pose, new PartBox[BodyBoxes.Count], out string lw);
+                        if (lc > 0f) self.Add($"legs: {lw} {lc * 100f:0.0} cm");
+                        foreach (var kv in headSelf) self.Add($"{kv.Key} over the look range {kv.Value * 100f:0.0} cm (at {headAt[kv.Key]})");
+                        self.AddRange(idleSelf);
+                    }
 
                     // Feet: lowest point of each shin.
                     float soleR = Lowest(World(boxes[(int)BodyPart.ShinR], t)), soleL = Lowest(World(boxes[(int)BodyPart.ShinL], t));
                     float floor = FloorBelow(meshes, t.TransformPoint(new Vector3(0f, 0f, 0.3f)));
+                    // Contact: how far the body (torso and legs) is from the furniture it rests on (seat meshes only).
+                    float gap = float.MaxValue;
+                    string gapAt = "";
+                    if (!legacy)
+                    {
+                        foreach (int part in new[] { (int)BodyPart.Torso, (int)BodyPart.ThighR, (int)BodyPart.ThighL, (int)BodyPart.ShinR, (int)BodyPart.ShinL })
+                        {
+                            var wb = World(boxes[part], t);
+                            for (int u = -1; u <= 1; u++)
+                            for (int w2 = -1; w2 <= 1; w2++)
+                            for (int k = -1; k <= 1; k++)
+                            {
+                                float d = FurnitureDistance(wb.Point(u, w2, k), meshes, 0.3f, out string fn, seat.transform.parent);
+                                if (d < gap) { gap = d; gapAt = $"{(BodyPart)part} - {fn}"; }
+                            }
+                        }
+                        if (gap > ContactMax) self.Add($"hovers: nearest furniture {gap * 100f:0.0} cm away");
+                    }
 
                     var worst = hits.GroupBy(h => h.Part + " x " + h.What).Select(g => (key: g.Key, d: g.Max(h => h.Depth))).OrderByDescending(x => x.d).ToList();
                     float pmax = worst.Count > 0 ? worst[0].d : 0f;
                     total += worst.Count + self.Count;
                     max = Mathf.Max(max, pmax);
                     Vector3 pel = pose.PelvisPos;
-                    sb.AppendLine($"{where} pose {v}: {(worst.Count + self.Count == 0 ? "CLEAN" : $"{worst.Count + self.Count} PROBLEMS, deepest {pmax * 100f:0.0} cm")}" +
-                                  $" | pelvis y {pel.y:0.000} z {pel.z:0.000} | feet: lowest point R {soleR - floor:0.000} L {soleL - floor:0.000} m above the floor");
+                    sb.AppendLine($"{where} pose {v}{(legacy ? "" : $" {SitPoseCatalog.Name((byte)v)}")}: {(worst.Count + self.Count == 0 ? "CLEAN" : $"{worst.Count + self.Count} PROBLEMS, deepest {pmax * 100f:0.0} cm")}" +
+                                  $" | pelvis y {pel.y:0.000} z {pel.z:0.000} | feet: lowest point R {soleR - floor:0.000} L {soleL - floor:0.000} m above the floor" +
+                                  (legacy ? "" : $" | contact: {(gap > ContactMax ? "HOVERS " : "")}{(gap > 1f ? "none" : $"{gap * 100f:0.0} cm ({gapAt})")}"));
                     foreach (var w in worst.Take(10)) sb.AppendLine($"    {w.key}: {w.d * 100f:0.0} cm");
                     foreach (var s in self) sb.AppendLine($"    self: {s}");
 
@@ -165,8 +237,10 @@ namespace HideAndSeek.Game.Editor
                         }
                         bool bad = minBody < EyeBodyMin || minFurn < EyeFurnitureMin;
                         if (bad) eyeIssues++;
+                        Vector3 eyeN = SeatPoses.Eye(v, shape, lim.Center, lim.Pitch);
                         sb.AppendLine($"    eye: {(bad ? "PROBLEM " : "")}nearest own body {minBody * 100f:0.0} cm ({atBody}), nearest furniture {(minFurn > 1f ? "> 50 cm" : $"{minFurn * 100f:0.0} cm ({atFurn})")}" +
-                                      $", look limits yaw +-{lim.Yaw:0} up {lim.Up:0} down {lim.Down:0}");
+                                      $", look limits yaw {lim.Center:0}+-{lim.Yaw:0} up {lim.Up:0} down {lim.Down:0} (neutral pitch {lim.Pitch:0}, head tilt {lim.Roll:0})" +
+                                      $", neutral eye {eyeN.y:0.00} m above the floor");
                     }
                 }
             }
@@ -180,9 +254,14 @@ namespace HideAndSeek.Game.Editor
                 if (Vector3.Distance(seats[i].transform.position, seats[j].transform.position) > 2.2f) continue;
                 float worst = 0f;
                 string at = "";
+                bool sameSofa = seats[i].transform.parent != null && seats[i].transform.parent == seats[j].transform.parent;
                 for (int va = 0; va < SeatPoses.Count; va++)
                 for (int vb = 0; vb < SeatPoses.Count; vb++)
                 {
+                    if (legacy ? va >= SeatPoses.RandomCount || vb >= SeatPoses.RandomCount
+                            : !SeatPoses.Supports(seats[i].Shape.MirrorSource ?? seats[i].Shape, va) || !SeatPoses.Supports(seats[j].Shape.MirrorSource ?? seats[j].Shape, vb)) continue;
+                    // Lying along the sofa needs the other seat of that sofa free.
+                    if (!legacy && sameSofa && (SeatPoses.SpansNeighbour(va) || SeatPoses.SpansNeighbour(vb))) continue;
                     BodyBoxes.Get(legacy ? Legacy(va) : SeatPoses.Evaluate(va, seats[i].Shape, 0f, 0f), A);
                     BodyBoxes.Get(legacy ? Legacy(vb) : SeatPoses.Evaluate(vb, seats[j].Shape, 0f, 0f), B);
                     foreach (var a in A)
@@ -223,6 +302,7 @@ namespace HideAndSeek.Game.Editor
             foreach (var shape in shapes)
             for (int v = 0; v < SeatPoses.Count; v++)
             {
+                if (!SeatPoses.Supports(shape, v)) continue;
                 var d = SeatPoses.Bake(v, shape);
                 L($"            // {shape.Kind} (shape {shape.Id}), pose {v}");
                 for (int i = 0; i < d.Length; i += 8)
@@ -278,11 +358,77 @@ namespace HideAndSeek.Game.Editor
             }
         }
 
+        // ================================================================== text views of the pin-up poses
+
+        const string PartLetters = "THAFafLSls"; // torso, head, right upper arm / forearm, left ..., right thigh / shin, left ...
+
+        /// <summary>
+        /// Logs/seatposes_views.txt: every pin-up pose on the first seat of each kind, seen from the front (x right, y up),
+        /// the side (z right, y up) and from above (x right, z up), seat space; '#' = the seat's solids, letters = body
+        /// parts (upper case right / torso / head, lower case left). Geometry only, nothing is rendered.
+        /// </summary>
+        static void WriteViews(List<LobbySeat> seats)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Pin-up poses as text views (seat space; 2.5 cm per column, 5 cm per row).");
+            sb.AppendLine("T torso, H head, A/F right upper arm / forearm, a/f left, L/S right thigh / shin, l/s left, # seat solids.");
+            var done = new HashSet<int>();
+            var boxes = new PartBox[BodyBoxes.Count];
+            foreach (var seat in seats)
+            {
+                var shape = seat.Shape;
+                if (shape.MirrorSource != null || !done.Add(shape.Id)) continue;
+                for (int v = SeatPoses.RandomCount; v < SeatPoses.Count; v++)
+                {
+                    if (!SeatPoses.Supports(shape, v)) continue;
+                    var lim = SeatPoses.Limits(v, shape);
+                    BodyBoxes.Get(SeatPoses.Evaluate(v, shape, lim.Center, lim.Pitch), boxes);
+                    var solids = SeatPoses.SpansNeighbour(v) && shape.Wide != null ? shape.Wide : shape;
+                    bool sofa = shape.Kind == SeatKind.Sofa;
+                    float x0 = sofa ? -1.85f : -0.8f, x1 = sofa ? 0.85f : 0.8f, z0 = sofa ? -0.85f : -0.75f, z1 = sofa ? 0.6f : 0.85f;
+                    sb.AppendLine();
+                    sb.AppendLine($"===== {seat.name} ({Kind(seat)}) pose {v} {SitPoseCatalog.Name((byte)v)} =====");
+                    sb.AppendLine("-- front (looking at the seat from the room; x ->, y ^)");
+                    View(sb, boxes, solids, x0, x1, 0f, 2.1f, (a, b, d) => new Vector3(a, b, z1 - d), z1 - z0);
+                    sb.AppendLine("-- side (from the right; z ->, y ^)");
+                    View(sb, boxes, solids, z0, z1, 0f, 2.1f, (a, b, d) => new Vector3(x1 - d, b, a), x1 - x0);
+                    sb.AppendLine("-- top (x ->, z ^)");
+                    View(sb, boxes, solids, x0, x1, z0, z1, (a, b, d) => new Vector3(a, 2.1f - d, b), 2.1f);
+                }
+            }
+            string path = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "seatposes_views.txt");
+            File.WriteAllText(path, sb.ToString());
+        }
+
+        static void View(StringBuilder sb, PartBox[] boxes, SeatShape shape, float a0, float a1, float b0, float b1,
+            System.Func<float, float, float, Vector3> at, float depth)
+        {
+            for (float b = b1 - 0.025f; b > b0; b -= 0.05f)
+            {
+                var line = new StringBuilder();
+                for (float a = a0 + 0.0125f; a < a1; a += 0.025f)
+                {
+                    char c = ' ';
+                    for (float d = 0f; d <= depth && c == ' '; d += 0.02f)
+                    {
+                        Vector3 p = at(a, b, d);
+                        for (int i = 0; i < boxes.Length && c == ' '; i++)
+                            if (boxes[i].Distance(p) <= 0f) c = PartLetters[i];
+                        if (c == ' ' && p.y > 0.005f && shape.Contains(p, 0f)) c = '#';
+                    }
+                    line.Append(c);
+                }
+                sb.AppendLine(line.ToString().TrimEnd());
+            }
+        }
+
+        const int IdleSamples = 12;
+
         static IEnumerable<(float yaw, float pitch)> LookGrid(SeatPoses.LookLimits lim)
         {
             var yaws = new List<float>();
-            for (float y = -lim.Yaw; y < lim.Yaw; y += 15f) yaws.Add(y);
-            yaws.Add(lim.Yaw);
+            for (float y = -lim.Yaw; y < lim.Yaw; y += 15f) yaws.Add(lim.Center + y);
+            yaws.Add(lim.Center + lim.Yaw);
             var pitches = new List<float>();
             for (float p = -lim.Down; p < lim.Up; p += 10f) pitches.Add(p);
             pitches.Add(lim.Up);
@@ -407,7 +553,7 @@ namespace HideAndSeek.Game.Editor
             return overlap > 0f;
         }
 
-        static float FurnitureDistance(Vector3 p, List<Mesh3> meshes, float range, out string name)
+        static float FurnitureDistance(Vector3 p, List<Mesh3> meshes, float range, out string name, Transform only = null)
         {
             float best = float.MaxValue;
             name = "";
@@ -415,6 +561,7 @@ namespace HideAndSeek.Game.Editor
             foreach (var m in meshes)
             {
                 if (!m.B.Intersects(probe)) continue;
+                if (only != null && !m.R.transform.IsChildOf(only)) continue;
                 for (int i = 0; i < m.T.Length; i += 3)
                 {
                     float d = (ClosestOnTriangle(p, m.V[m.T[i]], m.V[m.T[i + 1]], m.V[m.T[i + 2]]) - p).magnitude;

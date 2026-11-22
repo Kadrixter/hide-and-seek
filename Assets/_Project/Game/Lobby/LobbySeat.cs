@@ -22,6 +22,18 @@ namespace HideAndSeek.Game
 
         public static LobbySeat Get(int index) => index >= 0 && index < Seats.Count ? Seats[index] : null;
 
+        /// <summary>The other seat of the same sofa (null for a pouf): lying poses take both.</summary>
+        public LobbySeat Neighbour
+        {
+            get
+            {
+                if (transform.parent == null) return null;
+                foreach (var s in Seats)
+                    if (s != this && s != null && s.transform.parent == transform.parent) return s;
+                return null;
+            }
+        }
+
         private SeatShape _shape;
 
         /// <summary>The furniture under this seat in seat space (sofa cushion with backrest and armrest, or a pouf).</summary>

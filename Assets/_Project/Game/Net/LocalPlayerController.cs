@@ -835,7 +835,7 @@ namespace HideAndSeek.Game.Net
         private bool SeatTaken(int index)
         {
             foreach (var o in NetPlayer.All) if (o != null && o.Seat.Value == index) return true;
-            return false;
+            return NetPlayer.SeatBlockedByLying(index); // somebody lies along the whole sofa
         }
 
         private void SitNearest()

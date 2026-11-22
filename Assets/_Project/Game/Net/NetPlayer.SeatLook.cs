@@ -6,9 +6,10 @@ using UnityEngine;
 namespace HideAndSeek.Game.Net
 {
     /// <summary>
-    /// Sitting in the lobby: every time the player sits down one of <see cref="BlockyCharacterActions.SitPoseCount"/>
-    /// poses is picked (random, never the previous one). The body stays still facing away from the seat; the mouse only
-    /// turns the head within the pose's limits (<see cref="SeatPoses.Limits"/>). Pose and head yaw are owner-written
+    /// Sitting in the lobby: every time the player sits down one of the first <see cref="SeatPoses.RandomCount"/>
+    /// poses is picked (random, never the previous one); the pin-up poses come only from the pose wheel. The body
+    /// stays still facing away from the seat; the mouse only turns the head within the pose's limits
+    /// (<see cref="SeatPoses.Limits"/>, around the pose's neutral look: lying poses look along the sofa). Pose and head yaw are owner-written
     /// network variables, the head pitch comes with the regular motion pack. The own body is visible while seated
     /// (<see cref="SeatedView"/>: camera in the model's eyes, head hidden).
     /// </summary>
@@ -20,7 +21,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>Test hook (-testseats): forces the next pose (-1 = random).</summary>
         public static int TestSitPose = -1;
 
-        private int _lastSeatSeen = -1;
+        private int _lastSeatSeen = -1, _lastPoseSeen = -1;
         private float _seatYaw, _headYaw, _headYawShown, _nextHeadSend;
         private HeadBob _seatBob;
         private SeatedView _seatView;
@@ -79,14 +80,31 @@ namespace HideAndSeek.Game.Net
                 if (seat >= 0 && _lastSeatSeen < 0)
                 {
                     // Sat down: the root already faces away from the seat.
-                    int prev = SitPoseVar.Value;
-                    int pose = TestSitPose >= 0 ? TestSitPose : (prev + Random.Range(1, BlockyCharacterActions.SitPoseCount)) % BlockyCharacterActions.SitPoseCount;
+                    int prev = SitPoseVar.Value % SeatPoses.RandomCount;
+                    int pose = TestSitPose >= 0 ? TestSitPose : (prev + Random.Range(1, SeatPoses.RandomCount)) % SeatPoses.RandomCount;
                     TestSitPose = -1;
-                    SitPoseVar.Value = (byte)pose;
                     var s = LobbySeat.Get(seat);
+                    // A pose that needs the whole sofa only when the other seat is free (tests may force any pose).
+                    if (s != null && !SitPoseCatalog.Allowed(s.Shape, (byte)pose, SeatNeighbourTaken(s))) pose = 0;
+                    SitPoseVar.Value = (byte)pose;
                     _seatYaw = s != null ? s.transform.eulerAngles.y : transform.eulerAngles.y;
-                    _headYaw = 0f;
+                    // Lying poses look along the sofa: start at the pose's neutral look.
+                    _headYaw = SeatPoses.Limits(pose, s != null ? s.Shape : null).Center;
+                    _lastPoseSeen = pose;
                 }
+                else if (seat >= 0 && SitPoseVar.Value != _lastPoseSeen)
+                {
+                    // Pose changed while seated (pose wheel): keep looking the same way relative to the pose's neutral
+                    // look, the view turns smoothly while the body moves.
+                    var s = LobbySeat.Get(seat);
+                    var shape = s != null ? s.Shape : null;
+                    float from = _lastPoseSeen >= 0 ? SeatPoses.Limits(_lastPoseSeen, shape).Center : 0f;
+                    _headYaw += SeatPoses.Limits(SitPoseVar.Value, shape).Center - from;
+                    if (_seatBob != null && Camera != null)
+                        _seatBob.BeginTurnFrom(Camera.transform.rotation, SeatPoses.SwitchTime(System.Math.Max(_lastPoseSeen, 0), SitPoseVar.Value));
+                    _lastPoseSeen = SitPoseVar.Value;
+                }
+                if (seat >= 0) GiveUpLyingIfCrowded(seat);
                 if (seat >= 0)
                 {
                     // The motor turned the root with the mouse: move that turn into the head and put the body back.

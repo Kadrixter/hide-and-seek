@@ -14,6 +14,9 @@ namespace HideAndSeek.Game.Net
     ///      down-right, left, right; the look is clamped by the pose), the camera checked against the model's eyes
     ///      (body drawn, head hidden, view model hidden), third-person side / front shots; then sitting down and
     ///      standing up frame by frame on a sofa and a pouf (first-person shots every 0.1 s, largest camera step per frame).
+    ///      The pin-up poses (4-11, only where the seat offers them, looks relative to the pose's neutral look) are
+    ///      included; at the end every pose change without standing up on a sofa and a pouf (log of the largest camera
+    ///      step, shots of the changes from pose 0 to each pin-up pose).
     ///  -testbrickarea (host, -brickshots dir): bricks in the four corners of the bigger plate, towers at the corners
     ///      next to the furniture, overview shots.
     /// </summary>
@@ -83,9 +86,10 @@ namespace HideAndSeek.Game.Net
                 string where = seat == sofa ? "sofa" : "pouf";
                 for (int v = 0; v < BlockyCharacterActions.SitPoseCount; v++)
                 {
+                    if (!SitPoseCatalog.Allowed(seat.Shape, (byte)v)) continue;
                     NetPlayer.TestSitPose = v;
                     TestSitOn(me, seat);
-                    yield return new WaitForSeconds(0.9f);
+                    yield return new WaitForSeconds(SeatPoses.Lying(v) ? 1.3f : 0.9f);
                     me.SetCinematicBody(true);
                     var t = seat.transform;
                     Vector3 at = t.position + Vector3.up * 0.75f - t.forward * 0.05f;
@@ -139,16 +143,19 @@ namespace HideAndSeek.Game.Net
             {
                 for (int v = 0; v < BlockyCharacterActions.SitPoseCount; v++)
                 {
+                    if (!SitPoseCatalog.Allowed(seat.Shape, (byte)v)) continue;
                     NetPlayer.TestSitPose = v;
                     TestSitOn(me, seat);
-                    yield return new WaitForSeconds(1.3f);
+                    yield return new WaitForSeconds(SeatPoses.Lying(v) ? 1.8f : 1.3f);
                     var lim = SeatPoses.Limits(v, seat.Shape);
+                    var act = me.Actions as BlockyCharacterActions;
                     foreach (var (name, yaw, pitch) in looks)
                     {
-                        me.Motor.SetLook(me.transform.eulerAngles.y + yaw - me.SeatHeadYawNow, pitch);
+                        // Looks relative to the pose's neutral look (lying poses look along the sofa).
+                        me.Motor.SetLook(me.transform.eulerAngles.y + lim.Center + yaw - me.SeatHeadYawNow, pitch);
                         yield return new WaitForSeconds(0.4f);
                         var cam = me.Camera.transform;
-                        Vector3 eye = me.Character.Head.position + cam.rotation * SeatPoses.EyeOffset;
+                        Vector3 eye = me.Character.Head.position + cam.rotation * Quaternion.Euler(0f, 0f, act != null ? act.SitHeadRoll : 0f) * SeatPoses.EyeOffset;
                         Debug.Log($"[SeatFit] {seat.name} ({seat.Shape.Kind}) pose {v} look {name}: head yaw {me.SeatHeadYawNow:0} pitch {me.Motor.LookPitch:0} " +
                                   $"(limits yaw +-{lim.Yaw:0} up {lim.Up:0} down {lim.Down:0}), camera-eye {(cam.position - eye).magnitude * 100f:0.0} cm, " +
                                   $"body shown {me.SeatBodyShown}, head hidden {me.Character.HeadHidden}, first person {me.Character.IsFirstPerson}");
@@ -217,6 +224,41 @@ namespace HideAndSeek.Game.Net
                 }
                 Debug.Log($"[SeatFit] stand up from {seat.name}: largest camera step per frame {maxStep * 100f:0.0} cm, body shown after {me.SeatBodyShown}");
                 yield return new WaitForSeconds(0.5f);
+            }
+            // Changing poses without standing up (pose wheel route: SitPoseVar written by the owner), every pose of
+            // the seat from every other one: first-person shots during the change, largest camera step per frame.
+            foreach (var seat in new[] { sofa, pouf })
+            {
+                if (seat == null) continue;
+                var poses = SitPoseCatalog.For(seat.Shape);
+                NetPlayer.TestSitPose = 0;
+                TestSitOn(me, seat);
+                yield return new WaitForSeconds(1.3f);
+                foreach (var from in poses)
+                foreach (var to in poses)
+                {
+                    if (from.Id == to.Id) continue;
+                    me.SitPoseVar.Value = from.Id;
+                    yield return new WaitForSeconds(1.3f);
+                    Vector3 last = me.Camera.transform.position;
+                    float maxStep = 0f, start = Time.time, nextShot = 0f;
+                    int shot = 0;
+                    me.SitPoseVar.Value = to.Id;
+                    while (Time.time - start < 1.3f)
+                    {
+                        yield return null;
+                        Vector3 c = me.Camera.transform.position;
+                        maxStep = Mathf.Max(maxStep, (c - last).magnitude);
+                        last = c;
+                        if (to.IsNew && from.Id == 0 && Time.time - start >= nextShot) { nextShot += 0.15f; Shot(dir, $"fit_switch_{seat.name}_{from.Id}to{to.Id}_{shot++:00}"); }
+                    }
+                    Debug.Log($"[SeatFit] switch on {seat.name}: {from.Id} {from.Name} -> {to.Id} {to.Name}: largest camera step per frame {maxStep * 100f:0.0} cm, " +
+                              $"head yaw {me.SeatHeadYawNow:0} (neutral {SeatPoses.Limits(to.Id, seat.Shape).Center:0})");
+                }
+                me.SitPoseVar.Value = 0;
+                yield return new WaitForSeconds(1f);
+                TestStandUp(me, seat);
+                yield return new WaitForSeconds(0.8f);
             }
             Debug.Log("[SeatFit] done");
         }
