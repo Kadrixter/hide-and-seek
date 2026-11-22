@@ -219,22 +219,28 @@ namespace HideAndSeek.Game.Net
         public void RequestStartRpc(RpcParams p = default)
         {
             if (Phase.Value != MatchPhase.Lobby) return;
-            var starter = NetPlayer.FindByClient(p.Receive.SenderClientId);
-            if (p.Receive.SenderClientId != NetworkManager.ServerClientId)
+            if (CanStartFrom(p.Receive.SenderClientId)) StartMatch();
+        }
+
+        /// <summary>Server: may this client start the round now? Tells the starter why not (toast).</summary>
+        private bool CanStartFrom(ulong sender)
+        {
+            var starter = NetPlayer.FindByClient(sender);
+            if (sender != NetworkManager.ServerClientId)
             {
                 starter?.ToastRpc("Tylko właściciel pokoju może rozpocząć grę.", 3f);
-                return;
+                return false;
             }
             if (NetPlayer.All.Count < GameSettings.MinPlayers && !RaceMode)
             {
                 starter?.ToastRpc("Potrzeba co najmniej 2 graczy.", 3f);
-                return;
+                return false;
             }
             var mode = GameModes.Get(Settings.Value.Mode);
             if (!mode.Ready)
             {
                 starter?.ToastRpc($"Tryb \"{mode.Name}\" jeszcze nie jest gotowy. Wybierz inny na tablicy ustawień.", 4f);
-                return;
+                return false;
             }
             var notReady = new List<string>();
             foreach (var pl in NetPlayer.All)
@@ -244,9 +250,9 @@ namespace HideAndSeek.Game.Net
                 string list = string.Join(", ", notReady);
                 if (list.Length > 70) list = list.Substring(0, 70) + "...";
                 starter?.ToastRpc("Nie są gotowi: " + list, 4f);
-                return;
+                return false;
             }
-            StartMatch();
+            return true;
         }
 
         /// <summary>Call button / cabin panel: send the car to a level.</summary>
@@ -260,7 +266,6 @@ namespace HideAndSeek.Game.Net
         public void ButtonPressedRpc(Vector3 pos)
         {
             GameAudio.PlayAt(GameSfx.LobbyButtonPress, pos);
-            if (LobbyButton.Instance != null) LobbyButton.Instance.Animate();
         }
 
         private void StartMatch()

@@ -693,73 +693,18 @@ namespace HideAndSeek.Game.Editor
 
         private static void BuildLever(Transform root, Vector3 wallPos, Material metal, Material trim)
         {
+            // Big double start lever: the scene keeps only the root with an invisible collider body (also the
+            // material template); the model is built at runtime by LobbyButton (Game/Lobby/Lever/StartLeverModel).
             var r = new GameObject("StartLever").transform;
             r.SetParent(root, false);
             var plateMat = Mat("LeverPlate", new Color(0.12f, 0.12f, 0.13f), null, 0.6f, Vector2.one, 0.6f);
-            var hazard = Mat("LeverHazard", new Color(0.9f, 0.72f, 0.1f), null, 0.3f, Vector2.one);
-            var knobMat = Mat("LeverKnob", new Color(0.75f, 0.08f, 0.06f), null, 0.7f, Vector2.one);
-            var lampMat = Mat("LeverLamp", new Color(1f, 0.2f, 0.15f), null, 0.8f, Vector2.one);
-            lampMat.EnableKeyword("_EMISSION");
-            lampMat.SetColor("_EmissionColor", new Color(1f, 0.2f, 0.15f));
-
-            // Local space: +Z points into the room.
-            void L(GameObject g, Vector3 lp) { g.transform.SetParent(r, false); g.transform.localPosition = lp; }
-            var plate = Box("Plate", null, Vector3.zero, new Vector3(0.62f, 0.95f, 0.06f), plateMat); L(plate, new Vector3(0, 1.25f, 0.03f));
-            var stripe = Box("Hazard", null, Vector3.zero, new Vector3(0.66f, 0.08f, 0.065f), hazard); L(stripe, new Vector3(0, 0.74f, 0.03f));
-            var stripe2 = Box("Hazard2", null, Vector3.zero, new Vector3(0.66f, 0.08f, 0.065f), hazard); L(stripe2, new Vector3(0, 1.76f, 0.03f));
-            var slot = Box("Slot", null, Vector3.zero, new Vector3(0.08f, 0.55f, 0.02f), Mat("LeverSlot", Color.black, null, 0f, Vector2.one)); L(slot, new Vector3(0, 1.2f, 0.065f));
-            var hub = Cylinder("Hub", r, new Vector3(0, 1.2f, 0.09f), new Vector3(0.16f, 0.04f, 0.16f), metal);
-            hub.transform.localRotation = Quaternion.Euler(90, 0, 0);
-
-            var pivot = new GameObject("HandlePivot").transform;
-            pivot.SetParent(r, false);
-            pivot.localPosition = new Vector3(0, 1.2f, 0.11f);
-            var arm = Cylinder("Arm", pivot, new Vector3(0, 0.2f, 0), new Vector3(0.05f, 0.2f, 0.05f), metal);
-            UnityEngine.Object.DestroyImmediate(arm.GetComponent<Collider>());
-            var knob = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            knob.name = "Knob";
-            knob.transform.SetParent(pivot, false);
-            knob.transform.localPosition = new Vector3(0, 0.42f, 0);
-            knob.transform.localScale = Vector3.one * 0.13f;
-            knob.GetComponent<MeshRenderer>().sharedMaterial = knobMat;
-
-            var lamp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            lamp.name = "StatusLamp";
-            lamp.transform.SetParent(r, false);
-            lamp.transform.localPosition = new Vector3(0, 1.98f, 0.08f);
-            lamp.transform.localScale = Vector3.one * 0.15f;
-            lamp.GetComponent<MeshRenderer>().sharedMaterial = lampMat;
-            var glow = new GameObject("Glow").AddComponent<Light>();
-            glow.transform.SetParent(r, false);
-            glow.transform.localPosition = new Vector3(0, 1.98f, 0.35f);
-            glow.type = LightType.Point;
-            glow.range = 3f;
-            glow.intensity = 1.2f;
-
-            var label = new GameObject("Label").AddComponent<TextMesh>();
-            label.transform.SetParent(r, false);
-            label.transform.localPosition = new Vector3(0, 0.6f, 0.07f);
-            label.transform.localRotation = Quaternion.Euler(0, 180, 0);
-            label.text = "START";
-            label.characterSize = 0.05f;
-            label.fontSize = 64;
-            label.fontStyle = FontStyle.Bold;
-            label.anchor = TextAnchor.MiddleCenter;
-            label.color = new Color(0.95f, 0.85f, 0.4f);
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            AddWorldText(label, new Vector2(0.6f, 0.18f));
-
+            var body = Box("Body", null, Vector3.zero, new Vector3(1.04f, 1.62f, 0.06f), plateMat);
+            body.isStatic = false;
+            body.transform.SetParent(r, false);
+            body.transform.localPosition = new Vector3(0f, 1.12f, 0.03f);
             r.position = wallPos;
             r.rotation = Quaternion.Euler(0, -90, 0);
-            var lb = r.gameObject.AddComponent<LobbyButton>();
-            var so = new SerializedObject(lb);
-            so.FindProperty("handle").objectReferenceValue = pivot;
-            so.FindProperty("knob").objectReferenceValue = knob.transform;
-            so.FindProperty("lamp").objectReferenceValue = lamp.GetComponent<Renderer>();
-            so.FindProperty("glow").objectReferenceValue = glow;
-            so.FindProperty("upAngle").floatValue = 20f;
-            so.FindProperty("downAngle").floatValue = 125f;
-            so.ApplyModifiedPropertiesWithoutUndo();
+            r.gameObject.AddComponent<LobbyButton>();
         }
 
         // ================================================================ game scene
