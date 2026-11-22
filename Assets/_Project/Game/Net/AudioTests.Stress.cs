@@ -41,7 +41,7 @@ namespace HideAndSeek.Game.Net
                 {
                     ("30 m", h + dirToCentre * 30f, 6f), ("16 m", h + dirToCentre * 16f, 6f), ("10 m", h + dirToCentre * 10f, 6f),
                     ("6 m", h + dirToCentre * 6f, 6f), ("3 m", h + dirToCentre * 3f, 8f),
-                    ("3 m, floor below", h + dirToCentre * 3f + Vector3.down * 3.4f, 9f), ("30 m again", h + dirToCentre * 30f, 14f),
+                    ("3 m, floor below", FloorBelow(h + dirToCentre * 3f), 9f), ("30 m again", h + dirToCentre * 30f, 14f),
                 };
                 foreach (var s in stages)
                 {
@@ -50,8 +50,10 @@ namespace HideAndSeek.Game.Net
                     yield return new WaitForSeconds(s.time * 0.5f);
                     tap?.BeginWindow();
                     yield return new WaitForSeconds(s.time * 0.5f);
+                    var rl = sb.LoopsOf(other);
                     Debug.Log($"[Stress] seeker at {s.name}: real dist {Vector3.Distance(me.transform.position, other.transform.position):0.0} m, " +
                               $"hider stress here {sb.StressOf(other):0.00}, hider breaths heard {sb.RemoteBreaths - before}, " +
+                              $"recorded loop {(rl != null ? $"level {rl.Level:0.00} floor {rl.FloorGain:0.00} playing {rl.Playing}" : "none")}, " +
                               $"what the seeker hears {(tap != null ? tap.WindowDb() : -200f):0.0} dBFS");
                 }
             }
@@ -65,12 +67,22 @@ namespace HideAndSeek.Game.Net
                     float d = seeker != null ? Vector3.Distance(seeker.transform.position, me.transform.position) : -1f;
                     Debug.Log($"[Stress] t={i + 1:00}s seeker {d:0.0} m (dy {(seeker != null ? seeker.transform.position.y - me.transform.position.y : 0f):0.0}): " +
                               $"stress {sb.StressOf(me):0.00}, heart {sb.LastBpm:0} bpm vol {sb.LastHeartVolume:0.00} beats {sb.Beats}, " +
-                              $"breath vol {sb.LastBreathVolume:0.00} breaths {sb.Breaths}, output {(tap != null ? tap.WindowDb() : -200f):0.0} dBFS");
+                              $"breath vol {sb.LastBreathVolume:0.00} breaths {sb.Breaths}, {LoopInfo(sb.LoopsOf(me))}, output {(tap != null ? tap.WindowDb() : -200f):0.0} dBFS");
                     tap?.BeginWindow();
                 }
             }
             if (!string.IsNullOrEmpty(dir) && tap != null) tap.SaveRecording(Path.Combine(dir, (me.IsSeeker ? "seeker" : "hider") + "_hears.wav"));
         }
+
+        /// <summary>The floor surface one level below <paramref name="p"/> (ray down from under the slab).</summary>
+        private static Vector3 FloorBelow(Vector3 p)
+        {
+            return Physics.Raycast(p + Vector3.down * 0.7f, Vector3.down, out var hit, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                ? hit.point : p + Vector3.down * 3.4f;
+        }
+
+        private static string LoopInfo(BreathLoops l) => l == null ? "loops none"
+            : $"loops calm {l.CalmWeight:0.00} panic {l.PanicWeight:0.00} playing {l.Playing} seams {l.Seams} accents {l.Accents}";
 
         private static void DumpStressClips(string dir)
         {
