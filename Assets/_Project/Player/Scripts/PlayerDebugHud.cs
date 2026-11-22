@@ -60,7 +60,7 @@ namespace HideAndSeek.Player
             _sb.AppendFormat("Step phase {0:0.00}\n", motor.StepPhase % 2f);
             if (flashlight != null) _sb.AppendFormat("Flashlight {0} ({1:0.00})\n", flashlight.IsOn ? "ON" : "off", flashlight.Level);
             if (motor.Input != null) _sb.AppendFormat("Input      {0}, cursor {1}\n", motor.Input.InputEnabled ? "enabled" : "DISABLED", motor.Input.CursorLocked ? "locked" : "free");
-            _sb.Append("WASD move, Shift run, Ctrl/C crouch, Space jump, LMB light, Esc cursor");
+            _sb.Append("WASD move, Shift run, Ctrl/C crouch, Space jump, Esc cursor");
 
             var rect = new Rect(10f, 10f, 520f, 300f);
             GUI.color = new Color(0f, 0f, 0f, 0.55f);

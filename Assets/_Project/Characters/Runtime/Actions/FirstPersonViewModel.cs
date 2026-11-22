@@ -528,7 +528,7 @@ namespace HideAndSeek.Characters
             {
                 case HeldItem.Glock:
                 {
-                    Vector3 gPos = new Vector3(0.16f, -0.3f, 0.78f);
+                    Vector3 gPos = GlockHoldPos;
                     Quaternion gRot = Quaternion.LookRotation(AimPoint - (gPos + Vector3.up * 0.14f), Vector3.up) * Quaternion.Euler(-12f * kick, 0f, 0f);
                     Vector3 leftLocal = ActionTimeline.SupportGripLocal;
                     float atBelt = 0f;

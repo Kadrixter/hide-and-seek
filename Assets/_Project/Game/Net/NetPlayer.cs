@@ -1017,6 +1017,7 @@ namespace HideAndSeek.Game.Net
             {
                 float t = Time.time - t0;
                 if (walks && Motor != null) Motor.Teleport(Vector3.Lerp(a, b, BlockyCharacterActions.CrateProgress(t)) + Vector3.up * 0.02f, yaw, Motor.LookPitch);
+                if (act == CrateAction.Saw && Motor != null) Motor.SetLook(Motor.LookYaw, Mathf.MoveTowards(Motor.LookPitch, CrateSawViewPitch(t), Time.deltaTime * 120f));
                 // Camera jolt at the start of every shove, rattle while the saw bites.
                 float slide = act == CrateAction.Saw ? 0f : BlockyCharacterActions.CrateSlide(t);
                 if (slide > 0.3f && lastSlide <= 0.3f) GameHud.Kick();
@@ -1087,7 +1088,7 @@ namespace HideAndSeek.Game.Net
             bca?.SetLimp(limp ? 1f : 0f);
             bca?.SetHop(hop ? ((Severed.Value & Limb.LegR) != 0 ? 0 : 1) : -1);
             if (IsOwner && Motor != null)
-                Motor.SpeedScale = Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f;
+                Motor.SpeedScale = (Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f) * CombatSpeedScale;
             if (IsOwner)
             {
                 if (_bob == null) _bob = GetComponentInChildren<HeadBob>();
@@ -1246,7 +1247,7 @@ namespace HideAndSeek.Game.Net
             GameAudio.PlayAt(GameSfx.GlockShot, from);
             GameAudio.PlayAt(GameSfx.GlockShotDistant, from, 0.8f);
             GameAudio.PlayAt(GameSfx.ShellCasing, transform.position + transform.right * 0.4f, 0.5f);
-            if (IsOwner) GameHud.Kick();
+            // Own camera kick (up and back again) is a spring in NetPlayer.GlockAim, no permanent climb.
 
             var victim = victimId == ulong.MaxValue ? null : Find(victimId);
             if (victim != null)

@@ -446,7 +446,8 @@ namespace HideAndSeek.Game
             }
             if (inGame && me.IsSeeker && phase == MatchPhase.Seeking)
             {
-                st.Append("Kółko myszy - skupienie latarki\n");
+                st.Append("T - latarka, kółko myszy - skupienie światła\n");
+                if (me.Held.Value == HeldItem.Glock) st.Append("PPM - celowanie (mniejszy rozrzut)\n");
                 if (mm != null && me.Held.Value != HeldItem.Glock)
                 {
                     double al = me.AttackReadyAt.Value - mm.Now;

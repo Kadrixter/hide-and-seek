@@ -338,9 +338,16 @@ namespace HideAndSeek.Characters
             Quaternion rl = Quaternion.Euler(-look, 0f, 0f);
             pos = p.TorsoPoint(pivot + rl * offset);
             rot = p.TorsoRoot * rl * Quaternion.Euler(pitchDown, -3f, 0f);
+            if (glockAimW > 0.001f)
+            {
+                GlockAimFrame(p, lookPitch, out var aPos, out var aRot);
+                float w = ActionTimeline.SmoothStep01(glockAimW);
+                pos = Vector3.Lerp(pos, aPos, w);
+                rot = Quaternion.Slerp(rot, aRot, w);
+            }
             float r = recoil;
-            pos += p.TorsoRoot * new Vector3(0f, 0.02f * r, -0.06f * r);
-            rot = rot * Quaternion.Euler(-16f * r, 0f, 0f);
+            pos += p.TorsoRoot * new Vector3(0f, 0.035f * r, -0.08f * r);
+            rot = rot * Quaternion.Euler(-24f * r, 0f, 0f);
         }
 
         CharacterPose ItemHoldPose(in CharacterPose basePose, HeldItem item, float lookPitch)
@@ -350,6 +357,7 @@ namespace HideAndSeek.Characters
             {
                 case HeldItem.Glock:
                 {
+                    AimLean(ref p);
                     GlockFrame(p, lookPitch, out var gPos, out var gRot);
                     SolveGlockHands(ref p, gPos, gRot, ActionTimeline.SupportGripLocal, 0f, Vector3.zero);
                     break;

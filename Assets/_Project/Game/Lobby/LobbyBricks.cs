@@ -9,18 +9,19 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// Toy bricks in the lobby corner by the floor lamp and the plant: a tub full of bricks (E = start building) and a
-    /// green baseplate. While building, the crosshair shows a ghost brick snapped to the grid (like Minecraft);
+    /// green baseplate (18 x 16 studs). While building, the crosshair shows a ghost brick snapped to the grid (like Minecraft);
     /// LMB puts it down, RMB / Z takes back the own last brick, 1-5 / wheel picks one of 5 colours, E stops.
     /// Everybody sees the bricks (network list on the match manager); they stay until the server shuts down.
     /// </summary>
     public class LobbyBricks : MonoBehaviour
     {
         // ---- grid
-        public const int SizeX = 10, SizeZ = 10, SizeY = 12;
+        // 18 x 16 cells (2.7 x 2.4 m) between the floor lamp / brick tub (west) and the sofa (east), clear of the north wall.
+        public const int SizeX = 18, SizeZ = 16, SizeY = 14;
         public const float Cell = BlockyProps.BrickSize;
         public const float PlateTop = 0.02f;
         /// <summary>Grid corner (x0, plate top, z0).</summary>
-        public static readonly Vector3 Origin = new Vector3(-6.1f, PlateTop, 3.65f);
+        public static readonly Vector3 Origin = new Vector3(-6.3f, PlateTop, 3.05f);
         public static readonly Vector3 TubPos = new Vector3(-6.95f, 0f, 4.72f);
         public const float TubYaw = 12f;
         public const float Reach = 4.5f, ReachServer = 5.5f, LeaveDistance = 4.2f;

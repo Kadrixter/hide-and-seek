@@ -55,7 +55,6 @@ namespace HideAndSeek.Characters
             q.PelvisPos = new Vector3(0f, 0.62f - 0.06f * lean - 0.04f * cut * biting, -0.06f * lean + 0.08f * through);
             q.Pelvis = Quaternion.Euler(6f * lean, -8f * lean, 0f);
             q.Torso = Quaternion.Euler(18f * lean + 10f * cut * biting + 8f * through + strain * Mathf.Sin(t * 29f), 6f * lean, strain * Mathf.Sin(t * 19f));
-            q.Head = Quaternion.Euler(-14f * lean - 6f * cut * biting, -4f * lean, 0f);
             q.SolveLeg(0, new Vector3(0.16f, 0f, -0.2f * lean), new Vector3(0.1f, 0f, 1f));
             q.SolveLeg(1, new Vector3(-0.15f, 0f, 0.18f * lean), new Vector3(-0.1f, 0f, 1f));
 
@@ -74,11 +73,25 @@ namespace HideAndSeek.Characters
             float pitch = Mathf.Lerp(-10f, 28f, plunge) + 10f * cut - 22f * back;
             Quaternion rot = Quaternion.Euler(pitch + Mathf.Sin(t * 83f) * 1.5f * biting, -8f + 10f * cut, -20f * cut * (1f - back));
             SolveSawHands(ref q, fist, rot);
+            // Head: eyes on the cut (a bit ahead of the fists, where the bar bites), never above the horizon.
+            q.Head = CrateSawHead(q, fist + new Vector3(-0.02f, -0.08f, 0.3f), lean);
 
             var keepPropBefore = p.PropR;
             p = CharacterPose.Lerp(p, q, w);
             if (w >= 0.999f) p.PropR = q.PropR;
             else p.PropR = Quaternion.Slerp(keepPropBefore, q.PropR, w);
+        }
+
+        /// <summary>Local head rotation that looks at <paramref name="target"/> (root space), pitched down 15..55 degrees.</summary>
+        static Quaternion CrateSawHead(in CharacterPose q, Vector3 target, float lean)
+        {
+            Vector3 eye = q.TorsoPoint(BlockyCharacter.NeckRest + new Vector3(0f, 0.2f, 0.08f));
+            Vector3 d = target - eye;
+            float flat = new Vector2(d.x, d.z).magnitude;
+            float down = Mathf.Clamp(Mathf.Atan2(-d.y, Mathf.Max(0.05f, flat)) * Mathf.Rad2Deg, 15f, 55f);
+            float yaw = Mathf.Clamp(Mathf.Atan2(d.x, Mathf.Max(0.05f, d.z)) * Mathf.Rad2Deg, -25f, 25f);
+            Quaternion world = Quaternion.Euler(0f, yaw * lean, 0f) * Quaternion.Euler(Mathf.Lerp(8f, down, lean), 0f, 0f);
+            return Quaternion.Inverse(q.TorsoRoot) * world;
         }
     }
 }

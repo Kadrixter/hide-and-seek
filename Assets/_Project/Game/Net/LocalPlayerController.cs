@@ -1096,7 +1096,7 @@ namespace HideAndSeek.Game.Net
             }
             var camT = _p.Camera.transform;
             Vector3 origin = camT.position;
-            Vector3 dir = camT.forward;
+            Vector3 dir = _p.GlockShotDirection(camT); // spread: small when aimed (RMB), large from the hip
 
             // Level hit.
             float maxDist = Tuning.GlockRange;

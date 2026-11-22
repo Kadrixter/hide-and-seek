@@ -386,11 +386,10 @@ namespace HideAndSeek.Characters
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
 
-            // 3b. Sitting (full body, head keeps looking around from the base pose).
+            // 3b. Sitting (full body, one of the seated variants; only the head follows the look).
             if (sitW > 0.001f)
             {
-                var sp = SitPose();
-                sp.Head = p.Head;
+                var sp = SitPoseVariant(lookPitch);
                 p = CharacterPose.Lerp(p, sp, ActionTimeline.SmoothStep01(sitW));
             }
 
@@ -632,6 +631,7 @@ namespace HideAndSeek.Characters
 
             if (Mathf.Abs(recoil) > 0.001f && standing)
                 p.Torso = p.Torso * Quaternion.Euler(-2.5f * recoil, 1.5f * recoil, 0f);
+            AimRecoil(ref p, standing);
         }
 
         // ================================================================== props

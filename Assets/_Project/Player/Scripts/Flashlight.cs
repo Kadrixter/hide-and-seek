@@ -140,26 +140,13 @@ namespace HideAndSeek.Player
             ConfigureLight();
         }
 
-        private void OnEnable()
-        {
-            if (input != null) input.FlashlightTogglePressed += OnTogglePressed;
-            _followInitialised = false;
-        }
-
-        private void OnDisable()
-        {
-            if (input != null) input.FlashlightTogglePressed -= OnTogglePressed;
-        }
+        // The mouse button no longer toggles the light (LMB belongs to the held item); the game toggles it with T.
+        private void OnEnable() => _followInitialised = false;
 
         private void OnDestroy()
         {
             if (_clickOn != null) Destroy(_clickOn);
             if (_clickOff != null) Destroy(_clickOff);
-        }
-
-        private void OnTogglePressed()
-        {
-            if (listenToInput) Toggle();
         }
 
         private void LateUpdate()

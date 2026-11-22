@@ -38,6 +38,12 @@ namespace HideAndSeek.Player
         /// <summary>Scripted camera effects (electrocution shake, lying on the floor...).</summary>
         public Vector3 ExtraEuler { get; set; }
         public Vector3 ExtraPosition { get; set; }
+        /// <summary>Gun recoil kick (degrees, added on top of everything else).</summary>
+        public Vector3 KickEuler { get; set; }
+        /// <summary>Seated: the head turns without the body (degrees of yaw relative to the root).</summary>
+        public float YawOffset { get; set; }
+        /// <summary>Zoom multiplier on the field of view (aiming down the sights &lt; 1).</summary>
+        public float FovScale { get; set; } = 1f;
         /// <summary>0..1 limp on the right leg: uneven bob, sinks and rolls on the injured step.</summary>
         public float Limp { get; set; }
         private float _limpW;
@@ -182,14 +188,14 @@ namespace HideAndSeek.Player
             CurrentOffset = offset;
             float eye = Mathf.Lerp(motor.EyeHeight, EyeOverride, EyeOverrideWeight);
             transform.localPosition = new Vector3(0f, eye, 0f) + offset + ExtraPosition;
-            transform.localRotation = Quaternion.Euler(-motor.LookPitch + bobPitch + landPitch + breathPitch, 0f,
-                bobRoll + breathRoll + _strafeRoll) * Quaternion.Euler(ExtraEuler);
+            transform.localRotation = Quaternion.Euler(0f, YawOffset, 0f) * Quaternion.Euler(-motor.LookPitch + bobPitch + landPitch + breathPitch, 0f,
+                bobRoll + breathRoll + _strafeRoll) * Quaternion.Euler(ExtraEuler + KickEuler);
 
             // ---------------------------------------------------------- FOV kick
             if (targetCamera != null)
             {
                 float runFovT = motor.IsRunning ? Mathf.InverseLerp(motor.WalkSpeed, motor.RunSpeed, speed) : 0f;
-                float targetFov = Mathf.Lerp(p.baseFov, p.runFov, runFovT);
+                float targetFov = Mathf.Lerp(p.baseFov, p.runFov, runFovT) * FovScale;
                 _fov = Mathf.Lerp(_fov, targetFov, 1f - Mathf.Exp(-p.fovSharpness * dt));
                 targetCamera.fieldOfView = _fov;
             }

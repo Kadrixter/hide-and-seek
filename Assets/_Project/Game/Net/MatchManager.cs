@@ -191,7 +191,7 @@ namespace HideAndSeek.Game.Net
             GameAudio.SetBed(AmbientId.TensionMusic, 3f);
             var local = NetPlayer.Local;
             if (local != null && local.IsSeeker)
-                GameHud.Banner("GLOCK", "Ostatnie 2 minuty. Q - wyciągnij / schowaj, LPM - strzał, R - przeładuj.", 5f, Color.yellow);
+                GameHud.Banner("GLOCK", "Ostatnie 2 minuty. Q - wyciągnij / schowaj, LPM - strzał, PPM - celowanie, R - przeładuj.", 5f, Color.yellow);
             else
                 GameHud.Banner("UWAGA", "Szukający dostał pistolet. Ostatnie 2 minuty.", 4f, Color.yellow);
         }
