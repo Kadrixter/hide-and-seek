@@ -81,6 +81,10 @@ MonoBehaviour:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0
+  Rods:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
   VendingCans:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
