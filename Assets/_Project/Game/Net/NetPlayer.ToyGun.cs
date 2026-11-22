@@ -57,7 +57,7 @@ namespace HideAndSeek.Game.Net
         }
 
         /// <summary>The gun is in the hands and can be shown / heard.</summary>
-        public bool ToyGunShown => ToyGunOut.Value && HasToyGun && IsHider && Life.Value == LifeState.Alive && ToyRoundPhase;
+        public bool ToyGunShown => ToyGunOut.Value && HasToyGun && IsHider && Life.Value == LifeState.Alive && ToyRoundPhase && !HoldsPaMic;
 
         private static bool ToyRoundPhase
         {

@@ -413,6 +413,7 @@ namespace HideAndSeek.Characters
             ApplyFlashTake(ref p, dt);
             ApplyToyGun(ref p, dt, standing, lookPitch);
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand
+            ApplyPaMic(ref p, dt, standing);
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
@@ -532,6 +533,7 @@ namespace HideAndSeek.Characters
             if (VendingShowsCan) return HeldItem.Can;
             if (PhoneSmashing) return HeldItem.None;
             if (RemoteThrowing) return RemoteShownItem();
+            if (PaMicBusy) return HeldItem.None;
             if (vendingOn || ShockHidesItem || GunHidesItem) return HeldItem.None;
             var rc = RcShownItem();
             if (rc != HeldItem.None || rcW > 0.5f) return rc;
@@ -710,6 +712,7 @@ namespace HideAndSeek.Characters
             UpdateVendingProp(show);
             UpdateToyGunProp();
             UpdateCarryProp();
+            UpdatePaMicProp();
             var saw = props[(int)HeldItem.Chainsaw];
             if (saw != null && show == HeldItem.Chainsaw)
             {

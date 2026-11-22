@@ -483,6 +483,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepFlashBox ??= UpdateFlashBox, "flash box");
             Step(_stepToyGuns ??= UpdateToyGuns, "toy guns");
             Step(_stepPhones ??= UpdatePhones, "phones");
+            Step(_stepPa ??= UpdatePa, "public address");
             Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
             if (!IsServer) return;
             Step(_stepServerProps ??= UpdateServerProps, "server props");
@@ -490,7 +491,7 @@ namespace HideAndSeek.Game.Net
         }
 
         private System.Action _stepLobbyWatch, _stepLobbyReturn, _stepMedkits, _stepSyringes, _stepLobbyFun, _stepRcCars, _stepRods,
-            _stepDrops, _stepFlashBox, _stepToyGuns, _stepPhones, _stepSceneProps, _stepServerProps;
+            _stepDrops, _stepFlashBox, _stepToyGuns, _stepPhones, _stepPa, _stepSceneProps, _stepServerProps;
         private readonly Dictionary<string, float> _stepErrorAt = new();
 
         /// <summary>Runs one per-frame part; an exception is logged (at most every 5 s per part) instead of skipping the rest of the frame.</summary>
@@ -517,6 +518,7 @@ namespace HideAndSeek.Game.Net
                 ChainsawShelf.Ensure(ChainsawTaken.Value);
                 CarAlarms.Ensure();
                 SecurityRooms.Ensure();
+                PaSystem.Ensure();
             }
         }
 

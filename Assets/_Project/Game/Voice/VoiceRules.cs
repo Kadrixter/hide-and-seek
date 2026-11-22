@@ -62,6 +62,20 @@ namespace HideAndSeek.Game.Voice
             return n;
         }
 
+        /// <summary>
+        /// Public address (round only): <paramref name="speaker"/> holds the wall microphone and is alive - his voice with
+        /// the talk bar down goes to everybody through the loudspeakers on every level (on top of the normal voice).
+        /// </summary>
+        public static bool PaLink(NetPlayer speaker)
+        {
+            var mm = MatchManager.Instance;
+            if (LobbyLike || mm == null || speaker == null || speaker.Life.Value != LifeState.Alive) return false;
+            return mm.PaHolder.Value == speaker.NetworkObjectId;
+        }
+
+        /// <summary>Client: second check before playing a frame on the public-address channel.</summary>
+        public static bool LocalPaLink(NetPlayer speaker) => PaLink(speaker);
+
         /// <summary>Client: may the local player play this speaker's voice? (the living never hear the dead)</summary>
         public static bool LocalMayHear(NetPlayer speaker) => !OnDeadChannel(speaker) || OnDeadChannel(NetPlayer.Local);
     }

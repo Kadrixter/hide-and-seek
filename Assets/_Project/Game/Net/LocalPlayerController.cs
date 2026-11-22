@@ -41,13 +41,14 @@ namespace HideAndSeek.Game.Net
         ToyGunPickup,   // E on a toy slime blaster lying on the map (hiders)
         PhonePickup,    // E on a toy phone on the floor (hiders)
         PhoneStomp,     // F on a toy phone on the floor (seeker)
+        PaMic,          // E on the public-address microphone hanging on its wall station
     }
 
     /// <summary>
     /// Local player's gameplay input: interactions (knife, rescue, heal, pickup, lobby button),
     /// Glock (shoot, reload, holster), flashlight focus, input locks (blind seeker, busy, dead, menus).
     /// </summary>
-    public class LocalPlayerController : MonoBehaviour
+    public partial class LocalPlayerController : MonoBehaviour
     {
         public static LocalPlayerController Instance { get; private set; }
 
@@ -300,6 +301,9 @@ namespace HideAndSeek.Game.Net
             // ---- lobby toy bricks: while building the mouse / E / 1-5 belong to the bricks.
             if (phase != MatchPhase.Lobby && LobbyBricks.Building) LobbyBricks.StopBuilding();
             if (LobbyBricks.LocalTick(_p, kb, mouse, _ignoreEThisFrame)) { CancelHold(); return; }
+
+            // ---- public-address microphone in the hand: E hangs it back, LMB is the talk bar; nothing else meanwhile
+            if (PaTick(kb)) { CancelHold(); return; }
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
@@ -668,6 +672,10 @@ namespace HideAndSeek.Game.Net
                 Offer(phKind, phPos, phText, phD);
             }
 
+            // Public-address microphone on its wall station next to the elevators (any living player, one at a time).
+            if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryPaPrompt(eye, fwd, out var paPos, out string paText, out float paD))
+                Offer(PromptKind.PaMic, paPos, paText, paD);
+
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
             {
@@ -1029,6 +1037,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.PhoneStomp:
                     if (kb.fKey.wasPressedThisFrame) _p.RequestPhoneStompRpc(_phoneId);
+                    break;
+                case PromptKind.PaMic:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) PaPromptE();
                     break;
             }
 

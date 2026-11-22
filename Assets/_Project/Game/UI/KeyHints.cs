@@ -77,6 +77,7 @@ namespace HideAndSeek.Game.UI
         /// <summary>Which hint set fits now (null = none).</summary>
         private static string Situation(NetPlayer me, MatchPhase phase)
         {
+            if (me.HoldsPaMic) return "pa";
             switch (phase)
             {
                 case MatchPhase.Lobby:
@@ -131,6 +132,10 @@ namespace HideAndSeek.Game.UI
                     break;
                 case "spectate":
                     _tmp.Add(("LPM / PPM", "zmiana obserwowanego gracza"));
+                    break;
+                case "pa":
+                    _tmp.Add(("LPM", "przytrzymaj - mów przez głośniki na całym parkingu"));
+                    _tmp.Add(("E", "odwieś mikrofon"));
                     break;
             }
 
