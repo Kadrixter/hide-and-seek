@@ -354,6 +354,8 @@ namespace HideAndSeek.Game.Net
             UpdateRc();
             UpdateGasp();
             UpdateBrickHand();
+            UpdateFlashCarry();
+            UpdateToyGun();
 
             float prone = Life.Value == LifeState.Alive ? Motor.ProneAmount : 0f;
             (Actions as BlockyCharacterActions)?.SetProneAmount(prone);
@@ -1088,7 +1090,7 @@ namespace HideAndSeek.Game.Net
             bca?.SetLimp(limp ? 1f : 0f);
             bca?.SetHop(hop ? ((Severed.Value & Limb.LegR) != 0 ? 0 : 1) : -1);
             if (IsOwner && Motor != null)
-                Motor.SpeedScale = (Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f) * CombatSpeedScale;
+                Motor.SpeedScale = (Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f) * CombatSpeedScale * GooSpeedScale;
             if (IsOwner)
             {
                 if (_bob == null) _bob = GetComponentInChildren<HeadBob>();

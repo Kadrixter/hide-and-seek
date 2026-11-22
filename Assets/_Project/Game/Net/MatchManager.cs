@@ -99,6 +99,7 @@ namespace HideAndSeek.Game.Net
             InitBricks();
             InitRadio();
             InitRods();
+            InitToyGuns();
         }
 
         public override void OnNetworkSpawn()
@@ -460,6 +461,8 @@ namespace HideAndSeek.Game.Net
             UpdateLobbyFun();
             UpdateRcCars();
             UpdateRods();
+            UpdateFlashBox();
+            UpdateToyGuns();
             BloodTracks.Ensure();
             var ph = Phase.Value;
             if (RaceMode && (ph == MatchPhase.Race || ph == MatchPhase.Ended) && SceneManager.GetActiveScene().name == NetSession.GameScene)
@@ -628,7 +631,7 @@ namespace HideAndSeek.Game.Net
         {
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
-            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value) return; // 8 s between attacks, no attacks while blinded
+            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value || seeker.Gooed) return; // 8 s between attacks, no attacks while blinded / gooed
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.KnifeServerRange) return;
             if (!victim.Limping.Value && !victim.Wounded.Value && victim.Severed.Value == 0)
             {
@@ -652,7 +655,7 @@ namespace HideAndSeek.Game.Net
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (!seeker.HasChainsaw.Value || seeker.Held.Value != HeldItem.Chainsaw) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
-            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value) return; // 8 s between attacks, no attacks while blinded
+            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value || seeker.Gooed) return; // 8 s between attacks, no attacks while blinded / gooed
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.ChainsawServerRange) return;
             ServerRcForcePark(victim);
             bool injured = victim.Limping.Value || victim.Wounded.Value || victim.Severed.Value != 0;

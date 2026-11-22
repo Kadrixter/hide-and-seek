@@ -129,7 +129,7 @@ namespace HideAndSeek.Game
                 if (kb[Key.Digit1 + i].wasPressedThisFrame || kb[Key.Numpad1 + i].wasPressedThisFrame) pick = i;
             if (pick >= 0) Select(p, pick);
 
-            if (!p.IsHider) return;
+            if (!p.IsHider || ToyGunControl.Out) return; // toy slime blaster in the hands: LMB fires it (ToyGunControl)
             bool locked = p.InputReader == null || p.InputReader.CursorLocked;
             bool click = (mouse.leftButton.wasPressedThisFrame && locked) || TestClick;
             bool hold = (mouse.leftButton.isPressed && locked) || TestHold || TestClick;
