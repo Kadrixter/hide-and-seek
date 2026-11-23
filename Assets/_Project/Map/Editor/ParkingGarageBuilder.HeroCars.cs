@@ -34,7 +34,7 @@ namespace HideAndSeek.Map.Editor
         };
 
         private static bool HeroReserved(int lv, string label) =>
-            HeroSpots.Any(h => h.Level == lv && (h.Bay == label || (h.KeepEmpty != null && h.KeepEmpty.Contains(label))));
+            HeroSpots.Any(h => h.Level == lv && (h.Bay == label || (h.KeepEmpty != null && h.KeepEmpty.Contains(label)))) || WreckReserved(lv, label);
 
         private void PlaceHeroCars()
         {
@@ -56,6 +56,7 @@ namespace HideAndSeek.Map.Editor
                 });
                 Debug.Log($"[ParkingGarage] Hero car {car.Name} ({h.Paint}) on {LevelName(h.Level)} bay {h.Bay} at ({pos.x:0.0}, {pos.y:0.0}, {pos.z:0.0}), yaw {yaw:0}");
             }
+            PlaceWreck();
         }
     }
 }
