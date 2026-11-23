@@ -22,7 +22,7 @@ namespace HideAndSeek.Game.Net
         {
             if (!IsServer || pl == null || Phase.Value != MatchPhase.Lobby || FlashlightBox.Instance == null) return;
             if (pl.Busy.Value || pl.Life.Value != LifeState.Alive || pl.Seat.Value >= 0) return;
-            if (ForkHolder.Value == pl.NetworkObjectId || ArcadePlayer.Value == pl.NetworkObjectId) return;
+            if (ForkHolder.Value == pl.NetworkObjectId || ArcadeCabOf(pl.NetworkObjectId) >= 0) return;
             if (pl.Ready.Value == take) return;
             Vector3 flat = pl.transform.position - FlashlightBox.StandPos;
             flat.y = 0f;

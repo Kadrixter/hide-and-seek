@@ -11,27 +11,26 @@ namespace HideAndSeek.Game.Net
 {
     /// <summary>
     /// Lobby easter eggs: the fork on the coffee table (into a wall socket: short circuit, electrocution, respawn)
-    /// and the SNAKE arcade constants (the game itself: MatchManager.Snake.cs).
+    /// and the SNAKE arcade players (the games themselves: MatchManager.Snake.cs, positions: ArcadeCabs).
     /// </summary>
     public partial class MatchManager
     {
         public readonly NetworkVariable<ulong> ForkHolder = new(ulong.MaxValue);
-        public readonly NetworkVariable<ulong> ArcadePlayer = new(ulong.MaxValue);
+        public readonly NetworkVariable<ulong> ArcadePlayer = new(ulong.MaxValue);  // cabinet 0
+        public readonly NetworkVariable<ulong> ArcadePlayer2 = new(ulong.MaxValue); // cabinet 1
 
-        public static readonly Vector3 ForkTablePos = new Vector3(-1.05f, 0.455f, 0.48f);
+        public static readonly Vector3 ForkTablePos = new Vector3(-1.05f, 0.455f, 0.48f) + LobbyLayout.TableShift;
         public const float ForkTableYaw = 32f;
 
         /// <summary>Wall sockets in the lobby: plate centre and the direction it faces (into the room).</summary>
-        public static readonly Vector3[] OutletPos =
-        {
-            new Vector3(-0.3f, 0.3f, 5.985f), new Vector3(-7.985f, 0.3f, -1.4f), new Vector3(7.985f, 0.3f, 1.8f), new Vector3(-2.6f, 0.3f, -5.985f),
-        };
-        public static readonly Vector3[] OutletNormal = { Vector3.back, Vector3.right, Vector3.left, Vector3.forward };
+        public static readonly Vector3[] OutletPos = LobbyLayout.Outlets;
+        public static readonly Vector3[] OutletNormal = LobbyLayout.OutletNormals;
 
-        public static readonly Vector3 ArcadeStand = new Vector3(6.0f, 0f, 4.6f);
-        public static readonly Vector3 ArcadeStickBall = new Vector3(5.83f, 1.124f, 5.054f); // builder: MultiplayerBuilder.LobbyArcade.cs
-        public static readonly Vector3 ArcadeButtons = new Vector3(6.075f, 1.049f, 5.058f);
-        public static readonly Vector3 ArcadeScreen = new Vector3(6.0f, 1.35f, 5.14f);
+        /// <summary>First cabinet (tests / old callers); every cabinet: <see cref="ArcadeCabs"/>.</summary>
+        public static Vector3 ArcadeStand => ArcadeCabs.Stand(0);
+        public static Vector3 ArcadeStickBall => ArcadeCabs.StickBall(0);
+        public static Vector3 ArcadeButtons => ArcadeCabs.Buttons(0);
+        public static Vector3 ArcadeScreen => ArcadeCabs.Screen(0);
 
         public static bool InLobbyScene => SceneManager.GetActiveScene().name == NetSession.LobbyScene;
 
@@ -61,16 +60,11 @@ namespace HideAndSeek.Game.Net
             if (!lobby)
             {
                 if (ForkHolder.Value != ulong.MaxValue) ForkHolder.Value = ulong.MaxValue;
-                if (ArcadePlayer.Value != ulong.MaxValue) StopArcade();
+                ArcadeTick(false);
                 return;
             }
             if (ForkHolder.Value != ulong.MaxValue && NetPlayer.Find(ForkHolder.Value) == null) ForkHolder.Value = ulong.MaxValue;
-            if (ArcadePlayer.Value != ulong.MaxValue)
-            {
-                var ap = NetPlayer.Find(ArcadePlayer.Value);
-                if (ap == null || Vector3.Distance(ap.transform.position, ArcadeStand) > 1.5f) StopArcade();
-                else SnakeTick();
-            }
+            ArcadeTick(true);
         }
 
         // ================================================================ fork
@@ -122,9 +116,9 @@ namespace HideAndSeek.Game.Net
         public void ServerExitDoor(NetPlayer pl)
         {
             if (pl == null || Phase.Value != MatchPhase.Lobby || !InLobbyScene || _exitBusy || pl.Busy.Value || pl.Seat.Value >= 0) return;
-            if (ForkHolder.Value == pl.NetworkObjectId || ArcadePlayer.Value == pl.NetworkObjectId) return;
+            if (ForkHolder.Value == pl.NetworkObjectId || ArcadeCabOf(pl.NetworkObjectId) >= 0) return;
             var door = LobbyExitDoor.Instance;
-            Vector3 handle = door != null ? door.HandleWorld : new Vector3(4.66f, 1f, -5.93f);
+            Vector3 handle = door != null ? door.HandleWorld : new Vector3(LobbyLayout.ExitDoorX + 0.36f, 1f, 0.07f - LobbyLayout.HalfD);
             if (Vector3.Distance(pl.transform.position + Vector3.up, handle) > 2.6f) return;
             StartCoroutine(ExitDoorRoutine(pl));
         }

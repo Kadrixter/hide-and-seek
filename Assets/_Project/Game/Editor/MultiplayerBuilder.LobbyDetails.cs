@@ -3,9 +3,9 @@ using UnityEngine;
 namespace HideAndSeek.Game.Editor
 {
     /// <summary>
-    /// Extra detail for the lobby room: exit door with a lit sign, light switch, outlets, smoke detector, wall vent,
-    /// wooden chair rail, banded crates, locker doors (vents, handles, name tags), bookshelf back + ornaments,
-    /// a lower shelf with magazines under the coffee table, piping on the sofa cushions, pot rims, arcade trim.
+    /// Extra detail for the lobby room: exit door with a lit sign, smoke detector, wall vent, banded crates, a lower
+    /// shelf with magazines under the coffee table, piping on the sofa cushions, pot rims, arcade trim
+    /// (sockets, switches and the chair rail: LobbyWalls / LobbyLights).
     /// </summary>
     public static partial class MultiplayerBuilder
     {
@@ -20,7 +20,7 @@ namespace HideAndSeek.Game.Editor
 
             // ---- exit door on the south wall (x 4.3): a real opening with a hinged door (opens into the room, easter egg
             // LobbyExitDoor), white nothingness behind it and an invisible blocker - nobody ever leaves.
-            const float dz = -5.985f, dx = 4.3f;
+            float dz = -LobbyLayout.HalfD + 0.015f, dx = LobbyLayout.ExitDoorX;
             CutExitOpening(root, dx);
             var hinge = new GameObject("ExitDoorHinge").transform;
             hinge.SetParent(d, false);
@@ -39,50 +39,22 @@ namespace HideAndSeek.Game.Editor
             Deco("HandleLeverOut", hinge, new Vector3(dx + 0.3f, 1.0f, dz - 0.05f), new Vector3(0.14f, 0.025f, 0.025f), metalSilver.Value);
             hinge.gameObject.AddComponent<LobbyExitDoor>();
             var exitMat = Emissive("LobbyExitSign", new Color(0.1f, 0.75f, 0.25f), new Color(0.1f, 0.9f, 0.3f) * 1.6f);
-            Deco("ExitSign", d, new Vector3(dx, 2.45f, -5.95f), new Vector3(0.46f, 0.16f, 0.06f), exitMat);
-            Label3D("ExitText", d, new Vector3(dx, 2.45f, -5.915f), Quaternion.Euler(0, 180, 0), "WYJŚCIE", Color.white, 0.012f, new Vector2(0.4f, 0.12f));
-            PointLight("ExitGlow", d, new Vector3(dx, 2.3f, -5.7f), new Color(0.2f, 1f, 0.4f), 0.25f, 1.5f);
+            Deco("ExitSign", d, new Vector3(dx, 2.45f, dz + 0.035f), new Vector3(0.46f, 0.16f, 0.06f), exitMat);
+            Label3D("ExitText", d, new Vector3(dx, 2.45f, dz + 0.07f), Quaternion.Euler(0, 180, 0), "WYJŚCIE", Color.white, 0.012f, new Vector2(0.4f, 0.12f));
+            PointLight("ExitGlow", d, new Vector3(dx, 2.3f, dz + 0.3f), new Color(0.2f, 1f, 0.4f), 0.25f, 1.5f);
 
             // ---- light switch, outlets, smoke detector, wall vent
 
-            Deco("LightSwitch", d, new Vector3(dx - 0.8f, 1.1f, -5.99f), new Vector3(0.08f, 0.12f, 0.015f), white);
-            Deco("SwitchRocker", d, new Vector3(dx - 0.8f, 1.11f, -5.98f), new Vector3(0.035f, 0.055f, 0.012f), white);
-            void Outlet(Vector3 p, Quaternion r)
-            {
-                var o = Deco("Outlet", d, p, new Vector3(0.08f, 0.08f, 0.012f), white, r);
-                for (int i = -1; i <= 1; i += 2)
-                {
-                    var h = Deco("Hole", o.transform, Vector3.zero, Vector3.one, black);
-                    h.transform.localPosition = new Vector3(i * 0.18f, 0f, -0.55f);
-                    h.transform.localScale = new Vector3(0.12f, 0.12f, 0.2f);
-                }
-            }
-            Outlet(new Vector3(-0.3f, 0.3f, 5.99f), Quaternion.identity);
-            Outlet(new Vector3(-7.99f, 0.3f, -1.4f), Quaternion.Euler(0, -90, 0));
-            Outlet(new Vector3(7.99f, 0.3f, 1.8f), Quaternion.Euler(0, 90, 0));
-            Outlet(new Vector3(-2.6f, 0.3f, -5.99f), Quaternion.Euler(0, 180, 0));
-            Cyl("SmokeDetector", d, new Vector3(2.2f, RoomH - 0.02f, -2.2f), 0.13f, 0.04f, white);
-            Cyl("SmokeLed", d, new Vector3(2.24f, RoomH - 0.045f, -2.2f), 0.012f, 0.01f, Emissive("LobbyLedRed", new Color(1f, 0.1f, 0.1f), new Color(1f, 0.1f, 0.1f) * 2f));
-            Deco("VentFrame", d, new Vector3(-6.2f, 3.15f, 5.985f), new Vector3(0.7f, 0.3f, 0.03f), white);
+            Cyl("SmokeDetector", d, new Vector3(2.6f, RoomH - 0.02f, -0.4f), 0.13f, 0.04f, white);
+            Cyl("SmokeLed", d, new Vector3(2.64f, RoomH - 0.045f, -0.4f), 0.012f, 0.01f, Emissive("LobbyLedRed", new Color(1f, 0.1f, 0.1f), new Color(1f, 0.1f, 0.1f) * 2f));
+            Deco("VentFrame", d, new Vector3(-6.6f, 3.05f, 5.985f), new Vector3(0.7f, 0.3f, 0.03f), white);
             for (int i = 0; i < 6; i++)
-                Deco("VentSlat", d, new Vector3(-6.2f, 3.04f + i * 0.045f, 5.965f), new Vector3(0.64f, 0.012f, 0.02f), black, Quaternion.Euler(30, 0, 0));
-
-            // ---- wooden chair rail (north wall, west wall south of the shelves / north of them)
-            void Rail(Vector3 a, Vector3 b)
-            {
-                var mid = (a + b) * 0.5f;
-                var len = (b - a).magnitude;
-                bool alongX = Mathf.Abs(b.x - a.x) > Mathf.Abs(b.z - a.z);
-                Deco("ChairRail", d, mid, alongX ? new Vector3(len, 0.05f, 0.025f) : new Vector3(0.025f, 0.05f, len), trim);
-            }
-            Rail(new Vector3(-7.95f, 0.95f, 5.985f), new Vector3(1.6f, 0.95f, 5.985f));     // north, up to the settings board
-            Rail(new Vector3(-7.985f, 0.95f, -2.25f), new Vector3(-7.985f, 0.95f, 5.95f));   // west, north of the shelves
-            Rail(new Vector3(-7.985f, 0.95f, -5.95f), new Vector3(-7.985f, 0.95f, -4.75f));  // west, south of the shelves
+                Deco("VentSlat", d, new Vector3(-6.6f, 2.94f + i * 0.045f, 5.965f), new Vector3(0.64f, 0.012f, 0.02f), black, Quaternion.Euler(30, 0, 0));
 
             // ---- crates: corner posts + top/bottom bands, stencil
             foreach (var name in new[] { "Crate1", "Crate2", "Crate3" })
             {
-                var c = root.Find(name);
+                var c = FindDeep(root, name);
                 if (c == null) continue;
                 for (int i = 0; i < 4; i++)
                 {
@@ -103,31 +75,11 @@ namespace HideAndSeek.Game.Editor
                 st.transform.localRotation = Quaternion.identity;
             }
 
-            // ---- locker (front faces -X at x ~7.3): two doors, vents, handles, name tags
-            const float lx = 7.295f;
-            Deco("LockerSplit", d, new Vector3(lx, 1f, 3.5f), new Vector3(0.01f, 1.94f, 0.015f), black);
-            foreach (float z in new[] { 3.1f, 3.9f })
-            {
-                for (int i = 0; i < 5; i++)
-                    Deco("LockerVent", d, new Vector3(lx - 0.002f, 1.62f + i * 0.045f, z), new Vector3(0.008f, 0.014f, 0.32f), black);
-                Deco("LockerHandle", d, new Vector3(lx - 0.02f, 1.0f, z + (z < 3.5f ? 0.3f : -0.3f)), new Vector3(0.03f, 0.16f, 0.025f), metalSilver.Value);
-                Deco("LockerTag", d, new Vector3(lx - 0.004f, 1.3f, z), new Vector3(0.006f, 0.06f, 0.14f), white);
-            }
-
-            // ---- bookshelf: back panel, top, ornaments
-            Deco("ShelfBack", d, new Vector3(-7.965f, 1.2f, -3.5f), new Vector3(0.02f, 2.4f, 2.2f), darkWood);
-            Deco("ShelfTop", d, new Vector3(-7.75f, 2.42f, -3.5f), new Vector3(0.44f, 0.04f, 2.24f), darkWood);
-            Cyl("Vase", d, new Vector3(-7.72f, 1.83f, -2.65f), 0.12f, 0.22f, Mat("LobbyVase", new Color(0.15f, 0.35f, 0.55f), null, 0.8f, Vector2.one));
-            Deco("PhotoFrame", d, new Vector3(-7.78f, 2.53f, -3.9f), new Vector3(0.03f, 0.2f, 0.16f), trim, Quaternion.Euler(0, 0, 8f));
-            Deco("PhotoInside", d, new Vector3(-7.762f, 2.53f, -3.9f), new Vector3(0.01f, 0.16f, 0.12f), Mat("LobbyPhotoInside", new Color(0.5f, 0.6f, 0.75f), null, 0.4f, Vector2.one), Quaternion.Euler(0, 0, 8f));
-            Deco("BoxSmall", d, new Vector3(-7.75f, 0.71f, -4.3f), new Vector3(0.28f, 0.18f, 0.22f), Mat("LobbyBoxRed", new Color(0.55f, 0.12f, 0.1f), null, 0.2f, Vector2.one));
-            Ball("Globe", d, new Vector3(-7.72f, 2.58f, -2.85f), Vector3.one * 0.2f, Mat("LobbyGlobe", new Color(0.2f, 0.45f, 0.3f), null, 0.6f, Vector2.one));
-
             // ---- coffee table: lower shelf with magazines
-            Deco("TableShelf", d, new Vector3(-1.5f, 0.12f, 0.8f), new Vector3(1.44f, 0.03f, 0.78f), darkWood);
+            Deco("TableShelf", d, LobbyLayout.CoffeeTable + new Vector3(0f, 0.12f, 0f), new Vector3(1.44f, 0.03f, 0.78f), darkWood);
             var magCols = new[] { new Color(0.8f, 0.2f, 0.15f), new Color(0.15f, 0.4f, 0.7f), new Color(0.9f, 0.8f, 0.3f) };
             for (int i = 0; i < 3; i++)
-                Deco("Magazine", d, new Vector3(-1.8f + i * 0.05f, 0.145f + i * 0.008f, 0.75f + i * 0.04f), new Vector3(0.22f, 0.008f, 0.3f),
+                Deco("Magazine", d, LobbyLayout.CoffeeTable + new Vector3(-0.3f + i * 0.05f, 0.145f + i * 0.008f, -0.05f + i * 0.04f), new Vector3(0.22f, 0.008f, 0.3f),
                     Mat("LobbyMagazine" + i, magCols[i], null, 0.5f, Vector2.one), Quaternion.Euler(0, i * 14f - 10f, 0));
 
             // ---- sofas: piping along the cushion edges
@@ -160,19 +112,26 @@ namespace HideAndSeek.Game.Editor
                 rim.transform.SetParent(t, true);
             }
 
-            // ---- arcade: coloured T-molding on the side edges, speaker grille
-            var arcade = root.Find("Decor/ArcadeCabinet");
-            if (arcade != null)
-            {
-                var tm = Emissive("LobbyArcadeTMold", new Color(0.2f, 0.8f, 1f), new Color(0.1f, 0.5f, 0.8f) * 0.8f);
-                Vector3 a = arcade.position;
-                foreach (float sx in new[] { -0.395f, 0.395f })
-                    Deco("TMold", arcade, a + new Vector3(sx, 0.95f, -0.37f), new Vector3(0.012f, 1.9f, 0.02f), tm);
-                Deco("Speaker", arcade, a + new Vector3(0, 1.63f, -0.31f), new Vector3(0.4f, 0.07f, 0.01f), black);
-                for (int i = 0; i < 8; i++)
-                    Deco("SpeakerHole", arcade, a + new Vector3(-0.17f + i * 0.048f, 1.63f, -0.316f), new Vector3(0.02f, 0.04f, 0.004f), metal);
-            }
         }
+
+        /// <summary>Arcade cabinet (built facing -Z at <paramref name="a"/>): coloured T-moulding on the side edges, speaker grille.</summary>
+        private static void ArcadeDetails(Transform arcade, Vector3 a, Material metal)
+        {
+            var black = Mat("LobbyPlasticBlack", new Color(0.05f, 0.05f, 0.06f), null, 0.4f, Vector2.one);
+            var tm = Emissive("LobbyArcadeTMold", new Color(0.2f, 0.8f, 1f), new Color(0.1f, 0.5f, 0.8f) * 0.8f);
+            foreach (float sx in new[] { -0.395f, 0.395f })
+                Deco("TMold", arcade, a + new Vector3(sx, 0.95f, -0.37f), new Vector3(0.012f, 1.9f, 0.02f), tm);
+            Deco("Speaker", arcade, a + new Vector3(0, 1.63f, -0.31f), new Vector3(0.4f, 0.07f, 0.01f), black);
+            for (int i = 0; i < 8; i++)
+                Deco("SpeakerHole", arcade, a + new Vector3(-0.17f + i * 0.048f, 1.63f, -0.316f), new Vector3(0.02f, 0.04f, 0.004f), metal);
+        }
+
+        private static Transform FindDeep(Transform root, string name)
+        {
+            foreach (var t in root.GetComponentsInChildren<Transform>(true)) if (t.name == name) return t;
+            return null;
+        }
+
             /// <summary>
         /// Exit door opening in the south wall: the wall (and the skirting) are split around a 0.94 x 2.1 m hole, behind
         /// it a small unlit white box (pure white nothingness) and an invisible collider in the doorway.
@@ -204,7 +163,7 @@ namespace HideAndSeek.Game.Editor
             }
             var voidRoot = new GameObject("ExitVoid").transform;
             voidRoot.SetParent(root, false);
-            const float z0 = -6.2f, z1 = -9.5f;
+            float z0 = -LobbyLayout.HalfD - 0.2f, z1 = -LobbyLayout.HalfD - 3.5f;
             void Q(string n, Vector3 p, Vector3 size)
             {
                 var g = Box(n, voidRoot, p, size, white);
@@ -219,7 +178,7 @@ namespace HideAndSeek.Game.Editor
             // Nobody leaves: invisible wall in the doorway.
             var blocker = new GameObject("ExitBlocker");
             blocker.transform.SetParent(root, false);
-            blocker.transform.position = new Vector3(dx, 1.5f, -6.12f);
+            blocker.transform.position = new Vector3(dx, 1.5f, -LobbyLayout.HalfD - 0.12f);
             blocker.AddComponent<BoxCollider>().size = new Vector3(1.0f, 3f, 0.2f);
         }
     }

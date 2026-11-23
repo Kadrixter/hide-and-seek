@@ -14,8 +14,8 @@ namespace HideAndSeek.Game
     {
         public static FlashlightBox Instance { get; private set; }
 
-        public static readonly Vector3 TablePos = new Vector3(-1.35f, 0f, -5.78f);
-        public static readonly Vector3 CratePos = new Vector3(-1.35f, 0.74f, -5.74f);
+        public static readonly Vector3 TablePos = LobbyLayout.FlashTable;
+        public static readonly Vector3 CratePos = LobbyLayout.FlashTable + new Vector3(0f, 0.74f, 0.04f);
         /// <summary>Where a player stands to use the box (facing it, yaw 180) so the hand meets the lamps.</summary>
         public static readonly Vector3 StandPos = CratePos + new Vector3(FlashTakeTimeline.GrabLocal.x, -CratePos.y, FlashTakeTimeline.GrabLocal.z);
         public const float StandYaw = 180f;

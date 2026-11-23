@@ -534,7 +534,7 @@ namespace HideAndSeek.Game.Net
         public void RequestForkOutletRpc(byte outlet) => MatchManager.Instance?.ServerForkOutlet(this, outlet);
 
         [Rpc(SendTo.Server)]
-        public void RequestArcadeRpc(bool start) => MatchManager.Instance?.ServerArcade(this, start);
+        public void RequestArcadeRpc(bool start, byte cab) => MatchManager.Instance?.ServerArcade(this, start, cab);
 
         [Rpc(SendTo.Server)]
         public void ArcadeDirRpc(byte dir) => MatchManager.Instance?.ServerArcadeDir(this, dir);
@@ -687,12 +687,14 @@ namespace HideAndSeek.Game.Net
         private void UpdateArcadeHands()
         {
             var mm = MatchManager.Instance;
-            bool on = mm != null && mm.ArcadePlayer.Value == NetworkObjectId && Life.Value == LifeState.Alive;
+            int cab = mm != null ? mm.ArcadeCabOf(NetworkObjectId) : -1;
+            bool on = cab >= 0 && Life.Value == LifeState.Alive;
             Vector2 dir = Vector2.zero;
-            if (on && ArcadeState.Live && !ArcadeState.Crashed)
-                dir = ArcadeState.Dir switch { 0 => Vector2.up, 1 => Vector2.right, 2 => Vector2.down, _ => Vector2.left };
-            Vector3 tilt = new Vector3(dir.x, 0f, dir.y) * 0.035f;
-            (Actions as BlockyCharacterActions)?.SetArcade(on, MatchManager.ArcadeStickBall + tilt, MatchManager.ArcadeButtons, dir);
+            var game = ArcadeState.Of(Mathf.Max(0, cab));
+            if (on && game.Live && !game.Crashed)
+                dir = game.Dir switch { 0 => Vector2.up, 1 => Vector2.right, 2 => Vector2.down, _ => Vector2.left };
+            int c = Mathf.Max(0, cab);
+            (Actions as BlockyCharacterActions)?.SetArcade(on, ArcadeCabs.StickBall(c) + ArcadeCabs.Tilt(c, dir, 0.035f), ArcadeCabs.Buttons(c), dir);
             if (IsOwner && _shock == null && (on || _arcadeHands))
             {
                 ArcadeHands.FirstPerson(Camera != null ? Camera.transform : transform, dir, out var handR, out var handL);

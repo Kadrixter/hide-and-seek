@@ -21,9 +21,9 @@ namespace HideAndSeek.Game
         public const float Cell = BlockyProps.BrickSize;
         public const float PlateTop = 0.02f;
         /// <summary>Grid corner (x0, plate top, z0).</summary>
-        public static readonly Vector3 Origin = new Vector3(-6.3f, PlateTop, 3.05f);
-        public static readonly Vector3 TubPos = new Vector3(-6.95f, 0f, 4.72f);
-        public const float TubYaw = 12f;
+        public static readonly Vector3 Origin = new Vector3(LobbyLayout.BrickOrigin.x, PlateTop, LobbyLayout.BrickOrigin.z);
+        public static readonly Vector3 TubPos = LobbyLayout.BrickTub;
+        public const float TubYaw = LobbyLayout.BrickTubYaw;
         public const float Reach = 4.5f, ReachServer = 5.5f, LeaveDistance = 4.2f;
 
         public static readonly Color[] Colors =
