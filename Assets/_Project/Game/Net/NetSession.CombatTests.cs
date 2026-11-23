@@ -45,6 +45,8 @@ namespace HideAndSeek.Game.Net
             void Bring() => victim.TeleportRpc(me.transform.position + me.transform.forward * 1.1f, me.transform.eulerAngles.y + 180f);
             Bring();
             yield return new WaitForSeconds(1.2f);
+            for (float w = 0f; w < 3f && Vector3.Distance(me.transform.position, victim.transform.position) > 1.5f; w += Time.deltaTime) yield return null;
+            Debug.Log($"[SlowTest] distance to the victim {Vector3.Distance(me.transform.position, victim.transform.position):0.00} m");
             me.AttackReadyAt.Value = 0;
             Debug.Log($"[SlowTest] before: speedScale={me.Motor.SpeedScale:0.00} attackSlow={me.AttackSlowScale:0.00}");
             mm.ServerKnife(me, victim);
