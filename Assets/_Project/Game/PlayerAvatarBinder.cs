@@ -69,7 +69,7 @@ namespace HideAndSeek.Game
             if (kb != null && kb.vKey.wasPressedThisFrame)
                 SetThirdPerson(!_thirdPerson);
 
-            if (kb != null)
+            if (kb != null && !HideAndSeek.Game.MiniGames.BoardGameView.WantsCursor) // not while playing chess / tic-tac-toe
             {
                 for (int i = 0; i < 5; i++)
                 {

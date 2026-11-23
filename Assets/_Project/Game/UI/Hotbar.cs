@@ -84,6 +84,7 @@ namespace HideAndSeek.Game
             if (p.HoldsPaMic || p.CarriesMapRadio) return; // the hand holds the public-address microphone (LMB = its talk bar) / a radio
             if (p.ExtBlocksHands) return; // fire extinguisher in both hands / foam being wiped off the face
             if (p.BodyCarryBusy) return; // carrying somebody in the arms / being carried
+            if (HideAndSeek.Game.MiniGames.BoardGameView.WantsCursor) return; // at the chess / tic-tac-toe table: keys and wheel belong to the board
             if (p.InputReader != null && !p.InputReader.InputEnabled) return;
 
             int pick = TestSelect;
