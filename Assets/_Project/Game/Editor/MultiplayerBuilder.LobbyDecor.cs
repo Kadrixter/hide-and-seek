@@ -14,8 +14,8 @@ namespace HideAndSeek.Game.Editor
     /// <summary>
     /// Lobby decoration: snacks on the coffee table, arcade cabinet (animated screen), CCTV wall TV (images rendered
     /// from the real parking map), drinks vending machine, wall clock with live hands, slow ceiling fan, warm LED strips
-    /// behind the sofas and the TV, cork board (CCTV photos, notes, MISSING posters), rugs, cushions, trash bin.
-    /// Room: 16 x 12 m (x -8..8, z -6..6), 3.6 m high.
+    /// behind the sofas and the TV, cork board (CCTV photos, notes, MISSING posters), cushions, trash bin.
+    /// Room and positions: <see cref="LobbyLayout"/>.
     /// </summary>
     public static partial class MultiplayerBuilder
     {
@@ -28,15 +28,18 @@ namespace HideAndSeek.Game.Editor
             deco.SetParent(root, false);
 
             TableSnacks(deco);
-            Arcade(deco, new Vector3(6.0f, 0f, 5.5f), metal);
-            WallTv(deco, new Vector3(-3.6f, 1.8f, -5.94f), cctv, cctvLabels, darkWood);
-            Vending(deco, new Vector3(7.55f, 0f, -2.55f), metal);
-            WallClock(deco, new Vector3(0.65f, 2.6f, 5.96f));
-            CeilingFan(deco, new Vector3(-1.5f, RoomH, 0.8f), darkWood, metal);
-            SofaLeds(deco);
-            CorkBoard(deco, new Vector3(7.96f, 1.85f, -4.35f), cctv, trim);
-            TrashBin(deco, new Vector3(7.35f, 0f, -1.35f)); // MultiplayerBuilder.TrashBin
-            Rugs(deco);
+            deco.Find("TableSnacks").position = LobbyLayout.TableShift; // built for the old table centre
+            for (int i = 0; i < LobbyLayout.Arcades.Length; i++)
+                Arcade(deco, LobbyLayout.Arcades[i].pos, LobbyLayout.Arcades[i].yaw, i, metal);
+            // CCTV TV over the fireplace (built facing +Z, turned to face the room from the north wall)
+            var tvPos = new Vector3(LobbyLayout.Fireplace.x, 1.98f, -LobbyLayout.HalfD + 0.06f);
+            WallTv(deco, tvPos, cctv, cctvLabels, darkWood, false);
+            var tv = deco.Find("WallTv");
+            tv.RotateAround(new Vector3(tvPos.x, 0f, 0f), Vector3.up, 180f);
+            Vending(deco, LobbyLayout.Vending, metal);
+            WallClock(deco, new Vector3(-1.9f, 2.62f, LobbyLayout.HalfD - 0.04f));
+            CorkBoard(deco, LobbyLayout.CorkBoard, cctv, trim);
+            TrashBin(deco, LobbyLayout.TrashBin); // MultiplayerBuilder.TrashBin
             BuildLobbyDetails(root, darkWood, metal, trim);
         }
 
@@ -238,9 +241,9 @@ namespace HideAndSeek.Game.Editor
 
         // ================================================================ arcade
 
-        private static void Arcade(Transform p, Vector3 pos, Material metal)
+        private static void Arcade(Transform p, Vector3 pos, float yaw, int cab, Material metal)
         {
-            var a = new GameObject("ArcadeCabinet").transform;
+            var a = new GameObject(cab == 0 ? "ArcadeCabinet" : "ArcadeCabinet" + (cab + 1)).transform;
             a.SetParent(p, false);
             a.position = pos;
             // Front faces -Z (into the room).
@@ -263,15 +266,18 @@ namespace HideAndSeek.Game.Editor
             ArcadeControls(a, pos, metal);   // panel with art, joystick, buttons (MultiplayerBuilder.LobbyArcade.cs)
             ArcadeTrim(a, pos, metal, body); // coin door, bevels, kick plate, marquee frame
 
-            var glow = PointLight("ArcadeGlow", a, pos + new Vector3(0, 1.35f, -0.8f), new Color(0.45f, 0.6f, 1f), 0.8f, 2.6f);
+            var glow = PointLight("ArcadeGlow", a, pos + new Vector3(0, 1.35f, -0.8f), cab == 0 ? new Color(0.45f, 0.6f, 1f) : new Color(1f, 0.45f, 0.75f), 0.7f, 2.4f);
+            ArcadeDetails(a, pos, metal);
             var arc = a.gameObject.AddComponent<LobbyArcade>();
             arc.screen = screen.GetComponent<Renderer>();
             arc.glow = glow;
+            arc.cab = cab;
+            a.rotation = Quaternion.Euler(0f, yaw, 0f); // built facing -Z around its origin
         }
 
         // ================================================================ CCTV TV
 
-        private static void WallTv(Transform p, Vector3 pos, Texture2D[] feeds, string[] labels, Material darkWood)
+        private static void WallTv(Transform p, Vector3 pos, Texture2D[] feeds, string[] labels, Material darkWood, bool console = true)
         {
             var t = new GameObject("WallTv").transform;
             t.SetParent(p, false);
@@ -293,9 +299,9 @@ namespace HideAndSeek.Game.Editor
             PointLight("TvBacklight", t, pos + new Vector3(0, 0, 0.12f), new Color(1f, 0.55f, 0.25f), 0.45f, 1.6f);
             var glow = PointLight("TvGlow", t, pos + new Vector3(0, 0, 0.7f), new Color(0.6f, 0.9f, 0.7f), 0.55f, 2.8f);
             // Media console below
-            Box("MediaConsole", t, new Vector3(pos.x, 0.25f, pos.z + 0.22f), new Vector3(1.8f, 0.5f, 0.4f), darkWood);
-            Deco("ConsoleBox", t, new Vector3(pos.x + 0.5f, 0.55f, pos.z + 0.22f), new Vector3(0.36f, 0.08f, 0.28f), black);
-            Deco("ConsoleLed", t, new Vector3(pos.x + 0.4f, 0.555f, pos.z + 0.362f), new Vector3(0.02f, 0.01f, 0.005f),
+            if (console) Box("MediaConsole", t, new Vector3(pos.x, 0.25f, pos.z + 0.22f), new Vector3(1.8f, 0.5f, 0.4f), darkWood);
+            if (console) Deco("ConsoleBox", t, new Vector3(pos.x + 0.5f, 0.55f, pos.z + 0.22f), new Vector3(0.36f, 0.08f, 0.28f), black);
+            if (console) Deco("ConsoleLed", t, new Vector3(pos.x + 0.4f, 0.555f, pos.z + 0.362f), new Vector3(0.02f, 0.01f, 0.005f),
                 Emissive("LobbyLedGreen", new Color(0.2f, 1f, 0.3f), new Color(0.2f, 1f, 0.3f) * 2f));
 
             var tv = t.gameObject.AddComponent<LobbyTv>();
@@ -409,7 +415,7 @@ namespace HideAndSeek.Game.Editor
             box.GetComponent<MeshRenderer>().enabled = false;
         }
 
-        // ================================================================ clock / fan
+        // ================================================================ clock
 
         private static void WallClock(Transform p, Vector3 pos)
         {
@@ -444,46 +450,20 @@ namespace HideAndSeek.Game.Editor
             Cyl("Cap", c, pos + new Vector3(0, 0, -0.055f), 0.025f, 0.01f, tickMat, faceRot);
         }
 
-        private static void CeilingFan(Transform p, Vector3 ceilingPoint, Material wood, Material metal)
-        {
-            var f = new GameObject("CeilingFan").transform;
-            f.SetParent(p, false);
-            f.position = ceilingPoint;
-            Cyl("Mount", f, ceilingPoint + new Vector3(0, -0.03f, 0), 0.16f, 0.06f, metal);
-            Cyl("Rod", f, ceilingPoint + new Vector3(0, -0.25f, 0), 0.03f, 0.4f, metal);
-            Cyl("Motor", f, ceilingPoint + new Vector3(0, -0.48f, 0), 0.24f, 0.12f, metal);
-            var rotor = new GameObject("Rotor").transform;
-            rotor.SetParent(f, false);
-            rotor.position = ceilingPoint + new Vector3(0, -0.52f, 0);
-            for (int i = 0; i < 4; i++)
-            {
-                var arm = new GameObject("BladeArm").transform;
-                arm.SetParent(rotor, false);
-                arm.localRotation = Quaternion.Euler(0, i * 90f, 0);
-                var blade = Deco("Blade", arm, Vector3.zero, Vector3.one, wood);
-                blade.transform.localPosition = new Vector3(0, 0, 0.45f);
-                blade.transform.localRotation = Quaternion.Euler(0, 0, 10f);
-                blade.transform.localScale = new Vector3(0.15f, 0.014f, 0.62f);
-            }
-            Cyl("LightBowl", f, ceilingPoint + new Vector3(0, -0.6f, 0), 0.18f, 0.08f,
-                Emissive("LobbyFanBowl", new Color(1f, 0.9f, 0.7f), new Color(1f, 0.8f, 0.55f) * 1.2f));
-            var sp = rotor.gameObject.AddComponent<LobbySpinner>();
-            sp.degreesPerSecond = 75f;
-        }
-
         // ================================================================ LEDs behind sofas
 
-        private static void SofaLeds(Transform p)
+        private static void SofaLeds(Transform p, Transform root)
         {
             var led = Emissive("LobbyLedWarm", new Color(1f, 0.6f, 0.25f), new Color(1f, 0.55f, 0.2f) * 2.2f);
             var t = new GameObject("SofaLeds").transform;
             t.SetParent(p, false);
-            // North sofa: centre (-1.5, 3.6), backrest at z ~4.08
-            Deco("LedSofaN", t, new Vector3(-1.5f, 0.06f, 4.12f), new Vector3(2.3f, 0.02f, 0.02f), led);
-            PointLight("LedGlowN", t, new Vector3(-1.5f, 0.35f, 4.45f), new Color(1f, 0.55f, 0.22f), 0.75f, 2.4f);
-            // West sofa: centre (-5.6, 0.5), backrest at x ~-6.08
-            Deco("LedSofaW", t, new Vector3(-6.12f, 0.06f, 0.5f), new Vector3(0.02f, 0.02f, 2.3f), led);
-            PointLight("LedGlowW", t, new Vector3(-6.45f, 0.35f, 0.5f), new Color(1f, 0.55f, 0.22f), 0.75f, 2.4f);
+            // warm strip under the back of every sofa (sofa space: backrest at local +Z) and its glow on the floor
+            foreach (Transform s in root)
+            {
+                if (s.name != "Sofa") continue;
+                Deco("LedSofa", t, s.TransformPoint(new Vector3(0f, 0.06f, 0.52f)), new Vector3(2.3f, 0.02f, 0.02f), led, s.rotation);
+                PointLight("LedGlow", t, s.TransformPoint(new Vector3(0f, 0.3f, 0.85f)), new Color(1f, 0.55f, 0.22f), 0.6f, 2.2f);
+            }
         }
 
         // ================================================================ cork board
@@ -562,26 +542,6 @@ namespace HideAndSeek.Game.Editor
         }
 
         // ================================================================ rugs, cushions
-
-        private static void Rugs(Transform p)
-        {
-            var t = new GameObject("Rugs").transform;
-            t.SetParent(p, false);
-            var round = Mat("LobbyRugRound", Color.white, GenTex("lobby_rug_round", 32, 32, (x, y) =>
-            {
-                float d = Vector2.Distance(new Vector2(x, y), new Vector2(15.5f, 15.5f));
-                Color a = new Color(0.12f, 0.2f, 0.32f), bcol = new Color(0.7f, 0.55f, 0.25f);
-                return (int)(d / 3f) % 2 == 0 ? a : bcol;
-            }), 0f, Vector2.one);
-            Cyl("RugArcade", t, new Vector3(6.0f, 0.006f, 4.3f), 1.5f, 0.01f, round);
-            var runner = Mat("LobbyRugRunner", Color.white, GenTex("lobby_rug_runner", 16, 48, (x, y) =>
-            {
-                bool border = x < 2 || x > 13 || y < 2 || y > 45;
-                if (border) return new Color(0.75f, 0.6f, 0.3f);
-                return ((x + y) / 4) % 2 == 0 ? new Color(0.35f, 0.08f, 0.08f) : new Color(0.25f, 0.06f, 0.06f);
-            }), 0f, Vector2.one);
-            Deco("RugRunner", t, new Vector3(1.2f, 0.006f, -3.6f), new Vector3(1.3f, 0.012f, 3.4f), runner, Quaternion.Euler(0, 90, 0));
-        }
 
         /// <summary>Softens a sofa: rounded arm tops and backrest, split seat cushions, two throw pillows.</summary>
         private static void SofaCushions(Transform sofa, Material fabric, Material pillowA, Material pillowB)

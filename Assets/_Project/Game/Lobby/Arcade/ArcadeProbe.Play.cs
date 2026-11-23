@@ -17,21 +17,21 @@ namespace HideAndSeek.Game
             float occSince = -1f, occT = 0f;
             while (Time.time - t0 < seconds)
             {
-                var b = ArcadeState.Body;
-                if (ArcadeState.State == ArcadeState.Over)
+                var b = ArcadeState.Cab[0].Body;
+                if (ArcadeState.Cab[0].State == ArcadeState.Over)
                 {
-                    if (Time.time - ArcadeState.StateSince > 1.2f)
+                    if (Time.time - ArcadeState.Cab[0].StateSince > 1.2f)
                     {
                         crashes++;
-                        Log($"natural crash #{crashes} score={ArcadeState.Score} -> restart");
+                        Log($"natural crash #{crashes} score={ArcadeState.Cab[0].Score} -> restart");
                         mm.ServerArcadeDir(me, 1);
                     }
                 }
-                else if (ArcadeState.State == ArcadeState.Playing && b.Count > 1 && b[0] != lastHead)
+                else if (ArcadeState.Cab[0].State == ArcadeState.Playing && b.Count > 1 && b[0] != lastHead)
                 {
                     lastHead = b[0];
                     steps++;
-                    maxScore = Mathf.Max(maxScore, ArcadeState.Score);
+                    maxScore = Mathf.Max(maxScore, ArcadeState.Cab[0].Score);
                     var head = b[0];
                     var cur = head - b[1];
                     if (dtWait > 0)
@@ -42,7 +42,7 @@ namespace HideAndSeek.Game
                             Log($"double turn (up+left in one frame): head={head} expected={want} -> {(head == want ? "OK" : "FAIL")}");
                         }
                     }
-                    else if (!dtDone && ArcadeState.Score >= 2 && cur == Vector2Int.right && head.y < SnakeRules.H - 2 && head.x > 2
+                    else if (!dtDone && ArcadeState.Cab[0].Score >= 2 && cur == Vector2Int.right && head.y < SnakeRules.H - 2 && head.x > 2
                              && !b.Contains(head + Vector2Int.up) && !b.Contains(head + Vector2Int.up + Vector2Int.left))
                     {
                         dtDone = true;
@@ -53,7 +53,7 @@ namespace HideAndSeek.Game
                     }
                     else
                     {
-                        int d = SnakePilot.Next(b, ArcadeState.Food, ArcadeState.HasBonus, ArcadeState.Bonus);
+                        int d = SnakePilot.Next(b, ArcadeState.Cab[0].Food, ArcadeState.Cab[0].HasBonus, ArcadeState.Cab[0].Bonus);
                         if (d >= 0) mm.ServerArcadeDir(me, (byte)d);
                     }
                 }
@@ -64,7 +64,7 @@ namespace HideAndSeek.Game
                     shots++;
                     nextShot = Time.time + 3.2f;
                 }
-                if (!watchRendered && ArcadeState.Score >= 6)
+                if (!watchRendered && ArcadeState.Cab[0].Score >= 6)
                 {
                     watchRendered = true;
                     Render("play_left", new Vector3(5.0f, 1.6f, 3.8f), MatchManager.ArcadeScreen + Vector3.down * 0.25f, 50f);
@@ -78,7 +78,7 @@ namespace HideAndSeek.Game
                     if (Time.time >= nextLog)
                     {
                         nextLog = Time.time + 1f;
-                        Log($"t={Time.time - t0:0.0} score={ArcadeState.Score} lvl={ArcadeState.Level} len={b.Count} bonus={ArcadeState.HasBonus} other={other.transform.position} inZone={inside} hidden={hidden}");
+                        Log($"t={Time.time - t0:0.0} score={ArcadeState.Cab[0].Score} lvl={ArcadeState.Cab[0].Level} len={b.Count} bonus={ArcadeState.Cab[0].HasBonus} other={other.transform.position} inZone={inside} hidden={hidden}");
                     }
                     if (hidden && occSince < 0f) occSince = Time.time;
                     if (!hidden && occStage == 0) occSince = -1f;
@@ -105,7 +105,7 @@ namespace HideAndSeek.Game
                 }
                 yield return null;
             }
-            Log($"autopilot done steps={steps} maxScore={maxScore} crashes={crashes} level={ArcadeState.Level}");
+            Log($"autopilot done steps={steps} maxScore={maxScore} crashes={crashes} level={ArcadeState.Cab[0].Level}");
         }
     }
 }

@@ -411,6 +411,7 @@ namespace HideAndSeek.Characters
             ApplyRodLayers(ref p, dt, standing);
             ApplyArcade(ref p, dt, standing);
             ApplyPoke(ref p, dt, standing);
+            ApplyReach(ref p, dt, standing); // lobby mini interactions (BlockyCharacterActions.Reach.cs)
             ApplyFlashTake(ref p, dt);
             ApplyToyGun(ref p, dt, standing, lookPitch);
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand

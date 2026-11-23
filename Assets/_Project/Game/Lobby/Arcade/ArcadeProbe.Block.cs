@@ -98,7 +98,7 @@ namespace HideAndSeek.Game
                 yield return null;
             }
             Shot(name);
-            Log($"{name}: arcade state={ArcadeState.State} score={ArcadeState.Score} len={ArcadeState.Body.Count}");
+            Log($"{name}: arcade state={ArcadeState.Cab[0].State} score={ArcadeState.Cab[0].Score} len={ArcadeState.Cab[0].Body.Count}");
             yield return new WaitForSeconds(0.2f);
         }
     }

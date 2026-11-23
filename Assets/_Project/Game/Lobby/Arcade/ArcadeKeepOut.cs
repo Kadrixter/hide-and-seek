@@ -14,74 +14,79 @@ namespace HideAndSeek.Game
     /// </summary>
     public sealed class ArcadeKeepOut : MonoBehaviour
     {
-        /// <summary>Zone in world space (xz), relative to MatchManager.ArcadeStand.</summary>
-        public const float HalfWidth = 0.7f, Behind = 0.65f, Front = 0.65f, Height = 2.2f;
+        /// <summary>Zone in the cabinet's frame around its stand spot (narrow enough not to reach the other cabinet's player).</summary>
+        public const float HalfWidth = 0.45f, Behind = 0.65f, Front = 0.65f, Height = 2.2f;
 
         /// <summary>Tests: let the local player stand inside the zone (to check the hiding on the player's side).</summary>
         public static bool DisablePush;
         /// <summary>Tests: draw occluding players anyway (to compare with and without the hiding).</summary>
         public static bool DisableHide;
-        public static ArcadeKeepOut Instance { get; private set; }
+
+        /// <summary>Cabinet index (set by <see cref="LobbyArcade"/> right after AddComponent).</summary>
+        public int cab;
+
+        private static readonly ArcadeKeepOut[] All = new ArcadeKeepOut[ArcadeCabs.Count];
+        public static ArcadeKeepOut Of(int i) => i >= 0 && i < All.Length ? All[i] : null;
+        /// <summary>First cabinet (older tests).</summary>
+        public static ArcadeKeepOut Instance => Of(0);
+        /// <summary>Player <paramref name="p"/> is not drawn because it covers somebody's SNAKE screen.</summary>
+        public static bool AnyHides(NetPlayer p)
+        {
+            foreach (var k in All) if (k != null && k.IsHidden(p)) return true;
+            return false;
+        }
 
         private BoxCollider _box;
         private bool _sliding;
-        private Vector3 _slideDir;
+        private Vector3 _slideLocal;
         private int _slideTries;
         private readonly Dictionary<NetPlayer, Renderer[]> _hidden = new();
-
-        public static Rect ZoneXZ
-        {
-            get
-            {
-                var s = MatchManager.ArcadeStand;
-                return Rect.MinMaxRect(s.x - HalfWidth, s.z - Behind, s.x + HalfWidth, s.z + Front);
-            }
-        }
 
         public bool BlockerOn => _box != null && _box.enabled;
         public bool IsHidden(NetPlayer p) => _hidden.ContainsKey(p);
 
-        private void Awake()
+        private void Start()
         {
-            Instance = this;
+            if (cab >= 0 && cab < All.Length) All[cab] = this;
             var go = new GameObject("ArcadeKeepOut");
             go.layer = 2; // Ignore Raycast: blocks walking, not prompts / shots / flashlight
             go.transform.SetParent(transform, true);
-            var z = ZoneXZ;
-            go.transform.position = new Vector3(z.center.x, Height * 0.5f, z.center.y);
-            go.transform.rotation = Quaternion.identity;
+            Vector3 stand = ArcadeCabs.StandLocal;
+            go.transform.SetPositionAndRotation(ArcadeCabs.World(cab, new Vector3(stand.x, Height * 0.5f, stand.z + (Front - Behind) * 0.5f)), ArcadeCabs.Rotation(cab));
             _box = go.AddComponent<BoxCollider>();
-            _box.size = new Vector3(z.width / Mathf.Max(0.0001f, go.transform.lossyScale.x), Height / Mathf.Max(0.0001f, go.transform.lossyScale.y),
-                z.height / Mathf.Max(0.0001f, go.transform.lossyScale.z));
+            Vector3 ls = go.transform.lossyScale;
+            _box.size = new Vector3(HalfWidth * 2f / Mathf.Max(0.0001f, ls.x), Height / Mathf.Max(0.0001f, ls.y), (Behind + Front) / Mathf.Max(0.0001f, ls.z));
             _box.enabled = false;
         }
 
         private void OnDestroy()
         {
             ShowAll();
-            if (Instance == this) Instance = null;
+            if (cab >= 0 && cab < All.Length && All[cab] == this) All[cab] = null;
         }
 
         private void LateUpdate()
         {
+            if (_box == null) return;
             var mm = MatchManager.Instance;
             var me = NetPlayer.Local;
-            ulong player = mm != null ? mm.ArcadePlayer.Value : ulong.MaxValue;
+            ulong player = mm != null ? mm.ArcadePlayerOf(cab) : ulong.MaxValue;
             bool someone = player != ulong.MaxValue && me != null;
             bool iPlay = someone && player == me.NetworkObjectId;
+            bool iPlayOther = me != null && mm != null && !iPlay && mm.ArcadeCabOf(me.NetworkObjectId) >= 0;
 
-            // ---- other peers: blocker + slide out
-            bool block = someone && !iPlay;
+            // ---- other peers: blocker + slide out (not the player at the other cabinet - it stands still next to us)
+            bool block = someone && !iPlay && !iPlayOther;
             if (block && !DisablePush)
             {
                 var cc = me.GetComponent<CharacterController>();
                 Vector3 push = Vector3.zero;
                 // Start sliding when overlapping, keep going until 6 cm clear (no flicker at the edge).
-                bool inside = cc != null && cc.enabled && Overlaps(me.transform.position, cc.radius + (_sliding ? 0.06f : 0f), out push);
+                bool inside = cc != null && cc.enabled && Overlaps(cab, me.transform.position, cc.radius + (_sliding ? 0.06f : 0f), out push);
                 if (inside != _sliding)
                 {
-                    Debug.Log($"[ArcadeKeepOut] {(inside ? "slide out from" : "clear at")} {me.transform.position}");
-                    _slideDir = push;
+                    Debug.Log($"[ArcadeKeepOut] cab {cab}: {(inside ? "slide out from" : "clear at")} {me.transform.position}");
+                    _slideLocal = Quaternion.Inverse(ArcadeCabs.Rotation(cab)) * push;
                     _slideTries = 0;
                 }
                 _sliding = inside;
@@ -90,12 +95,12 @@ namespace HideAndSeek.Game
                     block = false; // let the controller slide out of the box instead of being stuck in it
                     Vector3 before = me.transform.position;
                     float step = 5f * Time.deltaTime;
-                    cc.Move(_slideDir * step);
-                    // Wedged against furniture (e.g. the locker beside the cabinet): try the next way out.
+                    cc.Move(ArcadeCabs.Rotation(cab) * _slideLocal * step);
+                    // Wedged against furniture (the other cabinet, a plant): try the next way out.
                     if (Vector3.Distance(before, me.transform.position) < step * 0.25f && ++_slideTries % 4 == 0)
-                        _slideDir = _slideDir.x > 0.5f ? new Vector3(-0.7071f, 0f, -0.7071f)   // pushed right: back and away from it
-                            : _slideDir.x < -0.5f ? new Vector3(0.7071f, 0f, -0.7071f)
-                            : _slideDir == Vector3.back ? Vector3.left : Vector3.back;
+                        _slideLocal = _slideLocal.x > 0.5f ? new Vector3(-0.7071f, 0f, -0.7071f)   // pushed right: back and away from it
+                            : _slideLocal.x < -0.5f ? new Vector3(0.7071f, 0f, -0.7071f)
+                            : _slideLocal == Vector3.back ? Vector3.left : Vector3.back;
                 }
             }
             else _sliding = false;
@@ -106,24 +111,34 @@ namespace HideAndSeek.Game
             else if (_hidden.Count > 0) ShowAll();
         }
 
-        /// <summary>True when a capsule of <paramref name="radius"/> at <paramref name="pos"/> overlaps the zone; push = way out (unit).</summary>
-        public static bool Overlaps(Vector3 pos, float radius, out Vector3 push)
+        /// <summary>First cabinet (older tests).</summary>
+        public static bool Overlaps(Vector3 pos, float radius, out Vector3 push) => Overlaps(0, pos, radius, out push);
+
+        /// <summary>True when a capsule of <paramref name="radius"/> at <paramref name="pos"/> overlaps the zone of cabinet
+        /// <paramref name="cab"/>; push = way out (unit, world).</summary>
+        public static bool Overlaps(int cab, Vector3 pos, float radius, out Vector3 push)
         {
-            var z = ZoneXZ;
+            var rot = ArcadeCabs.Rotation(cab);
+            Vector3 l = Quaternion.Inverse(rot) * (pos - ArcadeCabs.Origin(cab)) - ArcadeCabs.StandLocal;
+            var zone = Rect.MinMaxRect(-HalfWidth, -Behind, HalfWidth, Front);
             push = Vector3.zero;
-            var p = new Vector2(pos.x, pos.z);
-            var q = new Vector2(Mathf.Clamp(p.x, z.xMin, z.xMax), Mathf.Clamp(p.y, z.yMin, z.yMax));
+            var p = new Vector2(l.x, l.z);
+            var q = new Vector2(Mathf.Clamp(p.x, zone.xMin, zone.xMax), Mathf.Clamp(p.y, zone.yMin, zone.yMax));
+            Vector3 local;
             if (q != p)
             {
                 var d = p - q;
                 if (d.magnitude >= radius) return false;
                 d.Normalize();
-                push = new Vector3(d.x, 0f, d.y);
-                return true;
+                local = new Vector3(d.x, 0f, d.y);
             }
-            // Centre inside: leave by the nearest open side (never towards the cabinet).
-            float l = p.x - z.xMin, r = z.xMax - p.x, b = p.y - z.yMin;
-            push = l <= r && l <= b ? Vector3.left : r <= b ? Vector3.right : Vector3.back;
+            else
+            {
+                // Centre inside: leave by the nearest open side (never towards the cabinet).
+                float le = p.x - zone.xMin, r = zone.xMax - p.x, b = p.y - zone.yMin;
+                local = le <= r && le <= b ? Vector3.left : r <= b ? Vector3.right : Vector3.back;
+            }
+            push = rot * local;
             return true;
         }
 
@@ -134,7 +149,7 @@ namespace HideAndSeek.Game
         private void HideOccluders(NetPlayer me)
         {
             var cam = me.Camera != null ? me.Camera : Camera.main;
-            var arc = LobbyArcade.Instance;
+            var arc = LobbyArcade.Of(cab);
             if (cam == null || arc == null || arc.screen == null) return;
             var st = arc.screen.transform;
             int n = 0;

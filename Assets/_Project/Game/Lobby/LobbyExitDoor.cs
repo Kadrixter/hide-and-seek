@@ -19,9 +19,11 @@ namespace HideAndSeek.Game
         public static LobbyExitDoor Instance { get; private set; }
 
         /// <summary>Spot in front of the door where the opener is placed (outside the door's swing), facing the door.</summary>
-        public static readonly Vector3 StandPos = new Vector3(4.55f, 0f, -5.15f);
+        public static readonly Vector3 StandPos = D(4.55f, 0f, -5.15f);
+        /// <summary>Old plan coordinates (door at x 4.3 in a south wall at z -6) moved to the door in <see cref="LobbyLayout"/>.</summary>
+        private static Vector3 D(float x, float y, float z) => new(x - 4.3f + LobbyLayout.ExitDoorX, y, z + 6f - LobbyLayout.HalfD);
         public const float StandYaw = 180f;
-        public static readonly Vector3 Muzzle = new Vector3(4.3f, 1.35f, -7.2f);
+        public static readonly Vector3 Muzzle = D(4.3f, 1.35f, -7.2f);
 
         public bool Running { get; private set; }
         public Vector3 HandleWorld => _handle != null ? _handle.position : transform.position + new Vector3(0.83f, 1f, 0.06f);
@@ -55,7 +57,7 @@ namespace HideAndSeek.Game
             // Blinding flood light from the white nothingness (shadows on: nothing leaks through the walls; only on
             // while the door is open).
             _flood = new GameObject("ExitFlood").AddComponent<Light>();
-            _flood.transform.position = new Vector3(4.3f, 1.7f, -8.4f);
+            _flood.transform.position = D(4.3f, 1.7f, -8.4f);
             _flood.transform.rotation = Quaternion.LookRotation(new Vector3(0f, -0.12f, 1f));
             _flood.type = LightType.Spot;
             _flood.spotAngle = 70f;
@@ -64,7 +66,7 @@ namespace HideAndSeek.Game
             _flood.shadows = LightShadows.Soft;
             _flood.enabled = false;
             _fill = new GameObject("ExitFill").AddComponent<Light>();
-            _fill.transform.position = new Vector3(4.3f, 1.3f, -5.6f);
+            _fill.transform.position = D(4.3f, 1.3f, -5.6f);
             _fill.type = LightType.Point;
             _fill.range = 4.5f;
             _fill.color = Color.white;
@@ -252,7 +254,7 @@ namespace HideAndSeek.Game
             float inn = ExitTimeline.Seg(t, ExitTimeline.FigureIn, ExitTimeline.FigureIn + 0.7f);
             float back = ExitTimeline.Seg(t, ExitTimeline.Grab + 0.1f, ExitTimeline.Slam);
             // Hidden well behind the wall (the knife must not poke through it), leaning into the doorway, back out.
-            Vector3 hidden = new Vector3(5.3f, 0f, -7.3f), leaning = new Vector3(4.5f, 0f, -6.35f), retreat = new Vector3(4.45f, 0f, -6.9f);
+            Vector3 hidden = D(5.3f, 0f, -7.3f), leaning = D(4.5f, 0f, -6.35f), retreat = D(4.45f, 0f, -6.9f);
             _figure.position = Vector3.Lerp(Vector3.Lerp(hidden, leaning, inn), retreat, back);
             _figure.rotation = Quaternion.Euler(0f, 0f, 0f);
             _figTorso.localRotation = Quaternion.Euler(10f * inn, 0f, 16f * inn * (1f - back * 0.6f));

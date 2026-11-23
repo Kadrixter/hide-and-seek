@@ -102,15 +102,15 @@ namespace HideAndSeek.Game.Editor
             var pairs = new Dictionary<(int, int), (float area, Vector3 at, Vector3 n)>();
             foreach (var kv in buckets)
             {
+                // each pair once: inside the bucket (b > a) and against the next plane bucket (no Contains: big lobby buckets)
                 var list = kv.Value;
-                var near = new List<int>(list);
-                if (buckets.TryGetValue((kv.Key.Item1, kv.Key.Item2, kv.Key.Item3, kv.Key.Item4 + 1), out var up)) near.AddRange(up);
-                foreach (int i in list)
-                foreach (int j in near)
+                buckets.TryGetValue((kv.Key.Item1, kv.Key.Item2, kv.Key.Item3, kv.Key.Item4 + 1), out var up);
+                int n1 = list.Count, n2 = up?.Count ?? 0;
+                for (int a = 0; a < n1; a++)
+                for (int b = a + 1; b < n1 + n2; b++)
                 {
-                    if (j <= i && list.Contains(j)) continue;
-                    var ti = tris[i];
-                    var tj = tris[j];
+                    var ti = tris[list[a]];
+                    var tj = tris[b < n1 ? list[b] : up[b - n1]];
                     if (ti.R == tj.R) continue;
                     if (Vector3.Dot(ti.N, tj.N) < 0.995f || Mathf.Abs(ti.D - tj.D) > 0.0015f) continue;
                     float area = OverlapArea(ti, tj, out Vector3 at);

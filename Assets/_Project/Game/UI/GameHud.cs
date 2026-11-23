@@ -511,7 +511,7 @@ namespace HideAndSeek.Game
                 {
                     if (p == null || p == me) continue;
                     if (!lobby && (me.IsSeeker ? !p.IsSeeker : !p.IsHider)) continue; // own team only
-                    if (ArcadeKeepOut.Instance != null && ArcadeKeepOut.Instance.IsHidden(p)) continue; // not over the SNAKE screen
+                    if (ArcadeKeepOut.AnyHides(p)) continue; // not over the SNAKE screen
                     bool lying = p.Life.Value != LifeState.Alive;
                     Vector3 head = p.transform.position + Vector3.up * (lying ? 0.75f : 2.15f - 0.55f * p.Motor.CrouchAmount);
                     float dist = Vector3.Distance(camPos, head);

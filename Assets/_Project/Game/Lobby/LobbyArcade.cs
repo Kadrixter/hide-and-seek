@@ -12,8 +12,14 @@ namespace HideAndSeek.Game
     {
         public Renderer screen;
         public Light glow;
+        /// <summary>Cabinet index (0 / 1): which game this cabinet shows (<see cref="ArcadeState.Cab"/>).</summary>
+        public int cab;
 
-        public static LobbyArcade Instance { get; private set; }
+        private static readonly LobbyArcade[] Cabs = new LobbyArcade[ArcadeCabs.Count];
+        public static LobbyArcade Of(int i) => i >= 0 && i < Cabs.Length ? Cabs[i] : null;
+        /// <summary>First cabinet (older tests).</summary>
+        public static LobbyArcade Instance => Of(0);
+        private ArcadeGame Game => ArcadeState.Of(cab);
 
         private Texture2D _tex;
         private readonly SnakeScreen _screen = new();
@@ -22,11 +28,14 @@ namespace HideAndSeek.Game
         private float _redraw;
         private float _glowBase;
 
-        private void Awake() => Instance = this;
+        private void Awake()
+        {
+            if (cab >= 0 && cab < Cabs.Length) Cabs[cab] = this;
+        }
 
         private void OnDestroy()
         {
-            if (Instance == this) Instance = null;
+            if (cab >= 0 && cab < Cabs.Length && Cabs[cab] == this) Cabs[cab] = null;
         }
 
         private void Start()
@@ -40,19 +49,19 @@ namespace HideAndSeek.Game
                 if (m.HasProperty("_EmissionMap")) m.SetTexture("_EmissionMap", _tex);
             }
             if (glow != null) _glowBase = glow.intensity;
-            gameObject.AddComponent<ArcadeKeepOut>();
+            gameObject.AddComponent<ArcadeKeepOut>().cab = cab;
             ArcadeArt.Apply(transform);
             FindButtons();
         }
 
         /// <summary>Somebody is at the cabinet and the server is still sending (stale after 3 s, e.g. host gone).</summary>
-        public static bool LiveGame => ArcadeState.Live && Time.time - ArcadeState.Updated < 3f;
+        public bool LiveGame => Game.Live && Time.time - Game.Updated < 3f;
 
         private void Update()
         {
             bool live = LiveGame;
             if (!live) _attract.Tick(Time.deltaTime);
-            SnakeSounds.Tick();
+            if (cab == 0) SnakeSounds.Tick();
             _redraw += Time.deltaTime;
             if (_redraw >= 1f / 30f)
             {
@@ -66,7 +75,7 @@ namespace HideAndSeek.Game
             if (glow != null)
             {
                 float pulse = 0.85f + 0.15f * Mathf.Sin(Time.time * 3.1f);
-                if (live && ArcadeState.State == ArcadeState.Over) pulse *= 0.8f + 0.2f * Mathf.Sin(Time.time * 12f);
+                if (live && Game.State == ArcadeState.Over) pulse *= 0.8f + 0.2f * Mathf.Sin(Time.time * 12f);
                 glow.intensity = _glowBase * pulse;
             }
         }
@@ -81,20 +90,21 @@ namespace HideAndSeek.Game
         private SnakeView FillLive()
         {
             var v = _live;
+            var g = Game;
             v.Body.Clear();
-            v.Body.AddRange(ArcadeState.Body);
-            v.Food = ArcadeState.Food;
-            v.HasBonus = ArcadeState.HasBonus;
-            v.Bonus = ArcadeState.Bonus;
-            v.BonusLeft = ArcadeState.BonusRemaining;
-            v.Score = ArcadeState.Score;
-            v.Best = ArcadeState.BestAtStart;
-            v.Level = ArcadeState.Level;
-            v.Dir = ArcadeState.Dir;
-            v.State = ArcadeState.State;
-            v.StateAge = Time.time - ArcadeState.StateSince;
-            v.NewRecord = ArcadeState.NewRecord;
-            v.Popups = ArcadeState.Popups;
+            v.Body.AddRange(g.Body);
+            v.Food = g.Food;
+            v.HasBonus = g.HasBonus;
+            v.Bonus = g.Bonus;
+            v.BonusLeft = g.BonusRemaining;
+            v.Score = g.Score;
+            v.Best = g.BestAtStart;
+            v.Level = g.Level;
+            v.Dir = g.Dir;
+            v.State = g.State;
+            v.StateAge = Time.time - g.StateSince;
+            v.NewRecord = g.NewRecord;
+            v.Popups = g.Popups;
             // The head looks where the snake is heading (the joystick may already show a queued turn).
             if (v.Body.Count > 1)
             {
@@ -143,10 +153,11 @@ namespace HideAndSeek.Game
         private void UpdateButtons(bool live)
         {
             if (_buttons.Length == 0) return;
-            if (live && ArcadeState.EventSerial != _seenSerial)
+            var g = Game;
+            if (live && g.EventSerial != _seenSerial)
             {
-                _seenSerial = ArcadeState.EventSerial;
-                byte e = ArcadeState.LastEvents;
+                _seenSerial = g.EventSerial;
+                byte e = g.LastEvents;
                 if ((e & ArcadeState.EvStart) != 0 && _buttons.Length > 4) _buttons[4].Press = 1f;
                 if ((e & ArcadeState.EvEat) != 0) _buttons[_eats++ % Mathf.Min(4, _buttons.Length)].Press = 1f;
                 if ((e & (ArcadeState.EvBonusEat | ArcadeState.EvLevelUp)) != 0)
@@ -188,12 +199,13 @@ namespace HideAndSeek.Game
                 _pivot = _stickPos - Vector3.up * _stick.lossyScale.y;
             }
             Vector2 want = Vector2.zero;
-            if (live && ArcadeState.State == ArcadeState.Playing)
-                want = ArcadeState.Dir switch { 0 => Vector2.up, 1 => Vector2.right, 2 => Vector2.down, _ => Vector2.left };
+            if (live && Game.State == ArcadeState.Playing)
+                want = Game.Dir switch { 0 => Vector2.up, 1 => Vector2.right, 2 => Vector2.down, _ => Vector2.left };
             if (want != _lastWant && want != Vector2.zero) HideAndSeek.Audio.GameAudio.PlayAt(HideAndSeek.Audio.GameSfx.ArcadeStick, _ballPos, 0.7f);
             _lastWant = want;
             _tilt = Vector2.MoveTowards(_tilt, want, Time.deltaTime * 14f);
-            var rot = Quaternion.Euler(_tilt.y * 20f, 0f, -_tilt.x * 20f);
+            var cr = transform.rotation; // tilt in the cabinet's frame (front = local -Z)
+            var rot = cr * Quaternion.Euler(_tilt.y * 20f, 0f, -_tilt.x * 20f) * Quaternion.Inverse(cr);
             _stick.SetPositionAndRotation(_pivot + rot * (_stickPos - _pivot), rot * _stickRot);
             _ball.position = _pivot + rot * (_ballPos - _pivot);
         }

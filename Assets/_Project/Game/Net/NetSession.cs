@@ -106,21 +106,8 @@ namespace HideAndSeek.Game.Net
             if (Arg("-hostdelay") is string hd && float.TryParse(hd, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float hdel))
                 StartCoroutine(HostLater(hdel));
             if (Has("-steamlist")) SteamListTest();
-            if (Has("-lobbytour")) StartCoroutine(Tour(MatchPhase.Lobby, new[]
-            {
-                (new Vector3(-1.5f, 0f, -0.9f), new Vector3(-1.5f, 0.45f, 0.8f)),   // coffee table
-                (new Vector3(4.6f, 0f, 2.6f), new Vector3(6.0f, 1.3f, 5.5f)),       // arcade
-                (new Vector3(-2.6f, 0f, -2.4f), new Vector3(-3.6f, 1.8f, -6f)),     // TV
-                (new Vector3(4.8f, 0f, -2.2f), new Vector3(7.6f, 1.3f, -3.4f)),     // vending + cork board
-                (new Vector3(5.6f, 0f, -4.2f), new Vector3(8f, 1.85f, -4.35f)),     // cork board close
-                (new Vector3(0.6f, 0f, 2.6f), new Vector3(0.65f, 2.6f, 6f)),        // clock
-                (new Vector3(-1.5f, 0f, -2.2f), new Vector3(-1.5f, 3.0f, 0.8f)),    // fan
-                (new Vector3(3.5f, 0f, -0.5f), new Vector3(-3.5f, 0.6f, 3.0f)),     // overview, sofas + LEDs
-                (new Vector3(2.4f, 0f, -3.2f), new Vector3(4.3f, 1.4f, -6f)),       // exit door
-                (new Vector3(5.0f, 0f, 1.6f), new Vector3(7.3f, 1.2f, 3.5f)),       // locker
-                (new Vector3(4.2f, 0f, -2.6f), new Vector3(6.4f, 0.7f, -4.7f)),     // crates
-                (new Vector3(-5.2f, 0f, -3.0f), new Vector3(-7.8f, 1.4f, -3.5f)),   // bookshelf
-            }));
+            if (Has("-lobbytour")) StartCoroutine(Tour(MatchPhase.Lobby, System.Array.ConvertAll(LobbyShotsProbe.Views,
+                v => (new Vector3(v.eye.x, 0f, v.eye.z), v.at)))); // views: Game/Lobby/LobbyShotsProbe.cs
             if (Has("-elevgap")) StartCoroutine(ElevatorGapTest());
             if (Has("-testalarm")) StartCoroutine(AlarmTest());
             if (Has("-testrevive")) StartCoroutine(ReviveTest());
@@ -641,8 +628,9 @@ namespace HideAndSeek.Game.Net
             var me = NetPlayer.Local;
             NetPlayer other = null;
             foreach (var p in NetPlayer.All) if (p != me) { other = p; break; }
-            other.TeleportRpc(MatchManager.ForkTablePos + new Vector3(0.3f, -MatchManager.ForkTablePos.y, -0.9f), 0f);
-            yield return new WaitForSeconds(0.6f);
+            yield return new WaitForSeconds(4f); // the client is placed at a lobby spawn when its scene is ready
+            other.TeleportRpc(MatchManager.ForkTablePos + new Vector3(0.75f, -MatchManager.ForkTablePos.y, 0.75f), 225f); // between the table and the poufs
+            yield return new WaitForSeconds(1.2f);
             mm.ServerPickupFork(other);
             Debug.Log($"[LobbyFun] fork holder={mm.ForkHolder.Value} other={other.NetworkObjectId} held={other.Held.Value}");
             Vector3 o = MatchManager.OutletPos[0], n = MatchManager.OutletNormal[0];
@@ -660,7 +648,7 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[LobbyFun] after respawn busy={other.Busy.Value} fork={mm.ForkHolder.Value} held={other.Held.Value} pos={other.transform.position}");
 
             other.TeleportRpc(MatchManager.ArcadeStand + Vector3.back * 0.5f, 0f);
-            Vector3 w2 = new Vector3(6.95f, 0f, 4.75f);
+            Vector3 w2 = MatchManager.ArcadeStand + new Vector3(-1.2f, 0f, 0.15f);
             Vector3 l2 = (MatchManager.ArcadeButtons + MatchManager.ArcadeScreen) * 0.5f - (w2 + Vector3.up * 1.62f);
             me.Motor.Teleport(w2, Mathf.Atan2(l2.x, l2.z) * Mathf.Rad2Deg);
             me.Motor.SetLook(Mathf.Atan2(l2.x, l2.z) * Mathf.Rad2Deg, Mathf.Atan2(l2.y, new Vector2(l2.x, l2.z).magnitude) * Mathf.Rad2Deg);
@@ -673,10 +661,10 @@ namespace HideAndSeek.Game.Net
                 yield return new WaitForSeconds(0.9f);
                 mm.ServerArcadeDir(other, mv);
             }
-            Debug.Log($"[LobbyFun] snake live={ArcadeState.Live} len={ArcadeState.Body.Count} score={ArcadeState.Score} crashed={ArcadeState.Crashed}");
+            Debug.Log($"[LobbyFun] snake live={ArcadeState.Cab[0].Live} len={ArcadeState.Cab[0].Body.Count} score={ArcadeState.Cab[0].Score} crashed={ArcadeState.Cab[0].Crashed}");
             mm.ServerArcade(other, false);
             yield return new WaitForSeconds(0.5f);
-            Debug.Log($"[LobbyFun] arcade stopped player={mm.ArcadePlayer.Value} live={ArcadeState.Live}");
+            Debug.Log($"[LobbyFun] arcade stopped player={mm.ArcadePlayer.Value} live={ArcadeState.Cab[0].Live}");
         }
 
         // ================================================================ tests: RC car, bricks, exit door, poufs
@@ -881,14 +869,14 @@ namespace HideAndSeek.Game.Net
                 yield break;
             }
             string dir = ArgOr("-brickshots", "");
-            me.Motor.Teleport(new Vector3(-6.2f, 0f, 3.2f), 0f);
+            me.Motor.Teleport(new Vector3(LobbyBricks.Origin.x + 0.1f, 0f, LobbyBricks.Origin.z + 0.15f), 0f);
             yield return new WaitForSeconds(0.8f);
             var lpc = LocalPlayerController.Instance;
             Vector3 tubAim = LobbyBricks.TubAim - (me.transform.position + Vector3.up * 1.62f);
             me.Motor.SetLook(Mathf.Atan2(tubAim.x, tubAim.z) * Mathf.Rad2Deg, Mathf.Atan2(tubAim.y, new Vector2(tubAim.x, tubAim.z).magnitude) * Mathf.Rad2Deg);
             yield return new WaitForSeconds(0.6f);
             Debug.Log($"[BrickTest] tub prompt={lpc.Prompt} '{lpc.PromptText}'");
-            me.Motor.Teleport(new Vector3(-5.2f, 0f, 2.55f), 0f);
+            me.Motor.Teleport(new Vector3(LobbyBricks.Origin.x + 1.1f, 0f, LobbyBricks.Origin.z - 0.5f), 0f);
             yield return new WaitForSeconds(0.3f);
             LobbyBricks.BeginBuilding();
             yield return new WaitForSeconds(0.5f);
@@ -947,13 +935,13 @@ namespace HideAndSeek.Game.Net
             string dir = ArgOr("-exitshots", "");
             var door = LobbyExitDoor.Instance;
             // Host watches from the side.
-            Vector3 watch = new Vector3(2.0f, 0f, -3.4f);
+            Vector3 watch = new Vector3(2.0f + (LobbyLayout.ExitDoorX - 4.3f), 0f, -3.4f);
             me.Motor.Teleport(watch, 0f);
-            Vector3 l = new Vector3(4.3f, 1.1f, -5.5f) - (watch + Vector3.up * 1.62f);
+            Vector3 l = new Vector3(4.3f + (LobbyLayout.ExitDoorX - 4.3f), 1.1f, -5.5f) - (watch + Vector3.up * 1.62f);
             me.Motor.SetLook(Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg, Mathf.Atan2(l.y, new Vector2(l.x, l.z).magnitude) * Mathf.Rad2Deg);
-            other.TeleportRpc(new Vector3(4.4f, 0f, -4.6f), 180f);
+            other.TeleportRpc(new Vector3(4.4f + (LobbyLayout.ExitDoorX - 4.3f), 0f, -4.6f), 180f);
             yield return new WaitForSeconds(1f);
-            if (!string.IsNullOrEmpty(dir)) StartCoroutine(SideBurst(dir, "side", () => new Vector3(4.3f, 1.0f, -5.6f), () => new Vector3(1.5f, 0.5f, 2.9f), 26, 0.4f));
+            if (!string.IsNullOrEmpty(dir)) StartCoroutine(SideBurst(dir, "side", () => new Vector3(4.3f + (LobbyLayout.ExitDoorX - 4.3f), 1.0f, -5.6f), () => new Vector3(1.5f, 0.5f, 2.9f), 26, 0.4f));
             mm.ServerExitDoor(other);
             for (int i = 0; i < 6; i++)
             {
@@ -963,11 +951,11 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(1.5f);
             Debug.Log($"[ExitTest] after respawn: busy={other.Busy.Value} pos={other.transform.position} running={door.Running}");
             // Blocked doorway: try to walk through the closed door position.
-            Vector3 blockTest = new Vector3(4.3f, 1f, -5.4f);
+            Vector3 blockTest = new Vector3(4.3f + (LobbyLayout.ExitDoorX - 4.3f), 1f, -5.4f);
             bool blocked = Physics.Raycast(blockTest, Vector3.back, out var bh, 1.5f, ~((1 << 8) | (1 << 9)), QueryTriggerInteraction.Ignore);
             Debug.Log($"[ExitTest] doorway blocked={blocked} by={(blocked ? bh.collider.name + " @" + bh.distance.ToString("0.00") : "-")}");
             // Now the host himself (first-person screenshots with -shots).
-            me.Motor.Teleport(new Vector3(4.4f, 0f, -4.6f), 180f);
+            me.Motor.Teleport(new Vector3(4.4f + (LobbyLayout.ExitDoorX - 4.3f), 0f, -4.6f), 180f);
             me.Motor.SetLook(180f, -8f);
             yield return new WaitForSeconds(1f);
             var lpc = LocalPlayerController.Instance;
@@ -997,8 +985,9 @@ namespace HideAndSeek.Game.Net
                 yield break;
             }
             string url = ArgOr("-radiourl", "https://www.youtube.com/watch?v=7-QK_1oHoiQ");
-            Vector3 l = Boombox.Instance.AimPoint - new Vector3(4.6f, 1.62f, -3.4f);
-            me.Motor.Teleport(new Vector3(4.6f, 0f, -3.4f), 0f);
+            Vector3 radioStand = Boombox.Position + new Vector3(1.2f, -0.7f, 1.3f);
+            Vector3 l = Boombox.Instance.AimPoint - (radioStand + Vector3.up * 1.62f);
+            me.Motor.Teleport(radioStand, 0f);
             me.Motor.SetLook(Mathf.Atan2(l.x, l.z) * Mathf.Rad2Deg, Mathf.Atan2(l.y, new Vector2(l.x, l.z).magnitude) * Mathf.Rad2Deg);
             yield return new WaitForSeconds(0.6f);
             Debug.Log($"[RadioTest] prompt={LocalPlayerController.Instance.Prompt} '{LocalPlayerController.Instance.PromptText}'");
@@ -1039,8 +1028,8 @@ namespace HideAndSeek.Game.Net
             var me = NetPlayer.Local;
             var spots = new (string name, Vector3 p)[]
             {
-                ("pouf1", new Vector3(0.6f, 1.2f, 0.8f)), ("pouf2", new Vector3(-1.5f, 1.2f, -0.9f)), ("pouf3", new Vector3(-3.5f, 1.2f, -0.6f)),
-                ("pot", new Vector3(7.3f, 1.4f, 5.3f)), ("lampBase", new Vector3(0.3f, 1.2f, 3.9f)), ("floor", new Vector3(1.5f, 1.2f, -1f)),
+                ("pouf1", LobbyLayout.Poufs[0].pos + Vector3.up * 1.2f), ("pouf2", LobbyLayout.Poufs[1].pos + Vector3.up * 1.2f),
+                ("pot", LobbyLayout.Plants[1] + Vector3.up * 1.4f), ("globe", LobbyLayout.Globe + Vector3.up * 1.4f), ("floor", new Vector3(1.5f, 1.2f, -1f)),
             };
             foreach (var (name, p) in spots)
             {

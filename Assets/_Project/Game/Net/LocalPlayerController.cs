@@ -45,6 +45,7 @@ namespace HideAndSeek.Game.Net
         MapRadio,       // E / R on a radio lying on the parking (hiders)
         Extinguisher,   // E on a security-room fire extinguisher (bracket / floor)
         MiniGame,       // E at a free seat of the lobby chess / tic-tac-toe table
+        LobbyProp,      // E on a lobby mini interaction (switches, fireplace, record player, fish, globe, darts)
     }
 
     /// <summary>
@@ -252,11 +253,12 @@ namespace HideAndSeek.Game.Net
             }
             // SNAKE arcade: WASD / arrows steer, E or Space leaves. No walking or looking around meanwhile.
             var mmA = MatchManager.Instance;
-            bool arcade = mmA != null && mmA.ArcadePlayer.Value == _p.NetworkObjectId;
+            int arcadeCab = mmA != null ? mmA.ArcadeCabOf(_p.NetworkObjectId) : -1;
+            bool arcade = arcadeCab >= 0;
             if (arcade)
             {
                 var kba = Keyboard.current;
-                if (!_wasArcade) _p.Motor.SetLook(0f, -26f); // eye -> centre of the arcade screen
+                if (!_wasArcade) _p.Motor.SetLook(ArcadeCabs.Yaw(arcadeCab), -26f); // eye -> centre of the arcade screen
                 if (kba != null && !MenuOpen)
                 {
                     if (kba.wKey.wasPressedThisFrame || kba.upArrowKey.wasPressedThisFrame) _p.ArcadeDirRpc(0);
@@ -265,7 +267,7 @@ namespace HideAndSeek.Game.Net
                     else if (kba.aKey.wasPressedThisFrame || kba.leftArrowKey.wasPressedThisFrame) _p.ArcadeDirRpc(3);
                     if ((kba.eKey.wasPressedThisFrame || kba.spaceKey.wasPressedThisFrame) && !_ignoreEThisFrame)
                     {
-                        _p.RequestArcadeRpc(false);
+                        _p.RequestArcadeRpc(false, (byte)arcadeCab);
                         _ignoreEThisFrame = true;
                     }
                 }
@@ -729,7 +731,7 @@ namespace HideAndSeek.Game.Net
             }
 
             var mmL = MatchManager.Instance;
-            if (phase == MatchPhase.Lobby && _p.Seat.Value < 0 && mmL != null && !_p.Busy.Value && mmL.ArcadePlayer.Value != _p.NetworkObjectId)
+            if (phase == MatchPhase.Lobby && _p.Seat.Value < 0 && mmL != null && !_p.Busy.Value && mmL.ArcadeCabOf(_p.NetworkObjectId) < 0)
             {
                 if (mmL.ForkHolder.Value == ulong.MaxValue)
                 {
@@ -777,12 +779,24 @@ namespace HideAndSeek.Game.Net
                     float d = Vector3.Distance(eye, tp);
                     if (d <= 2.4f && InView(eye, fwd, tp, 35f, LobbyBricks.Tub)) Offer(PromptKind.Bricks, tp + Vector3.up * 0.15f, "E  buduj z klocków", d);
                 }
-                if (mmL.ArcadePlayer.Value == ulong.MaxValue)
+                for (int cab = 0; cab < ArcadeCabs.Count; cab++)
                 {
-                    Vector3 ap = MatchManager.ArcadeScreen;
+                    if (mmL.ArcadePlayerOf(cab) != ulong.MaxValue) continue;
+                    Vector3 ap = ArcadeCabs.Screen(cab);
                     float d = Vector3.Distance(eye, ap);
-                    if (d <= 2.4f && InView(eye, fwd, ap, 30f)) Offer(PromptKind.Arcade, ap + Vector3.up * 0.3f, "E  zagraj w SNAKE", d);
+                    if (d <= 2.4f && InView(eye, fwd, ap, 30f) && d < best)
+                    {
+                        _arcadeCab = cab;
+                        Offer(PromptKind.Arcade, ap + Vector3.up * 0.3f, "E  zagraj w SNAKE", d);
+                    }
                 }
+            }
+
+            if (phase == MatchPhase.Lobby && _p.Seat.Value < 0 && !_p.Busy.Value && mmL != null && mmL.ArcadeCabOf(_p.NetworkObjectId) < 0 && mmL.ForkHolder.Value != _p.NetworkObjectId &&
+                LobbyPropDriver.TryPrompt(_p, eye, fwd, (pos, view) => InView(eye, fwd, pos, 35f, view), out int propId, out var propPos, out string propText, out float propD) && propD < best)
+            {
+                _propId = propId;
+                Offer(PromptKind.LobbyProp, propPos, propText, propD);
             }
 
             if (phase == MatchPhase.Lobby && _p.Seat.Value < 0 && FlashlightBox.TryPrompt(_p, eye, fwd, out var fbPos, out var fbText, out float fbD))
@@ -846,6 +860,8 @@ namespace HideAndSeek.Game.Net
         private CrateAction _crateAct;
         private int _rcSlotPrompt;
         private int _outletIdx;
+        private int _arcadeCab;
+        private int _propId;
         private bool _wasArcade;
         private int _syringeId;
         private int _rodId;
@@ -1028,12 +1044,15 @@ namespace HideAndSeek.Game.Net
                 case PromptKind.Arcade:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame)
                     {
-                        _p.RequestArcadeRpc(true);
+                        _p.RequestArcadeRpc(true, (byte)_arcadeCab);
                         _ignoreEThisFrame = true;
                     }
                     break;
                 case PromptKind.Settings:
                     if (kb.eKey.wasPressedThisFrame) GameHud.OpenSettingsPanel();
+                    break;
+                case PromptKind.LobbyProp:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame && MatchManager.Instance != null) MatchManager.Instance.UsePropRpc((byte)_propId);
                     break;
                 case PromptKind.Vending:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestVendingRpc();

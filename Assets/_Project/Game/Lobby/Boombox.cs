@@ -19,8 +19,8 @@ namespace HideAndSeek.Game
     /// </summary>
     public partial class Boombox : MonoBehaviour
     {
-        public static readonly Vector3 Position = new Vector3(5.72f, 0.7f, -4.78f);
-        public const float Yaw = -50f;
+        public static readonly Vector3 Position = LobbyLayout.Boombox;
+        public const float Yaw = LobbyLayout.BoomboxYaw;
         public static Boombox Instance { get; private set; }
         public Vector3 AimPoint => transform.position + Vector3.up * 0.16f;
 

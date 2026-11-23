@@ -15,7 +15,7 @@ namespace HideAndSeek.Game
 
         private const int Rate = 22050;
         private static readonly Dictionary<Id, AudioClip> Clips = new();
-        private static readonly List<(Id id, float at)> Pending = new();
+        private static readonly List<(Id id, float at, int cab)> Pending = new();
 
         private static readonly Dictionary<Id, float> Volume = new()
         {
@@ -23,11 +23,11 @@ namespace HideAndSeek.Game
             { Id.LevelUp, 0.45f }, { Id.Turn, 0.12f }, { Id.Die, 0.6f }, { Id.RecordDing, 0.5f }, { Id.RecordFanfare, 0.6f },
         };
 
-        public static void Play(Id id, float delay = 0f)
+        public static void Play(Id id, float delay = 0f, int cab = 0)
         {
-            if (delay > 0f) { Pending.Add((id, Time.time + delay)); return; }
+            if (delay > 0f) { Pending.Add((id, Time.time + delay, cab)); return; }
             var clip = Get(id);
-            if (clip != null) GameAudio.PlayClipAt(clip, MatchManager.ArcadeScreen, Volume[id], 14f);
+            if (clip != null) GameAudio.PlayClipAt(clip, ArcadeCabs.Screen(cab), Volume[id], 14f);
         }
 
         /// <summary>Called every frame by the arcade (delayed sounds such as the record fanfare after GAME OVER).</summary>
@@ -36,29 +36,29 @@ namespace HideAndSeek.Game
             for (int i = Pending.Count - 1; i >= 0; i--)
                 if (Time.time >= Pending[i].at)
                 {
-                    var id = Pending[i].id;
+                    var (id, _, cab) = Pending[i];
                     Pending.RemoveAt(i);
-                    Play(id);
+                    Play(id, 0f, cab);
                 }
         }
 
-        public static void PlayEvents(byte evt, byte state, bool newRecord)
+        public static void PlayEvents(byte evt, byte state, bool newRecord, int cab = 0)
         {
             if (evt == 0) return;
             if ((evt & ArcadeState.EvDie) != 0)
             {
-                Pending.Clear();
-                Play(Id.Die);
-                if (newRecord) Play(Id.RecordFanfare, 0.95f);
+                Pending.RemoveAll(p => p.cab == cab);
+                Play(Id.Die, 0f, cab);
+                if (newRecord) Play(Id.RecordFanfare, 0.95f, cab);
                 return;
             }
-            if ((evt & ArcadeState.EvStart) != 0) Play(state == ArcadeState.Ready ? Id.Coin : Id.Go);
-            if ((evt & ArcadeState.EvBonusEat) != 0) Play(Id.BonusEat);
-            else if ((evt & ArcadeState.EvEat) != 0) Play(Id.Eat);
-            if ((evt & ArcadeState.EvLevelUp) != 0) Play(Id.LevelUp, 0.12f);
-            if ((evt & ArcadeState.EvBonusSpawn) != 0) Play(Id.BonusSpawn, 0.08f);
-            if ((evt & ArcadeState.EvBonusGone) != 0) Play(Id.BonusGone);
-            if ((evt & (ArcadeState.EvTurn | ArcadeState.EvEat | ArcadeState.EvBonusEat)) == ArcadeState.EvTurn) Play(Id.Turn);
+            if ((evt & ArcadeState.EvStart) != 0) Play(state == ArcadeState.Ready ? Id.Coin : Id.Go, 0f, cab);
+            if ((evt & ArcadeState.EvBonusEat) != 0) Play(Id.BonusEat, 0f, cab);
+            else if ((evt & ArcadeState.EvEat) != 0) Play(Id.Eat, 0f, cab);
+            if ((evt & ArcadeState.EvLevelUp) != 0) Play(Id.LevelUp, 0.12f, cab);
+            if ((evt & ArcadeState.EvBonusSpawn) != 0) Play(Id.BonusSpawn, 0.08f, cab);
+            if ((evt & ArcadeState.EvBonusGone) != 0) Play(Id.BonusGone, 0f, cab);
+            if ((evt & (ArcadeState.EvTurn | ArcadeState.EvEat | ArcadeState.EvBonusEat)) == ArcadeState.EvTurn) Play(Id.Turn, 0f, cab);
         }
 
         // ================================================================ synthesis

@@ -115,7 +115,7 @@ namespace HideAndSeek.Game
 
             mm.ServerArcade(me, true);
             yield return new WaitForSeconds(1.2f);
-            Log($"arcade player={mm.ArcadePlayer.Value} me={me.NetworkObjectId} state={ArcadeState.State} pitch={me.Motor.LookPitch:0.0}");
+            Log($"arcade player={mm.ArcadePlayer.Value} me={me.NetworkObjectId} state={ArcadeState.Cab[0].State} pitch={me.Motor.LookPitch:0.0}");
             Shot("fp_1_ready");
             Render("ready_side", new Vector3(5.0f, 1.6f, 3.7f), scr + Vector3.down * 0.3f, 50f);
             yield return new WaitForSeconds(0.4f);
@@ -124,10 +124,10 @@ namespace HideAndSeek.Game
             yield return Play(mm, me, other, 42f);
 
             // Crash on purpose for the GAME OVER screen.
-            Log($"crash on purpose score={ArcadeState.Score} level={ArcadeState.Level}");
-            for (float w = 0f; w < 12f && ArcadeState.State == ArcadeState.Playing; w += Time.deltaTime)
+            Log($"crash on purpose score={ArcadeState.Cab[0].Score} level={ArcadeState.Cab[0].Level}");
+            for (float w = 0f; w < 12f && ArcadeState.Cab[0].State == ArcadeState.Playing; w += Time.deltaTime)
             {
-                var b = ArcadeState.Body;
+                var b = ArcadeState.Cab[0].Body;
                 if (b.Count > 1)
                 {
                     var head = b[0];
@@ -139,18 +139,18 @@ namespace HideAndSeek.Game
             }
             yield return new WaitForSeconds(0.35f);
             Shot("fp_7_over");
-            Log($"over state={ArcadeState.State} score={ArcadeState.Score} best={ArcadeState.Best} newRecord={ArcadeState.NewRecord}");
+            Log($"over state={ArcadeState.Cab[0].State} score={ArcadeState.Cab[0].Score} best={ArcadeState.Best} newRecord={ArcadeState.Cab[0].NewRecord}");
             yield return new WaitForSeconds(1.4f);
             Shot("fp_8_over_late");
             Render("over_side", new Vector3(7.0f, 1.6f, 3.8f), scr + Vector3.down * 0.3f, 50f);
             mm.ServerArcadeDir(me, 0);
             yield return new WaitForSeconds(0.6f);
-            Log($"restart state={ArcadeState.State} len={ArcadeState.Body.Count}");
+            Log($"restart state={ArcadeState.Cab[0].State} len={ArcadeState.Cab[0].Body.Count}");
             Shot("fp_9_restart");
             yield return new WaitForSeconds(0.5f);
             mm.ServerArcade(me, false);
             yield return new WaitForSeconds(1.0f);
-            Log($"stopped player={mm.ArcadePlayer.Value} live={ArcadeState.Live} blocker={(ArcadeKeepOut.Instance != null && ArcadeKeepOut.Instance.BlockerOn)}");
+            Log($"stopped player={mm.ArcadePlayer.Value} live={ArcadeState.Cab[0].Live} blocker={(ArcadeKeepOut.Instance != null && ArcadeKeepOut.Instance.BlockerOn)}");
             yield return new WaitForSeconds(4f);
             Log("done");
             Application.Quit();
