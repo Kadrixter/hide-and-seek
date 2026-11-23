@@ -41,7 +41,8 @@ namespace HideAndSeek.Map.Editor
             Make("Cover_Grey", new Color(0.58f, 0.6f, 0.62f), "Cover_Fabric", 0.6f, 0f, 0.32f, "Cover_Fabric_N", 0.8f);
             Make("Cover_Hem", new Color(0.22f, 0.23f, 0.25f), "Cover_Fabric", 0.4f, 0f, 0.25f, "Cover_Fabric_N", 0.6f);
             Make("Tarp_BlueHem", new Color(0.78f, 0.8f, 0.82f), "Tarp", 0.8f, 0f, 0.4f, "Tarp_N", 0.6f);
-            Make("Foil_Green", new Color(0.52f, 0.72f, 0.5f, 0.36f), "Foil", 1.2f, 0f, 0.9f, "Foil_N", 0.45f, Mode.Transparent);
+            // green sheet: plain matt fabric, opaque (like the tarp on the Golf wreck)
+            Make("Foil_Green", new Color(0.22f, 0.36f, 0.27f), "Tarp", 1.2f, 0f, 0.3f, "Tarp_N", 1f);
             Make("Canvas_Old", new Color(0.4f, 0.37f, 0.24f), "Canvas", 0.9f, 0f, 0.12f, "Canvas_N", 1.3f);
             Make("Canvas_Dark", new Color(0.27f, 0.25f, 0.16f), "Canvas", 0.9f, 0f, 0.1f, "Canvas_N", 1.3f);
             Make("Rope_Yellow", new Color(0.85f, 0.66f, 0.12f), null, 1f, 0f, 0.3f);

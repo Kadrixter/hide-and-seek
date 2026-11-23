@@ -104,7 +104,9 @@ namespace HideAndSeek.Map.Editor
                 mats[0] = lib[i % 2 == 0 ? "CarPaint_Silver" : "CarPaint_Maroon"];
                 for (int s = 0; s < mats.Length; s++) mats[s] = lib.Dusty(mats[s], MaterialLibrary.DustPreset.Forgotten);
                 var go = Place(pm.Mesh, mats, new Vector3(0f, -6.8f, 0f));
+                TarpDrape.DebugLog = kinds[i] == TarpKind.Foil;
                 var built = TarpCars.Build(lib, m, pm.Mesh, kinds[i], 17 + i * 31, store);
+                TarpDrape.DebugLog = false;
                 TarpCars.Attach(go, built, 0);
                 floor.transform.position = go.transform.position;
                 var b = pm.Mesh.bounds;
