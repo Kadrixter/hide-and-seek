@@ -110,8 +110,10 @@ namespace HideAndSeek.Game.Net
             if (t.Life.Value == LifeState.Downed)
             {
                 MedkitCount.Value--;
+                // A medkit on a bleeding player in somebody's arms heals fully (not "wounded" like a plain rescue);
+                // cut-off limbs stay cut off.
                 t.Life.Value = LifeState.Alive;
-                t.Wounded.Value = true;
+                t.Wounded.Value = false;
                 t.Limping.Value = false;
                 t.DownedUntil.Value = 0;
                 t.BleedPausedLeft.Value = -1f;

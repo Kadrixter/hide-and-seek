@@ -97,6 +97,33 @@ namespace HideAndSeek.Characters
             pos.y = bodyRoot.y;
         }
 
+        /// <summary>
+        /// Carrier root for lifting a body lying on the floor (downed or dead, any way round): <paramref name="pelvis"/> and the
+        /// direction from it to the head (world). The body ends up in front of him, head on his left (right when mirrored).
+        /// </summary>
+        public static void CarrierSpotLying(Vector3 pelvis, Vector3 headDir, bool mirror, out Vector3 pos, out Quaternion rot)
+        {
+            headDir.y = 0f;
+            if (headDir.sqrMagnitude < 1e-4f) headDir = Vector3.forward;
+            headDir.Normalize();
+            // Head to the carrier's left: his right = -head, forward = right x up... (left-handed: forward = Cross(right, up)).
+            Vector3 right = mirror ? headDir : -headDir;
+            Vector3 fwd = Vector3.Cross(right, Vector3.up);
+            rot = Quaternion.LookRotation(fwd, Vector3.up);
+            pos = pelvis - rot * Side(FloorPelvisLocal, mirror);
+            pos.y = pelvis.y;
+        }
+
+        /// <summary>Side for a lying body: the spot closer to the carrier.</summary>
+        public static bool PickMirrorLying(Vector3 carrierPos, Vector3 pelvis, Vector3 headDir)
+        {
+            CarrierSpotLying(pelvis, headDir, false, out var a, out _);
+            CarrierSpotLying(pelvis, headDir, true, out var b, out _);
+            Vector3 da = a - carrierPos, db = b - carrierPos;
+            da.y = db.y = 0f;
+            return db.sqrMagnitude < da.sqrMagnitude;
+        }
+
         /// <summary>Which side the carrier would rather use (the spot closer to where he stands).</summary>
         public static bool PickMirror(Vector3 carrierPos, Vector3 bodyRoot, Quaternion bodyRot, bool downed)
         {
@@ -152,6 +179,8 @@ namespace HideAndSeek.Characters
         public bool Conscious;
         /// <summary>Put down onto the feet (conscious) instead of the floor.</summary>
         public bool EndStanding;
+        /// <summary>A dead player's body: completely limp, no look, no breathing; physics (ragdoll) once it is put down.</summary>
+        public bool Dead;
         /// <summary>Root frame of the carried after the carry (world), see <see cref="BodyCarryTimeline.EndFrame"/>.</summary>
         public bool HasEnd;
         public Vector3 EndPos;

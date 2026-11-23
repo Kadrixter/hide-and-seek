@@ -23,6 +23,7 @@ namespace HideAndSeek.Game.Net
         {
             if (has("-testcarry")) StartCoroutine(CarryTest());
             if (has("-carrywatch")) StartCoroutine(CarryWatch());
+            StartCarryBodyTests(has);
         }
 
         private static void CarryLog(string what, NetPlayer me, NetPlayer t)
@@ -180,7 +181,9 @@ namespace HideAndSeek.Game.Net
                 yield return new WaitForSeconds(2.5f);
                 Debug.Log($"[CarryTest] 4 healing: target={me.CarryHealTarget.Value} progress={me.CarryHealProgress.Value} carrierSpeed={u.CarrySpeedScale:0.00} locked={u.CarryTurnLocked}");
                 if (!string.IsNullOrEmpty(dir)) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "4_heal_fpp.png"));
-                yield return new WaitForSeconds(BodyCarryTimeline.HealTime - 2.5f + 1.0f);
+                float hw = Time.time;
+                while (Time.time - hw < BodyCarryTimeline.HealTime + 4f && me.MedkitCount.Value > 0) yield return null; // until the kit is used
+                yield return new WaitForSeconds(0.5f);
                 LocalPlayerController.TestCarryHeal = false;
                 Debug.Log($"[CarryTest] 4 after heal: life={t.Life.Value} wounded={t.Wounded.Value} medkits={me.MedkitCount.Value} carriedBy={(t.CarriedBy != null ? t.CarriedBy.Nick : "-")} bleedPaused={t.BleedPaused}");
                 yield return new WaitForSeconds(1.5f);

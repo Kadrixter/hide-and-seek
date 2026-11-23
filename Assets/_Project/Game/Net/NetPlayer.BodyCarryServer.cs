@@ -25,22 +25,28 @@ namespace HideAndSeek.Game.Net
             var mm = MatchManager.Instance;
             if (mm == null || (mm.Phase.Value != MatchPhase.Seeking && mm.Phase.Value != MatchPhase.Hiding)) { why = "Teraz nie można nikogo nosić."; return false; }
             if (carrier == null || target == null || carrier == target) return false;
-            if (!carrier.IsAliveHider || carrier.Busy.Value || carrier.Seat.Value >= 0 || carrier.HoldsPaMic) { why = "Masz zajęte ręce."; return false; }
-            if (carrier.Limping.Value || carrier.Severed.Value != 0) { why = "Jesteś za słaby, żeby kogoś nieść."; return false; }
-            if (carrier.BodyCarryBusy) return false;
-            if (!target.IsHider || target.Life.Value == LifeState.Dead || target.Busy.Value || target.Seat.Value >= 0) return false;
-            if (target.BodyCarryBusy) { why = $"{target.Nick} jest już niesiony."; return false; }
+            bool dead = target.Life.Value == LifeState.Dead;
+            bool hands = carrier.Life.Value == LifeState.Alive && !carrier.Busy.Value && carrier.Seat.Value < 0 && !carrier.HoldsPaMic
+                         && !carrier.CarriesMapRadio && !carrier.ExtBlocksHands && !carrier.BodyCarryBusy && !carrier.HealingCarried;
+            // Hiders carry injured / downed hiders and dead bodies; the seeker only dead bodies (no consent for a body).
+            if (!(carrier.IsHider || (carrier.IsSeeker && dead))) return false;
+            if (!hands) { why = "Masz zajęte ręce."; return false; }
+            if (carrier.IsHider && (carrier.Limping.Value || carrier.Severed.Value != 0)) { why = "Jesteś za słaby, żeby kogoś nieść."; return false; }
+            if (carrier.IsSeeker && mm.Now < carrier.BlindUntil.Value) return false;
+            if (!target.IsHider || target.Busy.Value || target.Seat.Value >= 0) return false;
+            if (target.BodyCarryBusy) { why = dead ? "Ktoś już niesie to ciało." : $"{target.Nick} jest już niesiony."; return false; }
             if (!NeedsCarry(target)) { why = $"{target.Nick} może iść sam."; return false; }
-            Vector3 d = target.transform.position - carrier.transform.position;
+            // Measured to the body itself (a ragdoll may have slid away from where the player died).
+            Vector3 d = (dead ? target.ChestPosition - Vector3.up * 0.3f : target.transform.position) - carrier.transform.position;
             if (Mathf.Abs(d.y) > 1.1f) return false;
             d.y = 0f;
-            if (d.magnitude > Tuning.RescueRange + 0.6f) { why = $"{target.Nick} jest za daleko."; return false; }
+            if (d.magnitude > Tuning.RescueRange + 0.6f) { why = dead ? "Ciało jest za daleko." : $"{target.Nick} jest za daleko."; return false; }
             return true;
         }
 
-        /// <summary>Downed, a leg cut off or wounded: may be carried.</summary>
+        /// <summary>Dead (a body), downed, a leg cut off or wounded: may be carried.</summary>
         public static bool NeedsCarry(NetPlayer p) =>
-            p != null && p.IsHider && (p.Life.Value == LifeState.Downed || (p.Life.Value == LifeState.Alive &&
+            p != null && p.IsHider && (p.Life.Value == LifeState.Dead || p.Life.Value == LifeState.Downed || (p.Life.Value == LifeState.Alive &&
                                        (p.Limping.Value || p.Wounded.Value || (p.Severed.Value & Limb.Legs) != 0)));
 
         /// <summary>Server: both agreed - start the lift.</summary>
@@ -53,19 +59,31 @@ namespace HideAndSeek.Game.Net
                 return;
             }
             var mm = MatchManager.Instance;
-            bool floor = target.Life.Value == LifeState.Downed;
-            bool mirror = BodyCarryTimeline.PickMirror(transform.position, target.transform.position, target.transform.rotation, floor);
+            bool dead = target.Life.Value == LifeState.Dead;
+            bool floor = dead || target.Life.Value == LifeState.Downed;
+            bool mirror;
+            if (floor)
+            {
+                target.BodyLieFrame(out var pelvis, out var head);
+                mirror = BodyCarryTimeline.PickMirrorLying(transform.position, pelvis, head);
+            }
+            else mirror = BodyCarryTimeline.PickMirror(transform.position, target.transform.position, target.transform.rotation, false);
             target.Reviving.Value = false;
+            if (IsSeeker) Held.Value = HeldItem.None; // the weapon goes away (the hotbar draws it again afterwards)
             CarryVar.Value = new BodyCarryPack
             {
                 Target = target.NetworkObjectId,
                 Phase = (byte)BodyCarryPhase.Lift,
-                Flags = (byte)((mirror ? 1 : 0) | (floor ? 2 : 0)),
+                Flags = (byte)((mirror ? 1 : 0) | (floor ? 2 : 0) | (dead ? 8 : 0)),
                 Start = mm.Now,
             };
-            ToastRpc($"Niesiesz: {target.Nick}. B - odłóż.", 3f);
-            target.ToastRpc($"{Nick} niesie cię na rękach. Spacja - poproś o odłożenie.", 4f);
-            Debug.Log($"[Carry] {Nick} lifts {target.Nick} ({(floor ? "from the floor" : "standing")}, {(mirror ? "mirrored" : "head left")})");
+            if (dead) ToastRpc($"Niesiesz ciało: {target.Nick}. B - odłóż.", 3f);
+            else
+            {
+                ToastRpc($"Niesiesz: {target.Nick}. B - odłóż.", 3f);
+                target.ToastRpc($"{Nick} niesie cię na rękach. Spacja - poproś o odłożenie.", 4f);
+            }
+            Debug.Log($"[Carry] {Nick} lifts {(dead ? "the body of " : "")}{target.Nick} ({(floor ? "from the floor" : "standing")}, {(mirror ? "mirrored" : "head left")})");
         }
 
         /// <summary>Either player asks to end the carry (B / Space): gentle put down once the body is up.</summary>
@@ -122,8 +140,9 @@ namespace HideAndSeek.Game.Net
             var phase = v.PhaseValue;
             if (phase == BodyCarryPhase.Lift || phase == BodyCarryPhase.Hold)
             {
-                bool hit = !IsAliveHider || Limping.Value || Severed.Value != 0;
-                if (hit || target.Life.Value == LifeState.Dead)
+                bool hit = Life.Value != LifeState.Alive || (IsHider && (Limping.Value || Severed.Value != 0)) || (IsSeeker && now < BlindUntil.Value);
+                if (v.DeadBody && target.Life.Value != LifeState.Dead) { ServerCarryAbort("the body came back to life"); return; }
+                if (hit || (!v.DeadBody && target.Life.Value == LifeState.Dead))
                 {
                     ServerEndCarry(BodyCarryPhase.Drop, target);
                     return;

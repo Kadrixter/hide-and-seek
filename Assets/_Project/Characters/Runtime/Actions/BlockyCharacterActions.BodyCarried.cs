@@ -30,6 +30,8 @@ namespace HideAndSeek.Characters
         internal void AttachBodyCarried(BodyCarryState st)
         {
             EnsureInit();
+            // A dead body lying as a ragdoll: the animation takes over from exactly where it lies.
+            if (IsRagdolled) StopRagdoll();
             bodyCarriedBy = st;
             bodyRelease = false;
             // Start snapshot: the pose exactly as it is now, in the world.
@@ -55,7 +57,7 @@ namespace HideAndSeek.Characters
             if (bodyCarriedBy != st) return;
             bodyCarriedBy = null;
             if (bodyAnimRestore != null) { bodyAnimRestore.autoUpdate = true; bodyAnimRestore = null; }
-            if (!hasLast || IsRagdolled || lifeState == LifeState.Dead) return;
+            if (!hasLast || IsRagdolled) return;
 
             bool finished = st.HasEnd && (st.Phase == BodyCarryPhase.PutDown || st.Phase == BodyCarryPhase.Drop) && st.Time >= st.Duration - 0.05f;
             bodyRelStanding = st.Phase == BodyCarryPhase.PutDown && st.EndStanding;

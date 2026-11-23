@@ -124,12 +124,13 @@ namespace HideAndSeek.Game.UI
                 case "dust":
                     _tmp.Add(("X", "rzuć kurz w oczy szukającemu (z bliska)"));
                     _tmp.Add(("H", "przytrzymaj przy rannym - pomóż"));
-                    _tmp.Add(("B", "przytrzymaj przy rannym - nieś na rękach"));
+                    _tmp.Add(("B", "przytrzymaj przy rannym / ciele - nieś na rękach"));
                     break;
                 case "seek":
                     _tmp.Add(("T", "latarka"));
                     _tmp.Add(("Kółko", "skupienie światła"));
                     _tmp.Add(("LPM / F", "atak wybraną bronią"));
+                    _tmp.Add(("B", "przytrzymaj przy ciele - podnieś i nieś"));
                     _tmp.Add(("M", "skala minimapy"));
                     break;
                 case "glock":

@@ -216,7 +216,7 @@ namespace HideAndSeek.Characters
             cr.Curl += 4f * aw;
             cr.Pelvis += new Vector3(0.02f, 0.03f, -0.02f) * aw;
             cr.Pelvis.y += bounce;
-            cr.Curl += 1.6f * Mathf.Sin(breathPhase * 0.9f + 2f); // the carried breathes too (slower, shallow)
+            if (bodyCarrying == null || !bodyCarrying.Dead) cr.Curl += 1.6f * Mathf.Sin(breathPhase * 0.9f + 2f); // the carried breathes too (slower, shallow)
             cr.Swing = -bounce * 260f;
             var c = BodyCarryPoses.CradlePose(cr, legSway);
             AttachToTorso(ref c, k);
@@ -365,6 +365,19 @@ namespace HideAndSeek.Characters
             var loll = Quaternion.Euler(-26f + 4f * br, 16f + 6f * Mathf.Sin(time * 0.6f), 14f);
             limpP.Head = Quaternion.Slerp(loll, BodyCarryPoses.HeadToward(limpP, look), 0.5f);
             var arms = CharacterPose.Lerp(limpP, awakeP, ActionTimeline.SmoothStep01(Mathf.Clamp01(bodyAwakeW)));
+            if (st.Dead)
+            {
+                // A dead body: both arms hang straight down and swing with the steps, the head falls back and to the side.
+                float sw2 = Mathf.Sin(bodyLegPh + 0.4f) * Mathf.Clamp01(speed / 1.4f);
+                for (int a = 0; a < 2; a++)
+                {
+                    Vector3 s0 = arms.ShoulderPos(a);
+                    float sgn = a == 0 ? -1f : 1f;
+                    Vector3 h = new Vector3(0.1f * sw2 * sgn, -1f, (a == 0 ? -0.05f : 0.08f) + 0.15f * sw2);
+                    arms.SolveArm(a, s0 + h.normalized * 0.49f, new Vector3(0f, 0.1f, a == 0 ? -1f : 1f));
+                }
+                arms.Head = Quaternion.Euler(-48f + 3f * sw2, 22f + 4f * sw2, 18f);
+            }
             if (bodyHealW > 0.001f)
             {
                 // Being treated: looks down at the own belly, flinches when the pad goes on, the outer hand comes in.

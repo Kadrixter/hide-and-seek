@@ -1,5 +1,6 @@
 using System;
 using HideAndSeek.Audio;
+using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -123,7 +124,10 @@ namespace HideAndSeek.Game.UI
             {
                 var carried = me.CarriedPlayer;
                 var by = me.CarriedBy;
-                if (carried != null) text = $"Niesiesz: <b>{carried.Nick}</b>   -   <color=#ffd27a>B</color> odłóż";
+                if (carried != null) text = carried.Life.Value == LifeState.Dead
+                    ? $"Niesiesz ciało: <b>{carried.Nick}</b>   -   <color=#ffd27a>B</color> odłóż"
+                    : $"Niesiesz: <b>{carried.Nick}</b>   -   <color=#ffd27a>B</color> odłóż";
+                else if (by != null && me.Life.Value == LifeState.Dead) text = $"<b>{by.Nick}</b> niesie twoje ciało";
                 else if (by != null) text = $"<b>{by.Nick}</b> niesie cię na rękach   -   <color=#ffd27a>Spacja</color> poproś o odłożenie";
                 else if (Time.unscaledTime < _waitUntil) text = $"Czekasz, aż <b>{_waitNick}</b> się zgodzi...";
                 else if (!string.IsNullOrEmpty(Hint)) text = Hint;
