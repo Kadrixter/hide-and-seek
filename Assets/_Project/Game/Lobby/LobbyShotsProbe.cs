@@ -152,59 +152,90 @@ namespace HideAndSeek.Game
 
         private IEnumerator Film(MatchManager mm)
         {
-            _w = 1280; _h = 720;
             var me = NetPlayer.Local;
             NetPlayer actor = null;
-            for (float w = 0f; w < 10f && actor == null; w += 0.25f)
+            for (float wait = 0f; wait < 10f && actor == null; wait += 0.25f)
             {
                 foreach (var p in NetPlayer.All) if (p != me) actor = p;
                 if (actor == null) yield return new WaitForSeconds(0.25f);
             }
             if (actor != null) yield return new WaitForSeconds(5f);
-            // fixed game time per frame: the film plays at real speed however long a frame takes to save
-            Time.captureFramerate = 25;
-            // feed the fish when the flight comes to the aquarium, throw darts while passing the board
+            // both players wait in the north-west corner behind the side sofa, out of the camera's way
+            Vector3 park = new Vector3(-7.2f, 0.02f, 4.7f);
+            me.Motor.Teleport(park + new Vector3(0f, 0f, -1.1f), 90f);
+            if (actor != null) actor.TeleportRpc(park, 90f);
+            // the film camera is the "main" camera (the mirror reflects for Camera.main), rendering into a texture
+            const int w = 1280, h = 720;
+            var playerCam = Camera.main;
+            string playerTag = playerCam != null ? playerCam.tag : "MainCamera";
+            if (playerCam != null) playerCam.tag = "Untagged";
+            var cam = new GameObject("FilmCam").AddComponent<Camera>();
+            cam.tag = "MainCamera";
+            var rt = new RenderTexture(w, h, 24) { antiAliasing = 4 };
+            cam.targetTexture = rt;
+            cam.nearClipPlane = 0.03f;
+            cam.cullingMask = ~(1 << 9);
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            void Grab(string name)
+            {
+                var prev = RenderTexture.active;
+                RenderTexture.active = rt;
+                tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+                tex.Apply();
+                RenderTexture.active = prev;
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(_dir, name + ".png"), tex.EncodeToPNG());
+            }
+            Time.captureFramerate = 25; // fixed game time per frame: the film plays at real speed
             const int fps = 25;
             const float seconds = 26f;
             int frames = (int)(fps * seconds), n = Flight.Length;
-            bool fed = false;
+            int fedStage = 0;
             for (int i = 0; i < frames; i++)
             {
                 float u = i / (float)(frames - 1) * (n - 1);
                 int k = Mathf.Min((int)u, n - 2);
                 float t = Mathf.SmoothStep(0f, 1f, u - k) * 0.35f + (u - k) * 0.65f;
                 var a = Flight[Mathf.Max(0, k - 1)]; var b = Flight[k]; var c = Flight[k + 1]; var d = Flight[Mathf.Min(n - 1, k + 2)];
-                Vector3 eye = CatmullRom(a.eye, b.eye, c.eye, d.eye, t), at = CatmullRom(a.at, b.at, c.at, d.at, t);
-                if (actor != null && k == 9 && !fed)
+                cam.fieldOfView = 62f;
+                cam.transform.position = CatmullRom(a.eye, b.eye, c.eye, d.eye, t);
+                cam.transform.LookAt(CatmullRom(a.at, b.at, c.at, d.at, t));
+                var aq = LobbyProp.Of(LobbyPropKind.Aquarium);
+                if (actor != null && aq != null)
                 {
-                    fed = true;
-                    var aq = LobbyProp.Of(LobbyPropKind.Aquarium);
-                    if (aq != null)
-                    {
-                        Vector3 side = new Vector3(aq.Aim.x + 0.8f, 0.02f, aq.Aim.z + 0.5f);
-                        actor.TeleportRpc(side, Quaternion.LookRotation(new Vector3(aq.Aim.x - side.x, 0f, aq.Aim.z - side.z)).eulerAngles.y);
-                    }
+                    // the actor steps to the left end of the tank and feeds the fish while the camera comes close
+                    Vector3 side = new Vector3(aq.Aim.x - 1.0f, 0.02f, aq.Aim.z + 0.35f);
+                    if (fedStage == 0 && k >= 9) { fedStage = 1; actor.TeleportRpc(side, Quaternion.LookRotation(new Vector3(aq.Aim.x - side.x, 0f, aq.Aim.z - side.z)).eulerAngles.y); }
+                    if (fedStage == 1 && k >= 10 && u - k > 0.3f) { fedStage = 2; mm.ServerUseProp(actor, (byte)LobbyPropKind.Aquarium); }
+                    if (fedStage == 2 && k >= 12) { fedStage = 3; actor.TeleportRpc(park, 90f); }
                 }
-                if (actor != null && k == 10 && fed && i % fps == 0 && LobbyProp.Of(LobbyPropKind.Aquarium) != null)
-                    mm.ServerUseProp(actor, (byte)LobbyPropKind.Aquarium);
-                Render($"fly_{i:0000}", eye, at, 62f);
+                yield return new WaitForEndOfFrame(); // the camera (and the mirror for it) rendered this frame
+                Grab($"fly_{i:0000}");
                 yield return null;
             }
             Log($"flight {frames} frames");
-            if (actor == null) { Time.captureFramerate = 0; yield break; }
-            // darts: the actor throws three, the camera looks from the side (no text at the board)
-            actor.TeleportRpc(LobbyDarts.ThrowSpot(LobbyDarts.ThrowLine), LobbyDarts.ThrowYaw);
-            yield return new WaitForSeconds(1.5f);
-            Vector3 cam = LobbyDarts.ThrowLine + new Vector3(0.4f, 1.75f, -1.6f);
-            Vector3 look = Vector3.Lerp(LobbyDarts.ThrowLine + Vector3.up * 1.5f, LobbyDarts.BoardCentre, 0.55f);
-            for (int i = 0; i < fps * 6; i++)
+            if (actor != null)
             {
-                if (i == fps / 2 || i == fps * 2 || i == fps * 7 / 2) mm.ServerUseProp(actor, (byte)LobbyPropKind.Darts);
-                Render($"darts_{i:0000}", cam, look, 52f);
-                yield return null;
+                // darts: the actor throws three, seen from behind on the right (no text at the board)
+                actor.TeleportRpc(LobbyDarts.ThrowSpot(LobbyDarts.ThrowLine), LobbyDarts.ThrowYaw);
+                yield return new WaitForSeconds(1.5f);
+                cam.transform.position = new Vector3(LobbyDarts.ThrowLine.x - 1.2f, 1.85f, LobbyDarts.ThrowLine.z - 1.3f);
+                cam.transform.LookAt(Vector3.Lerp(LobbyDarts.ThrowLine + Vector3.up * 1.4f, LobbyDarts.BoardCentre, 0.6f));
+                cam.fieldOfView = 55f;
+                for (int i = 0; i < fps * 6; i++)
+                {
+                    if (i == fps / 2 || i == fps * 2 || i == fps * 7 / 2) mm.ServerUseProp(actor, (byte)LobbyPropKind.Darts);
+                    yield return new WaitForEndOfFrame();
+                    Grab($"darts_{i:0000}");
+                    yield return null;
+                }
             }
             Time.captureFramerate = 0;
-            Render("darts_board", LobbyDarts.BoardCentre + new Vector3(-1.2f, 0.05f, 0f), LobbyDarts.BoardCentre, 35f);
+            cam.targetTexture = null;
+            Destroy(cam.gameObject);
+            rt.Release();
+            Destroy(rt);
+            Destroy(tex);
+            if (playerCam != null) playerCam.tag = playerTag;
         }
 
         // ================================================================ mini interactions
