@@ -15,7 +15,7 @@ namespace HideAndSeek.Game.UI
         {
             var rt = UiKit.Rect("UpdateBanner", canvasRoot);
             // Bottom right, just above the "wersja ..." label.
-            rt.Place(new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-20, 50), new Vector2(440, 64));
+            rt.Place(new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-20, 118), new Vector2(440, 64)); // above the menu weapon picker
             rt.gameObject.AddComponent<UpdateBanner>().Build(rt);
         }
 
@@ -29,7 +29,7 @@ namespace HideAndSeek.Game.UI
 
             _title = UiKit.Label("Title", rt, "", 20, TextAnchor.MiddleLeft, null, FontStyle.Bold);
             _title.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0, 0.5f), new Vector2(18, 0), new Vector2(-200, 0));
-            _button = UiKit.Button("Update", rt, "Zaktualizuj", OnClick, 20, new Color(0.13f, 0.32f, 0.16f));
+            _button = UiKit.BoxButton("Update", rt, "Zaktualizuj", OnClick, 20, new Color(0.13f, 0.32f, 0.16f));
             ((RectTransform)_button.transform).Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-10, 0), new Vector2(170, 44));
 
             UpdateChecker.Changed += Refresh;

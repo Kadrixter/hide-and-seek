@@ -118,7 +118,7 @@ namespace HideAndSeek.Game.UI
         private static void Toggle(Transform parent, Func<string> label, Action click)
         {
             Button b = null;
-            b = UiKit.Button("Toggle", parent, label(), () =>
+            b = UiKit.BoxButton("Toggle", parent, label(), () =>
             {
                 click();
                 b.GetComponentInChildren<Text>().text = label();

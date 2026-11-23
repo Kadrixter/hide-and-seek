@@ -31,27 +31,37 @@ namespace HideAndSeek.Game.UI
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
 
-            var dim = UiKit.Image("Dim", canvas.transform, new Color(0f, 0f, 0f, 0.6f));
+            // Blurred game / menu scene, dark veil, centred question and two text buttons (menu style).
+            var dim = UiKit.Image("Dim", canvas.transform, new Color(0f, 0f, 0f, 0.62f));
             dim.rectTransform.Stretch();
             dim.raycastTarget = true;
-            var panel = UiStyle.Panel("Panel", dim.transform, UiKit.Panel);
-            float h = string.IsNullOrEmpty(detail) ? 250f : 290f;
-            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(780, h));
-            UiKit.VStack(panel.rectTransform, 14, 34).padding.top = 36;
-            UiKit.Label("Question", panel.transform, question, 32, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(50);
+            dim.gameObject.AddComponent<MenuBlurRequest>();
+            dim.gameObject.AddComponent<MenuFontScope>().StyleTitles = false;
+            MenuChrome.VignetteImage(dim.transform, 0.5f);
+            var panel = UiKit.Rect("Panel", dim.transform);
+            float h = string.IsNullOrEmpty(detail) ? 220f : 262f;
+            panel.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(900, h));
+            UiKit.VStack(panel, 10, 0);
+            var q = UiKit.Label("Question", panel, (question ?? "").ToUpperInvariant(), 40, TextAnchor.MiddleCenter);
+            q.font = UiFonts.SemiBold;
+            q.Height(58);
+            q.gameObject.AddComponent<Shadow>().effectColor = new Color(0f, 0f, 0f, 0.6f);
             if (!string.IsNullOrEmpty(detail))
-                UiKit.Label("Detail", panel.transform, detail, 21, TextAnchor.MiddleCenter, UiKit.TextDim).Height(28);
+                UiKit.Label("Detail", panel, detail, 22, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.6f)).Height(34);
+            UiKit.Rect("Gap", panel).Height(18);
 
-            var row = UiKit.Rect("Buttons", panel.transform);
-            row.Height(64);
+            var rowHolder = UiKit.Rect("ButtonsRow", panel);
+            rowHolder.Height(70);
+            var row = UiKit.Rect("Buttons", rowHolder);
+            row.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(620, 70));
             var hl = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-            hl.spacing = 18;
+            hl.spacing = 40;
             hl.childControlWidth = true;
             hl.childControlHeight = true;
             hl.childForceExpandWidth = true;
             hl.childForceExpandHeight = true;
-            UiKit.Button("Yes", row, yes, () => { var a = d._onYes; d.Close(); a?.Invoke(); }, 28, new Color(0.42f, 0.11f, 0.1f));
-            UiKit.Button("No", row, no, d.Close, 28);
+            UiKit.Button("Yes", row, yes, () => { var a = d._onYes; d.Close(); a?.Invoke(); }, 36, UiKit.Danger).Align(TextAnchor.MiddleCenter);
+            UiKit.Button("No", row, no, d.Close, 36).Align(TextAnchor.MiddleCenter);
         }
 
         private void Update()

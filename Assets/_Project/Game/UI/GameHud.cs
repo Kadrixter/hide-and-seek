@@ -18,7 +18,7 @@ namespace HideAndSeek.Game
     /// In-session HUD (persistent): timer, player list (PlayerListHud), key hints (KeyHints), minimap, interaction prompts, blind / downed overlays,
     /// banners, toasts, Esc menu, lobby round-settings panel and spectator camera.
     /// </summary>
-    public class GameHud : MonoBehaviour
+    public partial class GameHud : MonoBehaviour
     {
         private static GameHud _instance;
 
@@ -667,16 +667,7 @@ namespace HideAndSeek.Game
             LocalPlayerController.MenuOpen = true;
             var me = NetPlayer.Local;
             if (me != null && me.InputReader != null) me.InputReader.SetCursorLocked(false);
-            var dim = UiKit.Image(name, _canvas.transform, new Color(0, 0, 0, 0.55f));
-            dim.rectTransform.Stretch();
-            dim.raycastTarget = true;
-            var panel = UiStyle.Panel("Panel", dim.transform, UiKit.Panel);
-            panel.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size);
-            // The canvas is laid out for 1080 px height: a taller panel (e.g. round settings) is scaled down to fit.
-            const float maxH = 1030f;
-            if (size.y > maxH) panel.rectTransform.localScale = Vector3.one * (maxH / size.y);
-            UiKit.VStack(panel.rectTransform, 10, 30).padding.top = 34;
-            return dim.rectTransform;
+            return MenuRoot(name, size); // GameHud.Menus.cs: blurred game + shade + left text column
         }
 
         private static readonly bool TestEsc = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testesc") >= 0;
@@ -685,40 +676,7 @@ namespace HideAndSeek.Game
         /// <summary>Test switch -testesc: opens the Esc menu and its sub pages once in the lobby (for screenshots).</summary>
         private IEnumerator TestEscPages()
         {
-            yield return new WaitForSeconds(3f);
-            ShowEscMenu();
-            yield return new WaitForSeconds(2.2f);
-            ShowAudioMenu();
-            yield return new WaitForSeconds(2.2f);
-            ShowVoiceMenu();
-            yield return new WaitForSeconds(2.2f);
-            CloseMenus();
-        }
-
-        private void ShowEscMenu()
-        {
-            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 996 : 926));
-            var panel = _escMenu.Find("Panel");
-            UiKit.Label("Title", panel, "MENU", 44, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(64);
-            UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(66);
-            SettingsUi.SensitivitySlider(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.MouseSensitivity = v; });
-            SettingsUi.DisplayModeButton(panel);
-            SettingsUi.ResolutionButton(panel);
-            SettingsUi.CrouchModeButton(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.CrouchToggleMode = v; });
-            SettingsUi.DiscordSwitch(panel);
-            if (SteamService.InLobby)
-                UiKit.Button("Invite", panel, "Zaproś znajomych (Steam)", ShowInviteMenu, 28, new Color(0.13f, 0.32f, 0.16f)).Height(60);
-            UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
-            UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 28).Height(60);
-            UiKit.Button("PlayerVolumes", panel, "Głośność graczy", ShowPlayerVolumeMenu, 28).Height(60);
-            bool isHost = NetworkManager.Singleton.IsServer;
-            string leave = isHost ? "Zamknij serwer" : "Rozłącz";
-            UiKit.Button("Leave", panel, leave, () => ConfirmDialog.ConfirmLeave(isHost, () =>
-            {
-                CloseMenus();
-                NetSession.Instance.Leave();
-            }), 30, new Color(0.35f, 0.1f, 0.1f)).Height(70);
-            UiKit.Button("Quit", panel, "Wyjdź z gry", ConfirmDialog.ConfirmQuit).Height(60);
+            yield return EscTestRun(); // GameHud.Menus.cs
         }
 
         /// <summary>Steam friends list with "Zaproś" buttons (+ the Steam overlay invite dialog).</summary>
@@ -766,7 +724,7 @@ namespace HideAndSeek.Game
                 Prefs.Save();
                 Destroy(_escMenu.gameObject);
                 _escMenu = null;
-                ShowEscMenu();
+                ShowGameSettings();
             }, 28).Height(58);
         }
 
@@ -783,7 +741,7 @@ namespace HideAndSeek.Game
                 Prefs.Save();
                 Destroy(_escMenu.gameObject);
                 _escMenu = null;
-                ShowEscMenu();
+                ShowGameSettings();
             }, 28).Height(58);
         }
 
@@ -835,7 +793,7 @@ namespace HideAndSeek.Game
             }
             Button gameModeB = null;
             Text gameModeInfo = null;
-            gameModeB = UiKit.Button("GameMode", panel, ModeLabel(s.Mode), () =>
+            gameModeB = UiKit.BoxButton("GameMode", panel, ModeLabel(s.Mode), () =>
             {
                 s.Mode = (byte)((s.Mode + 1) % GameModes.All.Length);
                 gameModeB.GetComponentInChildren<Text>().text = ModeLabel(s.Mode);
@@ -889,7 +847,7 @@ namespace HideAndSeek.Game
 
             string ModeName(byte m) => m == 3 ? "dźwięk + minimapa" : m == 1 ? "tylko dźwięk" : m == 2 ? "tylko minimapa" : "wyłączone";
             Button modeB = null;
-            modeB = UiKit.Button("Mode", panel, "Tryb podpowiedzi: " + ModeName(s.HintMode), () =>
+            modeB = UiKit.BoxButton("Mode", panel, "Tryb podpowiedzi: " + ModeName(s.HintMode), () =>
             {
                 s.HintMode = (byte)((s.HintMode + 1) % 4);
                 modeB.GetComponentInChildren<Text>().text = "Tryb podpowiedzi: " + ModeName(s.HintMode);
@@ -900,7 +858,7 @@ namespace HideAndSeek.Game
             // One row: Glock toggle + killer count stepper (SeekerCountRow).
             var glockRow = SeekerCountRow.Row(panel);
             Button glockB = null;
-            glockB = UiKit.Button("Glock", glockRow, "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie"), () =>
+            glockB = UiKit.BoxButton("Glock", glockRow, "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie"), () =>
             {
                 s.Glock = !s.Glock;
                 glockB.GetComponentInChildren<Text>().text = "Glock na ostatnie 2 min: " + (s.Glock ? "tak" : "nie");
@@ -912,7 +870,7 @@ namespace HideAndSeek.Game
 
             string TakeText() => "Szukający zabiera przedmioty (apteczki, strzykawki, pręty): " + (s.SeekerTakesItems ? "tak" : "nie");
             Button takeB = null;
-            takeB = UiKit.Button("SeekerTakes", panel, TakeText(), () =>
+            takeB = UiKit.BoxButton("SeekerTakes", panel, TakeText(), () =>
             {
                 s.SeekerTakesItems = !s.SeekerTakesItems;
                 takeB.GetComponentInChildren<Text>().text = TakeText();

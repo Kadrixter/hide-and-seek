@@ -10,12 +10,12 @@ using UnityEngine.UI;
 namespace HideAndSeek.Game.UI
 {
     /// <summary>Main menu: nick + skin (live 3D preview), host, server browser with LAN search, join by IP, options.</summary>
-    public class MainMenu : MonoBehaviour
+    public partial class MainMenu : MonoBehaviour
     {
         [SerializeField] private Transform previewRoot;
 
         private Canvas _canvas;
-        private RectTransform _main, _browser, _options, _audio, _voicePage, _connecting;
+        private RectTransform _main, _character, _browser, _options, _audio, _voicePage, _connecting, _column;
         private Text _message, _skinLabel, _serverList, _connectingText;
         private InputField _nick, _ip, _mcNick;
         private Text _mcStatus;
@@ -58,47 +58,29 @@ namespace HideAndSeek.Game.UI
 
             _canvas = UiKit.CreateCanvas("MenuCanvas", 0);
             var root = _canvas.transform;
-
-            var side = UiKit.Image("Side", root, new Color(0.02f, 0.022f, 0.026f, 0.86f));
-            side.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), Vector2.zero, new Vector2(700, 0));
-
-            var title = UiKit.Label("Title", side.transform, "HIDE AND SEEK", 62, TextAnchor.UpperLeft, null, FontStyle.Bold);
-            title.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(60, -60), new Vector2(-120, 100));
-            title.AddDrop(4f, 0.6f);
-            var sub = UiKit.Label("Sub", side.transform, "chowany w ciemnościach", 30, TextAnchor.UpperLeft, UiKit.TextDim);
-            sub.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(64, -150), new Vector2(-120, 40));
-            var line = UiKit.Image("TitleLine", side.transform, UiKit.Accent).Rounded(true);
-            line.rectTransform.Place(new Vector2(0, 1), new Vector2(0, 1), new Vector2(0, 1), new Vector2(64, -196), new Vector2(160, 5));
-            var edge = UiKit.Image("Edge", side.transform, new Color(1f, 1f, 1f, 0.05f));
-            edge.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), Vector2.zero, new Vector2(2, 0));
-
-            _steamStatus = UiKit.Label("Steam", side.transform, SteamStatusText(), 20, TextAnchor.LowerLeft, UiKit.TextDim);
-            _steamStatus.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 0), new Vector2(60, 14), new Vector2(-120, 28));
-            _steamStatus.supportRichText = true;
-            _message = UiKit.Label("Message", side.transform, NetSession.LastMessage ?? "", 26, TextAnchor.LowerLeft, new Color(1f, 0.6f, 0.5f));
-            _message.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 0), new Vector2(60, 40), new Vector2(-120, 80));
-            NetSession.LastMessage = null;
-
-            var ver = UiKit.Label("Version", root, "wersja " + Application.version, 20, TextAnchor.LowerRight, UiKit.TextDim);
-            ver.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 0), new Vector2(1, 0), new Vector2(-20, 14), new Vector2(500, 30));
+            BuildChrome(root);          // MainMenu.Pages.cs: vignette, shade, logo, footer, column
             UpdateBanner.Create(root);
 
-            _main = BuildMain(side.transform);
-            _browser = BuildBrowser(side.transform);
-            _options = BuildOptions(side.transform);
-            _audio = BuildAudio(side.transform);
-            _voicePage = BuildVoice(side.transform);
+            _main = BuildMain(_column);
+            _character = BuildCharacter(_column);
+            _browser = BuildBrowser(_column);
+            _options = BuildOptions(_column);
+            _audio = BuildAudio(_column);
+            _voicePage = BuildVoice(_column);
             _connecting = BuildConnecting(root);
             Show(_main);
+            MenuWeaponPicker.Create(root, this); // bottom right: weapon of the menu character
+            UiTextButtonFx.Hovered += OnButtonHovered;
 
             BuildPreview();
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testmenu") >= 0) StartCoroutine(TestPages());
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-menushots") >= 0) StartCoroutine(MenuShots()); // MainMenu.Tests.cs
+            else if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testmenu") >= 0) StartCoroutine(TestPages());
         }
 
         /// <summary>Test switch -testmenu: walks through the pages (for screenshots).</summary>
         private System.Collections.IEnumerator TestPages()
         {
-            foreach (var p in new[] { _main, _options, _audio, _voicePage, _main })
+            foreach (var p in new[] { _main, _character, _options, _audio, _voicePage, _main })
             {
                 Show(p);
                 yield return new WaitForSeconds(2.2f);
@@ -108,147 +90,18 @@ namespace HideAndSeek.Game.UI
         private RectTransform Page(Transform parent, string name)
         {
             var rt = UiKit.Rect(name, parent);
-            rt.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), new Vector2(0, -40), new Vector2(-120, -420));
-            UiKit.VStack(rt, 10);
+            rt.Stretch();
+            UiKit.VStack(rt, 6);
             return rt;
         }
 
         private void Show(RectTransform page)
         {
-            foreach (var p in new[] { _main, _browser, _options, _audio, _voicePage }) p.gameObject.SetActive(p == page);
+            foreach (var p in new[] { _main, _character, _browser, _options, _audio, _voicePage }) p.gameObject.SetActive(p == page);
             if (page == _browser) LanDiscovery.StartSearch();
             else LanDiscovery.StopSearch();
-        }
-
-        // ================================================================ pages
-
-        private RectTransform BuildMain(Transform parent)
-        {
-            var page = Page(parent, "Main");
-            UiKit.Label("NickL", page, "Nick", 24, TextAnchor.MiddleLeft, UiKit.TextDim).Height(30);
-            _nick = UiKit.Input("Nick", page, LocalProfile.Nick, "Twój nick");
-            _nick.characterLimit = 16;
-            _nick.onEndEdit.AddListener(v =>
-            {
-                LocalProfile.Nick = v;
-                _nick.text = LocalProfile.Nick;
-                RefreshPreview();
-            });
-            _nick.Height(58);
-
-            var skinRow = UiKit.Rect("SkinRow", page);
-            skinRow.Height(58);
-            var h = skinRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 10;
-            h.childControlWidth = true;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = false;
-            var prev = UiKit.Button("Prev", skinRow, "<", () => ChangeSkin(-1));
-            prev.gameObject.AddComponent<LayoutElement>().preferredWidth = 70;
-            _skinLabel = UiKit.Label("Skin", skinRow, "", 28, TextAnchor.MiddleCenter);
-            _skinLabel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
-            var next = UiKit.Button("Next", skinRow, ">", () => ChangeSkin(1));
-            next.gameObject.AddComponent<LayoutElement>().preferredWidth = 70;
-            UpdateSkinLabel();
-
-            // Minecraft skin by nick
-            var mcRow = UiKit.Rect("McRow", page);
-            mcRow.Height(52);
-            var mh = mcRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-            mh.spacing = 10;
-            mh.childControlWidth = true;
-            mh.childControlHeight = true;
-            mh.childForceExpandWidth = false;
-            _mcNick = UiKit.Input("McNick", mcRow, LocalProfile.McNick, "Skin z Minecrafta: wpisz nick", 24);
-            _mcNick.characterLimit = 16;
-            _mcNick.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1;
-            var fetch = UiKit.Button("Fetch", mcRow, "Pobierz", () => FetchMcSkin(_mcNick.text), 24);
-            fetch.gameObject.AddComponent<LayoutElement>().preferredWidth = 130;
-            _mcStatus = UiKit.Label("McStatus", page, "", 20, TextAnchor.MiddleLeft, UiKit.TextDim);
-            _mcStatus.Height(24);
-
-            UiKit.Rect("Gap", page).Height(6);
-            var steamHost = UiKit.Button("HostSteam", page, "Stwórz serwer Steam", HostSteam, 30, new Color(0.13f, 0.32f, 0.16f));
-            steamHost.Height(70);
-            steamHost.interactable = SteamService.Ready;
-            UiKit.Button("Host", page, "Stwórz serwer LAN / UDP", Host, 26).Height(58);
-            UiKit.Button("Find", page, "Szukaj serwerów", () => Show(_browser), 30).Height(66);
-            UiKit.Button("Options", page, "Ustawienia", () => Show(_options), 28).Height(58);
-            UiKit.Button("Quit", page, "Wyjdź", ConfirmDialog.ConfirmQuit, 28).Height(58);
-            return page;
-        }
-
-        private RectTransform BuildBrowser(Transform parent)
-        {
-            var page = Page(parent, "Browser");
-            UiKit.Label("T", page, "SERWERY", 36, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(46);
-            _serverList = UiKit.Label("Searching", page, "Szukam serwerów...", 24, TextAnchor.MiddleLeft, UiKit.TextDim);
-            _serverList.Height(32);
-            _listRoot = UiKit.Rect("List", page);
-            UiKit.VStack(_listRoot, 8);
-            _listRoot.Height(330);
-
-            UiKit.Label("IpL", page, "Albo połącz po adresie IP", 24, TextAnchor.MiddleLeft, UiKit.TextDim).Height(30);
-            _ip = UiKit.Input("Ip", page, LocalProfile.LastIp, "np. 192.168.1.10");
-            _ip.Height(58);
-            UiKit.Button("Join", page, "Połącz", () => Join(_ip.text), 30, new Color(0.13f, 0.32f, 0.16f)).Height(66);
-            UiKit.Button("Back", page, "Wróć", () => Show(_main), 28).Height(60);
-            return page;
-        }
-
-        private RectTransform BuildOptions(Transform parent)
-        {
-            var page = Page(parent, "Options");
-            UiKit.Label("T", page, "USTAWIENIA", 36, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(46);
-            SettingsUi.SensitivitySlider(page);
-            SettingsUi.DisplayModeButton(page);
-            SettingsUi.ResolutionButton(page);
-            SettingsUi.CrouchModeButton(page);
-            SettingsUi.DiscordSwitch(page);
-            UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 28).Height(60);
-            UiKit.Button("Voice", page, "Czat głosowy", () => Show(_voicePage), 28).Height(60);
-            UiKit.Rect("Gap", page).Height(20);
-            UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_main); }, 28).Height(60);
-            return page;
-        }
-
-        private RectTransform BuildVoice(Transform parent)
-        {
-            var page = UiKit.Rect("Voice", parent);
-            page.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), new Vector2(0, -70), new Vector2(-120, -280));
-            UiKit.VStack(page, 6);
-            UiKit.Label("T", page, "CZAT GŁOSOWY", 34, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(42);
-            SettingsUi.BuildVoice(page);
-            UiKit.Label("Info", page, "Mikrofon działa po wejściu na serwer.", 20, TextAnchor.MiddleLeft, UiKit.TextDim).Height(28);
-            UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_options); }, 26).Height(52);
-            return page;
-        }
-
-        private RectTransform BuildAudio(Transform parent)
-        {
-            var page = UiKit.Rect("Audio", parent);
-            page.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), new Vector2(0, -70), new Vector2(-120, -280));
-            UiKit.VStack(page, 6);
-            UiKit.Label("T", page, "DŹWIĘK", 34, TextAnchor.MiddleLeft, null, FontStyle.Bold).Height(42);
-            SettingsUi.BuildAudio(page);
-            UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_options); }, 26).Height(52);
-            return page;
-        }
-
-        private RectTransform BuildConnecting(Transform root)
-        {
-            var dim = UiKit.Image("Connecting", root, new Color(0, 0, 0, 0.75f));
-            dim.rectTransform.Stretch();
-            _connectingText = UiKit.Label("Text", dim.transform, "", 36, TextAnchor.MiddleCenter);
-            _connectingText.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 40), new Vector2(1200, 100));
-            var cancel = UiKit.Button("Cancel", dim.transform, "Anuluj", () =>
-            {
-                NetSession.Instance.Leave();
-                _connecting.gameObject.SetActive(false);
-            }, 28);
-            cancel.GetComponent<RectTransform>().Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -60), new Vector2(260, 60));
-            dim.gameObject.SetActive(false);
-            return dim.rectTransform;
+            OnButtonHovered(null);
+            if (_footer != null) _footer.gameObject.SetActive(page != _audio && page != _voicePage);
         }
 
         // ================================================================ actions
@@ -372,73 +225,6 @@ namespace HideAndSeek.Game.UI
             ? $"Skin {LocalProfile.Skin + 1} / 5"
             : $"Minecraft: {LocalProfile.McNick}";
 
-        // ================================================================ preview
-
-        private void BuildPreview()
-        {
-            if (previewRoot == null) return;
-            _preview = BlockyCharacterFactory.Create(previewRoot, LocalProfile.Skin, LocalProfile.Nick);
-            _preview.SetFirstPersonMode(false);
-            if (!string.IsNullOrEmpty(LocalProfile.McNick)) FetchMcSkin(LocalProfile.McNick);
-            _previewYaw = previewRoot.eulerAngles.y;
-            StartCoroutine(PoseCycle());
-        }
-
-        private float _previewYaw;
-        private AudioSource _menuLoop;
-
-        /// <summary>Menu character: stands in a 3/4 pose and shows off the gear in a loop instead of spinning.</summary>
-        private System.Collections.IEnumerator PoseCycle()
-        {
-            var a = _preview != null ? _preview.Actions : null;
-            if (a == null) yield break;
-            var wait = new System.Func<float, WaitForSeconds>(s => new WaitForSeconds(s));
-            Transform at = previewRoot;
-            void Sfx(GameSfx id, float v = 0.8f) => GameAudio.PlayAt(id, at.position + Vector3.up * 1.1f, v);
-            while (true)
-            {
-                yield return wait(4.5f);
-                a.SetHeldItem(HideAndSeek.Core.HeldItem.Knife);
-                Sfx(GameSfx.KnifeDraw);
-                yield return wait(0.9f);
-                Sfx(GameSfx.KnifeSwing, 0.5f);
-                yield return wait(0.5f);
-                Sfx(GameSfx.KnifeSwing, 0.4f);
-                yield return wait(1.4f);
-                a.SetHeldItem(HideAndSeek.Core.HeldItem.None);
-                yield return wait(4f);
-                a.SetHeldItem(HideAndSeek.Core.HeldItem.Glock);
-                Sfx(GameSfx.GlockEquip);
-                yield return wait(1.2f);
-                a.PlayReload();
-                Sfx(GameSfx.GlockReload);
-                yield return wait(2.4f);
-                a.SetHeldItem(HideAndSeek.Core.HeldItem.None);
-                yield return wait(4f);
-                a.SetHeldItem(HideAndSeek.Core.HeldItem.Chainsaw);
-                Debug.Log($"[MainMenu] preview chainsaw at t={Time.time:0.0}");
-                Sfx(GameSfx.ChainsawStart, 0.7f);
-                var idle = _menuLoop = GameAudio.StartLoop(GameSfx.ChainsawIdle, at, 0.5f);
-                yield return wait(1.6f);
-                a.SetRevving(true);
-                GameAudio.StopLoop(idle, 0.1f);
-                var rev = _menuLoop = GameAudio.StartLoop(GameSfx.ChainsawRev, at, 0.6f);
-                yield return wait(1.5f);
-                a.SetRevving(false);
-                GameAudio.StopLoop(rev, 0.3f);
-                idle = _menuLoop = GameAudio.StartLoop(GameSfx.ChainsawIdle, at, 0.5f);
-                yield return wait(1.4f);
-                GameAudio.StopLoop(idle, 0.4f);
-                _menuLoop = null;
-                a.SetHeldItem(HideAndSeek.Core.HeldItem.None);
-            }
-        }
-
-        private void RefreshPreview()
-        {
-            if (_preview != null) _preview.SetSkin(LocalProfile.Skin, LocalProfile.Nick);
-        }
-
         private Vector2Int _lastScreen;
         private float _refreshAt = 0.4f, _refreshAt2 = 1.5f;
 
@@ -463,6 +249,7 @@ namespace HideAndSeek.Game.UI
         private void Update()
         {
             RefreshTextsIfNeeded();
+            UpdateDescription();
             // Slow, small sway around the 3/4 pose (no full spin: shadows stay calm).
             if (previewRoot != null && _preview != null)
                 previewRoot.rotation = Quaternion.Euler(0f, _previewYaw + 7f * Mathf.Sin(Time.time * 0.35f), 0f);
@@ -528,7 +315,7 @@ namespace HideAndSeek.Game.UI
                 string friend = l.Friend ? "  [znajomy]" : "";
                 string ver = l.Version != Application.version ? "  (inna wersja)" : "";
                 var lobby = l;
-                var b = UiKit.Button("SteamLobby", _listRoot, $"STEAM   {(string.IsNullOrEmpty(l.Name) ? "?" : l.Name)}{friend}    {l.Members}/{l.Max}    {state}{ver}", () => JoinSteam(lobby.Id, lobby.Name), 24);
+                var b = UiKit.BoxButton("SteamLobby", _listRoot, $"STEAM   {(string.IsNullOrEmpty(l.Name) ? "?" : l.Name)}{friend}    {l.Members}/{l.Max}    {state}{ver}", () => JoinSteam(lobby.Id, lobby.Name), 24);
                 b.interactable = l.InLobby && l.Version == Application.version;
                 b.GetComponentInChildren<Text>().alignment = TextAnchor.MiddleLeft;
                 b.Height(58);
@@ -537,7 +324,7 @@ namespace HideAndSeek.Game.UI
             {
                 string state = s.InLobby ? "lobby" : "gra trwa";
                 var srv = s;
-                var b = UiKit.Button("Server", _listRoot, $"LAN   {s.Name}    {s.Players} graczy    {state}    {s.Address}", () => Join($"{srv.Address}:{srv.Port}"), 24);
+                var b = UiKit.BoxButton("Server", _listRoot, $"LAN   {s.Name}    {s.Players} graczy    {state}    {s.Address}", () => Join($"{srv.Address}:{srv.Port}"), 24);
                 b.interactable = s.InLobby;
                 b.GetComponentInChildren<Text>().alignment = TextAnchor.MiddleLeft;
                 b.Height(58);
@@ -546,6 +333,7 @@ namespace HideAndSeek.Game.UI
 
         private void OnDestroy()
         {
+            UiTextButtonFx.Hovered -= OnButtonHovered;
             LanDiscovery.StopSearch();
             // Leaving the menu (host / join) while the preview runs the chainsaw: stop its engine loop.
             if (_menuLoop != null)
