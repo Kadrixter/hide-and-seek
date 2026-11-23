@@ -174,8 +174,10 @@ namespace HideAndSeek.Characters
                 }
                 float legBad = LegCross(p);
                 Lie(ref p, s, MTorso | MLegs, s.TopY + 0.15f);
+                LeanToBack(ref p, s, 15f); // the back on the armrest
                 float bad = legBad + (Hits(p, s, MTorso | MLegs) ? 0.05f : 0f);
                 if (p.PelvisPos.y > s.TopY + 0.16f) bad += 0.05f; // sitting on the armrest, not the cushion
+                bad += Mathf.Max(0f, p.PelvisPos.y - (s.TopY + 0.13f)) * 2f; // the hips down on the cushion
 
                 // Left forearm along the top of the backrest.
                 Vector3 shL = p.ShoulderPos(1);

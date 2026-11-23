@@ -194,6 +194,10 @@ namespace HideAndSeek.Game.Net
                     CamShot(dir, $"fit_{seat.name}_p{v}_tpp_side", t.position + t.right * 1.9f + t.forward * 0.9f + Vector3.up * 1.2f, at);
                     CamShot(dir, $"fit_{seat.name}_p{v}_tpp_front", t.position + t.forward * 2.2f - t.right * 0.6f + Vector3.up * 1.35f, at);
                     CamShot(dir, $"fit_{seat.name}_p{v}_tpp_low", t.position + t.forward * 1.4f + t.right * 0.5f + Vector3.up * 0.35f, at - Vector3.up * 0.3f);
+                    // Profiles at seat height (just over the armrest): does the body rest on the cushion?
+                    Vector3 mid = t.position + Vector3.up * 0.42f - t.forward * 0.12f - (SeatPoses.Lying(v) ? t.right * 0.45f : Vector3.zero);
+                    CamShot(dir, $"fit_{seat.name}_p{v}_profile_r", mid + t.right * 2.4f + Vector3.up * 0.22f, mid);
+                    CamShot(dir, $"fit_{seat.name}_p{v}_profile_l", mid - t.right * 2.4f + Vector3.up * 0.22f, mid);
                     me.SetCinematicBody(false);
                     TestStandUp(me, seat);
                     yield return new WaitForSeconds(0.8f);

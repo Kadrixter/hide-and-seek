@@ -108,28 +108,30 @@ namespace HideAndSeek.Characters
         {
             var best = CharacterPose.Identity;
             float bestBad = float.MaxValue;
-            foreach (float lean in new[] { 28f, 24f, 32f, 20f, 36f })
             foreach (float z in new[] { 0.0f, 0.03f, -0.03f })
-            foreach (float px in new[] { 0.24f, 0.2f, 0.28f, 0.16f })
+            foreach (float px in new[] { 0.3f, 0.26f, 0.22f, 0.34f })
             {
+                // Sitting sideways upright first (hips down on the cushion, the back near the armrest), then leaning back
+                // until the back rests on the armrest.
                 var p = CharacterPose.Identity;
-                p.Pelvis = Quaternion.Euler(0f, -82f, 0f) * Quaternion.Euler(-14f, 0f, 0f);
-                p.Torso = Quaternion.Euler(14f - lean, 0f, 0f);
-                p.PelvisPos = new Vector3(px, s.TopY + 0.25f, z);
+                p.Pelvis = Quaternion.Euler(0f, -82f, 0f) * Quaternion.Euler(-8f, 0f, 0f);
+                p.Torso = Quaternion.Euler(4f, 0f, 0f);
+                p.PelvisPos = new Vector3(px, s.TopY + 0.13f, z);
                 NeutralHead(ref p, lim);
-                // Left (back-side) leg long along the cushion, the right (room-side) knee up with the foot on the cushion.
                 LegsFn legs = (ref CharacterPose q) =>
                 {
                     Vector3 hl = q.HipPos(1), hr = q.HipPos(0);
                     Plant(ref q, 1, hl.x - 0.62f, hl.z - 0.03f, Dir(0f, 1f, 0.1f), CushionY(s));
                     Plant(ref q, 0, hr.x - 0.36f, hr.z + 0.07f, Dir(-0.1f, 1f, 0.25f), CushionY(s));
                 };
-                Lie(ref p, s, MTorso, s.TopY + 0.15f);
-                for (int i = 0; i < 3; i++)
+                // Out of the armrest / back cushion if the upright body starts in them.
+                for (int i = 0; i < 12 && Hits(p, s, MTorso); i++) { p.PelvisPos.x -= 0.02f; p.PelvisPos.z += 0.01f; }
+                for (int i = 0; i < 4; i++)
                 {
                     legs(ref p);
                     Settle(ref p, s, MTorso | MThighs);
                 }
+                LeanToBack(ref p, s, 30f);
                 legs(ref p);
                 float legBad = LegCross(p);
                 float bad = legBad + (Hits(p, s, MTorso | MLegs) ? 0.05f : 0f);
@@ -170,7 +172,7 @@ namespace HideAndSeek.Characters
                 }
                 p = pr;
                 bad += br;
-                Score(p, bad, ref best, ref bestBad, $"carefree recline lean {lean:0} z {z:0.00} x {px:0.00}");
+                Score(p, bad, ref best, ref bestBad, $"carefree recline z {z:0.00} x {px:0.00}");
                 if (bad <= 0f) return p;
             }
             return best;
@@ -183,7 +185,7 @@ namespace HideAndSeek.Characters
             float bestBad = float.MaxValue;
             foreach (float rise in new[] { 24f, 28f, 20f, 32f, 16f })
             foreach (float tilt in new[] { 0f, -8f, 8f, -15f, 15f })
-            foreach (float px in new[] { -0.08f, -0.14f, -0.02f })
+            foreach (float px in new[] { -0.2f, -0.26f, -0.14f })
             {
                 float a = rise * Mathf.Deg2Rad, t = tilt * Mathf.Deg2Rad;
                 Vector3 up = new Vector3(-Mathf.Cos(a), Mathf.Sin(a), 0f);

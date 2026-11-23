@@ -25,7 +25,7 @@ namespace HideAndSeek.Game.Editor
     /// Batch: -executeMethod HideAndSeek.Game.Editor.SeatFitCheck.RunLobby  (report: Logs/seatfit.txt)
     /// Menu: Hide and Seek/Lobby/Seat fit check
     /// </summary>
-    public static class SeatFitCheck
+    public static partial class SeatFitCheck
     {
         // Penetration up to 1.5 cm is accepted (soft cushions give: the body must visibly rest on the furniture,
         // touching beats hovering); deeper is a problem.
@@ -88,6 +88,10 @@ namespace HideAndSeek.Game.Editor
             sb.AppendLine("=== Solver trace ===");
             sb.Append(trace);
             WriteViews(seats);
+            sb.AppendLine();
+            sb.AppendLine("=== Support gaps (hips on the seat, back on the backrest / armrest, legs on the cushions) ===");
+            sb.Append(SupportLog);
+            SupportLog.Clear();
             SeatPoses.UseBaked = true;
             SeatPoses.ClearCache();
             string path = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "seatfit.txt");
@@ -101,6 +105,7 @@ namespace HideAndSeek.Game.Editor
 
         static (int hits, float max, int eye, int neighbours) Check(List<LobbySeat> seats, List<Mesh3> meshes, bool legacy, StringBuilder sb)
         {
+            var sb2 = SupportLog;
             sb.AppendLine(legacy ? "=== BEFORE (old poses: pelvis 0.5 m for every seat) ===" : "=== AFTER (poses fitted to the seat) ===");
             int total = 0, eyeIssues = 0, nb = 0;
             float max = 0f;
@@ -215,6 +220,13 @@ namespace HideAndSeek.Game.Editor
                             }
                         }
                         if (gap > ContactMax) self.Add($"hovers: nearest furniture {gap * 100f:0.0} cm away");
+                        // Support: the seat under the hips, the back against the backrest / armrest, the legs on the
+                        // cushions (lying poses) - each must touch, not only some part of the body.
+                        foreach (var (what, d) in Support(v, shape, boxes, t, meshes, seat.transform.parent))
+                        {
+                            sb2.AppendLine($"{where} pose {v}: {what} gap {d * 100f:0.0} cm");
+                            if (d > SupportMax) self.Add($"no support: {what} {d * 100f:0.0} cm from the furniture");
+                        }
                     }
 
                     var worst = hits.GroupBy(h => h.Part + " x " + h.What).Select(g => (key: g.Key, d: g.Max(h => h.Depth))).OrderByDescending(x => x.d).ToList();
