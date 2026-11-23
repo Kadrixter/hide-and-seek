@@ -45,7 +45,7 @@ namespace HideAndSeek.Game.Net
             yield return WaitSeeking();
             var mm = MatchManager.Instance;
             // Same clock on both copies: the start of the seek phase.
-            _extT0 = mm.PhaseEnd.Value - mm.Settings.Value.SeekTime;
+            _extT0 = mm.PhaseEnd.Value - mm.Settings.Value.SeekTime + 4.0; // a few seconds for every copy to settle
             var me = NetPlayer.Local;
             bool host = NetworkManager.Singleton.IsServer;
             string role = me.Nick == "Widz" ? "watch" : me.IsSeeker ? "seeker" : "hider";
