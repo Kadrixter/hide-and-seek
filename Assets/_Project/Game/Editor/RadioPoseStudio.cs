@@ -44,6 +44,11 @@ namespace HideAndSeek.Game.Editor
             ["e"] = (new Vector3(0.335f, 0.672f, -0.24f), new Vector3(0f, 90f, 0f), new Vector3(-0.1f, 0.06f, 0f), new Vector3(0.6f, -0.2f, 1f)),
             ["g"] = (new Vector3(0.36f, 0.672f, -0.05f), new Vector3(-8f, 90f, 0f), new Vector3(0f, -0.05f, 0.13f), new Vector3(1f, -0.6f, 0.15f)),
             ["h"] = (new Vector3(0.36f, 0.672f, -0.1f), new Vector3(-8f, 90f, 0f), new Vector3(-0.12f, -0.03f, 0.12f), new Vector3(1f, -0.5f, 0.5f)),
+            ["b1"] = (new Vector3(0.37f, 0.682f, -0.05f), new Vector3(-4f, 90f, 0f), new Vector3(0f, -0.14f, 0.215f), new Vector3(1f, -1f, 0.1f)),
+            ["b2"] = (new Vector3(0.36f, 0.682f, -0.06f), new Vector3(-6f, 90f, 0f), new Vector3(-0.02f, -0.13f, 0.225f), new Vector3(1f, -1.2f, 0.2f)),
+            ["b3"] = (new Vector3(0.38f, 0.684f, -0.04f), new Vector3(-3f, 90f, 0f), new Vector3(0.04f, -0.12f, 0.235f), new Vector3(1f, -0.8f, 0f)),
+            ["s0"] = (new Vector3(0.363f, 0.719f, -0.062f), new Vector3(-2.5f, 90f, 0f), new Vector3(0.039f, -0.246f, 0.26f), new Vector3(1f, -0.82f, 0.26f)),
+            ["s1"] = (new Vector3(0.379f, 0.711f, -0.052f), new Vector3(4f, 90f, 0f), new Vector3(0.027f, -0.223f, 0.26f), new Vector3(1f, -1.71f, 0.35f)),
             ["f"] = (new Vector3(0.34f, 0.672f, -0.18f), new Vector3(8f, 90f, 0f), new Vector3(-0.12f, 0.05f, 0.03f), new Vector3(0.8f, -0.4f, 1f)),
         };
 
@@ -75,6 +80,7 @@ namespace HideAndSeek.Game.Editor
                 ShoulderRadioRig.RideEuler = vr.euler;
                 ShoulderRadioRig.FistOnGrip = vr.fist;
                 ShoulderRadioRig.RidePole = vr.pole;
+                ShoulderRadioRig.HeadTilt = variant == "s0" ? 15.7f : variant == "s1" ? 14.7f : 11f;
             }
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var floorMat = new Material(Shader.Find("Standard")) { color = new Color(0.42f, 0.42f, 0.43f) };
@@ -121,6 +127,8 @@ namespace HideAndSeek.Game.Editor
             Quaternion floorRot = Quaternion.Euler(0f, 180f, 0f);
 
             var frames = new List<(Texture2D tex, string label)>();
+            bool measure = false;
+            var pen = new Dictionary<string, float>();
             FirstPersonViewModel vm = null;
             Camera eye = null;
             const float dt = 1f / 60f;
@@ -142,6 +150,7 @@ namespace HideAndSeek.Game.Editor
                     root.transform.position += motion.Vel * dt;
                     anim.Tick(dt);
                     Place(gp, gr);
+                    if (measure && act.ShoulderRadioOn) Measure(ch, radio.transform, pen);
                     if (vm != null)
                     {
                         bool on = act.ShoulderRadioHands(out var fist, out var left, out float lw, out float ride);
@@ -162,13 +171,18 @@ namespace HideAndSeek.Game.Editor
             // Lift from the pallet.
             Run(0f, 1.7f, t => act.SetShoulderRadio(true, false, t, lyingPos, lyingRot, 0f, false), lyingPos, lyingRot,
                 new[] { 0.3f, 0.55f, 0.8f, 1.05f, 1.25f, 1.7f }, new[] { side }, "podnoszenie");
-            // Carry, still: three angles.
+            // Carry, still: three angles (and walking below): how deep the radio goes into the body.
+            measure = true;
             Run(1.7f, 3.2f, t => act.SetShoulderRadio(true, false, t, lyingPos, lyingRot, 0f, false), lyingPos, lyingRot,
                 new[] { 3.2f }, new[] { front34, side, back34, new Vector3(0.3f, 1.7f, 2.6f), new Vector3(-2.4f, 1.5f, 0.6f) }, "noszenie");
             // Walking with music (pulsing bass).
             motion.Vel = new Vector3(0f, 0f, 1.4f);
             Run(3.2f, 5.2f, t => act.SetShoulderRadio(true, false, t, lyingPos, lyingRot, Mathf.Max(0f, Mathf.Sin(t * Mathf.PI * 4f)) * 1.2f, true), lyingPos, lyingRot,
                 new[] { 4.6f, 4.75f, 4.9f }, new[] { front34 }, "chód z muzyką");
+            measure = false;
+            var sb = new System.Text.StringBuilder($"[RadioPose] {variant} penetration (cm, carry + walk):");
+            foreach (var kv in pen) sb.Append($" {kv.Key}={kv.Value * 100f:0.0}");
+            Debug.Log(sb.ToString());
             motion.Vel = Vector3.zero;
             Run(0f, 0.6f, _ => act.SetShoulderRadio(true, false, 9f, lyingPos, lyingRot, 0f, false), lyingPos, lyingRot, new float[0], new Vector3[0], "");
             // Put down on the floor in front.
@@ -224,6 +238,163 @@ namespace HideAndSeek.Game.Editor
             cam.targetTexture = null;
             RenderTexture.ReleaseTemporary(rt);
             return tex;
+        }
+
+        /// <summary>
+        /// -executeMethod ...RadioPoseStudio.SearchFromCommandLine [-radiosearchn N]: random search of the ride pose (around
+        /// variant B: radio on the raised upper arm, the forearm holding it from the outside) for the least body overlap
+        /// while standing and walking with music. Logs the best candidates as variant lines.
+        /// </summary>
+        public static void SearchFromCommandLine()
+        {
+            try
+            {
+                var args = Environment.GetCommandLineArgs();
+                int ni = Array.IndexOf(args, "-radiosearchn");
+                int n = ni >= 0 && ni + 1 < args.Length && int.TryParse(args[ni + 1], out int nn) ? nn : 250;
+                Search(n);
+                EditorApplication.Exit(0);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                EditorApplication.Exit(1);
+            }
+        }
+
+        private static void Search(int count)
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Player");
+            var motion = root.AddComponent<Motion>();
+            var ch = BlockyCharacterFactory.Create(root.transform, 1, "Radio");
+            var anim = ch.GetComponent<BlockyCharacterAnimator>();
+            anim.autoUpdate = false;
+            anim.SetMotionSource(motion);
+            var act = ch.GetComponent<BlockyCharacterActions>();
+            var radio = Boombox.Create("Radio", () => null);
+            var rng = new System.Random(5);
+            float R(float a, float b) => a + (float)rng.NextDouble() * (b - a);
+            var results = new List<(float score, string line)>();
+            const float dt = 1f / 60f;
+            float clock = 0f;
+            for (int c = 0; c < count; c++)
+            {
+                var ride = new Vector3(R(0.34f, 0.4f), R(0.675f, 0.75f), R(-0.08f, 0.02f));
+                var euler = new Vector3(R(-8f, 6f), 90f, 0f);
+                var fist = new Vector3(R(-0.07f, 0.05f), R(-0.25f, -0.1f), R(0.22f, 0.3f));
+                var pole = new Vector3(1f, R(-2f, -0.5f), R(-0.2f, 0.4f));
+                float tilt = R(10f, 18f);
+                if (c == 0) { ride = new Vector3(0.37f, 0.672f, -0.05f); euler = new Vector3(-4f, 90f, 0f); fist = new Vector3(0f, -0.145f, 0.19f); pole = new Vector3(1f, -1f, 0.1f); tilt = 11f; }
+                ShoulderRadioRig.RideTorso = ride;
+                ShoulderRadioRig.RideEuler = euler;
+                ShoulderRadioRig.FistOnGrip = fist;
+                ShoulderRadioRig.RidePole = pole;
+                ShoulderRadioRig.HeadTilt = tilt;
+                var pen = new Dictionary<string, float>();
+                float gap = 0f, grip = 0f;
+                root.transform.position = Vector3.zero;
+                for (int f = 0; f < 200; f++)
+                {
+                    bool walk = f >= 90;
+                    motion.Vel = walk ? new Vector3(0f, 0f, 1.5f) : Vector3.zero;
+                    clock += dt;
+                    float beat = walk ? Mathf.Max(0f, Mathf.Sin(clock * Mathf.PI * 4f)) * 1.3f : 0f;
+                    act.SetShoulderRadio(true, false, 9f, Vector3.zero, Quaternion.identity, beat, walk);
+                    root.transform.position += motion.Vel * dt;
+                    anim.Tick(dt);
+                    if (act.ShoulderRadioPose(out var p, out var r)) radio.transform.SetPositionAndRotation(p, r);
+                    if (f >= 40 && f % 3 == 0)
+                    {
+                        Measure(ch, radio.transform, pen);
+                        gap = Mathf.Max(gap, SupportGap(ch.ShoulderRight, radio.transform));
+                        grip = Mathf.Max(grip, GripGap(ch.ElbowRight, radio.transform));
+                    }
+                }
+                float worst = 0f, sum = 0f;
+                foreach (var kv in pen) { worst = Mathf.Max(worst, kv.Value); sum += kv.Value; }
+                // Small preference for the radio sitting low on the arm (no floating) and the fist near the top.
+                float score = worst * 100f + sum * 20f + Mathf.Max(0f, gap - 0.012f) * 60f + Mathf.Max(0f, grip - 0.01f) * 60f;
+                var sb = new System.Text.StringBuilder();
+                foreach (var kv in pen) sb.Append($" {kv.Key}={kv.Value * 100f:0.0}");
+                sb.Append($" gap={gap * 100f:0.0} grip={grip * 100f:0.0}");
+                string line = FormattableString.Invariant($"ride=({ride.x:0.000}f, {ride.y:0.000}f, {ride.z:0.000}f) euler=({euler.x:0.0}f, 90f, 0f) fist=({fist.x:0.000}f, {fist.y:0.000}f, {fist.z:0.000}f) pole=(1f, {pole.y:0.00}f, {pole.z:0.00}f) tilt={tilt:0.0} |{sb}");
+                results.Add((score, line));
+                if (c == 0) Debug.Log($"[RadioSearch] B now: score={score:0.0} {line}");
+            }
+            results.Sort((a, b) => a.score.CompareTo(b.score));
+            for (int i = 0; i < Mathf.Min(8, results.Count); i++) Debug.Log($"[RadioSearch] #{i} score={results[i].score:0.0} {results[i].line}");
+        }
+
+        /// <summary>How far the radio's bottom (middle part) is above the upper arm it rests on (m, largest while measured).</summary>
+        private static float SupportGap(Transform arm, Transform radio)
+        {
+            var mf = arm.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null) return 0f;
+            Bounds b = mf.sharedMesh.bounds;
+            float best = float.MaxValue;
+            for (int i = -2; i <= 2; i++)
+            {
+                Vector3 w = radio.TransformPoint(new Vector3(i * 0.06f, 0f, 0f));
+                Vector3 l = arm.InverseTransformPoint(w);
+                Vector3 c = b.ClosestPoint(l);
+                best = Mathf.Min(best, Vector3.Distance(arm.TransformPoint(c), w));
+            }
+            return best;
+        }
+
+        /// <summary>How far the fist (end of the forearm block) is from the radio's face / speakers (m).</summary>
+        private static float GripGap(Transform forearm, Transform radio)
+        {
+            var mf = forearm.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null) return 0f;
+            Bounds b = mf.sharedMesh.bounds;
+            float best = float.MaxValue;
+            for (int ix = -6; ix <= 6; ix++)
+            for (int iy = 0; iy <= 6; iy++)
+            {
+                float x = ix * 0.04f, y = 0.03f + iy * 0.035f;
+                float dx = Mathf.Abs(x) - 0.168f, dy = y - 0.133f;
+                float z = dx * dx + dy * dy <= 0.1f * 0.1f ? 0.075f + 0.028f : 0.075f + 0.008f; // speaker pods stand out
+                Vector3 w = radio.TransformPoint(new Vector3(x, y, z));
+                Vector3 l = forearm.InverseTransformPoint(w);
+                best = Mathf.Min(best, Vector3.Distance(forearm.TransformPoint(b.ClosestPoint(l)), w));
+            }
+            return best;
+        }
+
+        /// <summary>Deepest point of the radio body (and the speaker pods) inside each body block (m).</summary>
+        private static void Measure(BlockyCharacter ch, Transform radio, Dictionary<string, float> pen)
+        {
+            var parts = new[] { ("head", ch.Head), ("body", ch.BodyMesh), ("upperarmR", ch.ShoulderRight), ("forearmR", ch.ElbowRight),
+                ("upperarmL", ch.ShoulderLeft), ("forearmL", ch.ElbowLeft) };
+            const float W = 0.56f, H = 0.27f, D = 0.15f;
+            foreach (var (name, t) in parts)
+            {
+                var mf = t != null ? t.GetComponent<MeshFilter>() : null;
+                if (mf == null || mf.sharedMesh == null) continue;
+                Bounds b = mf.sharedMesh.bounds;
+                float worst = pen.TryGetValue(name, out float w0) ? w0 : 0f;
+                for (int ix = 0; ix <= 14; ix++)
+                for (int iy = 0; iy <= 7; iy++)
+                for (int iz = 0; iz <= 6; iz++)
+                {
+                    float z = Mathf.Lerp(-D * 0.5f, D * 0.5f + 0.028f, iz / 6f);
+                    float x = Mathf.Lerp(-W * 0.5f, W * 0.5f, ix / 14f), y = Mathf.Lerp(0.004f, H, iy / 7f);
+                    if (z > D * 0.5f)
+                    {
+                        // The speaker pods only (circles of 0.1 m round the woofers).
+                        float dx = Mathf.Abs(x) - 0.168f, dy = y - 0.133f;
+                        if (dx * dx + dy * dy > 0.1f * 0.1f) continue;
+                    }
+                    Vector3 lp = t.InverseTransformPoint(radio.TransformPoint(new Vector3(x, y, z)));
+                    if (!b.Contains(lp)) continue;
+                    Vector3 d1 = lp - b.min, d2 = b.max - lp;
+                    float depth = Mathf.Min(Mathf.Min(d1.x, d2.x), Mathf.Min(Mathf.Min(d1.y, d2.y), Mathf.Min(d1.z, d2.z)));
+                    if (depth > worst) worst = depth;
+                }
+                pen[name] = worst;
+            }
         }
 
         private static Texture2D ShotFpp(Camera eye)

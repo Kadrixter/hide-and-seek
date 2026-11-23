@@ -211,7 +211,7 @@ namespace HideAndSeek.Game
                 var s = mm.MapRadios[i];
                 Place(mm, v, s, out bool held, out NetPlayer holder);
                 var t = v.Box.transform;
-                t.SetPositionAndRotation(v.Pos, v.Rot);
+                t.SetPositionAndRotation(v.Pos + FppNudge(mm, s, holder), v.Rot);
                 if (v.Box.Collider != null) v.Box.Collider.enabled = !held && v.Landed;
                 float fold = s.Mode == MapRadioState.Carried || s.Move != MapRadioState.Placed ? 1f : 0f;
                 if (fold != v.Fold)
@@ -221,6 +221,20 @@ namespace HideAndSeek.Game
                 }
                 // The local carrier sees the real radio too (it sits beside his head: its end shows at the right edge).
             }
+        }
+
+        /// <summary>
+        /// Local carrier in first person only: the radio sits a few cm further out and back, so from the eyes only its end
+        /// shows at the edge of the view (the others see it exactly on the shoulder). Faded in / out with the lift / put.
+        /// </summary>
+        private Vector3 FppNudge(MatchManager mm, in MapRadioState s, NetPlayer holder)
+        {
+            if (holder == null || !holder.IsOwner || !(holder.Actions is BlockyCharacterActions b) || !IsFirstPerson(b)) return Vector3.zero;
+            float since = Since(mm, s);
+            float k = s.Mode == MapRadioState.Carried ? Mathf.Clamp01((since - ShoulderRadioRig.LiftTime + 0.35f) / 0.35f)
+                : s.Move == MapRadioState.PutDown ? 1f - Mathf.Clamp01(since / 0.3f) : 0f;
+            k = Mathf.SmoothStep(0f, 1f, k);
+            return (holder.transform.right * 0.06f - holder.transform.forward * 0.09f) * k;
         }
 
         private static bool IsFirstPerson(BlockyCharacterActions b)

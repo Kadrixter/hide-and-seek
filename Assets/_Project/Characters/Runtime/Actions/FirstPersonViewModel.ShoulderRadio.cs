@@ -38,12 +38,12 @@ namespace HideAndSeek.Characters
             // Hands on the radio's spot on screen (view-model FOV corrected); on the shoulder the fist is out of the
             // view at the top right and the forearm rises along the edge.
             Vector3 onScreen = RigOnScreen(vmrFist, 0.8f) + new Vector3(0.04f, -0.05f, 0f);
-            Vector3 ride = new Vector3(0.5f, -0.02f + 0.008f * Mathf.Sin(time * 1.7f) - 0.012f * vmrBeat, 0.3f);
+            Vector3 ride = new Vector3(0.45f, -0.2f + 0.008f * Mathf.Sin(time * 1.7f) - 0.012f * vmrBeat, 0.4f);
             rightT = Vector3.Lerp(onScreen, ride, vmrRide);
             leftT = RigOnScreen(vmrLeft, 0.8f) + new Vector3(-0.04f, -0.05f, 0f);
             wantLeft = vmrLeftW;
             show = HeldItem.None;
-            SolveArm(shR, elR, ShoulderR, rightT, Vector3.Lerp(new Vector3(1f, -0.8f, -0.3f), new Vector3(1f, -1f, 0.6f), vmrRide));
+            SolveArm(shR, elR, ShoulderR, rightT, Vector3.Lerp(new Vector3(1f, -0.8f, -0.3f), new Vector3(1f, -1.3f, 0.2f), vmrRide));
             return true;
         }
     }

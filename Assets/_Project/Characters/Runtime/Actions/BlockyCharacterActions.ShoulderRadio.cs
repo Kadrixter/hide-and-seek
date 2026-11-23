@@ -179,7 +179,12 @@ namespace HideAndSeek.Characters
             {
                 float sway = Mathf.Sin(time * Mathf.PI * 2f * 0.92f) * srMusicW;
                 float nod = 7f * srBeatS;
-                q.Head = Quaternion.Slerp(q.Head, q.Head * Quaternion.Euler(nod, ShoulderRadioRig.HeadYaw + 4f * sway, ShoulderRadioRig.HeadTilt), rideW);
+                // The block head next to the radio cannot turn (any turn swings a corner into the radio): it keeps the look
+                // up / down and the nod, leans away from the radio and only sways a little with the music.
+                Vector3 he = q.Head.eulerAngles;
+                float hp = Mathf.Clamp(Mathf.DeltaAngle(0f, he.x), -40f, 40f);
+                Quaternion held = Quaternion.Euler(hp + nod, Mathf.Clamp(ShoulderRadioRig.HeadYaw + 1.5f * sway, -4f, 2f), ShoulderRadioRig.HeadTilt + 1.5f * sway);
+                q.Head = Quaternion.Slerp(q.Head, held, rideW);
                 q.Torso = q.Torso * Quaternion.Euler(1.2f * srBeatS * rideW, 3f * sway * rideW, (2.5f + 2.2f * sway) * rideW);
                 q.PelvisPos += new Vector3(0.012f * sway * rideW, -0.008f * srBeatS * rideW, 0f);
             }
