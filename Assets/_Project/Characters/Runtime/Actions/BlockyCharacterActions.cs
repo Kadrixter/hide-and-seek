@@ -416,6 +416,7 @@ namespace HideAndSeek.Characters
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand
             ApplyLegThrow(ref p, dt, lookPitch); // cut-off leg: wind-up / throw (LegThrow.cs)
             ApplyPaMic(ref p, dt, standing);
+            ApplyEmote(ref p, dt, standing); // K wheel emotes (full body, below every layer after this)
             ApplyShoulderRadio(ref p, dt, standing); // boombox on the shoulder (map radio)
             ApplyExtLayers(ref p, dt, standing, lookPitch); // fire extinguisher in the hands / foam wiped off the face
 
@@ -540,6 +541,7 @@ namespace HideAndSeek.Characters
         {
             // Actions and lying down show their own item: the hand needs no put-away motion afterwards.
             if (action != ActionKind.None || VisualLifeState != LifeState.Alive) drawnItem = heldItem;
+            if (emoteW > 0.05f) return HeldItem.None; // emote: hands free (comes back with the draw motion)
             if (VendingShowsCan) return HeldItem.Can;
             if (PhoneSmashing) return HeldItem.None;
             if (RemoteThrowing) return RemoteShownItem();

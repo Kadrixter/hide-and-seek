@@ -98,6 +98,8 @@ namespace HideAndSeek.Game
             PlayerListHud.Create(root);
             KeyHints.Create(root);
             PoseWheel.Create(root);
+            EmoteWheel.Create(root);
+            ConsentPrompt.Create(root);
             DustBadge.Create(root);
 
             _lobbyInfo = UiKit.Label("LobbyInfo", root, "", 22, TextAnchor.UpperLeft);
@@ -268,7 +270,8 @@ namespace HideAndSeek.Game
                 _lastScreen = scr;
                 if (_canvas != null) UiKit.RefreshTexts(_canvas.transform);
             }
-            PoseWheel.Tick(); // pose wheel (G while seated); first, so Esc that closes it never opens the menu
+            PoseWheel.Tick(); // K wheels (poses while seated, emotes otherwise); first, so Esc that closes them never opens the menu
+            EmoteWheel.Tick();
             var nm = NetworkManager.Singleton;
             bool inSession = nm != null && nm.IsListening && NetPlayer.Local != null;
             _canvas.enabled = inSession && !KillCam.Active;
@@ -293,7 +296,7 @@ namespace HideAndSeek.Game
 
             // ---- Esc menu
             var kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape)
+            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape)
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
                 else if (_settingsPanel != null || _escMenu != null) CloseMenus();
@@ -498,7 +501,7 @@ namespace HideAndSeek.Game
         {
             var cam = Camera.main;
             bool lobby = phase == MatchPhase.Lobby || phase == MatchPhase.Loading;
-            bool canSee = lobby || me.IsHider || (me.IsSeeker && phase == MatchPhase.Seeking);
+            bool canSee = (lobby || me.IsHider || (me.IsSeeker && phase == MatchPhase.Seeking)) && !me.EmoteViewActive; // emote camera: tags would sit at the eye view
             int used = 0;
             if (cam != null && canSee)
             {

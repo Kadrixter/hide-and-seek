@@ -154,6 +154,7 @@ namespace HideAndSeek.Game.Net
             StartRcRemoteTests(Has);
             StartPaTests(Has);
             StartExtTests(Has);
+            StartEmoteTests(Has);
             StartSeekerTests(Has);
             StartLobbyReturnTests(Arg);
             StartMapVizTests();

@@ -273,9 +273,9 @@ namespace HideAndSeek.Game.Net
             bool rc = _p.RcAnimating;
             bool gasp = _p.Gasping;
             bool collapsed = _p.OverdoseActive; // lying after too many cans: the body drives the view (NetPlayer.Drunk)
-            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed;
-            bool poseWheel = PoseWheel.IsOpen; // pose wheel: the mouse points at a slice instead of turning the head
-            _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel && !collapsed;
+            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed && !_p.EmoteHoldsMove;
+            bool poseWheel = PoseWheel.IsOpen || EmoteWheel.IsOpen; // K wheels: the mouse points at a slice instead of turning the head
+            _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel && !collapsed && !_p.EmoteViewActive;
             var cc = _p.GetComponent<CharacterController>();
             bool ccOn = !dead && _p.Seat.Value < 0;
             if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;
@@ -1066,8 +1066,7 @@ namespace HideAndSeek.Game.Net
             }
 
             // Hold H (rescue / heal other), hold G (heal self). Seated in the lobby G opens the pose wheel instead.
-            bool gFree = !PoseWheel.OwnsG(_p);
-            bool gHeld = gFree && kb.gKey.isPressed, gDown = gFree && kb.gKey.wasPressedThisFrame;
+            bool gHeld = kb.gKey.isPressed, gDown = kb.gKey.wasPressedThisFrame; // G = medkit only (the pose wheel is on K)
             PromptKind wantHold = PromptKind.None;
             NetPlayer target2 = null;
             if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && (kb.hKey.isPressed || TestHoldH || HotbarInput.HoldH))
