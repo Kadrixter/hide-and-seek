@@ -518,11 +518,20 @@ namespace HideAndSeek.Game.Net
                 RaceSystem.Ensure();
             if ((ph == MatchPhase.Hiding || ph == MatchPhase.Seeking || (ph == MatchPhase.Ended && !RaceMode)) && SceneManager.GetActiveScene().name == NetSession.GameScene)
             {
-                ChainsawShelf.Ensure(ChainsawTaken.Value);
-                CarAlarms.Ensure();
-                SecurityRooms.Ensure();
-                PaSystem.Ensure();
+                TimedEnsure("chainsaw shelf", () => ChainsawShelf.Ensure(ChainsawTaken.Value));
+                TimedEnsure("car alarms", CarAlarms.Ensure);
+                TimedEnsure("security rooms", SecurityRooms.Ensure);
+                TimedEnsure("public address", PaSystem.Ensure);
             }
+        }
+
+        /// <summary>Builds a map prop; a build over 100 ms is logged ([Hitch]: the freeze at the start of a round).</summary>
+        private static void TimedEnsure(string what, System.Action ensure)
+        {
+            double t0 = FrameHitchLog.Now;
+            ensure();
+            double ms = FrameHitchLog.Now - t0;
+            if (ms > 100) Debug.LogWarning($"[Hitch] round start: {what} built in {ms:0} ms");
         }
 
         private void UpdateServerProps()
