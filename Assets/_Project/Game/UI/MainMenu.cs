@@ -73,6 +73,13 @@ namespace HideAndSeek.Game.UI
             UiTextButtonFx.Hovered += OnButtonHovered;
 
             BuildPreview();
+            if (OutroOnStart)
+            {
+                // "Wyjdź z gry" from the Esc menu: the session is gone, say goodbye here and quit
+                OutroOnStart = false;
+                StartCoroutine(Outro(true));
+                return;
+            }
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-menushots") >= 0) StartCoroutine(MenuShots()); // MainMenu.Tests.cs
             else if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testmenu") >= 0) StartCoroutine(TestPages());
         }
@@ -252,7 +259,7 @@ namespace HideAndSeek.Game.UI
             UpdateDescription();
             // Slow, small sway around the 3/4 pose (no full spin: shadows stay calm).
             if (previewRoot != null && _preview != null)
-                previewRoot.rotation = Quaternion.Euler(0f, _previewYaw + 7f * Mathf.Sin(Time.time * 0.35f), 0f);
+                previewRoot.rotation = Quaternion.Euler(0f, _previewYaw + (OutroPlaying ? 0f : 7f * Mathf.Sin(Time.time * 0.35f)), 0f);
 
             if (_browser.gameObject.activeSelf)
             {

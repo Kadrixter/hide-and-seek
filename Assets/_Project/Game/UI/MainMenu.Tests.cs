@@ -74,6 +74,25 @@ namespace HideAndSeek.Game.UI
             yield return Shot("12_quit_dialog_hover", 0.8f);
             if (dlg != null) Destroy(dlg.gameObject);
             yield return Shot("13_back", 1.0f);
+
+            // outro (goodbye wave): stills at fixed moments, optionally every frame at 30 fps (-outroframes dir) for a video
+            int fi = System.Array.IndexOf(args, "-outroframes");
+            string framesDir = fi >= 0 && fi + 1 < args.Length ? args[fi + 1] : null;
+            if (framesDir != null) { Directory.CreateDirectory(framesDir); Time.captureFramerate = 30; }
+            float[] stills = { 0.25f, 0.6f, 1.0f, 1.35f, 1.7f, 2.05f, 2.4f, 2.8f, 3.2f };
+            int next = 0, frame = 0;
+            _outroHook = t =>
+            {
+                if (framesDir != null) ScreenCapture.CaptureScreenshot(Path.Combine(framesDir, $"f{frame++:000}.png"));
+                if (next < stills.Length && t >= stills[next])
+                {
+                    ScreenCapture.CaptureScreenshot(Path.Combine(dir, $"14_outro_{next:00}_{stills[next]:0.00}s.png"));
+                    next++;
+                }
+            };
+            yield return Outro(false);
+            _outroHook = null;
+            Time.captureFramerate = 0;
             Debug.Log("[MenuShots] done");
             Application.Quit();
         }

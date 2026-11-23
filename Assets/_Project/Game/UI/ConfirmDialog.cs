@@ -80,7 +80,7 @@ namespace HideAndSeek.Game.UI
         // ================================================================ the questions used by the menus
 
         public static void ConfirmQuit() =>
-            Show("Na pewno chcesz wyjść z gry?", null, "Tak, wyjdź", "Nie", Application.Quit);
+            Show("Na pewno chcesz wyjść z gry?", null, "Tak, wyjdź", "Nie", MainMenu.QuitWithOutro); // outro: the menu character waves goodbye
 
         /// <summary>Leaving a session: the host closes the server for everybody, a client only disconnects.</summary>
         public static void ConfirmLeave(bool host, Action leave)
