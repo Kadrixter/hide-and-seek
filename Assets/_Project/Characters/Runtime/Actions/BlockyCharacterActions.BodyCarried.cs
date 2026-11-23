@@ -86,6 +86,20 @@ namespace HideAndSeek.Characters
             bodyRelease = true;
         }
 
+        /// <summary>Diagnostics for the tests.</summary>
+        public string BodyCarryDebug
+        {
+            get
+            {
+                var st = bodyCarriedBy ?? bodyCarrying;
+                var tick = GetComponent<BodyCarryTicker>();
+                Vector3 pel = character != null && character.Pelvis != null ? character.Pelvis.position : Vector3.zero;
+                return $"carried={bodyCarriedBy != null} carrying={bodyCarrying != null} frame={Time.frameCount} carriedFrame={(st != null ? st.CarriedFrame : -9)} " +
+                       $"tickFrame={(st != null ? st.TickFrame : -9)} auto={(animator != null ? animator.autoUpdate.ToString() : "-")} ticker={(tick != null && tick.enabled)} " +
+                       $"pelvis={pel:F2} root={transform.position:F2} settling={bodyRelease}";
+            }
+        }
+
         /// <summary>The carrier vanished without ending the carry (left the game): let go of the body here.</summary>
         public void ForceEndCarried()
         {

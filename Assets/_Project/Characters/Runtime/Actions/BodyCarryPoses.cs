@@ -121,7 +121,7 @@ namespace HideAndSeek.Characters
         /// <summary>Both hands on the own belly (the wound), elbows out.</summary>
         public static void RestArms(ref CharacterPose p, float breath)
         {
-            p.SolveArm(0, p.TorsoPoint(new Vector3(0.07f, 0.23f + 0.006f * breath, 0.17f)), p.TorsoRoot * new Vector3(1f, -0.4f, -0.2f));
+            p.SolveArm(0, p.TorsoPoint(new Vector3(0.07f, 0.23f + 0.006f * breath, 0.17f)), p.TorsoRoot * new Vector3(0.45f, -1f, -0.2f));
             p.SolveArm(1, p.TorsoPoint(new Vector3(-0.09f, 0.19f, 0.17f)), p.TorsoRoot * new Vector3(-1f, -0.4f, -0.2f));
         }
 

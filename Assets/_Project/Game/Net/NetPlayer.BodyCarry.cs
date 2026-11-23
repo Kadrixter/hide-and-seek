@@ -54,8 +54,6 @@ namespace HideAndSeek.Game.Net
         private NetPlayer _carryLinkTarget;
         private BodyCarryPhase _carryPhaseSeen;
         private bool _carryEffortHooked;
-        private NetPlayer _carriedByCache;
-        private int _carriedByFrame = -1;
         private bool _carriedFollow, _carriedPlaced, _stepsMuted;
         private float _carrierYawPrev;
         private bool _carrierYawValid;
@@ -72,12 +70,10 @@ namespace HideAndSeek.Game.Net
         {
             get
             {
-                if (_carriedByFrame == Time.frameCount) return _carriedByCache;
-                _carriedByFrame = Time.frameCount;
-                _carriedByCache = null;
+                // No per-frame cache: the server may start a carry in the middle of a frame (host).
                 foreach (var o in All)
-                    if (o != null && o != this && o.CarryVar.Value.Active && o.CarryVar.Value.Target == NetworkObjectId) { _carriedByCache = o; break; }
-                return _carriedByCache;
+                    if (o != null && o != this && o.CarryVar.Value.Active && o.CarryVar.Value.Target == NetworkObjectId) return o;
+                return null;
             }
         }
 
@@ -132,6 +128,7 @@ namespace HideAndSeek.Game.Net
                     if (IsOwner && pack.PhaseValue == BodyCarryPhase.Lift) BeginApproach(target, pack);
                 }
                 FillCarryState(pack, target);
+                if (!tb.IsCarriedBody) bca.BeginBodyCarry(tb, _carryLink); // the carried let go meanwhile (e.g. its own update ran first)
                 bca.SetCarried(0, null); // the inventory item goes into the pocket
                 if (IsOwner) (ViewModel as FirstPersonViewModel)?.SetCarried(0, null);
             }

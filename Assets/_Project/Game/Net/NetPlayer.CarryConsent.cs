@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
@@ -8,8 +9,14 @@ namespace HideAndSeek.Game.Net
     /// <summary>
     /// Consent for the body carry: the carrier asks (B held on an injured hider), the other player gets
     /// "&lt;nick&gt; chce cię podnieść - [Y] tak / [N] nie" for <see cref="CarryConsentTime"/> s
-    /// (<see cref="UI.CarryConsentPrompt"/>), the server starts the lift only on "yes". Kept apart from the carry
-    /// itself so it can later be switched over to a shared consent system (same keys Y / N).
+    /// (<see cref="UI.CarryConsentPrompt"/>), the server starts the lift only on "yes".
+    /// <para>
+    /// The whole question lives in ONE server method, <see cref="ServerAskCarry"/>: it asks and calls
+    /// <see cref="ServerCarryAnswered"/> exactly once. To switch over to the shared consent system replace its body with
+    /// <c>Consent.Ask(this, target, ConsentKind.Carry, 0, "chce cię podnieść i nieść na rękach",
+    /// a =&gt; ServerCarryAnswered(target, a == ConsentAnswer.Yes), () =&gt; CanCarry(this, target, out _))</c> and delete
+    /// the RPCs below it plus <c>UI/CarryConsentPrompt.cs</c>'s question panel (its status line stays).
+    /// </para>
     /// Test switch <c>-autoconsent</c>: this player says yes to every request after a moment.
     /// </summary>
     public partial class NetPlayer
@@ -17,31 +24,53 @@ namespace HideAndSeek.Game.Net
         public const float CarryConsentTime = 10f;
 
         /// <summary>Test: answer "yes" automatically.</summary>
-        public static readonly bool AutoConsent = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-autoconsent") >= 0;
-
-        // Server: pending questions, carried player's id -> (carrier's id, valid until).
-        private static readonly Dictionary<ulong, (ulong carrier, double until)> _carryAsks = new();
+        public static readonly bool AutoConsent = Array.IndexOf(Environment.GetCommandLineArgs(), "-autoconsent") >= 0;
 
         /// <summary>Owner of the carrier: asks <paramref name="targetId"/> whether he may be carried.</summary>
         [Rpc(SendTo.Server)]
         public void RequestCarryRpc(ulong targetId)
         {
             var target = Find(targetId);
-            var mm = MatchManager.Instance;
-            if (mm == null) return;
             if (!CanCarry(this, target, out string why))
             {
                 if (!string.IsNullOrEmpty(why)) ToastRpc(why, 2.5f);
                 return;
             }
-            if (_carryAsks.TryGetValue(targetId, out var a) && a.until > mm.Now && a.carrier != NetworkObjectId)
+            ServerAskCarry(target);
+        }
+
+        /// <summary>Server: both agreed (or not) - the single answer of <see cref="ServerAskCarry"/>.</summary>
+        private void ServerCarryAnswered(NetPlayer target, bool yes)
+        {
+            if (target == null) return;
+            if (!yes)
+            {
+                ToastRpc($"{target.Nick} nie chce, żebyś go niósł.", 3f);
+                Debug.Log($"[Carry] {target.Nick} said no to {Nick}");
+                return;
+            }
+            ServerStartCarry(target);
+        }
+
+        // ================================================================ own consent (replaceable by the shared one)
+
+        // Server: pending questions, carried player's id -> (carrier's id, valid until).
+        private static readonly Dictionary<ulong, (ulong carrier, double until)> _carryAsks = new();
+
+        /// <summary>Server: asks <paramref name="target"/>; calls <see cref="ServerCarryAnswered"/> once (no answer = no).</summary>
+        private void ServerAskCarry(NetPlayer target)
+        {
+            var mm = MatchManager.Instance;
+            if (mm == null || target == null) return;
+            ulong tid = target.NetworkObjectId;
+            if (_carryAsks.TryGetValue(tid, out var a) && a.until > mm.Now && a.carrier != NetworkObjectId)
             {
                 ToastRpc($"Ktoś inny już pyta {target.Nick}.", 2.5f);
                 return;
             }
-            _carryAsks[targetId] = (NetworkObjectId, mm.Now + CarryConsentTime + 0.5);
+            _carryAsks[tid] = (NetworkObjectId, mm.Now + CarryConsentTime + 0.5);
             target.CarryAskRpc(NetworkObjectId, NickVar.Value, RpcTarget.Single(target.OwnerClientId, RpcTargetUse.Temp));
-            CarryAskSentRpc(targetId);
+            CarryAskSentRpc(tid);
             Debug.Log($"[Carry] {Nick} asks {target.Nick}");
         }
 
@@ -63,25 +92,19 @@ namespace HideAndSeek.Game.Net
 
         /// <summary>Owner of the asked player: yes / no (or no answer in time = no).</summary>
         [Rpc(SendTo.Server)]
-        public void RespondCarryRpc(ulong carrierId, bool yes)
+        private void RespondCarryRpc(ulong carrierId, bool yes)
         {
             if (!_carryAsks.TryGetValue(NetworkObjectId, out var a) || a.carrier != carrierId) return;
             _carryAsks.Remove(NetworkObjectId);
             var carrier = Find(carrierId);
             var mm = MatchManager.Instance;
             if (carrier == null || mm == null) return;
-            carrier.CarryAnsweredRpc(yes);
+            carrier.CarryAnsweredRpc();
             if (mm.Now > a.until) { carrier.ToastRpc($"{Nick} nie odpowiedział.", 2.5f); return; }
-            if (!yes)
-            {
-                carrier.ToastRpc($"{Nick} nie chce, żebyś go niósł.", 3f);
-                Debug.Log($"[Carry] {Nick} said no to {carrier.Nick}");
-                return;
-            }
-            carrier.ServerStartCarry(this);
+            carrier.ServerCarryAnswered(this, yes);
         }
 
         [Rpc(SendTo.Owner)]
-        private void CarryAnsweredRpc(bool yes) => UI.CarryConsentPrompt.Answered();
+        private void CarryAnsweredRpc() => UI.CarryConsentPrompt.Answered();
     }
 }

@@ -44,11 +44,11 @@ namespace HideAndSeek.Characters
         /// <summary>Where a downed body's pelvis should lie when the lift starts (carrier space).</summary>
         public static readonly Vector3 FloorPelvisLocal = new Vector3(0.05f, 0f, 0.5f);
         /// <summary>Where a standing player's root should be when the lift starts (carrier space).</summary>
-        public static readonly Vector3 StandRootLocal = new Vector3(0.02f, 0f, 0.52f);
+        public static readonly Vector3 StandRootLocal = new Vector3(0.08f, 0f, 0.58f);
         /// <summary>Put down onto the floor: pelvis (carrier space).</summary>
         public static readonly Vector3 PutPelvisLocal = new Vector3(0.05f, 0f, 0.46f);
         /// <summary>Put down onto the feet: root (carrier space).</summary>
-        public static readonly Vector3 PutStandLocal = new Vector3(0.02f, 0f, 0.5f);
+        public static readonly Vector3 PutStandLocal = new Vector3(0.12f, 0f, 0.62f);
 
         static Vector3 Side(Vector3 v, bool mirror) => mirror ? new Vector3(-v.x, v.y, v.z) : v;
 

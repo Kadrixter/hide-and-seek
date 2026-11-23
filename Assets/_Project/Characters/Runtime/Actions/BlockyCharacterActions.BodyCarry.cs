@@ -211,6 +211,7 @@ namespace HideAndSeek.Characters
                 cr.Pelvis += new Vector3(0.02f, 0.03f, -0.02f);
             }
             cr.Pelvis.y += bounce;
+            cr.Curl += 1.6f * Mathf.Sin(breathPhase * 0.9f + 2f); // the carried breathes too (slower, shallow)
             cr.Swing = -bounce * 260f;
             var c = BodyCarryPoses.CradlePose(cr, legSway);
             AttachToTorso(ref c, k);

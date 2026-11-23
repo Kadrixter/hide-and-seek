@@ -31,7 +31,8 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[CarryTest] {what}: phase={v.PhaseValue} t={NetPlayer.CarryPhaseTime(v):0.00} carrying={me.IsCarryingBody} " +
                       $"target life={t.Life.Value} carriedBy={(t.CarriedBy != null ? t.CarriedBy.Nick : "-")} " +
                       $"me={me.transform.position:F2} target={t.transform.position:F2} d={Vector3.Distance(me.transform.position, t.transform.position):0.00} " +
-                      $"speedScale={me.Motor.SpeedScale:0.00} burdened={me.Motor.Burdened} line='{UI.CarryConsentPrompt.LineText}'");
+                      $"speedScale={me.Motor.SpeedScale:0.00} burdened={me.Motor.Burdened} line='{UI.CarryConsentPrompt.LineText}' | " +
+                      $"    carrier: {(me.Actions as BlockyCharacterActions)?.BodyCarryDebug} | carried: {(t.Actions as BlockyCharacterActions)?.BodyCarryDebug}");
         }
 
         private IEnumerator WaitCarry(NetPlayer me, bool on, float timeout)
@@ -154,6 +155,7 @@ namespace HideAndSeek.Game.Net
                 if (by == null) { carriedFor = 0f; asked = false; continue; }
                 carriedFor += 0.5f;
                 var v = by.CarryVar.Value;
+                Debug.Log($"[CarryWatch] me: {(me.Actions as BlockyCharacterActions)?.BodyCarryDebug} | carrier: {(by.Actions as BlockyCharacterActions)?.BodyCarryDebug}");
                 Debug.Log($"[CarryWatch] carried by {by.Nick}: phase={v.PhaseValue} life={me.Life.Value} pos={me.transform.position:F2} carrier={by.transform.position:F2} cam={me.Camera.transform.position:F2} head={me.Character.Head.position:F2}");
                 if (!string.IsNullOrEmpty(dir) && n < 40) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"carried_{n++:00}.png"));
                 if (!asked && carriedFor >= 4f && me.Life.Value == LifeState.Alive && v.PhaseValue == BodyCarryPhase.Hold)
