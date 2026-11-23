@@ -98,6 +98,7 @@ namespace HideAndSeek.Characters
             if (FlashTakeHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (PhoneHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (RemoteThrowHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (ExtinguisherHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true; // extinguisher / foam wiping
             if (PaMicHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (VendingHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (overrideOn && rig != null)
@@ -662,6 +663,7 @@ namespace HideAndSeek.Characters
             UpdateToyGunFp(dt);
             UpdateCarryFp();
             UpdateVmPaMic();
+            UpdateVmExtinguisher();
             var sawProp = props[(int)HeldItem.Chainsaw];
             if (sawProp != null && show == HeldItem.Chainsaw)
             {

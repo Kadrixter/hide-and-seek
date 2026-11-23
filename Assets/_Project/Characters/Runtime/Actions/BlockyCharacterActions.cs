@@ -415,6 +415,7 @@ namespace HideAndSeek.Characters
             ApplyToyGun(ref p, dt, standing, lookPitch);
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand
             ApplyPaMic(ref p, dt, standing);
+            ApplyExtLayers(ref p, dt, standing, lookPitch); // fire extinguisher in the hands / foam wiped off the face
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
@@ -540,6 +541,7 @@ namespace HideAndSeek.Characters
             if (PhoneSmashing) return HeldItem.None;
             if (RemoteThrowing) return RemoteShownItem();
             if (PaMicBusy) return HeldItem.None;
+            if (ExtHandsBusy) return HeldItem.None; // fire extinguisher in both hands
             if (vendingOn || ShockHidesItem || GunHidesItem || overdoseT >= 0f) return HeldItem.None;
             var rc = RcShownItem();
             if (rc != HeldItem.None || rcW > 0.5f) return rc;
@@ -720,6 +722,7 @@ namespace HideAndSeek.Characters
             UpdateToyGunProp();
             UpdateCarryProp();
             UpdatePaMicProp();
+            UpdateExtinguisherProps();
             var saw = props[(int)HeldItem.Chainsaw];
             if (saw != null && show == HeldItem.Chainsaw)
             {

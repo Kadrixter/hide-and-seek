@@ -130,14 +130,8 @@ namespace HideAndSeek.Game
 
             // Entrance corridor: key board on the east wall, extinguisher with its sign, first-aid box, exit sign.
             BuildKeyBoard(root, new Vector3(eIn, y0 + 1.45f, Z0 + 1.35f));
-            Vector3 ext = new Vector3(X1 - Wall * 0.5f - 0.13f, y0, Z0 + 2.15f);
-            Box(root, "ExtBracket", new Vector3(eIn - 0.01f, y0 + 0.7f, ext.z), new Vector3(0.02f, 0.25f, 0.1f), new Color(0.2f, 0.2f, 0.2f), false);
-            Prim(root, PrimitiveType.Cylinder, "Extinguisher", ext + Vector3.up * 0.55f, new Vector3(0.16f, 0.26f, 0.16f), new Color(0.7f, 0.06f, 0.04f), null, false, Surf.Shiny(0.6f));
-            Prim(root, PrimitiveType.Sphere, "ExtDome", ext + Vector3.up * 0.81f, new Vector3(0.16f, 0.06f, 0.16f), new Color(0.7f, 0.06f, 0.04f), null, false, Surf.Shiny(0.6f));
-            Box(root, "ExtValve", ext + Vector3.up * 0.88f, new Vector3(0.05f, 0.07f, 0.04f), new Color(0.15f, 0.15f, 0.15f), false, null, Surf.Shiny(0.5f, 0.8f));
-            Box(root, "ExtLever", ext + new Vector3(-0.04f, 0.92f, 0f), new Vector3(0.1f, 0.012f, 0.03f), new Color(0.15f, 0.15f, 0.15f), false, new Vector3(0f, 0f, -10f), Surf.Shiny(0.5f, 0.8f));
-            Prim(root, PrimitiveType.Cylinder, "ExtHose", ext + new Vector3(-0.06f, 0.65f, -0.07f), new Vector3(0.025f, 0.22f, 0.025f), new Color(0.05f, 0.05f, 0.05f), new Vector3(-6f, 0f, 0f));
-            Box(root, "ExtLabel", ext + new Vector3(-0.081f, 0.55f, 0f), new Vector3(0.003f, 0.16f, 0.1f), new Color(0.9f, 0.9f, 0.85f), false);
+            // The extinguisher itself (interactive, on its wall bracket) is built by ExtinguisherSystem at ExtinguisherSpot.
+            Vector3 ext = ExtinguisherSpot(lv);
             Sign(root, "ExtSign", new Vector3(eIn, y0 + 1.25f, ext.z), new Vector2(0.2f, 0.2f), west, _extSign);
             Sign(root, "FirstAid", new Vector3(DoorA - 0.2f - 0.106f, y0 + 1.5f, Z0 + 1.6f), new Vector2(0.28f, 0.28f), west, _aidTex);
             Box(root, "FirstAidBox", new Vector3(DoorA - 0.2f - 0.06f, y0 + 1.5f, Z0 + 1.6f), new Vector3(0.08f, 0.3f, 0.3f), new Color(0.1f, 0.5f, 0.22f), false, null, Surf.Shiny(0.4f));
