@@ -58,7 +58,7 @@ namespace HideAndSeek.Game
             _stream = null;
             _next?.Dispose();
             _next = null;
-            if (PanelOpen) ClosePanel();
+            if (_panelOwner == this) ClosePanel();
         }
 
         private void BuildAudio()
@@ -79,10 +79,11 @@ namespace HideAndSeek.Game
         private void Update()
         {
             var mm = MatchManager.Instance;
-            if (mm == null || mm.RadioQueue == null) return;
-            var r = mm.Radio.Value;
-            string url = r.Index >= 0 && r.Index < mm.RadioQueue.Count ? mm.RadioQueue[r.Index].ToString() : null;
-            for (int i = 0; i < mm.RadioQueue.Count; i++) ResolveInfo(mm.RadioQueue[i].ToString());
+            var ch = Channel;
+            if (mm == null || ch == null || ch.Queue == null) return;
+            var r = ch.State.Value;
+            string url = ch.Current;
+            for (int i = 0; i < ch.Count; i++) ResolveInfo(ch.At(i));
 
             // New track: take the prefetched stream when it is this one, else start it. Pause keeps the stream (the
             // reader just stops), so resuming is instant.
@@ -108,7 +109,7 @@ namespace HideAndSeek.Game
             if (_stream == null && _startError != null && r.Loading && _reportedSeq != r.Seq)
             {
                 _reportedSeq = r.Seq; // no yt-dlp / ffmpeg here: do not hold the others up
-                mm.ReportRadioReady(r.Seq);
+                ch.ReportReady(r.Seq);
             }
             if (_stream != null)
             {
@@ -122,7 +123,7 @@ namespace HideAndSeek.Game
                 if (r.Loading && _reportedSeq != r.Seq && (_stream.Ready || _stream.Error != null || _stream.DecodeEnded))
                 {
                     _reportedSeq = r.Seq;
-                    mm.ReportRadioReady(r.Seq);
+                    ch.ReportReady(r.Seq);
                     Debug.Log($"[Radio] ready for seq {r.Seq}: buffered {_stream.BufferedSeconds:0.0}s");
                 }
 
@@ -139,14 +140,14 @@ namespace HideAndSeek.Game
                 else if ((_stream.Finished || failed) && !_endReported && r.Playing && !r.Loading && NetworkSessionIsServer())
                 {
                     _endReported = true;
-                    mm.ServerRadioEnded(_streamSeq);
+                    ch.ServerEnded(_streamSeq);
                 }
             }
             _status = StatusText(r, url);
-            _src.volume = r.Volume / 100f * 0.9f; // the level from before 22.11
+            _src.volume = r.Volume / 100f * 0.9f * VolumeScale; // the level from before 22.11
 
             // Prefetch the next entry (held at 0:00) so "next" / the end of a track switch at once.
-            string nextUrl = r.Index + 1 >= 0 && r.Index + 1 < mm.RadioQueue.Count ? mm.RadioQueue[r.Index + 1].ToString() : null;
+            string nextUrl = r.Index + 1 >= 0 && r.Index + 1 < ch.Count ? ch.At(r.Index + 1) : null;
             if (nextUrl != _nextUrl || (_next != null && _next.Error != null))
             {
                 _next?.Dispose();
@@ -173,9 +174,9 @@ namespace HideAndSeek.Game
         {
             get
             {
-                var mm = MatchManager.Instance;
-                if (mm == null) return false;
-                var r = mm.Radio.Value;
+                var ch = Channel;
+                if (ch == null) return false;
+                var r = ch.State.Value;
                 return r.Playing && (r.Loading || _stream == null || !_stream.Playing && _stream.Error == null);
             }
         }
@@ -246,10 +247,10 @@ namespace HideAndSeek.Game
         {
             get
             {
-                var mm = MatchManager.Instance;
-                var r = mm != null ? mm.Radio.Value : default;
-                float pos = mm != null ? (r.Playing && !r.Loading ? (float)(mm.Now - r.StartTime) : r.PausedAt) : 0f;
-                return $"queue={(mm != null ? mm.RadioQueue.Count : 0)} idx={r.Index} seq={r.Seq} playing={r.Playing} loading={r.Loading} " +
+                var ch = Channel;
+                var r = ch != null ? ch.State.Value : default;
+                float pos = ch != null ? ch.Position(r) : 0f;
+                return $"queue={(ch != null ? ch.Count : 0)} idx={r.Index} seq={r.Seq} playing={r.Playing} loading={r.Loading} " +
                        $"ready={r.Ready}/{r.Peers} pos={pos:0.00} vol={r.Volume} bass={r.Bass} | stream={(_stream != null)} " +
                        $"playhead={(_stream?.Position ?? -1f):0.00} buffered={(_stream?.BufferedSeconds ?? 0f):0.0}s out={(_stream?.Playing ?? false)} " +
                        $"underruns={(_stream?.Underruns ?? 0)} level={(_out != null ? _out.Level : 0f):0.00} kick={(_out != null ? _out.Kick : 0f):0.00} " +

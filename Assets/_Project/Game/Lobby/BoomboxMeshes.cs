@@ -19,7 +19,7 @@ namespace HideAndSeek.Game
         public static Mesh Lathe(string key, IList<Vector2> profile, int segments = 64)
         {
             key = "lathe_" + key + "_" + segments;
-            if (Cache.TryGetValue(key, out var cached)) return cached;
+            if (Cache.TryGetValue(key, out var cached) && cached != null) return cached;
             int rows = profile.Count;
             var pn = new Vector2[rows];
             for (int i = 0; i < rows; i++)
@@ -70,7 +70,7 @@ namespace HideAndSeek.Game
         public static Mesh Tube(string key, IList<Vector3> path, float radius, int ring = 14)
         {
             key = "tube_" + key + "_" + ring;
-            if (Cache.TryGetValue(key, out var cached)) return cached;
+            if (Cache.TryGetValue(key, out var cached) && cached != null) return cached;
             var v = new List<Vector3>();
             var n = new List<Vector3>();
             var t = new List<int>();

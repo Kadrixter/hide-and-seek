@@ -12,7 +12,7 @@ namespace HideAndSeek.Game
         public static Mesh RoundedBox(Vector3 size, float radius, int n = 6)
         {
             string key = $"rb{size.x:F3}_{size.y:F3}_{size.z:F3}_{radius:F3}_{n}";
-            if (Cache.TryGetValue(key, out var cached)) return cached;
+            if (Cache.TryGetValue(key, out var cached) && cached != null) return cached;
             Vector3 half = size * 0.5f;
             radius = Mathf.Min(radius, Mathf.Min(half.x, Mathf.Min(half.y, half.z)) * 0.99f);
             Vector3 inner = half - Vector3.one * radius;
@@ -82,7 +82,7 @@ namespace HideAndSeek.Game
         public static Mesh Spiral(float length, float coil, float wire, int turns)
         {
             string key = $"sp{length:F3}_{coil:F3}_{wire:F4}_{turns}";
-            if (Cache.TryGetValue(key, out var cached)) return cached;
+            if (Cache.TryGetValue(key, out var cached) && cached != null) return cached;
             const int ring = 6;
             int steps = turns * 28;
             var v = new List<Vector3>();

@@ -46,9 +46,9 @@ namespace HideAndSeek.Game.Net
 
     /// <summary>
     /// Lobby boombox: a shared queue of YouTube links. Every copy streams the current track itself (yt-dlp + ffmpeg).
-    /// A new track starts Loading; each copy reports when it has buffered the beginning (<see cref="ReportRadioReady"/>),
-    /// and when everybody is ready (or the slow ones ran out of time) the server sets a common start just ahead, so the
-    /// song begins from 0:00 at the same moment everywhere (<c>MatchManager.RadioSync.cs</c>).
+    /// The logic (queue ops, common start after every copy buffered the track, pausing outside the lobby) is in
+    /// <see cref="RadioChannel"/>, shared with the radios found on the parking (<c>MatchManager.MapRadio.cs</c>);
+    /// these members stay as the lobby boombox's API.
     /// </summary>
     public partial class MatchManager
     {
@@ -56,7 +56,16 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<RadioState> Radio = new(RadioState.Default);
         public const int RadioMaxQueue = 30;
 
-        private void InitRadio() => RadioQueue = new NetworkList<FixedString128Bytes>();
+        /// <summary>The lobby boombox's channel (<see cref="Radio"/> + <see cref="RadioQueue"/>).</summary>
+        public RadioChannel LobbyRadio { get; private set; }
+
+        private void InitRadio()
+        {
+            RadioQueue = new NetworkList<FixedString128Bytes>();
+            LobbyRadio = new RadioChannel(this, "", Radio, RadioQueue, RadioReadyMessage, () => Phase.Value == MatchPhase.Lobby, null,
+                (me, op, url) => me.RequestRadioRpc(op, url));
+            InitMapRadio();
+        }
 
         /// <summary>Accepts youtube.com / youtu.be / music.youtube.com links only (they are passed to yt-dlp as data, never as options).</summary>
         public static bool IsYoutubeUrl(string url)
@@ -68,88 +77,16 @@ namespace HideAndSeek.Game.Net
             return h == "youtu.be" || h == "youtube.com" || h.EndsWith(".youtube.com");
         }
 
-        private float RadioPosition(in RadioState r) => r.Playing && !r.Loading ? (float)(Now - r.StartTime) : r.PausedAt;
-
-        public void ServerRadio(NetPlayer pl, RadioOp op, string url)
-        {
-            if (pl == null) return;
-            Debug.Log($"[Radio] {pl.Nick}: {op} {url}");
-            var r = Radio.Value;
-            switch (op)
-            {
-                case RadioOp.Add:
-                    if (!IsYoutubeUrl(url) || RadioQueue.Count >= RadioMaxQueue) return;
-                    RadioQueue.Add(new FixedString128Bytes(url.Trim()));
-                    if (!r.Playing && (r.Index < 0 || r.Index >= RadioQueue.Count - 1 && r.PausedAt <= 0f))
-                    {
-                        r.Index = RadioQueue.Count - 1;
-                        BeginRadioLoad(ref r);
-                    }
-                    pl.ToastRpc("Dodano do kolejki radia.", 2f);
-                    break;
-                case RadioOp.Toggle:
-                    if (r.Index < 0 || r.Index >= RadioQueue.Count) return;
-                    if (r.Playing)
-                    {
-                        r.PausedAt = Mathf.Max(0f, RadioPosition(r));
-                        r.Playing = false;
-                    }
-                    else if (Phase.Value == MatchPhase.Lobby)
-                    {
-                        r.Playing = true;
-                        if (r.Loading) _radioLoadSince = Time.unscaledTime;
-                        else r.StartTime = Now + RadioLead - r.PausedAt; // everybody resumes on the same sample
-                    }
-                    break;
-                case RadioOp.Next:
-                case RadioOp.Prev:
-                {
-                    int to = r.Index + (op == RadioOp.Next ? 1 : -1);
-                    if (to < 0 || to >= RadioQueue.Count)
-                    {
-                        if (op == RadioOp.Next) { r.Playing = false; r.Loading = false; r.PausedAt = 0f; r.Index = RadioQueue.Count; r.Seq++; }
-                        break;
-                    }
-                    r.Index = to;
-                    BeginRadioLoad(ref r);
-                    break;
-                }
-                case RadioOp.VolUp: r.Volume = (byte)Mathf.Min(100, r.Volume + 10); break;
-                case RadioOp.VolDown: r.Volume = (byte)Mathf.Max(0, r.Volume - 10); break;
-                case RadioOp.BassUp: r.Bass = (byte)Mathf.Min(100, r.Bass + 10); break;
-                case RadioOp.BassDown: r.Bass = (byte)Mathf.Max(0, r.Bass - 10); break;
-            }
-            Radio.Value = r;
-        }
+        public void ServerRadio(NetPlayer pl, RadioOp op, string url) => LobbyRadio.ServerOp(pl, op, url);
 
         /// <summary>The host's own player finished (or failed) the track with <paramref name="seq"/>: next one.</summary>
-        public void ServerRadioEnded(int seq)
-        {
-            if (!IsServer) return;
-            var r = Radio.Value;
-            if (r.Seq != seq || !r.Playing) return;
-            r.Index++;
-            if (r.Index < RadioQueue.Count) BeginRadioLoad(ref r);
-            else
-            {
-                r.Seq++;
-                r.Playing = r.Loading = false;
-                r.PausedAt = 0f;
-            }
-            Radio.Value = r;
-        }
+        public void ServerRadioEnded(int seq) => LobbyRadio.ServerEnded(seq);
 
-        /// <summary>Music only in the lobby: pause when a round starts; start a loaded track together.</summary>
+        /// <summary>Music only in the lobby: pause when a round starts; start a loaded track together. Also the map radios.</summary>
         private void UpdateRadioServer()
         {
-            var r = Radio.Value;
-            if (r.Playing && Phase.Value != MatchPhase.Lobby)
-            {
-                r.PausedAt = Mathf.Max(0f, RadioPosition(r));
-                r.Playing = false;
-                Radio.Value = r;
-            }
-            UpdateRadioLoading();
+            LobbyRadio.ServerUpdate();
+            UpdateMapRadioServer();
         }
     }
 }

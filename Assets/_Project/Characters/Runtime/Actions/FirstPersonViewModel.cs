@@ -99,6 +99,7 @@ namespace HideAndSeek.Characters
             if (PhoneHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (RemoteThrowHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (PaMicHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (ShoulderRadioHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (VendingHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (overrideOn && rig != null)
             {
