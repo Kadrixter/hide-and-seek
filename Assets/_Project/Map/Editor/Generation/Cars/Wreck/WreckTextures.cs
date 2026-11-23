@@ -14,7 +14,7 @@ namespace HideAndSeek.Map.Editor
     internal static partial class WreckTextures
     {
         /// <summary>Bump when a generator changes: the PNGs are rewritten once.</summary>
-        private const int Version = 5;
+        private const int Version = 6;
 
         private static readonly List<string> Written = new List<string>();
 
@@ -133,9 +133,11 @@ namespace HideAndSeek.Map.Editor
                              * Smooth(0.02f, 0.22f, v) * Smooth(1.0f, 0.78f, v + (nz.Fbm(u * 2f, v, 3, 3) - 0.5f) * 0.2f);
                 // dragged texture: stretched along u
                 float drag = nz.Fbm(u * 0.25f, v, 6, 40, 4, 0.55f);
-                float blot = nz.Fbm(u, v, 8, 6, 4, 0.5f);
-                float bare = Smooth(0.6f, 0.66f, drag * 0.62f + blot * 0.38f + zone * 0.16f - 0.06f) * zone;
-                float scuff = Mathf.Clamp01(zone * (0.2f + blot * 0.8f) * Smooth(0.42f, 0.62f, drag + 0.05f));
+                float blot = nz.Fbm(u, v, 4, 3, 5, 0.55f);
+                float blot2 = nz.Fbm(u + 0.37f, v + 0.11f, 6, 4, 4, 0.5f);
+                // big torn-off patches of lacquer (bare metal), chalky scuffs round them, dragged streaks through both
+                float bare = Smooth(0.56f, 0.6f, blot * 0.7f + drag * 0.3f + zone * 0.12f - 0.02f) * zone;
+                float scuff = Mathf.Clamp01(zone * Smooth(0.4f, 0.56f, blot2 * 0.75f + drag * 0.25f + zone * 0.1f));
                 float s = scratch[y * w + x] * Mathf.Clamp01(zone * 2.2f + 0.15f);
                 // ragged edges: nothing in the outermost texels (clamped sampling)
                 float edge = Smooth(0f, 0.02f, Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(v, 1f - v)));

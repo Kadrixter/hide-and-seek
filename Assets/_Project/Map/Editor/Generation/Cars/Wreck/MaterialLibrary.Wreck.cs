@@ -34,6 +34,8 @@ namespace HideAndSeek.Map.Editor
             Dusty("Wreck_Rim", new Color(0.62f, 0.63f, 0.64f), 0.6f, 0.62f, dust, 0.8f, 0.35f, 0.5f);
             Dusty("Wreck_Rubber", new Color(0.04f, 0.04f, 0.042f), 0f, 0.25f, dust, 0.8f, 0.35f, 0.4f);
             Dusty("Wreck_Disc", new Color(0.3f, 0.22f, 0.17f), 0.6f, 0.35f, dust, 0.7f, 0.4f, 0.3f);
+            // tarpaulin over the roof and the left front: opaque greenish plastic cloth with a slight sheen, dusty on top
+            Dusty("Wreck_Tarp", new Color(0.2f, 0.36f, 0.3f), 0f, 0.5f, dust, 0.85f, 0.3f, 0.2f);
             Glass("Wreck_Glass", 0.55f, dust, false);
             Glass("Wreck_Windscreen", 0.5f, dust, true);
             // plain Standard materials
@@ -43,7 +45,6 @@ namespace HideAndSeek.Map.Editor
             Make("Wreck_Leather", new Color(0.04f, 0.04f, 0.04f), null, 1f, 0f, 0.5f);
             Make("Wreck_Carpet", new Color(0.05f, 0.05f, 0.052f), "Tarp", 0.08f, 0f, 0.05f, "Tarp_N", 1.5f);
             Make("Wreck_GlassBits", new Color(0.55f, 0.66f, 0.63f), null, 1f, 0.25f, 0.95f);
-            Make("Wreck_Foil", new Color(0.55f, 0.74f, 0.66f, 0.3f), null, 1f, 0f, 0.78f, mode: Mode.Transparent);
             Make("Wreck_TankWhite", new Color(0.78f, 0.78f, 0.72f), null, 1f, 0f, 0.55f);
             Make("Wreck_CapBlue", new Color(0.05f, 0.18f, 0.6f), null, 1f, 0f, 0.5f);
             Make("Wreck_CapYellow", new Color(0.9f, 0.68f, 0.05f), null, 1f, 0f, 0.5f);
@@ -64,7 +65,7 @@ namespace HideAndSeek.Map.Editor
             Action<Material> extra = null)
         {
             var mat = ShaderMat(name, "HideAndSeek/WreckDust");
-            mat.SetColor("_DustColor", new Color(0.42f, 0.4f, 0.365f));
+            mat.SetColor("_DustColor", new Color(0.38f, 0.36f, 0.33f));
             mat.SetColor("_Color", color);
             mat.SetFloat("_Metallic", metallic);
             mat.SetFloat("_Glossiness", smooth);

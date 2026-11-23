@@ -23,8 +23,8 @@ namespace HideAndSeek.Map.Editor
             var bay = _bays.First(b => b.Level == WreckLevel && b.Label == WreckBay);
             var store = _store.TryGetValue("Wreck_Golf", out var list) ? list : _store["Wreck_Golf"] = new System.Collections.Generic.List<Mesh>();
             var pm = GolfWreck.Create(_props, _lib, store);
-            // rear 25 cm off the back line, nose towards the aisle, a few degrees off straight
-            Vector3 pos = bay.Center + bay.Inward * (bay.Depth * 0.5f - 0.25f - 4.15f * 0.5f);
+            // rear 60 cm off the back line (clear of the wheel stops), nose towards the aisle, a few degrees off straight
+            Vector3 pos = bay.Center + bay.Inward * (bay.Depth * 0.5f - 0.6f - 4.15f * 0.5f);
             float yaw = Quaternion.LookRotation(-bay.Inward).eulerAngles.y + 4f;
             var go = PlaceProp(pm, "Wreck_VwGolf4Gti_" + WreckBay, _tCarsLv[WreckLevel], pos, yaw);
             GameObjectUtility.SetStaticEditorFlags(go, DetailFlags & ~StaticEditorFlags.BatchingStatic);
