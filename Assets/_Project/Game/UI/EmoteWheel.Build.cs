@@ -32,6 +32,10 @@ namespace HideAndSeek.Game.UI
         private readonly List<Slice> _slices = new();
         private readonly Image[] _tabBg = new Image[2];
         private readonly Text[] _tabText = new Text[2];
+        private readonly Image[] _tabFill = new Image[2];
+        private Image _dot;
+        private static readonly float[] TabX = { -78f, 78f };
+        private const float TabY = OuterR + 30f, TabW = 140f, TabH = 38f;
         private EmotePreviewStage _stage, _thumbStage;
         private readonly Dictionary<EmoteId, RenderTexture> _pics = new();
         private readonly Queue<EmoteId> _todo = new();
@@ -80,6 +84,11 @@ namespace HideAndSeek.Game.UI
             _preview.raycastTarget = false;
             RingSector.Create("PreviewRim", _ring, pr - 1f, pr + 1.5f, 0f, 360f, 0f, new Color(1f, 1f, 1f, 0.16f));
             _pointer = RingSector.Create("Pointer", _ring, InnerR - 11f, InnerR - 4f, 0f, 30f, 0f, UiKit.Accent, 1.5f);
+            _dot = UiKit.Image("Cursor", _root, Color.white);
+            _dot.sprite = UiStyle.Circle;
+            _dot.raycastTarget = false;
+            _dot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * 14f);
+            _dot.AddDrop(1.5f, 0.6f);
 
             // Tabs above the ring.
             string[] names = { "SOLO", "WSPÓLNE" };
@@ -88,8 +97,13 @@ namespace HideAndSeek.Game.UI
                 var bg = UiKit.Image("Tab" + i, _root, Color.white).Rounded(true);
                 bg.raycastTarget = false;
                 bg.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f),
-                    new Vector2(i == 0 ? -78f : 78f, OuterR + 30f), new Vector2(140f, 38f));
+                    new Vector2(TabX[i], TabY), new Vector2(TabW, TabH));
                 _tabBg[i] = bg;
+                // Hover dwell: a thin bar filling under the tab.
+                var fill = UiKit.Image("Dwell", bg.transform, UiKit.Accent);
+                fill.raycastTarget = false;
+                fill.rectTransform.Place(new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(6f, -7f), new Vector2(0f, 3f));
+                _tabFill[i] = fill;
                 var t = UiKit.Label("T", bg.transform, names[i], 19, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);
                 t.rectTransform.Stretch();
                 _tabText[i] = t;
@@ -101,6 +115,7 @@ namespace HideAndSeek.Game.UI
             _hint = UiKit.Label("Hint", _root, "", 19, TextAnchor.MiddleCenter, UiKit.TextDim);
             _hint.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, -OuterR - 56f), new Vector2(1100f, 30f));
             _hint.AddOutline(1f, 0.6f);
+            _dot.transform.SetAsLastSibling(); // the cursor dot above the tabs
         }
 
         private void BuildPage(int page)
@@ -231,16 +246,39 @@ namespace HideAndSeek.Game.UI
                 bool on = i == _page;
                 _tabBg[i].color = on ? new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0.92f) : new Color(0.06f, 0.065f, 0.075f, 0.8f);
                 _tabText[i].color = on ? new Color(0.05f, 0.08f, 0.06f) : UiKit.TextDim;
-                _tabBg[i].rectTransform.localScale = Vector3.one * (on ? 1.04f : 0.96f);
+                bool hov = i == _tabHover && !on;
+                _tabBg[i].rectTransform.localScale = Vector3.one * (on ? 1.04f : hov ? 1.02f : 0.96f);
+                if (hov) _tabBg[i].color = new Color(0.14f, 0.16f, 0.17f, 0.92f);
             }
+        }
+
+        /// <summary>Tab under a point in wheel pixels (-1 = none); the hit box is a bit larger than the tab.</summary>
+        private static int TabUnder(Vector2 px)
+        {
+            if (px.y < TabY - 22f || px.y > TabY + TabH + 30f) return -1;
+            for (int i = 0; i < 2; i++)
+                if (Mathf.Abs(px.x - TabX[i]) <= TabW * 0.5f + 6f) return i;
+            return -1;
         }
 
         private void UpdatePointer()
         {
+            // Cursor dot: shown once it leaves the ring (on the way to the tabs).
+            Vector2 px = _cursor * CursorPx;
+            float out01 = Mathf.InverseLerp(1.08f, 1.22f, _cursor.magnitude);
+            _dot.rectTransform.anchoredPosition = px * _ring.localScale.x;
+            _dot.color = new Color(1f, 1f, 1f, 0.9f * out01);
+            for (int i = 0; i < 2; i++)
+            {
+                float k = i == _tabHover && i != _page ? Mathf.Clamp01(_tabHoverT / TabDwell) : 0f;
+                _tabFill[i].rectTransform.sizeDelta = new Vector2((TabW - 12f) * k, 3f);
+                _tabFill[i].color = i == _page ? new Color(0.05f, 0.08f, 0.06f, 0.8f) : UiKit.Accent;
+            }
             float m = _cursor.magnitude;
             _pointer.CentreAngle = Mathf.Atan2(_cursor.x, _cursor.y) * Mathf.Rad2Deg;
             var pc = UiKit.Accent;
             pc.a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, DeadZone + 0.05f, m));
+            pc.a *= _tabHover >= 0 ? 0f : 1f - 0.7f * out01;
             _pointer.color = pc;
         }
 
@@ -253,8 +291,8 @@ namespace HideAndSeek.Game.UI
             }
             else _sub.text = "";
             _hint.text = _toggle
-                ? "mysz - wskaż   |   kółko - Solo / Wspólne   |   LPM / K - wybierz   |   PPM / Esc - anuluj"
-                : "mysz - wskaż   |   kółko - Solo / Wspólne   |   puść K / LPM - wybierz   |   PPM / Esc - anuluj";
+                ? "mysz - wskaż   |   najedź na SOLO / WSPÓLNE (lub kółko)   |   LPM / K - wybierz   |   PPM / Esc - anuluj"
+                : "mysz - wskaż   |   najedź na SOLO / WSPÓLNE (lub kółko)   |   puść K / LPM - wybierz   |   PPM / Esc - anuluj";
         }
 
         private void AnimateSlices(NetPlayer me)

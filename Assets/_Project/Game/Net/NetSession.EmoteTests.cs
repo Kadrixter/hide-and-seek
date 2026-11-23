@@ -22,6 +22,47 @@ namespace HideAndSeek.Game.Net
             if (has("-testemotes")) StartCoroutine(EmotesTest());
             if (has("-emotehold")) StartCoroutine(EmoteHold());
             if (has("-emotewatch")) StartCoroutine(EmoteWatch());
+            if (has("-testemotetabs")) StartCoroutine(EmoteTabsTest());
+        }
+
+        /// <summary>-testemotetabs (-emoteshots dir): page switch by hovering the tabs with the virtual cursor (dwell 0.18 s).</summary>
+        private IEnumerator EmoteTabsTest()
+        {
+            yield return WaitLobby();
+            string dir = ArgOr("-emoteshots", "");
+            EmoteWheel.TestPage = 0;
+            EmoteWheel.TestHold = true;
+            yield return new WaitForSeconds(0.6f);
+            var tab1 = new Vector2(78f, 380f);
+            var tab0 = new Vector2(-78f, 380f);
+            Debug.Log($"[EmoteTabs] open page={EmoteWheel.Page}");
+            // Brushing past the tab (0.08 s): no switch.
+            EmoteWheel.TestCursor = tab1;
+            yield return new WaitForSecondsRealtime(0.08f);
+            EmoteWheel.TestCursor = new Vector2(0f, 120f);
+            yield return null;
+            Debug.Log($"[EmoteTabs] brush past WSPÓLNE: page={EmoteWheel.Page} (expected 0)");
+            // Resting on it: switches after the dwell.
+            EmoteWheel.TestCursor = tab1;
+            yield return new WaitForSecondsRealtime(0.1f);
+            Shot(dir, "tabs_dwell");
+            Debug.Log($"[EmoteTabs] 0.10 s on WSPÓLNE: page={EmoteWheel.Page} (expected 0)");
+            yield return new WaitForSecondsRealtime(0.2f);
+            Debug.Log($"[EmoteTabs] 0.30 s on WSPÓLNE: page={EmoteWheel.Page} slices={EmoteWheel.SliceCount} (expected 1, 5)");
+            yield return new WaitForSecondsRealtime(0.5f);
+            Shot(dir, "tabs_pair");
+            Debug.Log($"[EmoteTabs] staying on it 0.8 s: page={EmoteWheel.Page} (expected 1)");
+            EmoteWheel.TestCursor = tab0;
+            yield return new WaitForSecondsRealtime(0.35f);
+            Debug.Log($"[EmoteTabs] 0.35 s on SOLO: page={EmoteWheel.Page} slices={EmoteWheel.SliceCount} (expected 0, 11)");
+            EmoteWheel.TestCursor = new Vector2(0f, 250f);
+            yield return new WaitForSecondsRealtime(0.4f);
+            Debug.Log($"[EmoteTabs] back on a slice: page={EmoteWheel.Page} highlighted slice ok");
+            Shot(dir, "tabs_solo_slice");
+            EmoteWheel.TestCancel = true;
+            yield return null;
+            EmoteWheel.TestHold = false;
+            Debug.Log("[EmoteTest] done");
         }
 
         /// <summary>-emotehold Id [-emoteholdfor S]: starts one emote in the lobby and keeps it (late-join check).</summary>

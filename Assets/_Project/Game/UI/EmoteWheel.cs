@@ -31,6 +31,8 @@ namespace HideAndSeek.Game.UI
         public static int TestHighlight = -1;
         public static bool TestClick;
         public static int TestPage = -1;
+        /// <summary>Tests: virtual cursor position in wheel pixels (1080p, origin = wheel centre); null = the mouse decides.</summary>
+        public static Vector2? TestCursor;
         /// <summary>Acts as one right click (cancel).</summary>
         public static bool TestCancel;
 
@@ -43,6 +45,12 @@ namespace HideAndSeek.Game.UI
         private bool _open, _toggle, _testHeldBefore;
         private float _anim, _openedAt, _pageAnim = 1f;
         private Vector2 _cursor;
+        private int _tabHover = -1;
+        private float _tabHoverT;
+        /// <summary>Hovering a tab this long switches the page (no accidental flips on the way past).</summary>
+        private const float TabDwell = 0.18f;
+        /// <summary>Wheel pixels per unit of the virtual cursor (1 = middle of the slices); the cursor reaches up to the tabs.</summary>
+        private const float CursorPx = 255f, CursorMax = 1.62f;
         private int _hl = -1, _relock, _builtPage = -1;
         private EmoteId _shown = (EmoteId)255;
         private NetPlayer _target;
@@ -69,6 +77,8 @@ namespace HideAndSeek.Game.UI
             _toggle = false;
             _openedAt = Time.unscaledTime;
             _cursor = Vector2.zero;
+            _tabHover = -1;
+            _tabHoverT = 0f;
             _hl = -1;
             _target = EmoteRules.LookTarget(me);
             _hasTarget = _target != null;
@@ -88,6 +98,7 @@ namespace HideAndSeek.Game.UI
             _toggle = false;
             _closedFrame = Time.frameCount;
             TestHighlight = -1;
+            TestCursor = null;
         }
 
         private void SetPage(int page)
@@ -210,11 +221,24 @@ namespace HideAndSeek.Game.UI
             if (mouse != null)
             {
                 Vector2 d = mouse.delta.ReadValue() * (1080f / Mathf.Max(1, Screen.height));
-                _cursor = Vector2.ClampMagnitude(_cursor + d / TravelPx, 1f);
+                _cursor = Vector2.ClampMagnitude(_cursor + d / TravelPx, CursorMax);
             }
             int n = _slices.Count;
             int hl = -1;
-            if (TestHighlight >= 0 && TestHighlight < n)
+            if (TestCursor.HasValue) _cursor = TestCursor.Value / CursorPx;
+            int tab = TabUnder(_cursor * CursorPx);
+            if (tab != _tabHover) { _tabHover = tab; _tabHoverT = 0f; }
+            else if (tab >= 0) _tabHoverT += Time.unscaledDeltaTime;
+            if (tab >= 0 && tab != _page && _tabHoverT >= TabDwell)
+            {
+                var keep = _cursor;
+                SetPage(tab);
+                _cursor = keep; // stays on the tab it switched to
+                _tabHover = tab;
+                Debug.Log($"[EmoteWheel] page {tab} by hover");
+            }
+            if (tab >= 0) { /* over the tabs: no slice */ }
+            else if (TestHighlight >= 0 && TestHighlight < n)
             {
                 _cursor = RingSector.Dir(TestHighlight * 360f / n);
                 hl = TestHighlight;
