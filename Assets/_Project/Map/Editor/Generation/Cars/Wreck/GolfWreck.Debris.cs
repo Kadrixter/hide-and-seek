@@ -10,13 +10,15 @@ namespace HideAndSeek.Map.Editor
     /// </summary>
     internal sealed partial class GolfWreck
     {
-        private static readonly Vector3 BumperAt = new Vector3(2.05f, 0f, 0.45f), WheelAt = new Vector3(1.55f, 0f, -1.15f);
+        private static readonly Vector3 BumperAt = new Vector3(2.05f, 0f, 0.45f), WheelAt = new Vector3(1.55f, 0f, -1.15f),
+            HoodAt = new Vector3(2.55f, 0f, -1.35f);
 
         private void Debris()
         {
             var rng = new System.Random(2002);
             Bumper(BumperAt, 78f);
             LooseWheel(WheelAt);
+            LooseHood(HoodAt);
             Headlamp(new Vector3(1.42f, 0f, 2.12f), Quaternion.Euler(-8f, 140f, 22f));
             GrillePieces(rng);
             Chips(rng);
@@ -105,6 +107,31 @@ namespace HideAndSeek.Map.Editor
             // torn-off rubber on the outer shoulder
             var rot = Quaternion.Euler(0f, 23f, 0f) * Quaternion.Euler(0f, 0f, 90f);
             Mb.Warp(v0, p => at + rot * p + Vector3.up * (TireWidth * 0.5f + 0.004f));
+        }
+
+        // ------------------------------------------------------------------ the bonnet
+
+        /// <summary>The bonnet taken off the car: the real deck panel (shut-line edges of the wings), crumpled at the
+        /// front, laid on the floor upside up with a primer underside and its hinges.</summary>
+        private void LooseHood(Vector3 at)
+        {
+            int v0 = Mb.VertexCount;
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Body.PatchX(Mb, s, HoodZ + 0.005f, 1.95f, t => new Vector2(0f, Mathf.Lerp(0.765f, 0.7f, t)), CarShapes.BShoulder, CarShapes.BCentre, 0f, Lib["Wreck_PaintPart"], 28, 10);
+                Body.PatchX(Mb, s, HoodZ + 0.005f, 1.95f, t => new Vector2(0f, Mathf.Lerp(0.765f, 0.7f, t)), CarShapes.BShoulder, CarShapes.BCentre, -0.006f, Primer, 28, 10);
+                Mb.Box(new Vector3(s * 0.55f, 0.92f, HoodZ + 0.04f), new Vector3(0.03f, 0.04f, 0.08f), Metal);
+            }
+            // crumpled nose, a fold across the middle, laid on the floor
+            var rot = Quaternion.Euler(0f, 98f, 0f);
+            Mb.Warp(v0, p =>
+            {
+                float k = WreckKit.Smooth(1.35f, 1.95f, p.z);
+                p += new Vector3(WreckKit.Noise2(p * 6f) * 0.05f, WreckKit.Noise2(p * 5f + Vector3.one * 3f) * 0.07f + 0.12f * k, -0.12f * k) * k;
+                p.y += 0.05f * Mathf.Sin(p.z * 9f) * k + 0.04f * WreckKit.Smooth(0.3f, 0.75f, p.x);
+                var q = new Vector3(p.x, p.y - 0.86f, p.z - 1.45f);
+                return at + rot * q + Vector3.up * 0.1f;
+            });
         }
 
         // ------------------------------------------------------------------ headlamp
