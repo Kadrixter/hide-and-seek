@@ -40,7 +40,7 @@ namespace HideAndSeek.Game.Net
             if (_p.HealingCarried)
             {
                 var patient = NetPlayer.Find(_p.CarryHealTarget.Value);
-                bool ok = held && patient != null && patient.BodyCarriedNow && NetPlayer.NeedsCarry(patient) && _p.MedkitCount.Value > 0 && _p.IsAliveHider && !_p.Busy.Value;
+                bool ok = held && patient != null && patient.BodyCarriedNow && NetPlayer.NeedsCarry(patient) && patient.Life.Value != LifeState.Dead && _p.MedkitCount.Value > 0 && _p.IsAliveHider && !_p.Busy.Value;
                 if (!ok) { StopCarryHeal(); return false; }
                 float t = _p.CarryHealLocalT + Time.deltaTime;
                 _p.CarryHealLocalT = t;
@@ -113,7 +113,7 @@ namespace HideAndSeek.Game.Net
             float bestD = float.MaxValue;
             foreach (var o in NetPlayer.All)
             {
-                if (o == null || o == _p || !o.BodyCarriedNow || !NetPlayer.NeedsCarry(o) || o.Busy.Value) continue;
+                if (o == null || o == _p || !o.BodyCarriedNow || !NetPlayer.NeedsCarry(o) || o.Busy.Value || o.Life.Value == LifeState.Dead) continue;
                 if (o.CarriedBy == _p || NetPlayer.CarryHealerOf(o) != null) continue;
                 var v = o.CarriedBy.CarryVar.Value;
                 if (v.PhaseValue != BodyCarryPhase.Hold) continue;

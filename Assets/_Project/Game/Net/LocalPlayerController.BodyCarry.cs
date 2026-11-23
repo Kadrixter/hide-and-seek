@@ -77,7 +77,9 @@ namespace HideAndSeek.Game.Net
             else { _carryHold = 0f; _carrySent = false; }
             if (!healHint || _carryHold > 0f)
             {
-                CarryConsentPrompt.Hint = $"<color=#ffd27a>B</color>  przytrzymaj - podnieś na ręce ({_carryCandidate.Nick})";
+                CarryConsentPrompt.Hint = _carryCandidate.Life.Value == LifeState.Dead
+                    ? $"<color=#ffd27a>B</color>  przytrzymaj - podnieś ciało ({_carryCandidate.Nick})"
+                    : $"<color=#ffd27a>B</color>  przytrzymaj - podnieś na ręce ({_carryCandidate.Nick})";
                 CarryConsentPrompt.HintProgress = _carryHold / CarryHoldTime;
             }
             if (_carryHold >= CarryHoldTime && !_carrySent)
@@ -98,7 +100,9 @@ namespace HideAndSeek.Game.Net
         private NetPlayer FindCarryCandidate(MatchPhase phase)
         {
             if (phase != MatchPhase.Seeking && phase != MatchPhase.Hiding) return null;
-            if (!_p.IsAliveHider || _p.Busy.Value || _p.Limping.Value || _p.Severed.Value != 0 || _p.Seat.Value >= 0 || _p.Motor.IsProne) return null;
+            if (_p.Life.Value != LifeState.Alive || _p.Busy.Value || _p.Seat.Value >= 0 || _p.Motor.IsProne) return null;
+            bool hider = _p.IsHider && !_p.Limping.Value && _p.Severed.Value == 0;
+            if (!hider && !_p.IsSeeker) return null; // the seeker picks up dead bodies only
             Vector3 eye = _p.EyePosition;
             Vector3 fwd = _p.Camera != null ? _p.Camera.transform.forward : transform.forward;
             NetPlayer best = null;
@@ -106,6 +110,7 @@ namespace HideAndSeek.Game.Net
             foreach (var o in NetPlayer.All)
             {
                 if (o == null || o == _p || !NetPlayer.NeedsCarry(o) || o.Busy.Value || o.BodyCarryBusy) continue;
+                if (!hider && o.Life.Value != LifeState.Dead) continue;
                 Vector3 chest = o.ChestPosition;
                 float d = Vector3.Distance(eye, chest);
                 if (d > Tuning.RescueRange + 0.6f || !InView(eye, fwd, chest, 60f, o.transform)) continue;

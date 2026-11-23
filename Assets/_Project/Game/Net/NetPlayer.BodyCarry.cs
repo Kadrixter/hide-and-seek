@@ -13,7 +13,7 @@ namespace HideAndSeek.Game.Net
     {
         public ulong Target;    // NetworkObjectId of the carried player
         public byte Phase;      // BodyCarryPhase
-        public byte Flags;      // 1 mirror, 2 lift from the floor, 4 put down onto the feet
+        public byte Flags;      // 1 mirror, 2 lift from the floor, 4 put down onto the feet, 8 a dead player's body
         public double Start;    // server time the phase began
         public Vector3 EndPos;  // root frame of the carried after a put down / drop
         public float EndYaw;
@@ -23,6 +23,7 @@ namespace HideAndSeek.Game.Net
         public bool Mirror => (Flags & 1) != 0;
         public bool FromFloor => (Flags & 2) != 0;
         public bool EndStanding => (Flags & 4) != 0;
+        public bool DeadBody => (Flags & 8) != 0;
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
@@ -102,6 +103,20 @@ namespace HideAndSeek.Game.Net
             return Mathf.Max(0f, (float)(now - pack.Start));
         }
 
+        /// <summary>Where this player's body lies (pelvis, direction to the head), from the posed / ragdolled bones.</summary>
+        public void BodyLieFrame(out Vector3 pelvis, out Vector3 headDir)
+        {
+            if (Character != null && Character.Pelvis != null && Character.Torso != null)
+            {
+                pelvis = Character.Pelvis.position;
+                headDir = Character.Torso.up;
+                pelvis.y = transform.position.y;
+                return;
+            }
+            pelvis = transform.position - transform.forward * BodyCarryTimeline.LyingPelvisBack;
+            headDir = transform.forward;
+        }
+
         /// <summary>Every peer, every frame (NetPlayer.Update).</summary>
         private void UpdateBodyCarry()
         {
@@ -177,6 +192,7 @@ namespace HideAndSeek.Game.Net
             st.FromFloor = pack.FromFloor;
             st.EndStanding = pack.EndStanding;
             st.Conscious = target.Life.Value == LifeState.Alive;
+            st.Dead = pack.DeadBody;
             bool end = st.Phase == BodyCarryPhase.PutDown || st.Phase == BodyCarryPhase.Drop;
             st.HasEnd = end;
             if (end)
@@ -213,7 +229,14 @@ namespace HideAndSeek.Game.Net
 
         private void BeginApproach(NetPlayer target, in BodyCarryPack pack)
         {
-            BodyCarryTimeline.CarrierSpot(target.transform.position, target.transform.rotation, pack.FromFloor, pack.Mirror, out var pos, out var rot);
+            Vector3 pos;
+            Quaternion rot;
+            if (pack.FromFloor)
+            {
+                target.BodyLieFrame(out var pelvis, out var head);
+                BodyCarryTimeline.CarrierSpotLying(pelvis, head, pack.Mirror, out pos, out rot);
+            }
+            else BodyCarryTimeline.CarrierSpot(target.transform.position, target.transform.rotation, false, pack.Mirror, out pos, out rot);
             Vector3 d = pos - transform.position;
             d.y = 0f;
             if (d.magnitude > 2.2f) return; // too far for a step: lift from where we are
@@ -262,8 +285,9 @@ namespace HideAndSeek.Game.Net
                     Motor.SetLook(yaw, pitch);
                     return;
                 }
-                if (!_carriedPlaced && Life.Value != LifeState.Dead)
+                if (!_carriedPlaced)
                 {
+                    // A dead body's root goes along too: it is where late joiners see the body lie.
                     _carriedPlaced = true;
                     TeleportLocal(pack.EndPos, pack.EndYaw);
                 }
@@ -274,7 +298,7 @@ namespace HideAndSeek.Game.Net
             if (!_carriedFollow) return;
             // The carry just ended without the end spot (carrier gone, round over): onto the floor where the body falls.
             _carriedFollow = false;
-            if (!_carriedPlaced && Life.Value != LifeState.Dead && bca != null && bca.TryGetCarryEnd(out var pos, out var rot))
+            if (!_carriedPlaced && bca != null && bca.TryGetCarryEnd(out var pos, out var rot))
                 TeleportLocal(pos, rot.eulerAngles.y);
             _carriedPlaced = false;
         }

@@ -1,3 +1,4 @@
+using HideAndSeek.Core;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -36,7 +37,8 @@ namespace HideAndSeek.Game.Net
                 if (!string.IsNullOrEmpty(why)) ToastRpc(why, 2.5f);
                 return;
             }
-            ServerAskCarry(target);
+            if (target.Life.Value == LifeState.Dead) ServerStartCarry(target); // a body: nobody to ask
+            else ServerAskCarry(target);
         }
 
         /// <summary>Server: both agreed (or not) - the single answer of <see cref="ServerAskCarry"/>.</summary>

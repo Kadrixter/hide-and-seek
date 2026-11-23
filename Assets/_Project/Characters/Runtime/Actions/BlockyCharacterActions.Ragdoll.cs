@@ -83,6 +83,7 @@ namespace HideAndSeek.Characters
         void UpdateRagdollStart()
         {
             if (!ragdollOnDeath || IsRagdolled || shockT >= 0f || gunT >= 0f) return;
+            if (bodyCarriedBy != null || bodyRelease) return; // a body in somebody's arms / just put down: physics starts once it lies
             bool shotDead = lifeState == LifeState.Dead && shotTime > -50f && action != ActionKind.KillReaction &&
                             Mathf.Abs(deathTime - shotTime) <= ShotDeathWindow && Time.time - shotTime <= ShotDeathWindow + 0.5f;
             bool killEnded = action == ActionKind.KillReaction && KillMoves.EndsDead(killMove) && actionTime >= killVictimDuration;

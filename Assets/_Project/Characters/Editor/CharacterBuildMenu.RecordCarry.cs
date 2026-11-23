@@ -100,7 +100,7 @@ namespace HideAndSeek.Characters.Editor
             }
         }
 
-        static CarryRig SpawnCarry(bool downed, bool mirror, int severed = 0)
+        static CarryRig SpawnCarry(bool downed, bool mirror, int severed = 0, bool dead = false)
         {
             var rig = new CarryRig();
             rig.Carrier = SpawnAt(1, Vector3.zero, 0f, out rig.CarrierMotion, out rig.CarrierAnim);
@@ -127,10 +127,11 @@ namespace HideAndSeek.Characters.Editor
                 rig.Carried.SetSevered(severed);
                 RecStumps(rig.Carried, severed);
             }
-            if (downed) rig.Carried.Actions.SetLifeStateImmediate(LifeState.Downed);
+            if (dead) rig.Carried.Actions.SetLifeStateImmediate(LifeState.Dead);
+            else if (downed) rig.Carried.Actions.SetLifeStateImmediate(LifeState.Downed);
             else rig.Carried.Actions.SetLimp(1f);
             TickAll(0.6f, rig.CarrierAnim, rig.CarriedAnim);
-            rig.State = new BodyCarryState { Phase = BodyCarryPhase.Lift, FromFloor = downed, Conscious = !downed, Mirror = mirror, EndStanding = !downed };
+            rig.State = new BodyCarryState { Phase = BodyCarryPhase.Lift, FromFloor = downed, Conscious = !downed, Mirror = mirror, EndStanding = !downed, Dead = dead };
             rig.Carrier.Actions.BeginBodyCarry(rig.Carried.Actions, rig.State);
             return rig;
         }
@@ -213,13 +214,14 @@ namespace HideAndSeek.Characters.Editor
                     break;
                 }
                 case "floor":
+                case "dead":
                 case "stand":
                 case "mirror":
                 case "leg":
                 case "drop":
                 {
                     bool downed = item != "stand" && item != "leg";
-                    var rig = SpawnCarry(downed, item == "mirror", item == "leg" ? Limb.LegR : 0);
+                    var rig = SpawnCarry(downed, item == "mirror", item == "leg" ? Limb.LegR : 0, item == "dead");
                     var clip = NewClip("carry_" + item);
                     float lift = BodyCarryTimeline.Lift(downed);
                     float total = 0f;
