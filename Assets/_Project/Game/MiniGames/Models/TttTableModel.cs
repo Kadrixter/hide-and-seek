@@ -11,8 +11,8 @@ namespace HideAndSeek.Game.MiniGames
     /// </summary>
     public sealed class TttTableModel
     {
-        public const float TopY = 0.64f, TableTop = 0.74f, StoolZ = 0.55f;
-        public const float SlateSize = 0.46f, GridSize = 0.39f, Cell = GridSize / 3f;
+        public const float TopY = 0.64f, TableTop = 0.92f, StoolZ = 0.63f;
+        public const float SlateSize = 0.54f, GridSize = 0.46f, Cell = GridSize / 3f;
         public const float SlateTop = TopY + 0.02f + 0.006f;
 
         public Transform Root, ChalkA, ChalkB, Eraser, Tokens;
@@ -28,7 +28,7 @@ namespace HideAndSeek.Game.MiniGames
             new Vector2((local.x / SlateSize + 0.5f) * BoardArt.SlatePx, (local.z / SlateSize + 0.5f) * BoardArt.SlatePx);
 
         /// <summary>Where the stick of chalk of a seat lies (on its ledge, right-hand side of the player).</summary>
-        public static Vector3 ChalkRest(int seat) => seat == 0 ? new Vector3(0.12f, TopY + 0.018f, -0.305f) : new Vector3(-0.12f, TopY + 0.018f, 0.305f);
+        public static Vector3 ChalkRest(int seat) => seat == 0 ? new Vector3(0.14f, TopY + 0.018f, -0.35f) : new Vector3(-0.14f, TopY + 0.018f, 0.35f);
 
         public static TttTableModel Build(Transform root, Material template, int style)
         {
@@ -56,9 +56,9 @@ namespace HideAndSeek.Game.MiniGames
             var stick = BoardMeshes.Lathe("chalk", new List<Vector2> { new(0f, 0f), new(0.0055f, 0f), new(0.0055f, 0f), new(0.006f, 0.07f), new(0.004f, 0.074f), new(0f, 0.075f) }, 12, 2f);
             foreach (int seat in new[] { 0, 1 })
             {
-                float z = seat == 0 ? -0.305f : 0.305f;
-                k.Part("Ledge", Root, BoardMeshes.RoundedBox(new Vector3(0.36f, 0.012f, 0.04f), 0.004f, 3), frame, new Vector3(0f, TopY + 0.006f, z));
-                k.Part("LedgeLip", Root, BoardMeshes.RoundedBox(new Vector3(0.36f, 0.012f, 0.008f), 0.003f, 2), frame, new Vector3(0f, TopY + 0.014f, z + (seat == 0 ? -0.018f : 0.018f)));
+                float z = seat == 0 ? -0.35f : 0.35f;
+                k.Part("Ledge", Root, BoardMeshes.RoundedBox(new Vector3(0.42f, 0.012f, 0.04f), 0.004f, 3), frame, new Vector3(0f, TopY + 0.006f, z));
+                k.Part("LedgeLip", Root, BoardMeshes.RoundedBox(new Vector3(0.42f, 0.012f, 0.008f), 0.003f, 2), frame, new Vector3(0f, TopY + 0.014f, z + (seat == 0 ? -0.018f : 0.018f)));
                 var c = k.Part(seat == 0 ? "ChalkA" : "ChalkB", Root, stick, chalk, ChalkRest(seat), Quaternion.Euler(0f, 0f, 90f) * Quaternion.Euler(0f, 0f, 0f)).transform;
                 if (seat == 0) ChalkA = c; else ChalkB = c;
             }
@@ -66,7 +66,7 @@ namespace HideAndSeek.Game.MiniGames
             var wood = k.Mat(new Color(0.7f, 0.55f, 0.36f), 0f, 0.4f, BoardArt.GrainFine);
             Eraser = new GameObject("Eraser") { layer = k.Layer }.transform;
             Eraser.SetParent(Root, false);
-            Eraser.localPosition = new Vector3(0.3f, TopY, 0.02f);
+            Eraser.localPosition = new Vector3(0.375f, TopY, 0.02f);
             Eraser.localRotation = Quaternion.Euler(0f, 78f, 0f);
             k.Part("EraserFelt", Eraser, BoardMeshes.RoundedBox(new Vector3(0.12f, 0.012f, 0.05f), 0.004f, 3), felt, new Vector3(0f, 0.006f, 0f));
             k.Part("EraserBack", Eraser, BoardMeshes.RoundedBox(new Vector3(0.124f, 0.026f, 0.052f), 0.008f, 3), wood, new Vector3(0f, 0.024f, 0f));

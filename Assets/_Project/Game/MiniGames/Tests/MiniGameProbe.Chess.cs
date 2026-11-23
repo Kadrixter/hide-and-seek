@@ -31,6 +31,8 @@ namespace HideAndSeek.Game.MiniGames
             yield return new WaitForSeconds(0.6f);
             Log($"game 1 over: end={chess.State.End} winner={chess.State.Winner} text='{ChessReferee.Describe(chess.State.End, chess.State.Winner, chess.SeatNick(0), chess.SeatNick(1))}' => {(chess.State.End == GameEnd.Checkmate && chess.State.Winner == 1 ? "OK" : "FAIL")}");
             Shot(Prefix() + "09_mate");
+            yield return new WaitForSeconds(2.5f);
+            _recording = false; // -mgvideo: the first game only
             if (_host) RenderTable(chess, "09_mate", new Vector3(1.2f, 1.35f, 0.9f));
 
             // Rematch: both press R, colours swap (seat B gets white).
@@ -41,7 +43,7 @@ namespace HideAndSeek.Game.MiniGames
             Log($"game 2 phase={chess.State.Phase} whiteIsA={chess.State.WhiteIsA} my colour={(chess.State.ColourOfSeat(seat) > 0 ? "white" : "black")} => {(chess.State.Phase == ChessState.Playing && !chess.State.WhiteIsA ? "OK" : "FAIL")}");
             Shot(Prefix() + "10_game2");
             yield return Play(chess, seat, Special, "g2");
-            for (float w = 0f; w < 8f && chess.Animating; w += Time.deltaTime) yield return null;
+            for (float w = 0f; w < 10f && (chess.Animating || chess.State.Ply < Special.Length); w += Time.deltaTime) yield return null;
             var b = chess.Shown;
             bool ep = b.Sq[ChessBoard.ParseSq("d5")] == 0;
             bool castled = b.Sq[ChessBoard.ParseSq("g1")] == ChessBoard.King && b.Sq[ChessBoard.ParseSq("f1")] == ChessBoard.Rook &&
@@ -81,9 +83,15 @@ namespace HideAndSeek.Game.MiniGames
             for (int i = 0; i < script.Length; i++)
             {
                 int colour = i % 2 == 0 ? 1 : -1;
+                if (chess.State.ColourOfSeat(seat) != colour)
+                {
+                    // The opponent's move: just wait until it has been played.
+                    for (float w = 0f; w < 25f && chess.State.Ply <= i; w += Time.deltaTime) yield return null;
+                    if (chess.State.Ply <= i) { Log($"{tag} move {i + 1} {script[i]}: opponent did not move FAIL"); yield break; }
+                    continue;
+                }
                 for (float w = 0f; w < 25f && !(chess.Target.Side == colour && !chess.Animating && chess.State.Ply == i); w += Time.deltaTime) yield return null;
                 if (chess.State.Ply != i) { Log($"{tag} move {i + 1} {script[i]}: out of step (ply {chess.State.Ply}) FAIL"); yield break; }
-                if (chess.State.ColourOfSeat(seat) != colour) continue;
                 string mv = script[i];
                 int from = ChessBoard.ParseSq(mv, 0), to = ChessBoard.ParseSq(mv, 2);
                 yield return new WaitForSeconds(0.35f);
@@ -103,7 +111,7 @@ namespace HideAndSeek.Game.MiniGames
                 if (_dir != null && (i < 3 || mv.Length > 4 || mv == "e1g1" || mv == "e5d6"))
                 {
                     yield return new WaitForSeconds(0.3f);
-                    Vector3 side = seat == 0 ? new Vector3(1.25f, 1.25f, -0.55f) : new Vector3(-1.25f, 1.25f, 0.55f);
+                    Vector3 side = seat == 0 ? new Vector3(1.75f, 1.3f, -0.25f) : new Vector3(-1.75f, 1.3f, 0.25f);
                     RenderTable(chess, $"{tag}_{i:00}_reach_{mv}", side, 46f);
                     yield return new WaitForSeconds(0.45f);
                     RenderTable(chess, $"{tag}_{i:00}_carry_{mv}", side, 46f);

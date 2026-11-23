@@ -106,10 +106,13 @@ namespace HideAndSeek.Game.MiniGames
             p.Bez(12.5f, 40f, 13.5f, 50f).Bez(14f, 54f, 17f, 55f, 4).Bez(19.2f, 55.6f, 17.6f, 57.6f, 4)
              .Pt(17f, 58.2f).Pt(18f, 58.8f).Crease().Pt(18f, 64f).Crease().Pt(12f, 64f).Crease().Pt(11f, 63f).Pt(0f, 62.8f);
             body.Add(C(BoardMeshes.Lathe("rook", p.P, 40)));
+            // Battlements: six rounded blocks round the rim.
+            var merlon = BoardMeshes.RoundedBox(new Vector3(9.6f, 9.5f, 6.2f) * Mm, 1.1f * Mm, 3);
             for (int i = 0; i < 6; i++)
             {
-                float a = i * 60f + 12f;
-                body.Add(C(BoardMeshes.Sector("merlon" + i, 12f * Mm, 18f * Mm, a, a + 36f, 63.5f * Mm, 73f * Mm, 5)));
+                float a = (i * 60f + 30f) * Mathf.Deg2Rad;
+                Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                body.Add(C(merlon, dir * 14.9f * Mm + Vector3.up * 68.2f * Mm, Quaternion.LookRotation(dir)));
             }
         }
 

@@ -60,10 +60,17 @@ namespace HideAndSeek.Game.Net
         public void ServerMiniSit(NetPlayer pl, byte game, byte seat)
         {
             if (pl == null || Phase.Value != MatchPhase.Lobby || seat > 1 || game > 1) return;
-            if (pl.Busy.Value || pl.Seat.Value >= 0 || ArcadePlayer.Value == pl.NetworkObjectId || ForkHolder.Value == pl.NetworkObjectId) return;
-            if (MiniSeatOf(pl.NetworkObjectId).game >= 0) return;
+            string why = pl.Busy.Value ? "busy" : pl.Seat.Value >= 0 ? "on a sofa" : ArcadePlayer.Value == pl.NetworkObjectId ? "at the arcade"
+                : ForkHolder.Value == pl.NetworkObjectId ? "holds the fork" : MiniSeatOf(pl.NetworkObjectId).game >= 0 ? "already seated" : null;
             var table = MiniGameTables.Get(game);
-            if (table == null || Vector3.Distance(pl.transform.position, table.SeatStand(seat)) > 2.6f) return;
+            if (why == null && table == null) why = "no table";
+            if (why == null && Vector3.Distance(pl.transform.position, table.SeatStand(seat)) > 2.6f)
+                why = $"too far ({Vector3.Distance(pl.transform.position, table.SeatStand(seat)):0.0} m)";
+            if (why != null)
+            {
+                Debug.Log($"[MiniGames] {pl.Nick} cannot sit at {(game == GameChess ? "chess" : "ttt")} seat {seat}: {why}");
+                return;
+            }
             if (game == GameChess)
             {
                 if (_chess.Seat(seat) != ChessState.Nobody) return;

@@ -78,7 +78,7 @@ namespace HideAndSeek.Game.MiniGames
 
         bool _recording;
 
-        /// <summary>-mgvideo &lt;dir&gt;: the player's screen as numbered frames at 20 fps (ffmpeg makes the mp4).</summary>
+        /// <summary>-mgvideo &lt;dir&gt;: the player's screen as numbered frames at 15 fps during the first game (ffmpeg makes the mp4).</summary>
         IEnumerator Record(string dir)
         {
             System.IO.Directory.CreateDirectory(dir);
@@ -89,7 +89,7 @@ namespace HideAndSeek.Game.MiniGames
             {
                 if (Time.unscaledTime >= next)
                 {
-                    next = Time.unscaledTime + 0.05f;
+                    next = Time.unscaledTime + 1f / 15f;
                     ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, $"f_{n++:00000}.png"));
                 }
                 yield return null;
@@ -147,9 +147,13 @@ namespace HideAndSeek.Game.MiniGames
             Vector3 stand = t.LeavePoint(seat);
             me.TeleportLocal(stand, t.SeatYaw(seat));
             me.Motor.SetLook(t.SeatYaw(seat), 25f);
-            yield return new WaitForSeconds(0.6f);
-            me.MiniSitRpc(t.Game, (byte)seat);
-            for (float w = 0f; w < 5f && t.SeatOf(me.NetworkObjectId) < 0; w += Time.deltaTime) yield return null;
+            for (int attempt = 0; attempt < 4 && t.SeatOf(me.NetworkObjectId) < 0; attempt++)
+            {
+                yield return new WaitForSeconds(0.8f);
+                Log($"sit request {attempt + 1}: pos={me.transform.position} stand={t.SeatStand(seat)}");
+                me.MiniSitRpc(t.Game, (byte)seat);
+                for (float w = 0f; w < 2.5f && t.SeatOf(me.NetworkObjectId) < 0; w += Time.deltaTime) yield return null;
+            }
             Log($"sat at {t.Title} seat {seat}: {(t.SeatOf(me.NetworkObjectId) == seat ? "OK" : "FAIL")}");
             yield return new WaitForSeconds(1.0f); // camera glides to the board
         }

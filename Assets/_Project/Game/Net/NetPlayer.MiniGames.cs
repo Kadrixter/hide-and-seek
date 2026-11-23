@@ -24,32 +24,51 @@ namespace HideAndSeek.Game.Net
         [Rpc(SendTo.Server)]
         public void TttMoveRpc(byte cell) => MatchManager.Instance?.ServerTttMove(this, cell);
 
-        /// <summary>Own body drawn while at a board-game table (camera above the board), back to normal afterwards.</summary>
-        internal void SetBoardBodyShown(bool on)
+        private bool _boardBodyOn;
+        private readonly System.Collections.Generic.Dictionary<Renderer, UnityEngine.Rendering.ShadowCastingMode> _boardOriginal = new();
+        private Renderer[] _boardRenderers;
+        private float _boardRefresh;
+
+        /// <summary>
+        /// Own body while seated at a board-game table (every frame): the camera hangs above the board right behind
+        /// the head, so the body is shadows only; the right arm is drawn while it reaches over the board. Done every
+        /// frame because a skin arriving late re-applies the normal render modes.
+        /// </summary>
+        internal void BoardBodyTick(bool armShown)
         {
             if (!IsOwner || Character == null) return;
-            if (on)
+            if (!_boardBodyOn)
             {
+                _boardBodyOn = true;
                 Character.SetFirstPersonMode(false);
-                Character.SetHeadHidden(true); // the camera hangs right behind the head
-                // Only the arms are drawn for the own camera (the leaning torso would cover the board); shadows stay.
-                _boardHidden.Clear();
-                foreach (var r in Character.GetComponentsInChildren<Renderer>(true))
-                {
-                    if (r.transform.IsChildOf(Character.ShoulderRight) || r.transform.IsChildOf(Character.ShoulderLeft)) continue;
-                    if (r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly) continue;
-                    _boardHidden.Add((r, r.shadowCastingMode));
-                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
-                }
+                Character.SetHeadHidden(true);
+                _boardRenderers = null;
             }
-            else
+            if (_boardRenderers == null || Time.unscaledTime >= _boardRefresh)
             {
-                foreach (var (r, mode) in _boardHidden) if (r != null) r.shadowCastingMode = mode;
-                _boardHidden.Clear();
-                ApplyOwnBodyMode();
+                _boardRenderers = Character.GetComponentsInChildren<Renderer>(true);
+                _boardRefresh = Time.unscaledTime + 1f;
+            }
+            foreach (var r in _boardRenderers)
+            {
+                if (r == null) continue;
+                bool arm = armShown && r.transform.IsChildOf(Character.ShoulderRight);
+                var want = arm ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                if (r.shadowCastingMode == want) continue;
+                if (!_boardOriginal.ContainsKey(r)) _boardOriginal[r] = r.shadowCastingMode;
+                r.shadowCastingMode = want;
             }
         }
 
-        private readonly System.Collections.Generic.List<(Renderer r, UnityEngine.Rendering.ShadowCastingMode mode)> _boardHidden = new();
+        /// <summary>Got up from the table: render modes back to normal first person.</summary>
+        internal void BoardBodyEnd()
+        {
+            if (!_boardBodyOn) return;
+            _boardBodyOn = false;
+            foreach (var kv in _boardOriginal) if (kv.Key != null) kv.Key.shadowCastingMode = kv.Value;
+            _boardOriginal.Clear();
+            _boardRenderers = null;
+            ApplyOwnBodyMode();
+        }
     }
 }

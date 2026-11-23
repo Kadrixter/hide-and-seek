@@ -87,6 +87,7 @@ namespace HideAndSeek.Game.MiniGames
                 if (act == null) continue;
                 PoseInputs(seat, out var reach, out float reachW, out float think, out var look, out float lean);
                 act.SetBoardGame(true, SeatTop(seat), TableEdge(seat), FootRestY, reach, reachW, think, look, lean, (id % 97) * 0.37f);
+                if (pl.IsOwner) pl.BoardBodyTick(reachW > 0.08f);
             }
         }
 
@@ -103,7 +104,7 @@ namespace HideAndSeek.Game.MiniGames
         }
 
         /// <summary>Right-hand rest point of a seat (fist on the table edge), used as the start of a reach.</summary>
-        protected Vector3 HandRest(int seat) => transform.TransformPoint(new Vector3(-Side(seat) * 0.17f, TopY + 0.05f, Side(seat) * (TableHalf - 0.12f)));
+        protected Vector3 HandRest(int seat) => transform.TransformPoint(new Vector3(-Side(seat) * 0.19f, TopY + 0.05f, Side(seat) * (TableHalf - 0.04f)));
 
         /// <summary>Nick of the player in a seat ("" when empty).</summary>
         public string SeatNick(int seat)

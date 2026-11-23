@@ -72,7 +72,7 @@ namespace HideAndSeek.Game.MiniGames
             if (!fresh && ns.Round != _drawnRound && ns.Cells == ".........")
             {
                 // New round: wipe the slate (by the player who starts it) unless it is clean already.
-                QueueErase(ns.Starter);
+                if (_drawn != "........." || _drawnLine >= 0) QueueErase(ns.Starter);
                 _drawnRound = ns.Round;
                 _drawn = ".........";
                 _drawnLine = -1;

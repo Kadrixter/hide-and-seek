@@ -40,19 +40,19 @@ namespace HideAndSeek.Game.Net
                 if (_miniWasSeated)
                 {
                     _miniWasSeated = false;
-                    _p.SetBoardBodyShown(false);
+                    _p.BoardBodyEnd();
                 }
                 return false;
             }
             if (!_miniWasSeated)
             {
                 _miniWasSeated = true;
-                _p.SetBoardBodyShown(true);
                 MiniGameLocal.Ensure();
             }
             _p.Motor.MovementEnabled = false;
             _p.Motor.LookEnabled = false;
             _p.InputReader.ManageCursor = false;
+            _p.InputReader.ResetStance(); // C is the time-control key here, not crouch
             if (!Cursor.visible) Cursor.visible = true;
             if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
             var cc = _p.GetComponent<CharacterController>();

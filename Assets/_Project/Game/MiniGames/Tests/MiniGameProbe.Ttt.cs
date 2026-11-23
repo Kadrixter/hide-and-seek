@@ -57,9 +57,14 @@ namespace HideAndSeek.Game.MiniGames
             for (int i = 0; i < cells.Length; i++)
             {
                 int who = (starter + i) % 2;
+                if (who != seat)
+                {
+                    for (float w = 0f; w < 25f && Count(ttt.State.Cells) <= i; w += Time.deltaTime) yield return null;
+                    if (Count(ttt.State.Cells) <= i) { Log($"{tag} mark {i}: opponent did not play FAIL"); yield break; }
+                    continue;
+                }
                 for (float w = 0f; w < 25f && !(ttt.State.Turn == who && !ttt.Animating && Count(ttt.State.Cells) == i); w += Time.deltaTime) yield return null;
                 if (Count(ttt.State.Cells) != i) { Log($"{tag} mark {i}: out of step FAIL"); yield break; }
-                if (who != seat) continue;
                 yield return new WaitForSeconds(0.3f);
                 Vector3 c = ttt.transform.TransformPoint(TttTableModel.CellLocal(cells[i]));
                 ttt.LocalPointer(me, RayTo(ttt, seat, c), false);
@@ -70,7 +75,7 @@ namespace HideAndSeek.Game.MiniGames
                 if (_dir != null && i < 3)
                 {
                     yield return new WaitForSeconds(0.6f);
-                    Vector3 side = seat == 0 ? new Vector3(1.0f, 1.25f, -0.5f) : new Vector3(-1.0f, 1.25f, 0.5f);
+                    Vector3 side = seat == 0 ? new Vector3(1.6f, 1.3f, -0.2f) : new Vector3(-1.6f, 1.3f, 0.2f);
                     RenderTable(ttt, $"{tag}_{i}_pick", side, 46f);
                     yield return new WaitForSeconds(0.7f);
                     RenderTable(ttt, $"{tag}_{i}_draw", side, 46f);

@@ -85,8 +85,8 @@ namespace HideAndSeek.Characters
 
             // Arms resting on the table edge (forearms on the wood).
             float tableY = inp.TableEdge.y;
-            Vector3 restR = new Vector3(0.17f, tableY + 0.05f, inp.TableEdge.z + 0.12f);
-            Vector3 restL = new Vector3(-0.17f, tableY + 0.05f, inp.TableEdge.z + 0.12f);
+            Vector3 restR = new Vector3(0.19f, tableY + 0.05f, inp.TableEdge.z + 0.04f);
+            Vector3 restL = new Vector3(-0.19f, tableY + 0.05f, inp.TableEdge.z + 0.04f);
             // Idle: fingers drumming on the table (right fist bobs).
             float drum = Mathf.Max(0f, Mathf.Sin(time * 11f)) * Mathf.Clamp01(Noise(time * 0.11f, s + 9f) * 3f - 1f);
             restR.y += drum * 0.018f;
