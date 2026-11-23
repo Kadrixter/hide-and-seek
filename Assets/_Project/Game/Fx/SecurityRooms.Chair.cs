@@ -14,6 +14,8 @@ namespace HideAndSeek.Game
     public partial class SecurityRooms
     {
         public const int ChairsPerRoom = 2;
+        /// <summary>The gas lift is let down this much: the blocky legs are short, at this height the feet reach the floor.</summary>
+        public const float SeatDrop = 0.21f;
         public const int ChairCount = Levels * ChairsPerRoom;
 
         public sealed class Chair
@@ -21,7 +23,7 @@ namespace HideAndSeek.Game
             public int Index, Level;
             public Transform Root, Upper, Anchor;
             public float Yaw, ShownYaw, Dip, DipVel;
-            public Vector3 SeatCenter => Upper.position + Vector3.up * 0.5f;
+            public Vector3 SeatCenter => Upper.position + Vector3.up * 0.5f;   // Upper sits SeatDrop below the root
         }
 
         private readonly List<Chair> _chairs = new();
@@ -33,23 +35,24 @@ namespace HideAndSeek.Game
         public static SeatShape ChairShape => _chairShape ??= new SeatShape
         {
             Kind = SeatKind.Generic,
-            Id = 41,
+            Office = true,
+            Id = 42,
             Solids = new[]
             {
-                SeatSolid.Box(new Vector3(0f, 0.47f, -0.24f), new Vector3(0.49f, 0.095f, 0.46f), Quaternion.identity, 0.01f),
-                SeatSolid.Box(new Vector3(0f, 0.88f, -0.53f), new Vector3(0.46f, 0.56f, 0.05f), Quaternion.Euler(-10f, 0f, 0f)),
-                SeatSolid.Box(new Vector3(-0.255f, 0.665f, -0.24f), new Vector3(0.075f, 0.035f, 0.25f), Quaternion.identity),
-                SeatSolid.Box(new Vector3(0.255f, 0.665f, -0.24f), new Vector3(0.075f, 0.035f, 0.25f), Quaternion.identity),
-                SeatSolid.Box(new Vector3(0f, 0.25f, -0.24f), new Vector3(0.08f, 0.34f, 0.08f), Quaternion.identity),
+                SeatSolid.Box(new Vector3(0f, 0.47f - SeatDrop, -0.34f), new Vector3(0.52f, 0.095f, 0.32f), Quaternion.identity, 0.01f),
+                SeatSolid.Box(new Vector3(0f, 0.88f - SeatDrop, -0.53f), new Vector3(0.46f, 0.56f, 0.05f), Quaternion.Euler(-10f, 0f, 0f)),
+                SeatSolid.Box(new Vector3(-0.31f, 0.665f - SeatDrop, -0.24f), new Vector3(0.075f, 0.035f, 0.25f), Quaternion.identity),
+                SeatSolid.Box(new Vector3(0.31f, 0.665f - SeatDrop, -0.24f), new Vector3(0.075f, 0.035f, 0.25f), Quaternion.identity),
+                SeatSolid.Box(new Vector3(0f, 0.2f - SeatDrop * 0.5f, -0.24f), new Vector3(0.08f, 0.24f, 0.08f), Quaternion.identity),
             },
-            EdgeZ = -0.01f,
-            TopY = 0.5175f,
+            EdgeZ = -0.18f,
+            TopY = 0.5175f - SeatDrop,
             BackZ = -0.47f,
             RearZ = -0.46f,
-            ArmInnerX = 0.2175f,
-            ArmTopY = 0.6825f,
-            BackTopY = 1.16f,
-            Sink = 0.012f,
+            ArmInnerX = 0.2725f,
+            ArmTopY = 0.6825f - SeatDrop,
+            BackTopY = 1.16f - SeatDrop,
+            Sink = 0.022f,   // the cushion gives under the hips
         };
 
         private void BuildSwivelChair(Transform room, int lv, int idx, Vector3 at, float yaw)
@@ -84,19 +87,20 @@ namespace HideAndSeek.Game
                 foreach (float s in new[] { -0.012f, 0.012f })
                     MeshObj(root, "Castor", wheel, axle + cq * new Vector3(s, 0f, 0f), cq, black, Surf.Shiny(0.55f), true, false);
             }
-            var sleeve = CachedMesh("ChairSleeve", m => m.Lathe(new[] { new Vector2(0.034f, 0.13f), new Vector2(0.034f, 0.27f), new Vector2(0.028f, 0.3f), new Vector2(0.02f, 0.3f) }, 16));
+            var sleeve = CachedMesh("ChairSleeveLow2", m => m.Lathe(new[] { new Vector2(0.034f, 0.13f), new Vector2(0.034f, 0.15f), new Vector2(0.028f, 0.16f), new Vector2(0.02f, 0.16f) }, 16));
             MeshObj(root, "GasSleeve", sleeve, Vector3.zero, Quaternion.identity, black, Surf.Shiny(0.5f), true);
 
             // ---- upper part (turns, dips when somebody sits down)
             var upper = new GameObject("Upper").transform;
             upper.SetParent(root, false);
+            upper.localPosition = new Vector3(0f, -SeatDrop, 0f);
             var piston = CachedMesh("ChairPiston", m => m.Lathe(new[] { new Vector2(0.019f, 0.26f), new Vector2(0.019f, 0.38f), new Vector2(0f, 0.385f) }, 14));
             MeshObj(upper, "Piston", piston, Vector3.zero, Quaternion.identity, chrome, Surf.Shiny(0.85f, 1f), true);
             MeshObj(upper, "Mechanism", CachedMesh("ChairMech", m => m.RoundBox(new Vector3(0.22f, 0.045f, 0.25f), 0.012f, 3)), new Vector3(0f, 0.395f, 0f), Quaternion.identity, plastic, Surf.Shiny(0.35f, 0.3f), true);
             MeshObj(upper, "Lever", CachedMesh("ChairLever", m => m.Tube(new[] { new Vector3(0.1f, 0.39f, 0.05f), new Vector3(0.2f, 0.385f, 0.07f), new Vector3(0.235f, 0.38f, 0.12f) }, 0.006f, 6)
                 .At(new Vector3(0.235f, 0.38f, 0.12f)).RoundBox(new Vector3(0.022f, 0.022f, 0.04f), 0.008f, 2)), Vector3.zero, Quaternion.identity, black, Surf.Shiny(0.4f), true, false);
-            MeshObj(upper, "SeatShell", CachedMesh("ChairShell", m => m.RoundBox(new Vector3(0.5f, 0.035f, 0.47f), 0.015f, 4)), new Vector3(0f, 0.432f, 0f), Quaternion.identity, plastic, Surf.Shiny(0.3f), true);
-            MeshObj(upper, "Cushion", CachedMesh("ChairCushion", m => m.RoundBox(new Vector3(0.49f, 0.075f, 0.46f), 0.034f, 6)), new Vector3(0f, 0.48f, 0f), Quaternion.identity, fabric, Surf.T(SecurityTextures.Kind.Fabric, 0.22f, 0.08f), true);
+            MeshObj(upper, "SeatShell", CachedMesh("ChairShell2", m => m.RoundBox(new Vector3(0.53f, 0.035f, 0.33f), 0.015f, 4)), new Vector3(0f, 0.432f, -0.1f), Quaternion.identity, plastic, Surf.Shiny(0.3f), true);
+            MeshObj(upper, "Cushion", CachedMesh("ChairCushion2", m => m.RoundBox(new Vector3(0.52f, 0.075f, 0.32f), 0.034f, 6)), new Vector3(0f, 0.48f, -0.1f), Quaternion.identity, fabric, Surf.T(SecurityTextures.Kind.Fabric, 0.22f, 0.08f), true);
 
             // Spine from under the seat up behind the backrest.
             MeshObj(upper, "Spine", CachedMesh("ChairSpine", m => m.Tube(new[] { new Vector3(0f, 0.405f, -0.08f), new Vector3(0f, 0.405f, -0.24f), new Vector3(0f, 0.47f, -0.3f), new Vector3(0f, 0.6f, -0.33f), new Vector3(0f, 0.66f, -0.33f) }, 0.022f, 10)),
@@ -113,14 +117,14 @@ namespace HideAndSeek.Game
             // Armrests: curved posts from the seat sides, soft pads.
             foreach (float s in new[] { -1f, 1f })
             {
-                MeshObj(upper, "ArmPost", CachedMesh("ChairArmPost" + s, m => m.Tube(new[] { new Vector3(0.2f * s, 0.415f, -0.04f), new Vector3(0.245f * s, 0.43f, -0.04f), new Vector3(0.258f * s, 0.5f, -0.035f), new Vector3(0.258f * s, 0.65f, -0.03f) }, 0.016f, 8)),
+                MeshObj(upper, "ArmPost", CachedMesh("ChairArmPostW2" + s, m => m.Tube(new[] { new Vector3(0.22f * s, 0.415f, -0.04f), new Vector3(0.28f * s, 0.43f, -0.04f), new Vector3(0.31f * s, 0.5f, -0.035f), new Vector3(0.31f * s, 0.65f, -0.03f) }, 0.016f, 8)),
                     Vector3.zero, Quaternion.identity, black, Surf.Shiny(0.4f), true);
-                MeshObj(upper, "ArmPad", CachedMesh("ChairArmPad", m => m.RoundBox(new Vector3(0.075f, 0.03f, 0.25f), 0.013f, 4)), new Vector3(0.258f * s, 0.665f, 0f), Quaternion.identity, black, Surf.Shiny(0.2f), true);
+                MeshObj(upper, "ArmPad", CachedMesh("ChairArmPad", m => m.RoundBox(new Vector3(0.075f, 0.03f, 0.25f), 0.013f, 4)), new Vector3(0.31f * s, 0.665f, 0f), Quaternion.identity, black, Surf.Shiny(0.2f), true);
             }
 
             var anchor = new GameObject("SeatAnchor").transform;
             anchor.SetParent(upper, false);
-            anchor.localPosition = new Vector3(0f, 0f, 0.24f);
+            anchor.localPosition = new Vector3(0f, SeatDrop, 0.24f);   // on the floor again (Upper is let down)
 
             var col = root.gameObject.AddComponent<BoxCollider>();
             col.center = new Vector3(0f, 0.5f, -0.02f);

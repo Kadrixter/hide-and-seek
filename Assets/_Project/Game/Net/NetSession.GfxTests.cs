@@ -61,6 +61,7 @@ namespace HideAndSeek.Game.Net
                 views.Add(("lamp", from, YawTo(to), PitchTo(to), false));
             }
             var modes = (AaMode[])System.Enum.GetValues(typeof(AaMode));
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-gfxreflonly") >= 0) modes = new AaMode[0];
             var log = new System.Text.StringBuilder();
             foreach (var v in views)
             {
@@ -92,6 +93,38 @@ namespace HideAndSeek.Game.Net
             GfxSettings.TestAa = null;
             GfxSettings.TestBloom = null;
             GfxSettings.Apply();
+
+            // Reflections (experimental option): the same views plus the flooded quarter of level -2, off / on.
+            views.Add(("flood", new Vector3(30f, -6.75f, -52f), 40f, -14f, true));
+            views.Add(("carpaint", new Vector3(-14f, 0.05f, -27.2f), 75f, -8f, true));
+            // Render the probes once first (spread over frames), then compare with them ready.
+            GfxSettings.TestReflections = true;
+            float t0 = Time.realtimeSinceStartup;
+            while (!GarageReflections.Ready && Time.realtimeSinceStartup - t0 < 120f) yield return null;
+            Debug.Log($"[GfxTest] reflection probes ready: {GarageReflections.Ready}, render {GarageReflections.LastRenderMs:0} ms");
+            foreach (var v in views)
+            {
+                me.Motor.Teleport(v.pos, v.yaw, v.pitch);
+                me.Motor.SetLook(v.yaw, v.pitch);
+                if (me.Flashlight != null) me.Flashlight.SetOn(v.lamp, false);
+                foreach (bool refl in new[] { false, true })
+                {
+                    GfxSettings.TestReflections = refl;
+                    QualitySettings.vSyncCount = 0;
+                    Application.targetFrameRate = -1;
+                    float until = Time.time + 25f;
+                    while (refl && !GarageReflections.Ready && Time.time < until) yield return null;
+                    yield return new WaitForSeconds(0.8f);
+                    float avg = 0f, worst = 0f;
+                    yield return MeasureFrames(2.5f, (a, w) => { avg = a; worst = w; });
+                    string id = $"{v.name}_refl{(refl ? "On" : "Off")}";
+                    Shot(dir, "gfx_" + id);
+                    string line = $"[GfxTest] {id}: {avg:0.00} ms ({1000f / avg:0} FPS), worst {worst:0.0} ms{(refl ? $", probes rendered in {GarageReflections.LastRenderMs:0} ms" : "")}";
+                    Debug.Log(line);
+                    log.AppendLine(line);
+                }
+            }
+            GfxSettings.TestReflections = null;
             if (!string.IsNullOrEmpty(dir)) System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "gfx_times.txt"), log.ToString());
             Debug.Log("[GfxTest] done");
         }
@@ -162,6 +195,10 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[OfficeTest] prompt before sitting: '{LocalPlayerController.Instance?.PromptText}'");
             mm.ChairRequestRpc(0, true, (short)Mathf.RoundToInt(Mathf.Repeat(me.transform.eulerAngles.y, 360f)));
             var act = me.Actions as HideAndSeek.Characters.BlockyCharacterActions;
+            // -officevideo <dir>: an outside camera frame every frame from here until standing up (ffmpeg makes the clip).
+            string vid = ArgOr("-officevideo", null);
+            _videoOn = vid != null;
+            if (_videoOn) StartCoroutine(VideoFrames(vid, chair));
             for (int i = 0; i < 10; i++)
             {
                 Shot(dir, $"office_sit_{i:00}");
@@ -189,6 +226,13 @@ namespace HideAndSeek.Game.Net
             me.Motor.SetLook(0f, 8f);
             yield return new WaitForSeconds(1.2f);
             Shot(dir, "office_monitors_seated");
+            // The seated body from the side, the front and behind (hips in the seat, feet on the floor, back on the backrest).
+            Vector3 sc = chair.SeatCenter;
+            CamShot(dir, "office_seat_side", sc + new Vector3(1.5f, 0.25f, 0.05f), sc + new Vector3(0f, 0.1f, 0.1f));
+            CamShot(dir, "office_seat_side_l", sc + new Vector3(-1.5f, 0.3f, 0.2f), sc + new Vector3(0f, 0.1f, 0.1f));
+            CamShot(dir, "office_seat_front", sc + new Vector3(0.7f, 0.55f, 0.95f), sc + new Vector3(0f, 0.05f, 0f));
+            CamShot(dir, "office_seat_low", sc + new Vector3(1.1f, -0.25f, 0.6f), sc + new Vector3(0f, -0.2f, 0.15f));
+            Debug.Log($"[OfficeTest] seated body: pelvis {me.Character.transform.position:F2}, seat top {sc.y + 0.0175f:F2}");
             Debug.Log($"[OfficeTest] getting up (start yaw {y0:0})");
             SecurityChairDriver.LeaveLocal();
             for (int i = 0; i < 6; i++)
@@ -198,9 +242,24 @@ namespace HideAndSeek.Game.Net
                 yield return new WaitForSeconds(0.12f);
             }
             yield return new WaitForSeconds(1f);
+            _videoOn = false;
             Destroy(seatLight);
             Debug.Log($"[OfficeTest] after standing: local chair {SecurityChairDriver.LocalChair}, sitter free {mm.SecurityChairs.Value.Sitter(0) == ChairsState.Free}, cc {me.GetComponent<CharacterController>().enabled}, seated motor {me.Motor.Seated}, pos {me.transform.position:F2}");
             Debug.Log("[OfficeTest] done");
+        }
+
+        private static bool _videoOn;
+
+        private IEnumerator VideoFrames(string dir, SecurityRooms.Chair chair)
+        {
+            int n = 0;
+            while (_videoOn && n < 900)
+            {
+                Vector3 sc = chair.SeatCenter;
+                CamShot(dir, $"f_{n++:0000}", new Vector3(71.0f, 1.35f, 56.75f), sc + new Vector3(0f, 0.15f, 0f));
+                yield return new WaitForSeconds(1f / 15f);
+            }
+            Debug.Log($"[OfficeTest] video frames: {n}");
         }
 
         private IEnumerator OfficeWatch(string dir)
@@ -214,7 +273,9 @@ namespace HideAndSeek.Game.Net
             var light = CrateTestLight(new Vector3(71.5f, 2.6f, 56.5f));
             for (int i = 0; i < 24 && mm.SecurityChairs.Value.Sitter(0) != ChairsState.Free; i++)
             {
-                CamShot(dir, $"watch_{i:00}", new Vector3(71.3f, 1.5f, 56.4f), sr.Chairs[0].SeatCenter);
+                Vector3 wc = sr.Chairs[0].SeatCenter;
+                if (i % 2 == 0) CamShot(dir, $"watch_{i:00}", new Vector3(71.3f, 1.5f, 56.4f), wc);
+                else CamShot(dir, $"watch_{i:00}_side", wc + new Vector3(1.5f, 0.25f, 0.05f), wc + new Vector3(0f, 0.1f, 0.1f));
                 Debug.Log($"[OfficeWatch] chair yaw {sr.Chairs[0].ShownYaw:0}");
                 yield return new WaitForSeconds(0.4f);
             }

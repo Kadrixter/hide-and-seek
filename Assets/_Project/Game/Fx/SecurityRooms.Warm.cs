@@ -44,6 +44,7 @@ namespace HideAndSeek.Game
             yield return ("pizza", () => { if (_pizzaLid == null) _pizzaLid = MakePizzaLid(); });
             yield return ("box label", () => { if (_boxLabel == null) _boxLabel = MakeBoxLabel(); });
             yield return ("jacket + notes", BakeStorageTextures);
+            yield return ("chair pose", () => HideAndSeek.Characters.SeatPoses.Body(0, ChairShape));
             yield return ("sounds", () =>
             {
                 if (_switchClip == null) _switchClip = Keep(MakeStaticClip("MonitorSwitch", 0.5f, 11));

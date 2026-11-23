@@ -97,7 +97,7 @@ namespace HideAndSeek.Game
                     c.DipVel += (-(c.Dip - rest) * 260f - c.DipVel * 16f) * h;
                     c.Dip = Mathf.Clamp(c.Dip + c.DipVel * h, -0.04f, 0.02f);
                 }
-                c.Upper.localPosition = new Vector3(0f, c.Dip, 0f);
+                c.Upper.localPosition = new Vector3(0f, c.Dip - SecurityRooms.SeatDrop, 0f);
 
                 if (p != null && p.IsOwner) OwnerTick(c, p);
             }

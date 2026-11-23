@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.UI
     /// <summary>"Grafika" settings page (main menu and Esc menu), see <see cref="GfxSettings"/>.</summary>
     public static class GraphicsSettingsUi
     {
-        public const float PanelHeight = 930f;
+        public const float PanelHeight = 990f;
 
         private static readonly float[] ShadowDists = { 25f, 35f, 50f, 60f, 75f, 100f, 125f, 150f };
         private static readonly int[] LightCounts = { 1, 2, 3, 4, 6, 8 };
@@ -43,6 +43,8 @@ namespace HideAndSeek.Game.UI
                 s => GfxSettings.PixelLights = Step(LightCounts, GfxSettings.PixelLights, s));
             Row(refresher, parent, "GfxBloom", "Poświata lamp", () => GfxSettings.Bloom ? "włączona" : "wyłączona",
                 _ => GfxSettings.Bloom = !GfxSettings.Bloom);
+            Row(refresher, parent, "GfxRefl", "Odbicia (eksperym.)", () => GfxSettings.Reflections ? "włączone" : "wyłączone",
+                _ => GfxSettings.Reflections = !GfxSettings.Reflections);
             Row(refresher, parent, "GfxVsync", "VSync", () => GfxSettings.VSync ? "włączona" : "wyłączona",
                 _ => GfxSettings.VSync = !GfxSettings.VSync);
             Row(refresher, parent, "GfxFps", "Limit FPS", () => GfxSettings.VSync ? "VSync" : GfxSettings.FpsCap <= 0 ? "bez limitu" : GfxSettings.FpsCap.ToString(),

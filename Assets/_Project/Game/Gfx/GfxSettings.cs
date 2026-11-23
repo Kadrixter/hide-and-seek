@@ -56,6 +56,8 @@ namespace HideAndSeek.Game.Gfx
         public static int FpsCap { get => Prefs.GetInt("hns.gfx.fps", 0); set => SetI("hns.gfx.fps", value); }
         public static int PixelLights { get => Prefs.GetInt("hns.gfx.lights", Def.Lights); set => SetI("hns.gfx.lights", value); }
         public static float LodBias { get => Prefs.GetFloat("hns.gfx.lod", Def.Lod); set { Prefs.SetFloat("hns.gfx.lod", value); Apply(); } }
+        /// <summary>Experimental reflections in the garage (<see cref="GarageReflections"/>), off by default and not part of the profiles.</summary>
+        public static bool Reflections { get => Prefs.GetInt("hns.gfx.refl", 0) != 0; set => SetI("hns.gfx.refl", value ? 1 : 0); }
 
         private static void SetI(string key, int v)
         {
@@ -135,6 +137,8 @@ namespace HideAndSeek.Game.Gfx
         /// <summary>Test override (-testgfx): AA mode used instead of the saved one (null = saved).</summary>
         public static AaMode? TestAa;
         public static bool? TestBloom;
+        public static bool? TestReflections;
+        public static bool EffectiveReflections => TestReflections ?? Reflections;
 
         public static AaMode EffectiveAa => TestAa ?? Aa;
         public static bool EffectiveBloom => TestBloom ?? Bloom;
@@ -178,8 +182,9 @@ namespace HideAndSeek.Game.Gfx
             if (Application.isBatchMode) return;
             Apply();
             GfxPostDriver.Ensure();
+            GarageReflections.Ensure();
             Debug.Log($"[Gfx] profile {(CurrentPreset() is int p && p >= 0 ? Presets[p].Name : "własny")}: AA {AaName(Aa)}, aniso {Aniso}x, textures {TextureName(TextureLevel)}, " +
-                      $"shadows {ShadowName(Shadows)} {ShadowDistance:0} m, bloom {Bloom}, vsync {VSync}, fps cap {FpsCap}, lights {PixelLights}, lod {LodBias}");
+                      $"shadows {ShadowName(Shadows)} {ShadowDistance:0} m, bloom {Bloom}, vsync {VSync}, fps cap {FpsCap}, lights {PixelLights}, lod {LodBias}, reflections {Reflections}");
         }
     }
 }

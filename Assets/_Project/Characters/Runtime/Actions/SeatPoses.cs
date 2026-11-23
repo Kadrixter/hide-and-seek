@@ -289,6 +289,7 @@ namespace HideAndSeek.Characters
 
         static CharacterPose Build(int v, SeatShape s, LookLimits lim)
         {
+            if (s.Office && v == 0) return Office(s, lim);
             switch (v)
             {
                 case 1: return s.Kind == SeatKind.Sofa && s.HasBack ? Lounge(s, lim) : BestLean(s, Casual, 0f, 16f, -6f);

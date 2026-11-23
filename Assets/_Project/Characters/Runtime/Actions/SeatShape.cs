@@ -91,6 +91,9 @@ namespace HideAndSeek.Characters
         /// </summary>
         public SeatShape Wide;
 
+        /// <summary>Office chair: pose 0 is solved by SeatPoses.Office (back against the backrest, feet on the floor).</summary>
+        public bool Office;
+
         public bool HasBack => !float.IsNaN(BackZ);
 
         /// <summary>True when <paramref name="p"/> is inside a solid or below the floor (both grown by <paramref name="margin"/>).</summary>
