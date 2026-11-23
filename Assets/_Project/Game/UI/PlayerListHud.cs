@@ -161,7 +161,10 @@ namespace HideAndSeek.Game.UI
                     // Server: DownedUntil = down time + BleedOut, death when the server clock passes it. Lifting does
                     // not stop or add time (ServerRescue just stands the player up), so the bar keeps running until
                     // the state changes. After the round (Ended) nobody bleeds out any more: no bar.
-                    if (phase == MatchPhase.Seeking && mm != null && p.DownedUntil.Value > 0d)
+                    // The seekers never see how long a downed hider has left (only the hiders and dead hiders do).
+                    var viewer = NetPlayer.Local;
+                    bool seekerViews = viewer != null && viewer.IsSeeker;
+                    if (phase == MatchPhase.Seeking && mm != null && p.DownedUntil.Value > 0d && !seekerViews)
                     {
                         float total = mm.BleedOut;
                         float left = Mathf.Max(0f, (float)(p.DownedUntil.Value - mm.Now));
