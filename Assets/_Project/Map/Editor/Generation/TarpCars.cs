@@ -8,7 +8,7 @@ namespace HideAndSeek.Map.Editor
     /// <summary>
     /// A real parked car under one of four covers (see <see cref="TarpDrape"/>):
     /// fitted grey car cover (mirror pockets, elastic hem), blue tarp with eyelets, two ropes and bricks on the hem,
-    /// greenish crinkled foil (the dusty car shows through), old canvas pulled back off the bonnet with an old tyre
+    /// green matt sheet (opaque fabric), old canvas pulled back off the bonnet with an old tyre
     /// on the roof. Built once per (model, kind, seed) and kept in the mesh store.
     /// </summary>
     internal static class TarpCars
