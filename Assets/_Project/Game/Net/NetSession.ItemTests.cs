@@ -22,6 +22,7 @@ namespace HideAndSeek.Game.Net
             StartInvTests(has);
             StartPlaceTests(has);
             StartHeldTests(has);
+            StartMapDetailTests(has);
         }
 
         private static string ItemShots => ArgOr("-itemshots", "");
@@ -36,7 +37,7 @@ namespace HideAndSeek.Game.Net
             foreach (var p in NetPlayer.All) if (p != null && p.IsSeeker) seeker = p;
             if (!me.IsHider || seeker == null) { Debug.Log("[RodTest] need host hider (-forcehider) + seeker"); yield break; }
             Debug.Log($"[RodTest] rods on the map: {mm.Rods.Count}, candidates {RodSpots.Candidates().Count}");
-            if (mm.Rods.Count == 0) mm.SpawnRods(3);
+            if (mm.Rods.Count == 0) mm.SpawnRods(4);
             Shot(dir, "hotbar_start");
 
             // Walk up to the first rod and look at it.
@@ -44,8 +45,9 @@ namespace HideAndSeek.Game.Net
             Vector3 away = rod.Base - rod.Top;
             away.y = 0f;
             away = away.sqrMagnitude > 0.001f ? away.normalized : Vector3.forward;
-            Vector3 stand = rod.Base + away * 1.3f;
-            Vector3 look = rod.Middle - (stand + Vector3.up * 1.6f);
+            Vector3 stand = rod.Embedded ? rod.Stand + (rod.Stand - rod.Entry).normalized * 0.5f : rod.Base + away * 1.3f;
+            if (rod.Embedded) stand.y = rod.Stand.y;
+            Vector3 look = rod.Exposed - (stand + Vector3.up * 1.6f);
             me.TeleportLocal(stand, Quaternion.LookRotation(new Vector3(look.x, 0f, look.z)).eulerAngles.y);
             me.Motor.SetLook(me.Motor.LookYaw, -Mathf.Atan2(-look.y, new Vector2(look.x, look.z).magnitude) * Mathf.Rad2Deg);
             yield return new WaitForSeconds(1.2f);
@@ -54,7 +56,7 @@ namespace HideAndSeek.Game.Net
             Shot(dir, "rod_prompt");
             ItemLitShot(dir, "rod_on_map", rod.Middle + away * 1.6f + Vector3.Cross(Vector3.up, away) * 0.9f + Vector3.up * 0.5f, rod.Middle);
             me.RequestPickupRodRpc(rod.Id);
-            yield return new WaitForSeconds(0.6f);
+            yield return new WaitForSeconds(rod.Embedded ? RodPullTimeline.Duration + 0.8f : 0.6f);
             Debug.Log($"[RodTest] picked up: rods={me.RodCount.Value} taken={mm.Rods[0].Taken}");
 
             // Hotbar with items; LMB on the rod with both legs = hint only.

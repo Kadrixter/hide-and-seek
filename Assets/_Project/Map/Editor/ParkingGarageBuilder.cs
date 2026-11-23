@@ -213,6 +213,7 @@ namespace HideAndSeek.Map.Editor
                 EmitChunks(_steps[k], $"Steps_{Tag(k)}-{Tag(k + 1)}", _tStairs, false, true);
             }
             ParkSomeCarsCrooked();
+            BuildMapDetail();
             ApplyLevelLayers();
             return _root.gameObject;
         }
