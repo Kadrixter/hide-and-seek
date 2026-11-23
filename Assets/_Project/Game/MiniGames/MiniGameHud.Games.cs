@@ -142,8 +142,8 @@ namespace HideAndSeek.Game.MiniGames
                 if (s.Phase != TttState.Over || !t.Animating) _seenPhase = s.Phase;
                 _seenVersion = t.Version;
             }
-            _hints.text = s.Phase == TttState.Playing ? "LPM - postaw znak      Esc - wstań"
-                : s.Phase == TttState.Over ? "R - następna runda (zaczyna druga osoba)      Esc - wstań" : "Esc - wstań";
+            _hints.text = s.Phase == TttState.Playing ? "LPM - postaw znak      Esc - odejdź od tablicy"
+                : s.Phase == TttState.Over ? "R - następna runda (zaczyna druga osoba)      Esc - odejdź od tablicy" : "Esc - odejdź od tablicy";
             if (_promo.activeSelf) _promo.SetActive(false);
         }
 

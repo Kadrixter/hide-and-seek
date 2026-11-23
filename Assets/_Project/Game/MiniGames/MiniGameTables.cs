@@ -88,7 +88,7 @@ namespace HideAndSeek.Game.MiniGames
                     game = t.Game;
                     seat = s;
                     aim = c + Vector3.up * 0.25f;
-                    text = $"E  usiądź - {t.Title} ({t.SeatName(s)})";
+                    text = $"E  {t.JoinVerb} - {t.Title} ({t.SeatName(s)})";
                 }
             }
             return game >= 0;

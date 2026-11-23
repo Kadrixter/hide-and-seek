@@ -36,6 +36,29 @@ namespace HideAndSeek.Characters
             };
         }
 
+        /// <summary>
+        /// Standing at a wall board (<see cref="BoardGamePose"/> standing variant). World-space points; <paramref name="stepTo"/>
+        /// = where the body steps while reaching. Call every frame; <see cref="SetBoardGame"/> with false to stop.
+        /// </summary>
+        public void SetBoardStand(Vector3 reach, float reachW, float think, Vector3 look, Vector3 stepTo, float seed)
+        {
+            EnsureInit();
+            boardOn = true;
+            Vector3 shift = transform.InverseTransformPoint(stepTo);
+            shift.y = 0f;
+            shift = Vector3.ClampMagnitude(shift, 0.7f);
+            boardIn = new BoardGamePose.Input
+            {
+                Standing = true,
+                Shift = shift,
+                Reach = transform.InverseTransformPoint(reach),
+                ReachW = reachW,
+                Think = think,
+                Look = transform.InverseTransformPoint(look),
+                Seed = seed,
+            };
+        }
+
         /// <summary>Full-body seated pose, blended in / out (sitting down and standing up take about half a second).</summary>
         void ApplyBoardGame(ref CharacterPose p, float dt)
         {

@@ -12,7 +12,7 @@ namespace HideAndSeek.Game.MiniGames
     {
         public const float TopY = 0.64f, TableTop = 0.96f;
         public const float BoardTop = TopY + 0.028f;
-        public const float StoolZ = 0.70f;
+        public const float StoolZ = 0.75f;
         public const float Square = BoardArt.SquareSize;
 
         public Transform Root, BoardPivot, Pieces, ButtonA, ButtonB;

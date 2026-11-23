@@ -20,17 +20,17 @@ namespace HideAndSeek.Game.MiniGames
             down = true;
             if (mark == 'X')
             {
-                // Stroke 1: far-left -> near-right, lift, stroke 2: far-right -> near-left.
-                Vector3 a1 = c + new Vector3(-r, 0f, r), b1 = c + new Vector3(r, 0f, -r);
-                Vector3 a2 = c + new Vector3(r, 0f, r), b2 = c + new Vector3(-r, 0f, -r);
+                // Stroke 1: top-left -> bottom-right, lift off the board, stroke 2: top-right -> bottom-left.
+                Vector3 a1 = c + new Vector3(-r, r, 0f), b1 = c + new Vector3(r, -r, 0f);
+                Vector3 a2 = c + new Vector3(r, r, 0f), b2 = c + new Vector3(-r, -r, 0f);
                 if (t < 0.45f) return Vector3.Lerp(a1, b1, t / 0.45f);
-                if (t < 0.55f) { down = false; return Vector3.Lerp(b1, a2, (t - 0.45f) / 0.1f) + Vector3.up * 0.02f * Mathf.Sin((t - 0.45f) / 0.1f * Mathf.PI); }
+                if (t < 0.55f) { down = false; return Vector3.Lerp(b1, a2, (t - 0.45f) / 0.1f) + Vector3.forward * 0.025f * Mathf.Sin((t - 0.45f) / 0.1f * Mathf.PI); }
                 return Vector3.Lerp(a2, b2, (t - 0.55f) / 0.45f);
             }
-            // O: from the top, anticlockwise as seen from above, closing with a small overlap.
+            // O: from the top, anticlockwise, closing with a small overlap.
             float ang = Mathf.PI * 0.5f + t * Mathf.PI * 2.08f;
             float rr = r * (1f + 0.06f * Mathf.Sin(t * 7f + seed));
-            return c + new Vector3(Mathf.Cos(ang) * rr, 0f, Mathf.Sin(ang) * rr * 1.05f);
+            return c + new Vector3(Mathf.Cos(ang) * rr, Mathf.Sin(ang) * rr * 1.05f, 0f);
         }
 
         /// <summary>Draws the part of a mark between progress <paramref name="from"/> and <paramref name="to"/> (no Apply).</summary>

@@ -149,19 +149,29 @@ namespace HideAndSeek.Game.MiniGames
 
         public const int SlatePx = 512;
 
-        static Texture2D MakeSlate()
+        static Texture2D MakeSlate() => MakeSlate(SlatePx, SlatePx);
+
+        static Texture2D _slateSized;
+
+        /// <summary>Slate background of a given size (made once).</summary>
+        public static Texture2D SlateSized(int w, int h)
         {
-            int n = SlatePx;
-            var t = New(n, n, "TttSlate");
-            var px = new Color[n * n];
-            for (int y = 0; y < n; y++)
-                for (int x = 0; x < n; x++)
+            if (_slateSized == null || _slateSized.width != w || _slateSized.height != h) _slateSized = MakeSlate(w, h);
+            return _slateSized;
+        }
+
+        static Texture2D MakeSlate(int w, int h)
+        {
+            var t = New(w, h, "TttSlate");
+            var px = new Color[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
                 {
-                    float u = x / (float)n, v = y / (float)n;
+                    float u = x / (float)w, v = y / (float)w;
                     float g = Mathf.PerlinNoise(u * 6f, v * 6f) * 0.5f + Mathf.PerlinNoise(u * 40f, v * 40f) * 0.25f + Mathf.PerlinNoise(u * 150f, v * 150f) * 0.25f;
                     // Old wiped chalk: pale cloudy smears.
                     float smear = Mathf.Clamp01(Mathf.PerlinNoise(u * 3f + 7f, v * 1.4f) * 1.6f - 0.85f) * 0.16f;
-                    px[y * n + x] = Color.Lerp(new Color(0.11f, 0.13f, 0.13f) * (0.85f + 0.3f * g), new Color(0.75f, 0.76f, 0.74f), smear);
+                    px[y * w + x] = Color.Lerp(new Color(0.11f, 0.13f, 0.13f) * (0.85f + 0.3f * g), new Color(0.75f, 0.76f, 0.74f), smear);
                 }
             t.SetPixels(px);
             t.Apply(true);

@@ -45,9 +45,9 @@ namespace HideAndSeek.Game.MiniGames
             if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape)
             {
                 if (table.Playing)
-                    ConfirmDialog.Show(table is ChessTable ? "Poddać partię i wstać?" : "Przerwać grę i wstać?",
+                    ConfirmDialog.Show(table is ChessTable ? "Poddać partię i wstać?" : "Przerwać grę i odejść?",
                         table is ChessTable ? "Przeciwnik wygra przez poddanie." : "Runda nie zostanie policzona.", "Tak, wstaję", "Nie", me.MiniLeaveRpc);
-                else ConfirmDialog.Show("Wstać od stolika?", null, "Tak", "Nie", me.MiniLeaveRpc);
+                else ConfirmDialog.Show(table is ChessTable ? "Wstać od stolika?" : "Odejść od tablicy?", null, "Tak", "Nie", me.MiniLeaveRpc);
                 return;
             }
             if (dialog) return;

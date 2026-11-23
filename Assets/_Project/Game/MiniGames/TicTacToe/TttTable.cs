@@ -1,24 +1,41 @@
+using HideAndSeek.Characters;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 
 namespace HideAndSeek.Game.MiniGames
 {
     /// <summary>
-    /// Tic-tac-toe table on every peer: follows <see cref="MatchManager.TttNet"/>; a new mark is drawn in chalk by the
-    /// player's hand (TttTable.Anim), the winner crosses out the line, a new round starts with the slate being wiped.
+    /// Tic-tac-toe chalkboard on every peer: follows <see cref="MatchManager.TttNet"/>; the two players stand in front
+    /// of the board (A / X on the left, B / O on the right, as seen from the room). A new mark is drawn in chalk by the player's hand (TttTable.Anim),
+    /// the winner crosses out the line; a new round, or the players leaving, wipes the slate with the eraser.
     /// A late join or a jump in the state redraws the slate at once. Local input: click a cell on your turn.
     /// </summary>
     public sealed partial class TttTable : MiniTable
     {
         public override byte Game => MatchManager.GameTtt;
         public override string Title => "kółko i krzyżyk";
-        protected override float StoolZ => TttTableModel.StoolZ;
-        protected override float TopY => TttTableModel.TopY;
-        protected override float TableHalf => TttTableModel.TableTop * 0.5f;
-        public override float SurfaceY => TttTableModel.SlateTop;
+        public override string JoinVerb => "podejdź do tablicy";
+        protected override float StoolZ => StandZ;
+        protected override float TopY => TttTableModel.LedgeY;
+        protected override float TableHalf => 0f;
+        public override float SurfaceY => TttTableModel.GridY;
         public override ulong SeatPlayer(int seat) => State.Seat(seat);
         public override string SeatName(int seat) => seat == 0 ? "X" : "O";
         public override bool Playing => State.Phase == TttState.Playing;
+
+        /// <summary>Where the players wait: half a metre left / right of the centre, this far out from the wall.</summary>
+        const float StandX = 0.45f, StandZ = 0.85f;
+
+        public override Vector3 SeatStand(int seat) => transform.TransformPoint(new Vector3(seat == 0 ? StandX : -StandX, TttTableModel.FloorY + 0.02f, StandZ));
+        public override float SeatYaw(int seat) => transform.eulerAngles.y + 180f;
+        public override Vector3 LeavePoint(int seat) => transform.TransformPoint(new Vector3(seat == 0 ? 0.8f : -0.8f, TttTableModel.FloorY + 0.02f, 1.45f));
+        public override Vector3 Centre => transform.TransformPoint(new Vector3(0f, TttTableModel.GridY, TttTableModel.SlateZ));
+
+        public override void CameraPose(int seat, float zoom, out Vector3 pos, out Quaternion rot)
+        {
+            pos = transform.TransformPoint(new Vector3(seat == 0 ? 0.06f : -0.06f, TttTableModel.GridY + 0.05f, 0.74f * zoom));
+            rot = Quaternion.LookRotation(transform.TransformPoint(new Vector3(0f, TttTableModel.GridY, 0f)) - pos, Vector3.up);
+        }
 
         public TttTableModel Model { get; private set; }
         public readonly TttState State = new();
@@ -32,11 +49,11 @@ namespace HideAndSeek.Game.MiniGames
 
         public static TttTable Create(Transform parent, Vector3 pos, Quaternion rot, Material template)
         {
-            var go = new GameObject("TttTable") { layer = parent.gameObject.layer };
+            var go = new GameObject("TttBoard") { layer = parent.gameObject.layer };
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(pos, rot);
             var t = go.AddComponent<TttTable>();
-            t.Model = TttTableModel.Build(go.transform, template, 0);
+            t.Model = TttTableModel.Build(go.transform, template);
             t.InitAnim();
             return t;
         }
@@ -62,6 +79,8 @@ namespace HideAndSeek.Game.MiniGames
 
         public int LocalSeat => NetPlayer.Local != null ? SeatOf(NetPlayer.Local.NetworkObjectId) : -1;
 
+        bool SlateDirty => _drawn != "........." || _drawnLine >= 0;
+
         void OnState(TttState ns)
         {
             byte prevPhase = State.Phase;
@@ -69,10 +88,15 @@ namespace HideAndSeek.Game.MiniGames
             Version++;
             bool fresh = !_hasState;
             _hasState = true;
-            if (!fresh && ns.Round != _drawnRound && ns.Cells == ".........")
+            if (!fresh && ns.Cells == "........." && (ns.Round != _drawnRound || SlateDirty))
             {
-                // New round: wipe the slate (by the player who starts it) unless it is clean already.
-                if (_drawn != "........." || _drawnLine >= 0) QueueErase(ns.Starter);
+                // New round (wiped by the player who starts it) or the players left (wiped by whoever is still there).
+                if (SlateDirty)
+                {
+                    int by = ns.Round != _drawnRound ? ns.Starter : ns.A != TttState.Nobody ? 0 : ns.B != TttState.Nobody ? 1 : -1;
+                    if (by >= 0) QueueErase(by);
+                    else { CancelAnims(); Redraw(ns.Cells, -1); }
+                }
                 _drawnRound = ns.Round;
                 _drawn = ".........";
                 _drawnLine = -1;
@@ -124,18 +148,18 @@ namespace HideAndSeek.Game.MiniGames
 
         // ================================================================ input
 
-        /// <summary>Cell under a ray (slate plane, -1 = outside the grid).</summary>
+        /// <summary>Cell under a ray (board plane, -1 = outside the grid).</summary>
         public int PickCell(Ray worldRay)
         {
             Vector3 o = transform.InverseTransformPoint(worldRay.origin), d = transform.InverseTransformDirection(worldRay.direction);
-            if (Mathf.Abs(d.y) < 1e-4f) return -1;
-            float t = (TttTableModel.SlateTop - o.y) / d.y;
+            if (Mathf.Abs(d.z) < 1e-4f) return -1;
+            float t = (TttTableModel.SlateZ - o.z) / d.z;
             if (t < 0f) return -1;
             Vector3 p = o + d * t;
-            float half = TttTableModel.GridSize * 0.5f;
-            if (Mathf.Abs(p.x) > half || Mathf.Abs(p.z) > half) return -1;
-            int col = Mathf.Clamp(Mathf.FloorToInt((p.x + half) / TttTableModel.Cell), 0, 2);
-            int row = Mathf.Clamp(Mathf.FloorToInt((half - p.z) / TttTableModel.Cell), 0, 2);
+            float half = TttTableModel.GridSize * 0.5f, y = p.y - TttTableModel.GridY;
+            if (Mathf.Abs(p.x) > half || Mathf.Abs(y) > half) return -1;
+            int col = Mathf.Clamp(Mathf.FloorToInt((half - p.x) / TttTableModel.Cell), 0, 2);
+            int row = Mathf.Clamp(Mathf.FloorToInt((half - y) / TttTableModel.Cell), 0, 2);
             return row * 3 + col;
         }
 
@@ -151,6 +175,13 @@ namespace HideAndSeek.Game.MiniGames
             me.TttMoveRpc((byte)cell);
             Hover = -1;
             return true;
+        }
+
+        protected override float ApplyPose(BlockyCharacterActions act, int seat, float seed)
+        {
+            PoseInputs(seat, out var reach, out float reachW, out float think, out var look, out _);
+            act.SetBoardStand(reach, reachW, think, look, StepTo(seat), seed);
+            return reachW;
         }
     }
 }

@@ -9,7 +9,7 @@ namespace HideAndSeek.Characters
     /// as needed for the right hand (two-bone IK) to get to the target, so even the far rank of the board is reached.
     /// Pure function of the input and the clock (the same on every peer).
     /// </summary>
-    public static class BoardGamePose
+    public static partial class BoardGamePose
     {
         /// <summary>Everything in character-root space (+Z = towards the table).</summary>
         public struct Input
@@ -23,6 +23,8 @@ namespace HideAndSeek.Characters
             public Vector3 Look;         // what the head looks at
             public float Seed;
             public float Lean;           // extra lean (degrees) e.g. while it is the player's turn
+            public bool Standing;        // at a wall board instead of a table (see BoardGamePose.Standing.cs)
+            public Vector3 Shift;        // standing: where the body steps to while reaching (root space, on the floor)
         }
 
         const float Reach = RigIK.UpperArm + RigIK.Forearm;
@@ -31,6 +33,7 @@ namespace HideAndSeek.Characters
 
         public static CharacterPose Compute(in Input inp, float time)
         {
+            if (inp.Standing) return Standing(inp, time);
             var p = CharacterPose.Identity;
             float s = inp.Seed;
             float breathe = Mathf.Sin(time * 1.55f + s * 3f);

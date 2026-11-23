@@ -2,94 +2,110 @@ using UnityEngine;
 
 namespace HideAndSeek.Game.MiniGames
 {
-    /// <summary>Slate wipe (new round) and the seated poses of the tic-tac-toe players.</summary>
+    /// <summary>Slate wipe and the standing poses of the two players at the chalkboard.</summary>
     public sealed partial class TttTable
     {
         void BeginWipe()
         {
             _wipeFrom = Model.SlateTex.GetPixels();
-            var clean = (Color[])_wipeFrom.Clone();
-            // The clean slate with the grid, as ClearSlate makes it.
-            Model.ClearSlate();
-            _wipeTo = Model.SlateTex.GetPixels();
-            Model.SlateTex.SetPixels(clean);
-            Model.SlateTex.Apply(true);
+            if (Model.CleanPixels == null) { Model.ClearSlate(); Model.SlateTex.SetPixels(_wipeFrom); }
             _wipeApplied = 0f;
         }
 
-        /// <summary>Eraser position (slate-local) during the wipe: zigzag across the slate, from the far side to the near one.</summary>
-        Vector3 EraserAt(Anim a)
+        /// <summary>Eraser position (board-local, felt against the slate) during the wipe: a zigzag top to bottom.</summary>
+        Vector3 EraserAt(Anim a, out bool onBoard)
         {
-            float half = TttTableModel.SlateSize * 0.36f;
-            Vector3 home = _eraserHome;
+            onBoard = false;
+            float halfX = TttTableModel.SlateW * 0.36f, top = TttTableModel.SlateH * 0.36f;
+            Vector3 home = TttTableModel.EraserRest;
+            Vector3 first = new Vector3(-halfX, top, TttTableModel.SlateZ + 0.001f);
             if (a.T < EReach) return home;
             if (a.T < EReach + EWipe)
             {
                 float k = (a.T - EReach) / EWipe;
-                float x = Mathf.Sin(k * Mathf.PI * 5f) * half;
-                float z = Mathf.Lerp(half, -half, k) * -Side(a.Seat);
-                Vector3 p = new Vector3(x, TttTableModel.SlateTop, z);
-                if (k < 0.1f) return Vector3.Lerp(home, p, k / 0.1f);
+                Vector3 p = new Vector3(Mathf.Sin(k * Mathf.PI * 4.5f - Mathf.PI * 0.5f) * halfX, Mathf.Lerp(top, -top, k), TttTableModel.SlateZ + 0.001f);
+                if (k < 0.08f) return Vector3.Lerp(home + Vector3.forward * 0.04f, first, k / 0.08f);
+                onBoard = true;
                 return p;
             }
             float b = Mathf.Clamp01((a.T - EReach - EWipe) / EBack);
-            return Vector3.Lerp(new Vector3(0f, TttTableModel.SlateTop, half * Side(a.Seat)), home, Mathf.SmoothStep(0f, 1f, b));
+            return Vector3.Lerp(new Vector3(0f, -top, TttTableModel.SlateZ + 0.04f), home, Mathf.SmoothStep(0f, 1f, b));
         }
 
         void TickErase(Anim a)
         {
             if (Model.Eraser == null) return;
-            if (a.T >= EReach * 0.8f && a.T < EReach + EWipe + EBack)
+            if (a.T >= EReach * 0.85f && a.T < EReach + EWipe + EBack)
             {
-                Model.Eraser.localPosition = EraserAt(a);
-                Model.Eraser.localRotation = Quaternion.Euler(0f, 90f + Mathf.Sin(a.T * 9f) * 8f, 0f);
+                Vector3 e = EraserAt(a, out bool onBoard);
+                Model.Eraser.localPosition = e;
+                // Felt side against the board while wiping, flat on the ledge otherwise.
+                float face = Mathf.Clamp01((a.T - EReach) / 0.15f) * Mathf.Clamp01((EReach + EWipe + 0.1f - a.T) / 0.15f);
+                Model.Eraser.localRotation = Quaternion.Slerp(Quaternion.identity, Quaternion.Euler(90f, 0f, Mathf.Sin(a.T * 11f) * 10f), face);
+                _ = onBoard;
             }
             float k = Mathf.Clamp01((a.T - EReach) / EWipe);
-            if (k > 0f && k - _wipeApplied > 0.08f && _wipeFrom != null)
+            if (k > 0f && k - _wipeApplied > 0.07f && _wipeFrom != null && Model.CleanPixels != null)
             {
                 _wipeApplied = k;
+                var clean = Model.CleanPixels;
                 var px = new Color[_wipeFrom.Length];
-                float w = Mathf.SmoothStep(0f, 1f, k);
-                for (int i = 0; i < px.Length; i++) px[i] = Color.LerpUnclamped(_wipeFrom[i], _wipeTo[i], w);
+                // Rows above the eraser are already wiped (it travels top to bottom), the rest fades a little.
+                int w = TttTableModel.TexW, h = TttTableModel.TexH;
+                float edge = 1f - k;
+                for (int y = 0; y < h; y++)
+                {
+                    float rowWiped = Mathf.Clamp01((y / (float)h - edge) * 6f + 0.5f);
+                    float amt = Mathf.Max(rowWiped, k * 0.35f);
+                    int r = y * w;
+                    for (int x = 0; x < w; x++) px[r + x] = Color.LerpUnclamped(_wipeFrom[r + x], clean[r + x], amt);
+                }
                 Model.SlateTex.SetPixels(px);
                 Model.SlateTex.Apply(true);
             }
             if (a.T >= EReach && a.T < EReach + 0.05f) MiniGameSounds.Erase(this);
         }
 
+        /// <summary>Where a player stands this frame: at the own spot, or stepped up in front of what the hand works on.</summary>
+        Vector3 StepTo(int seat)
+        {
+            var a = _cur;
+            Vector3 stand = SeatStand(seat);
+            if (a == null || a.Seat != seat) return stand;
+            float x = a.Erase ? 0f : Mathf.Clamp(TttTableModel.CellLocal(a.Cell).x + (seat == 0 ? 0.12f : -0.12f), -0.4f, 0.4f);
+            return transform.TransformPoint(new Vector3(x, TttTableModel.FloorY, 0.42f));
+        }
+
         protected override void PoseInputs(int seat, out Vector3 reach, out float reachW, out float think, out Vector3 look, out float lean)
         {
-            reach = HandRest(seat);
+            reach = Centre;
             reachW = 0f;
             bool myTurn = State.Phase == TttState.Playing && State.Turn == seat && !Animating;
             think = myTurn ? 1f : 0.2f;
-            lean = myTurn ? 2f : 0f;
+            lean = 0f;
             look = Centre;
             var a = _cur;
             if (a == null) return;
             if (a.Seat != seat)
             {
-                // Sit up and watch the other player's hand.
-                look = transform.TransformPoint(a.Erase ? EraserAt(a) : TipAt(a, out _));
-                float k = Mathf.Clamp01(a.T / 0.4f) * Mathf.Clamp01((a.Dur - a.T) / 0.4f);
-                lean = -9f * k;
-                think *= 1f - k;
+                // Watch the other player's hand.
+                look = transform.TransformPoint(a.Erase ? EraserAt(a, out _) : TipAt(a, out _));
+                think = 0f;
                 return;
             }
             think = 0f;
             if (a.Erase)
             {
-                Vector3 e = EraserAt(a) + Vector3.up * 0.075f;
-                reach = transform.TransformPoint(e);
+                Vector3 e = EraserAt(a, out bool onBoard);
+                reach = transform.TransformPoint(e + (onBoard ? Vector3.forward * 0.08f : Vector3.up * 0.07f));
                 float end = EReach + EWipe + EBack;
                 reachW = a.T < EReach ? Mathf.SmoothStep(0f, 1f, a.T / EReach) : a.T < end ? 1f : 1f - Mathf.SmoothStep(0f, 1f, (a.T - end) / THome);
-                look = reach;
+                look = transform.TransformPoint(e);
                 return;
             }
             Vector3 tip = TipAt(a, out _);
-            Vector3 back = new Vector3(0f, 0.9f, Side(seat) * 0.45f).normalized;
-            Vector3 fist = tip + back * (ChalkLen + 0.03f);
-            Vector3 restFist = TttTableModel.ChalkRest(seat) + Vector3.up * 0.06f;
+            Vector3 fist = tip + HoldDir * (ChalkLen + 0.03f);
+            Vector3 restFist = TttTableModel.ChalkRest(seat) + new Vector3(0f, 0.06f, 0.03f);
             if (a.T < TPick)
             {
                 reach = transform.TransformPoint(restFist);

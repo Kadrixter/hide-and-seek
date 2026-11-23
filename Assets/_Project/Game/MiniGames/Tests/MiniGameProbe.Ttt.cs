@@ -26,20 +26,20 @@ namespace HideAndSeek.Game.MiniGames
             yield return new WaitForSeconds(0.5f);
             Log($"round 1 over: end={ttt.State.End} winner={ttt.State.Winner} line={ttt.State.Line} score {ttt.State.ScoreA}:{ttt.State.ScoreB} => {(ttt.State.End == GameEnd.Line && ttt.State.Winner == 0 && ttt.State.Line == 7 ? "OK" : "FAIL")}");
             Shot(Prefix() + "t09_win");
-            if (_host) RenderTable(ttt, "t09_win", new Vector3(1.2f, 1.35f, -0.9f));
+            if (_host) RenderTable(ttt, "t09_win", new Vector3(1.5f, 0.15f, 2.6f));
 
             // One R (the client) starts round 2, O begins.
             if (!_host) { yield return new WaitForSeconds(1f); me.MiniRematchRpc(); }
             for (float w = 0f; w < 10f && !(ttt.State.Phase == TttState.Playing && ttt.State.Round >= 2); w += Time.deltaTime) yield return null;
             Log($"round 2: starter={TttState.Mark(ttt.State.Starter)} => {(ttt.State.Starter == 1 ? "OK" : "FAIL")}");
             yield return new WaitForSeconds(0.6f);
-            if (_host) RenderTable(ttt, "t10_wipe", new Vector3(1.2f, 1.35f, -0.9f));
+            if (_host) RenderTable(ttt, "t10_wipe", new Vector3(1.5f, 0.15f, 2.6f));
             yield return Marks(ttt, seat, Round2, "r2");
             for (float w = 0f; w < 12f && (ttt.Animating || ttt.State.Phase != TttState.Over); w += Time.deltaTime) yield return null;
             yield return new WaitForSeconds(0.5f);
             Log($"round 2 over: end={ttt.State.End} cells={ttt.State.Cells} score {ttt.State.ScoreA}:{ttt.State.ScoreB} draws={ttt.State.Draws} => {(ttt.State.End == GameEnd.Full && ttt.State.Draws == 1 ? "OK" : "FAIL")}");
             Shot(Prefix() + "t19_draw");
-            if (_host) RenderTable(ttt, "t19_draw", new Vector3(1.2f, 1.35f, -0.9f));
+            if (_host) RenderTable(ttt, "t19_draw", new Vector3(1.5f, 0.15f, 2.6f));
             if (_host)
             {
                 yield return new WaitForSeconds(1f);
@@ -75,7 +75,7 @@ namespace HideAndSeek.Game.MiniGames
                 if (_dir != null && i < 3)
                 {
                     yield return new WaitForSeconds(0.6f);
-                    Vector3 side = seat == 0 ? new Vector3(1.6f, 1.3f, -0.2f) : new Vector3(-1.6f, 1.3f, 0.2f);
+                    Vector3 side = seat == 0 ? new Vector3(1.6f, 0.1f, 2.3f) : new Vector3(-1.6f, 0.1f, 2.3f);
                     RenderTable(ttt, $"{tag}_{i}_pick", side, 46f);
                     yield return new WaitForSeconds(0.7f);
                     RenderTable(ttt, $"{tag}_{i}_draw", side, 46f);

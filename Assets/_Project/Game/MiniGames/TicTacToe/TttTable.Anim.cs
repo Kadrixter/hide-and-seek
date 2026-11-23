@@ -4,15 +4,18 @@ using UnityEngine;
 namespace HideAndSeek.Game.MiniGames
 {
     /// <summary>
-    /// Chalk animations: the player picks up the stick from the ledge, draws the mark stroke by stroke (the texture
-    /// is filled in as the tip moves, scratch sound), crosses out the winning line, puts the chalk back. A new round:
-    /// the starting player wipes the slate with the eraser.
+    /// Chalk animations on the wall board: the player steps up, takes the stick off the ledge, draws the mark stroke
+    /// by stroke (the texture fills in behind the tip, scratch sound), crosses out the winning line, puts the chalk
+    /// back and steps back. Wiping: the eraser is taken off the ledge and rubbed over the slate in a zigzag while the
+    /// chalk fades under it.
     /// </summary>
     public sealed partial class TttTable
     {
-        const float TPick = 0.45f, TToStart = 0.85f, TDraw = 1.0f, TLine = 0.75f, TPut = 0.5f, THome = 0.35f;
-        const float EReach = 0.4f, EWipe = 1.3f, EBack = 0.45f;
-        const float ChalkLen = 0.075f;
+        const float TPick = 0.6f, TToStart = 1.0f, TDraw = 1.0f, TLine = 0.75f, TPut = 0.55f, THome = 0.45f;
+        const float EReach = 0.55f, EWipe = 1.4f, EBack = 0.5f;
+        const float ChalkLen = 0.085f;
+        /// <summary>Chalk held like a pen: from the tip back towards the player and a little down.</summary>
+        static readonly Vector3 HoldDir = new Vector3(0f, -0.55f, 0.83f).normalized;
 
         sealed class Anim
         {
@@ -29,10 +32,8 @@ namespace HideAndSeek.Game.MiniGames
         readonly List<Anim> _queue = new();
         Anim _cur;
         AudioSource _scratch;
-        Color[] _wipeFrom, _wipeTo;
+        Color[] _wipeFrom;
         float _wipeApplied;
-        Vector3 _eraserHome;
-        Quaternion _eraserRot;
         Transform _hoverMark;
         public bool EndSoundPending;
 
@@ -49,13 +50,12 @@ namespace HideAndSeek.Game.MiniGames
             _scratch.rolloffMode = AudioRolloffMode.Linear;
             _scratch.volume = 0.35f;
             _scratch.playOnAwake = false;
-            if (Model.Eraser != null) { _eraserHome = Model.Eraser.localPosition; _eraserRot = Model.Eraser.localRotation; }
             var shader = Resources.Load<Shader>("Shaders/HnsBoardMark");
             var mat = shader != null ? new Material(shader) : new Material(Model.Kit.Template);
             mat.mainTexture = MarkArt.SoftSquare;
-            mat.color = new Color(0.9f, 0.95f, 0.85f, 0.18f);
+            mat.color = new Color(0.9f, 0.95f, 0.85f, 0.16f);
             _hoverMark = Model.Kit.Part("HoverCell", transform, ChessTableModel.Quad(TttTableModel.Cell * 0.92f, TttTableModel.Cell * 0.92f), mat,
-                Vector3.zero, Quaternion.Euler(90f, 0f, 0f), false).transform;
+                Vector3.zero, Quaternion.Euler(0f, 180f, 0f), false).transform;
             _hoverMark.gameObject.SetActive(false);
         }
 
@@ -63,7 +63,7 @@ namespace HideAndSeek.Game.MiniGames
         {
             bool on = Hover >= 0;
             if (_hoverMark.gameObject.activeSelf != on) _hoverMark.gameObject.SetActive(on);
-            if (on) _hoverMark.localPosition = TttTableModel.CellLocal(Hover) + Vector3.up * 0.0015f;
+            if (on) _hoverMark.localPosition = TttTableModel.CellLocal(Hover) + Vector3.forward * 0.0015f;
         }
 
         void QueueMark(int cell, char mark, int seat, int line) =>
@@ -82,9 +82,9 @@ namespace HideAndSeek.Game.MiniGames
 
         void ResetProps()
         {
-            if (Model.ChalkA != null) { Model.ChalkA.localPosition = TttTableModel.ChalkRest(0); Model.ChalkA.localRotation = Quaternion.Euler(0f, 0f, 90f); }
-            if (Model.ChalkB != null) { Model.ChalkB.localPosition = TttTableModel.ChalkRest(1); Model.ChalkB.localRotation = Quaternion.Euler(0f, 0f, 90f); }
-            if (Model.Eraser != null) { Model.Eraser.localPosition = _eraserHome; Model.Eraser.localRotation = _eraserRot; }
+            if (Model.ChalkA != null) Model.ChalkA.SetLocalPositionAndRotation(TttTableModel.ChalkRest(0), TttTableModel.ChalkRestRot);
+            if (Model.ChalkB != null) Model.ChalkB.SetLocalPositionAndRotation(TttTableModel.ChalkRest(1), TttTableModel.ChalkRestRot);
+            if (Model.Eraser != null) Model.Eraser.SetLocalPositionAndRotation(TttTableModel.EraserRest, Quaternion.identity);
         }
 
         Transform Chalk(int seat) => seat == 0 ? Model.ChalkA : Model.ChalkB;
@@ -107,7 +107,7 @@ namespace HideAndSeek.Game.MiniGames
                 _cur = null;
                 _scratch.Stop();
                 ResetProps();
-                if (a.Erase) { Model.ClearSlate(); }
+                if (a.Erase) Model.ClearSlate();
                 if (_queue.Count == 0 && EndSoundPending)
                 {
                     EndSoundPending = false;
@@ -116,50 +116,43 @@ namespace HideAndSeek.Game.MiniGames
             }
         }
 
-        /// <summary>Chalk tip (slate-local) and whether it touches the slate, at the animation time.</summary>
+        /// <summary>Chalk tip (board-local) and whether it touches the slate, at the animation time.</summary>
         Vector3 TipAt(Anim a, out bool touching)
         {
             touching = false;
             Vector3 rest = TttTableModel.ChalkRest(a.Seat);
-            Vector3 start = TttChalk.PenAt(a.Cell, a.Mark, 0f, a.Seed, out _) + Vector3.up * 0.03f;
+            Vector3 start = TttChalk.PenAt(a.Cell, a.Mark, 0f, a.Seed, out _) + Vector3.forward * 0.03f;
             if (a.T < TPick) return rest;
-            if (a.T < TToStart) return Vector3.Lerp(rest + Vector3.up * 0.04f, start, Mathf.SmoothStep(0f, 1f, (a.T - TPick) / (TToStart - TPick)));
+            if (a.T < TToStart) return Vector3.Lerp(rest + Vector3.forward * 0.05f, start, Mathf.SmoothStep(0f, 1f, (a.T - TPick) / (TToStart - TPick)));
             if (a.T < a.DrawEnd)
             {
                 float k = (a.T - TToStart) / TDraw;
                 var p = TttChalk.PenAt(a.Cell, a.Mark, k, a.Seed, out touching);
-                return touching ? p : p + Vector3.up * 0.01f;
+                return touching ? p : p + Vector3.forward * 0.01f;
             }
             if (a.Line >= 0 && a.T < a.LineEnd)
             {
                 TttChalk.WinLine(a.Line, out var l0, out var l1);
                 float k = (a.T - a.DrawEnd) / TLine;
-                if (k < 0.2f) return Vector3.Lerp(TttChalk.PenAt(a.Cell, a.Mark, 1f, a.Seed, out _) + Vector3.up * 0.02f, l0, k / 0.2f);
+                if (k < 0.2f) return Vector3.Lerp(TttChalk.PenAt(a.Cell, a.Mark, 1f, a.Seed, out _) + Vector3.forward * 0.03f, l0, k / 0.2f);
                 touching = true;
                 return Vector3.Lerp(l0, l1, (k - 0.2f) / 0.8f);
             }
             float b = Mathf.Clamp01((a.T - a.LineEnd) / TPut);
             Vector3 from = a.Line >= 0 ? TttChalk.WinLineEnd(a.Line) : TttChalk.PenAt(a.Cell, a.Mark, 1f, a.Seed, out _);
-            return Vector3.Lerp(from + Vector3.up * 0.02f, rest, Mathf.SmoothStep(0f, 1f, b));
+            return Vector3.Lerp(from + Vector3.forward * 0.03f, rest, Mathf.SmoothStep(0f, 1f, b));
         }
 
         void TickMark(Anim a)
         {
             var chalk = Chalk(a.Seat);
             Vector3 tip = TipAt(a, out bool touching);
-            bool held = a.T >= TPick * 0.8f && a.T < a.PutEnd;
-            if (chalk != null && held)
-            {
-                // Stick held like a pen: tip on the slate, leaning back towards the player.
-                Vector3 back = new Vector3(0f, 0.9f, Side(a.Seat) * 0.45f).normalized;
-                chalk.localPosition = tip;
-                chalk.localRotation = Quaternion.FromToRotation(Vector3.up, back);
-            }
-            // Fill the texture up to the current progress.
+            bool held = a.T >= TPick * 0.85f && a.T < a.PutEnd - 0.05f;
+            if (chalk != null && held) chalk.SetLocalPositionAndRotation(tip, Quaternion.FromToRotation(Vector3.up, HoldDir));
+            // Fill the texture up to the current progress, in steps of a few percent (the upload is the expensive part).
             if (a.T >= TToStart)
             {
                 float k = Mathf.Clamp01((a.T - TToStart) / TDraw);
-                // In steps of a few percent (the texture upload is the expensive part), the rest at the end.
                 if (k - a.Drawn >= 0.03f || k >= 1f && a.Drawn < 1f) { TttChalk.DrawMark(Model, a.Cell, a.Mark, k, a.Seed, a.Drawn); a.Drawn = k; Model.SlateTex.Apply(true); }
             }
             if (a.Line >= 0 && a.T >= a.DrawEnd + TLine * 0.2f)

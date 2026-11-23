@@ -22,21 +22,23 @@ namespace HideAndSeek.Game.MiniGames
         /// <summary>Short seat name for the prompt ("białe", "X").</summary>
         public abstract string SeatName(int seat);
         public abstract bool Playing { get; }
+        /// <summary>Prompt verb ("usiądź" at a table, "podejdź" to a wall board).</summary>
+        public virtual string JoinVerb => "usiądź";
 
         public static float Side(int seat) => seat == 0 ? -1f : 1f;
 
         /// <summary>Where a seated player's root stands (on the stool centre; the controller is off while seated).</summary>
-        public Vector3 SeatStand(int seat) => transform.TransformPoint(new Vector3(0f, 0.02f, Side(seat) * StoolZ));
-        public float SeatYaw(int seat) => transform.eulerAngles.y + (seat == 0 ? 0f : 180f);
+        public virtual Vector3 SeatStand(int seat) => transform.TransformPoint(new Vector3(0f, 0.02f, Side(seat) * StoolZ));
+        public virtual float SeatYaw(int seat) => transform.eulerAngles.y + (seat == 0 ? 0f : 180f);
         /// <summary>Where a player stands after getting up (behind the stool).</summary>
-        public Vector3 LeavePoint(int seat) => transform.TransformPoint(new Vector3(0f, 0.02f, Side(seat) * (StoolZ + 0.62f)));
+        public virtual Vector3 LeavePoint(int seat) => transform.TransformPoint(new Vector3(0f, 0.02f, Side(seat) * (StoolZ + 0.62f)));
         public Vector3 SeatTop(int seat) => transform.TransformPoint(new Vector3(0f, TableKit.StoolHeight + 0.034f, Side(seat) * StoolZ));
         public Vector3 TableEdge(int seat) => transform.TransformPoint(new Vector3(0f, TopY, Side(seat) * TableHalf));
         public float FootRestY => transform.position.y + TableKit.FootRing + 0.015f;
-        public Vector3 Centre => transform.TransformPoint(new Vector3(0f, SurfaceY, 0f));
+        public virtual Vector3 Centre => transform.TransformPoint(new Vector3(0f, SurfaceY, 0f));
 
         /// <summary>Camera above the board seen from a seat (pitched down at the board from behind the player's head).</summary>
-        public void CameraPose(int seat, float zoom, out Vector3 pos, out Quaternion rot)
+        public virtual void CameraPose(int seat, float zoom, out Vector3 pos, out Quaternion rot)
         {
             float s = Side(seat);
             Vector3 local = new Vector3(0f, SurfaceY + 0.78f * zoom, s * 0.52f * zoom);
@@ -85,10 +87,17 @@ namespace HideAndSeek.Game.MiniGames
                 if (pl == null) continue;
                 var act = pl.Actions as BlockyCharacterActions;
                 if (act == null) continue;
-                PoseInputs(seat, out var reach, out float reachW, out float think, out var look, out float lean);
-                act.SetBoardGame(true, SeatTop(seat), TableEdge(seat), FootRestY, reach, reachW, think, look, lean, (id % 97) * 0.37f);
+                float reachW = ApplyPose(act, seat, (id % 97) * 0.37f);
                 if (pl.IsOwner) pl.BoardBodyTick(reachW > 0.08f);
             }
+        }
+
+        /// <summary>Poses one seated player for this frame; returns the reach weight (the own arm shows while reaching).</summary>
+        protected virtual float ApplyPose(BlockyCharacterActions act, int seat, float seed)
+        {
+            PoseInputs(seat, out var reach, out float reachW, out float think, out var look, out float lean);
+            act.SetBoardGame(true, SeatTop(seat), TableEdge(seat), FootRestY, reach, reachW, think, look, lean, seed);
+            return reachW;
         }
 
         static void StopPose(NetPlayer pl)

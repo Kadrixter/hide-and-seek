@@ -49,11 +49,12 @@ namespace HideAndSeek.Game.Editor
             // Placement in the lobby (same as MiniGameSpots fallback) + the alternative styles next to them for the preview.
             var chess = MiniGameSpots.Fallback(MiniGameSpots.ChessName);
             var ttt = MiniGameSpots.Fallback(MiniGameSpots.TttName);
-            var chessA = Table("ChessA", chess.pos, chess.yaw);
+            MiniGameSpots.Resolve(MiniGameSpots.ChessName, out var cPos, out var cRot, out _);
+            var chessA = Table("ChessA", cPos, cRot.eulerAngles.y);
             var cm = ChessTableModel.Build(chessA, template, 0);
             Setup(cm, Fen);
             var tttA = Table("TttA", ttt.pos, ttt.yaw);
-            var tm = TttTableModel.Build(tttA, template, 0);
+            var tm = TttTableModel.Build(tttA, template);
             DrawSample(tm);
 
             // Studio copies (out of the room, own light) for the style comparison.
@@ -64,10 +65,14 @@ namespace HideAndSeek.Game.Editor
             var c1 = ChessTableModel.Build(Table("Chess1", studio.position + new Vector3(2f, 0f, 0f), 0f, studio), template, 1);
             Setup(c0, Fen);
             Setup(c1, Fen);
-            var t0 = TttTableModel.Build(Table("Ttt0", studio.position + new Vector3(-2f, 0f, 4f), 0f, studio), template, 0);
-            var t1 = TttTableModel.Build(Table("Ttt1", studio.position + new Vector3(2f, 0f, 4f), 0f, studio), template, 1);
+            // Wall board in the studio: a plain wall behind it.
+            var t0 = TttTableModel.Build(Table("Ttt0", studio.position + new Vector3(0f, MiniGameSpots.BoardHeight, 4.6f), 180f, studio), template);
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.transform.SetParent(studio, false);
+            wall.transform.localPosition = new Vector3(0f, 1.6f, 4.7f);
+            wall.transform.localScale = new Vector3(6f, 3.2f, 0.2f);
+            wall.GetComponent<Renderer>().sharedMaterial = new Material(template) { color = new Color(0.45f, 0.4f, 0.35f) };
             DrawSample(t0);
-            SampleTokens(t1);
             Lights(studio);
             // Piece line-up.
             var lineup = new GameObject("Lineup").transform;
@@ -96,28 +101,30 @@ namespace HideAndSeek.Game.Editor
             var reachNear = Seated(c0.Root, 1, 4, 0f, c0.BoardPivot.TransformPoint(ChessTableModel.SquareLocal(ChessBoard.ParseSq("g8")) + Vector3.up * 0.14f), 1f);
             var reachSide = Seated(c1.Root, 0, 1, 0f, c1.BoardPivot.TransformPoint(ChessTableModel.SquareLocal(ChessBoard.ParseSq("h5")) + Vector3.up * 0.14f), 1f);
             var thinkB = Seated(c1.Root, 1, 2, 1f, null, 0f);
-            var tttSeat = Seated(t0.Root, 0, 0, 0f, t0.Root.TransformPoint(TttTableModel.CellLocal(2) + new Vector3(0f, 0.1f, -0.03f)), 1f);
-            _ = seatedA; _ = seatedB; _ = reachFar; _ = reachNear; _ = reachSide; _ = thinkB; _ = tttSeat;
+            var drawer = StandingAt(t0.Root, 0, 2, TttTableModel.CellLocal(2), 1f);
+            var thinker = StandingAt(t0.Root, 1, 3, Vector3.zero, 0f);
+            _ = seatedA; _ = seatedB; _ = reachFar; _ = reachNear; _ = reachSide; _ = thinkB; _ = drawer; _ = thinker;
 
             var cam = new GameObject("StudioCam").AddComponent<Camera>();
             cam.nearClipPlane = 0.02f;
             cam.fieldOfView = 40f;
             cam.allowHDR = true;
             var s = studio.position;
-            Vector3 C0 = s + new Vector3(-2f, 0f, 0f), C1 = s + new Vector3(2f, 0f, 0f), T0 = s + new Vector3(-2f, 0f, 4f), T1 = s + new Vector3(2f, 0f, 4f);
+            Vector3 C0 = s + new Vector3(-2f, 0f, 0f), C1 = s + new Vector3(2f, 0f, 0f), T0 = s;
             Shot(cam, outDir, "chess_styles", s + new Vector3(0f, 2.2f, -2.6f), s + new Vector3(0f, 0.6f, 0f), 50f);
             Shot(cam, outDir, "chess0_close", C0 + new Vector3(0f, 1.05f, -0.62f), C0 + new Vector3(0f, 0.67f, 0.02f), 40f);
             Shot(cam, outDir, "chess1_close", C1 + new Vector3(0f, 1.05f, -0.62f), C1 + new Vector3(0f, 0.67f, 0.02f), 40f);
             Shot(cam, outDir, "pieces", lineup.position + new Vector3(0.1f, 0.22f, -0.42f), lineup.position + new Vector3(0.1f, 0.05f, 0f), 42f);
             Shot(cam, outDir, "knight", lineup.position + new Vector3(-0.5f, 0.09f, -0.22f), lineup.position + new Vector3(-0.5f, 0.05f, 0f), 30f);
-            Shot(cam, outDir, "ttt_styles", s + new Vector3(0f, 2.2f, 1.4f), s + new Vector3(0f, 0.6f, 4f), 50f);
-            Shot(cam, outDir, "ttt0_close", T0 + new Vector3(0f, 1.15f, -0.65f), T0 + new Vector3(0f, 0.65f, 0f), 40f);
-            Shot(cam, outDir, "ttt1_close", T1 + new Vector3(0f, 1.15f, -0.65f), T1 + new Vector3(0f, 0.65f, 0f), 40f);
+            Vector3 B0 = s + new Vector3(0f, MiniGameSpots.BoardHeight, 4.6f);
+            Shot(cam, outDir, "ttt_board", B0 + new Vector3(0.2f, 0.25f, -2.4f), B0 + new Vector3(0f, -0.25f, 0f), 45f);
+            Shot(cam, outDir, "ttt_close", B0 + new Vector3(0f, 0.1f, -0.75f), B0 + new Vector3(0f, -0.05f, 0f), 55f);
+            Shot(cam, outDir, "ttt_players", B0 + new Vector3(1.9f, 0.2f, -2.8f), B0 + new Vector3(0f, -0.4f, -0.4f), 50f);
+            Shot(cam, outDir, "ttt_side", B0 + new Vector3(2.2f, 0.1f, -0.9f), B0 + new Vector3(0f, -0.35f, -0.4f), 50f);
             Shot(cam, outDir, "pose_side_c0", C0 + new Vector3(2.1f, 1.0f, 0f), C0 + new Vector3(0f, 0.75f, 0f), 45f);
             Shot(cam, outDir, "pose_34_c0", C0 + new Vector3(-1.6f, 1.6f, -1.8f), C0 + new Vector3(0f, 0.7f, 0f), 45f);
             Shot(cam, outDir, "pose_side_c1", C1 + new Vector3(2.1f, 1.0f, 0.1f), C1 + new Vector3(0f, 0.75f, 0f), 45f);
             Shot(cam, outDir, "pose_34_c1", C1 + new Vector3(1.6f, 1.6f, 1.8f), C1 + new Vector3(0f, 0.7f, 0f), 45f);
-            Shot(cam, outDir, "pose_ttt", T0 + new Vector3(1.9f, 1.3f, -1.2f), T0 + new Vector3(0f, 0.7f, 0f), 45f);
             Shot(cam, outDir, "pose_lobby", chessA.TransformPoint(new Vector3(2.0f, 1.6f, -1.4f)), chessA.TransformPoint(new Vector3(0f, 0.7f, 0f)), 50f);
             // Board view of seat A (what the player sees; in the game the own torso and head are hidden).
             foreach (var r in reachFar.GetComponentsInChildren<Renderer>(true))
@@ -126,7 +133,9 @@ namespace HideAndSeek.Game.Editor
             Shot(cam, outDir, "view_seatA", c0.Root.TransformPoint(new Vector3(0f, ChessTableModel.BoardTop + 0.78f, -0.52f)), c0.Root.TransformPoint(new Vector3(0f, ChessTableModel.BoardTop, -0.035f)), 60f);
             // In the lobby: both tables from the room, and a top view of the whole room.
             Shot(cam, outDir, "lobby_chess", chessA.TransformPoint(new Vector3(-1.9f, 1.7f, -1.6f)), chessA.TransformPoint(new Vector3(0f, 0.6f, 0f)), 55f);
-            Shot(cam, outDir, "lobby_ttt", tttA.TransformPoint(new Vector3(-1.7f, 1.6f, -1.6f)), tttA.TransformPoint(new Vector3(0f, 0.6f, 0f)), 55f);
+            Shot(cam, outDir, "lobby_ttt_close", tttA.TransformPoint(new Vector3(0.25f, 0.05f, 1.05f)), tttA.TransformPoint(new Vector3(0f, -0.08f, 0f)), 50f);
+            Shot(cam, outDir, "lobby_ttt_ledge", tttA.TransformPoint(new Vector3(-0.35f, -0.25f, 0.45f)), tttA.TransformPoint(new Vector3(-0.1f, -0.42f, 0.03f)), 50f);
+            Shot(cam, outDir, "lobby_ttt", tttA.TransformPoint(new Vector3(1.6f, 0.3f, 2.8f)), tttA.TransformPoint(new Vector3(0f, -0.3f, 0f)), 55f);
             cam.orthographic = true;
             cam.orthographicSize = 6.3f;
             Shot(cam, outDir, "lobby_top", new Vector3(0f, 3.45f, 0f), new Vector3(0f, 0f, 0.0001f), 60f, Vector3.forward);
@@ -138,8 +147,7 @@ namespace HideAndSeek.Game.Editor
         {
             float side = seat == 0 ? -1f : 1f;
             var root = new GameObject("Seated").transform;
-            float stoolZ = table.GetComponentInChildren<MeshRenderer>() != null && table.name.StartsWith("Ttt") ? TttTableModel.StoolZ : ChessTableModel.StoolZ;
-            float half = (table.name.StartsWith("Ttt") ? TttTableModel.TableTop : ChessTableModel.TableTop) * 0.5f;
+            float stoolZ = ChessTableModel.StoolZ, half = ChessTableModel.TableTop * 0.5f;
             root.position = table.TransformPoint(new Vector3(0f, 0f, side * stoolZ));
             root.rotation = table.rotation * Quaternion.Euler(0f, seat == 0 ? 0f : 180f, 0f);
             var c = BlockyCharacterFactory.Create(root, skin, "P" + skin);
@@ -157,6 +165,33 @@ namespace HideAndSeek.Game.Editor
                 Seed = skin,
             };
             BoardGamePose.Compute(input, 1.3f + skin).Apply(c);
+            return c;
+        }
+
+        /// <summary>A character standing at the wall board (standing variant of <see cref="BoardGamePose"/>), drawing in a cell or thinking.</summary>
+        static BlockyCharacter StandingAt(Transform board, int seat, int skin, Vector3 cellLocal, float reachW)
+        {
+            var root = new GameObject("Standing").transform;
+            root.position = board.TransformPoint(new Vector3(seat == 0 ? 0.45f : -0.45f, TttTableModel.FloorY, 0.85f));
+            root.rotation = board.rotation * Quaternion.Euler(0f, 180f, 0f);
+            var c = BlockyCharacterFactory.Create(root, skin, "S" + skin);
+            var t = c.transform;
+            Vector3 tip = cellLocal + new Vector3(-0.05f, 0.05f, 0f);
+            Vector3 fist = tip + new Vector3(0f, -0.55f, 0.83f).normalized * 0.115f;
+            Vector3 step = board.TransformPoint(new Vector3(Mathf.Clamp(cellLocal.x + (seat == 0 ? 0.12f : -0.12f), -0.4f, 0.4f), TttTableModel.FloorY, 0.42f));
+            Vector3 shift = t.InverseTransformPoint(step);
+            shift.y = 0f;
+            var input = new BoardGamePose.Input
+            {
+                Standing = true,
+                Shift = Vector3.ClampMagnitude(shift, 0.7f),
+                Reach = t.InverseTransformPoint(board.TransformPoint(fist)),
+                ReachW = reachW,
+                Think = reachW > 0f ? 0f : 1f,
+                Look = t.InverseTransformPoint(board.TransformPoint(reachW > 0f ? tip : new Vector3(0f, TttTableModel.GridY, 0f))),
+                Seed = skin,
+            };
+            BoardGamePose.Compute(input, 2f + skin).Apply(c);
             return c;
         }
 
@@ -192,16 +227,6 @@ namespace HideAndSeek.Game.Editor
             TttChalk.DrawMark(m, 2, 'X', 1f, 3);
             TttChalk.DrawMark(m, 6, 'O', 1f, 4);
             m.SlateTex.Apply(true);
-        }
-
-        static void SampleTokens(TttTableModel m)
-        {
-            foreach (var (cell, x) in new[] { (4, true), (0, false), (2, true), (6, false) })
-            {
-                var t = m.Token(x, m.Tokens);
-                t.transform.localPosition = TttTableModel.CellLocal(cell) + new Vector3(0f, 0.004f, 0f);
-                t.transform.localRotation = Quaternion.Euler(0f, cell * 7f - 10f, 0f);
-            }
         }
 
         static void Floor(Transform studio, Material template)

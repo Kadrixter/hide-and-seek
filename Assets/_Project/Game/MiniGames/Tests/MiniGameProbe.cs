@@ -124,7 +124,7 @@ namespace HideAndSeek.Game.MiniGames
             t0 = Time.unscaledTime;
             while (Time.unscaledTime - t0 < 70f && !(ttt.State.Phase == TttState.Over && !ttt.Animating && ttt.State.Round >= 2))
             {
-                Render($"w_{n++:00000}", ttt.transform.TransformPoint(new Vector3(1.9f, 2.0f, -1.1f)), ttt.transform.TransformPoint(new Vector3(0f, 0.85f, 0f)), 46f);
+                Render($"w_{n++:00000}", ttt.transform.TransformPoint(new Vector3(1.7f, 0.25f, 2.9f)), ttt.transform.TransformPoint(new Vector3(0f, -0.35f, 0.3f)), 50f);
                 yield return new WaitForSecondsRealtime(1f / 12f);
             }
             Log($"watcher video frames={n}");
@@ -203,7 +203,7 @@ namespace HideAndSeek.Game.MiniGames
             if (video != null) yield return WatchVideo(video, chess, ttt);
             RenderTable(chess, "watch_chess", new Vector3(1.4f, 1.45f, -1.2f));
             RenderTable(chess, "watch_chess_top", new Vector3(0.05f, 1.6f, -0.35f), 55f);
-            RenderTable(ttt, "watch_ttt", new Vector3(1.3f, 1.4f, -1.1f));
+            RenderTable(ttt, "watch_ttt", new Vector3(1.5f, 0.15f, 2.6f));
             for (int i = 0; i < 6; i++)
             {
                 yield return new WaitForSeconds(2.5f);
