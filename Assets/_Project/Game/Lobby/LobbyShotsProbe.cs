@@ -9,6 +9,8 @@ namespace HideAndSeek.Game
     /// <para>-lobbyshots DIR: renders the named views (<see cref="Views"/>, same as the editor's lobby shots) from a
     /// free camera, then walks to every mini interaction, uses it and saves the player's screen + a side view
     /// (prop_*.png), logs "[LobbyShots]".</para>
+    /// <para>-lobbyfilm DIR (host, best with a client): frames of a camera flight through the lobby (fly_*.png, 25 fps,
+    /// the client feeds the fish on the way) and of three dart throws from the side (darts_*.png).</para>
     /// <para>-testarcade2 (host + 1 client, both in the lobby): host at cabinet 0, the client at cabinet 1, both games
     /// run at once with an autopilot; logs both states ("[Arcade2]") and photographs both screens (-arcade2shots DIR).</para>
     /// </summary>
@@ -40,7 +42,7 @@ namespace HideAndSeek.Game
         private static void Boot()
         {
             var a = System.Environment.GetCommandLineArgs();
-            if (System.Array.IndexOf(a, "-lobbyshots") < 0 && System.Array.IndexOf(a, "-testarcade2") < 0) return;
+            if (System.Array.IndexOf(a, "-lobbyshots") < 0 && System.Array.IndexOf(a, "-testarcade2") < 0 && System.Array.IndexOf(a, "-lobbyfilm") < 0) return;
             var g = new GameObject("LobbyShotsProbe");
             DontDestroyOnLoad(g);
             g.AddComponent<LobbyShotsProbe>();
@@ -71,6 +73,14 @@ namespace HideAndSeek.Game
                 if (mm.IsServer) yield return ArcadeTwo(mm);
                 yield break;
             }
+            if (Arg("-lobbyfilm") is string film)
+            {
+                _dir = film;
+                System.IO.Directory.CreateDirectory(_dir);
+                yield return Film(mm);
+                Log("film done");
+                yield break;
+            }
             _dir = Arg("-lobbyshots");
             System.IO.Directory.CreateDirectory(_dir);
             foreach (var v in Views) { Render(v.name, v.eye, v.at, v.fov); yield return null; }
@@ -80,10 +90,12 @@ namespace HideAndSeek.Game
         }
 
         /// <summary>Renders the lobby from a free camera into DIR/NAME.png (what other players would see).</summary>
+        private int _w = 1280, _h = 720;
+
         public void Render(string name, Vector3 from, Vector3 at, float fov = 60f)
         {
             if (_dir == null) return;
-            const int w = 1280, h = 720;
+            int w = _w, h = _h;
             var cam = new GameObject("ProbeCam").AddComponent<Camera>();
             cam.enabled = false;
             var rt = new RenderTexture(w, h, 24) { antiAliasing = 4 };
@@ -111,6 +123,88 @@ namespace HideAndSeek.Game
         private void Shot(string name)
         {
             if (_dir != null) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(_dir, name + ".png"));
+        }
+
+        // ================================================================ -lobbyfilm DIR: camera flight + darts
+
+        /// <summary>Camera key points of the flight through the lobby (eye, look-at).</summary>
+        private static readonly (Vector3 eye, Vector3 at)[] Flight =
+        {
+            (new Vector3(6.8f, 2.4f, -5.0f), new Vector3(-2f, 0.8f, 2f)),
+            (new Vector3(1.0f, 1.8f, -1.2f), new Vector3(-4f, 0.9f, 3.5f)),
+            (new Vector3(-2.4f, 1.5f, 1.0f), new Vector3(-4f, 1.1f, 5.6f)),     // lounge, fireplace
+            (new Vector3(-3.3f, 1.4f, 3.6f), new Vector3(-4f, 1.6f, 5.9f)),     // fireplace + TV
+            (new Vector3(-3.0f, 1.6f, 1.8f), new Vector3(-4f, 3.2f, 2.9f)),     // fan
+            (new Vector3(0.6f, 1.7f, 2.4f), new Vector3(4.8f, 1.3f, 5.6f)),     // arcades
+            (new Vector3(4.8f, 1.6f, 3.4f), new Vector3(4.8f, 1.3f, 5.6f)),
+            (new Vector3(5.2f, 1.7f, 2.0f), new Vector3(8f, 1.7f, 3f)),         // darts
+            (new Vector3(4.6f, 1.7f, -1.0f), new Vector3(8f, 1.2f, -1.8f)),     // lever, cork board, vending
+            (new Vector3(2.4f, 1.6f, -2.8f), new Vector3(1.6f, 1.5f, -6f)),     // mirror
+            (new Vector3(-1.4f, 1.4f, -4.0f), new Vector3(-2.75f, 1.0f, -6f)),  // aquarium
+            (new Vector3(-2.75f, 1.2f, -4.85f), new Vector3(-2.75f, 1.05f, -6f)),
+            (new Vector3(-4.4f, 1.5f, -3.6f), new Vector3(-6.5f, 0.9f, -5.6f)), // record player, radio
+            (new Vector3(-4.0f, 1.7f, -1.0f), new Vector3(-8f, 1.2f, -1.5f)),   // bookshelf, globe, bricks
+            (new Vector3(1.5f, 2.3f, -3.5f), new Vector3(-3f, 0.8f, 2.5f)),
+        };
+
+        private static Vector3 CatmullRom(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t) =>
+            0.5f * (2f * b + (c - a) * t + (2f * a - 5f * b + 4f * c - d) * t * t + (3f * b - a - 3f * c + d) * t * t * t);
+
+        private IEnumerator Film(MatchManager mm)
+        {
+            _w = 1280; _h = 720;
+            var me = NetPlayer.Local;
+            NetPlayer actor = null;
+            for (float w = 0f; w < 10f && actor == null; w += 0.25f)
+            {
+                foreach (var p in NetPlayer.All) if (p != me) actor = p;
+                if (actor == null) yield return new WaitForSeconds(0.25f);
+            }
+            if (actor != null) yield return new WaitForSeconds(5f);
+            // fixed game time per frame: the film plays at real speed however long a frame takes to save
+            Time.captureFramerate = 25;
+            // feed the fish when the flight comes to the aquarium, throw darts while passing the board
+            const int fps = 25;
+            const float seconds = 26f;
+            int frames = (int)(fps * seconds), n = Flight.Length;
+            bool fed = false;
+            for (int i = 0; i < frames; i++)
+            {
+                float u = i / (float)(frames - 1) * (n - 1);
+                int k = Mathf.Min((int)u, n - 2);
+                float t = Mathf.SmoothStep(0f, 1f, u - k) * 0.35f + (u - k) * 0.65f;
+                var a = Flight[Mathf.Max(0, k - 1)]; var b = Flight[k]; var c = Flight[k + 1]; var d = Flight[Mathf.Min(n - 1, k + 2)];
+                Vector3 eye = CatmullRom(a.eye, b.eye, c.eye, d.eye, t), at = CatmullRom(a.at, b.at, c.at, d.at, t);
+                if (actor != null && k == 9 && !fed)
+                {
+                    fed = true;
+                    var aq = LobbyProp.Of(LobbyPropKind.Aquarium);
+                    if (aq != null)
+                    {
+                        Vector3 side = new Vector3(aq.Aim.x + 0.8f, 0.02f, aq.Aim.z + 0.5f);
+                        actor.TeleportRpc(side, Quaternion.LookRotation(new Vector3(aq.Aim.x - side.x, 0f, aq.Aim.z - side.z)).eulerAngles.y);
+                    }
+                }
+                if (actor != null && k == 10 && fed && i % fps == 0 && LobbyProp.Of(LobbyPropKind.Aquarium) != null)
+                    mm.ServerUseProp(actor, (byte)LobbyPropKind.Aquarium);
+                Render($"fly_{i:0000}", eye, at, 62f);
+                yield return null;
+            }
+            Log($"flight {frames} frames");
+            if (actor == null) { Time.captureFramerate = 0; yield break; }
+            // darts: the actor throws three, the camera looks from the side (no text at the board)
+            actor.TeleportRpc(LobbyDarts.ThrowSpot(LobbyDarts.ThrowLine), LobbyDarts.ThrowYaw);
+            yield return new WaitForSeconds(1.5f);
+            Vector3 cam = LobbyDarts.ThrowLine + new Vector3(0.4f, 1.75f, -1.6f);
+            Vector3 look = Vector3.Lerp(LobbyDarts.ThrowLine + Vector3.up * 1.5f, LobbyDarts.BoardCentre, 0.55f);
+            for (int i = 0; i < fps * 6; i++)
+            {
+                if (i == fps / 2 || i == fps * 2 || i == fps * 7 / 2) mm.ServerUseProp(actor, (byte)LobbyPropKind.Darts);
+                Render($"darts_{i:0000}", cam, look, 52f);
+                yield return null;
+            }
+            Time.captureFramerate = 0;
+            Render("darts_board", LobbyDarts.BoardCentre + new Vector3(-1.2f, 0.05f, 0f), LobbyDarts.BoardCentre, 35f);
         }
 
         // ================================================================ mini interactions
