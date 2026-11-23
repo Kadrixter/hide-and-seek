@@ -120,7 +120,8 @@ namespace HideAndSeek.Game.Net
                 Screen("fpp_music");
             }
 
-            // Walk with it.
+            // Walk with it (first person frames for the clip: -mapradiofppclip).
+            if (Has("-mapradiofppclip")) StartCoroutine(FppClip(60));
             yield return Walk(me, 4.5f, me.Motor.WalkSpeed * MapRadioSystem.WalkScale);
             Log($"walked: {State(mm, 0)} speedScale={me.Motor.SpeedScale:0.00}");
 
@@ -153,6 +154,16 @@ namespace HideAndSeek.Game.Net
             MapRadioLitShot("fall_result", s.Pos + (s.Rot * Vector3.forward) * 1.2f + Vector3.up * 0.8f, s.Pos + Vector3.up * 0.15f);
             Log($"fell: {State(mm, 0)}");
             Log("done");
+        }
+
+        /// <summary>First-person screenshots every 0.1 s (fpp_clip_NNN.png).</summary>
+        private static IEnumerator FppClip(int frames)
+        {
+            for (int i = 0; i < frames; i++)
+            {
+                Screen($"fpp_clip_{i:000}");
+                yield return new WaitForSeconds(0.1f);
+            }
         }
 
         private static void Look(NetPlayer me, Vector3 stand, Vector3 target)
