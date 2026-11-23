@@ -40,8 +40,8 @@ namespace HideAndSeek.Game.Net
             if (p.IsOwner) p.SetCinematicBody(true);
             yield return null;
             Vector3 at = p.transform.position + Vector3.up * 1.0f;
-            SafeLitShot(dir, name + "_side", at + p.transform.right * 1.7f + p.transform.forward * 0.25f + Vector3.up * 0.15f, at);
-            SafeLitShot(dir, name + "_front", at + p.transform.forward * 1.9f - p.transform.right * 0.7f + Vector3.up * 0.3f, at);
+            SafeLitShot(dir, name + "_side", at + p.transform.right * 2.5f + p.transform.forward * 0.35f + Vector3.up * 0.1f, at - Vector3.up * 0.1f);
+            SafeLitShot(dir, name + "_front", at + p.transform.forward * 2.6f - p.transform.right * 0.9f + Vector3.up * 0.25f, at - Vector3.up * 0.1f);
             if (p.IsOwner) p.SetCinematicBody(false);
         }
 
@@ -73,14 +73,8 @@ namespace HideAndSeek.Game.Net
             var me = NetPlayer.Local;
             string dir = HeldShots;
             HeldLog(me, "start (hider)");
-            mm.TestGiveGlock(); // the seeker's part shows it
-
-            // Items: straight into the state where possible, the RC car and the phone through their own pickups.
-            if (me.MedkitCount.Value == 0) me.MedkitCount.Value = 1;
-            if (me.SyringeCount.Value == 0) me.SyringeCount.Value = 1;
-            if (me.RodCount.Value == 0) me.RodCount.Value = 1;
-            me.ToyAmmo.Value = 6;
-            yield return new WaitForSeconds(0.5f);
+            if (mm.IsServer) HeldGiveItems(mm, me); // a client hider gets them from the host (HeldSeeker)
+            else yield return new WaitForSeconds(1.5f);
             Vector3 car = RcCarShelf.CarPos(0);
             yield return LookAt(me, car, car + Quaternion.Euler(0f, RcCarShelf.Yaw, 0f) * Vector3.back * 2f);
             me.RequestRcPickupRpc(0);
@@ -136,7 +130,7 @@ namespace HideAndSeek.Game.Net
             // Medkit heal with LMB: the carried medkit goes away, the animation shows its own.
             Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Medkit);
             yield return new WaitForSeconds(0.8f);
-            me.Limping.Value = true;
+            if (mm.IsServer) me.Limping.Value = true; // a client hider limps from the start (HeldGiveItems)
             yield return new WaitForSeconds(0.3f);
             float end = Time.time + 1.6f;
             bool shot = false;
@@ -159,10 +153,25 @@ namespace HideAndSeek.Game.Net
             Debug.Log("[HeldTest] hider done");
         }
 
+        /// <summary>Server: the hider's items straight into the state (the RC car and the phone come through their pickups).</summary>
+        private static void HeldGiveItems(MatchManager mm, NetPlayer hider)
+        {
+            mm.TestGiveGlock(); // the seeker's part shows it
+            if (hider.MedkitCount.Value == 0) hider.MedkitCount.Value = 1;
+            if (hider.SyringeCount.Value == 0) hider.SyringeCount.Value = 1;
+            if (hider.RodCount.Value == 0) hider.RodCount.Value = 1;
+            hider.ToyAmmo.Value = 6;
+            if (!hider.IsLocalPlayer) hider.Limping.Value = true; // the heal at the end of the client's part needs a wound
+        }
+
         private IEnumerator HeldSeeker()
         {
             var me = NetPlayer.Local;
             string dir = HeldShots;
+            var mm0 = MatchManager.Instance;
+            if (mm0.IsServer)
+                foreach (var p in NetPlayer.All) if (p != null && p.IsHider) { HeldGiveItems(mm0, p); break; }
+            StartCoroutine(HeldWatchHider(dir)); // films the hider's hand from the start (in parallel with the own slots)
             yield return new WaitForSeconds(0.5f);
             HeldLog(me, "start (seeker)");
             yield return LookAt(me, ChainsawShelf.Position + Vector3.up * 1.2f, ChainsawShelf.Position + new Vector3(0f, 0f, -2f));
@@ -179,14 +188,20 @@ namespace HideAndSeek.Game.Net
                 yield return HeldSlot(me, i, dir, $"s{i + 1}_{item}");
             }
             Hotbar.TestSelect = 0;
+            yield return new WaitForSeconds(80f);
+            Debug.Log("[HeldTest] seeker done");
+        }
 
-            // Watch the hider: every change of the item in his hand, filmed from his side.
+        /// <summary>Every change of the item in the hider's hand, filmed from his side (what the other players see).</summary>
+        private IEnumerator HeldWatchHider(string dir)
+        {
+            yield return new WaitForSeconds(1f);
             NetPlayer hider = null;
             foreach (var p in NetPlayer.All) if (p != null && p.IsHider) hider = p;
             if (hider == null) { Debug.Log("[HeldTest] no hider to watch"); yield break; }
             var last = (HotbarItem)255;
             int n = 0;
-            end = Time.time + 90f;
+            float end = Time.time + 100f;
             while (Time.time < end)
             {
                 var now = hider.HandItem;
@@ -196,11 +211,10 @@ namespace HideAndSeek.Game.Net
                     yield return new WaitForSeconds(0.6f);
                     HeldLog(hider, "remote view");
                     Vector3 at = hider.transform.position + Vector3.up * 1.0f;
-                    SafeLitShot(dir, $"w{n++:00}_{hider.HandItem}", at + hider.transform.right * 1.7f + hider.transform.forward * 0.3f + Vector3.up * 0.2f, at);
+                    SafeLitShot(dir, $"w{n++:00}_{hider.HandItem}", at + hider.transform.right * 2.5f + hider.transform.forward * 0.4f + Vector3.up * 0.15f, at - Vector3.up * 0.1f);
                 }
                 yield return null;
             }
-            Debug.Log("[HeldTest] seeker done");
         }
     }
 }
