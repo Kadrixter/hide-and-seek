@@ -6,8 +6,8 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// Dartboard on the east wall: E at the throw line throws a dart (the server rolls where it lands, everybody sees
-    /// the same flight). Three darts per round, each scores like a real board (single / double / treble, 25 / 50),
-    /// the score floats above the board, after the third dart the round total, then the darts are pulled out.
+    /// the same flight). Three darts per round, then they are pulled out. No text at the board (the score is only
+    /// logged: single / double / treble, 25 / 50, like a real board).
     /// Board space: local +Z = into the room, the face at <see cref="FaceZ"/>; the viewer's right is local -X.
     /// </summary>
     public class LobbyDarts : MonoBehaviour
@@ -66,8 +66,6 @@ namespace HideAndSeek.Game
         private readonly List<Transform> _stuck = new();
         private int _round, _total;
         private float _clearAt = -1f;
-        private TextMesh _label;
-        private float _labelUntil;
 
         private struct Flight { public Transform Dart; public Vector3 From, To; public float T0, Dur; public string Text; public int Points; public bool Last; }
         private readonly List<Flight> _flights = new();
@@ -82,19 +80,6 @@ namespace HideAndSeek.Game
             _barrel.SetFloat("_Glossiness", 0.7f);
             _shaft = new Material(Shader.Find("Standard")) { color = new Color(0.08f, 0.08f, 0.09f) };
             _flightMat = new Material(Shader.Find("Standard")) { color = new Color(0.85f, 0.12f, 0.1f) };
-            _label = new GameObject("DartScore").AddComponent<TextMesh>();
-            _label.transform.SetParent(transform, false);
-            _label.transform.localPosition = new Vector3(0f, BoardR + 0.16f, 0.08f);
-            _label.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            _label.characterSize = 0.008f;
-            _label.fontSize = 64;
-            _label.anchor = TextAnchor.MiddleCenter;
-            _label.alignment = TextAlignment.Center;
-            _label.fontStyle = FontStyle.Bold;
-            _label.color = new Color(1f, 0.85f, 0.3f);
-            _label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            _label.GetComponent<MeshRenderer>().sharedMaterial = _label.font.material;
-            _label.text = "";
             LobbyPropDriver.Used += OnUsed;
         }
 
@@ -167,8 +152,7 @@ namespace HideAndSeek.Game
                     _stuck.Add(f.Dart);
                     _flights.RemoveAt(i);
                     LobbyPropSounds.Play(LobbyPropSounds.Id.Thunk, f.To, 0.55f);
-                    _label.text = f.Last ? $"{f.Text}\nRAZEM {_total}" : f.Text;
-                    _labelUntil = Time.time + (f.Last ? 4f : 2f);
+                    Debug.Log($"[Darts] {f.Text} ({f.Points}), round total {_total}");
                     if (f.Last) _clearAt = Time.time + 3.5f;
                     continue;
                 }
@@ -177,7 +161,6 @@ namespace HideAndSeek.Game
                 f.Dart.SetPositionAndRotation(p, Quaternion.LookRotation(vel.normalized) * Quaternion.Euler(0f, 0f, u * 400f));
             }
             if (_clearAt > 0f && Time.time > _clearAt) ClearDarts();
-            if (_label != null && _label.text.Length > 0 && Time.time > _labelUntil) _label.text = "";
         }
     }
 }

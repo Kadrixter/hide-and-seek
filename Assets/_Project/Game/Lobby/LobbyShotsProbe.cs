@@ -178,6 +178,23 @@ namespace HideAndSeek.Game
                     yield return new WaitForSeconds(1f);
                 }
             }
+            // aquarium film: 60 frames at 10 fps from the front, the actor feeds the fish at frame 10
+            var aqua = LobbyProp.Of(LobbyPropKind.Aquarium);
+            if (aqua != null)
+            {
+                Vector3 aim = aqua.Aim, side = new Vector3(aim.x + 0.75f, 0.02f, aim.z + 0.55f);
+                Vector3 al = aim - (side + Vector3.up * 1.62f);
+                float ay = Quaternion.LookRotation(new Vector3(al.x, 0f, al.z)).eulerAngles.y;
+                if (actor == me) me.Motor.Teleport(side, ay); else actor.TeleportRpc(side, ay);
+                yield return new WaitForSeconds(2.5f);
+                Vector3 tank = aqua.transform.position + Vector3.up * 0.25f;
+                for (int i = 0; i < 60; i++)
+                {
+                    if (i == 10) mm.ServerUseProp(actor, (byte)LobbyPropKind.Aquarium);
+                    Render($"aqua_{i:000}", tank + new Vector3(0f, 0.04f, 0.95f), tank, 46f);
+                    yield return new WaitForSeconds(0.1f);
+                }
+            }
             Render("react_darts", new Vector3(6.6f, 1.75f, 3.0f), LobbyLayout.Dartboard, 40f);
             Render("react_aquarium", new Vector3(-2.75f, 1.1f, -4.9f), new Vector3(-2.75f, 1.05f, -6f), 55f);
             Render("react_record", new Vector3(-4.3f, 1.25f, -5.0f), new Vector3(-4.5f, 0.65f, -5.75f), 50f);

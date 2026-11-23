@@ -4,107 +4,11 @@ using UnityEngine.Rendering;
 namespace HideAndSeek.Game.Editor
 {
     /// <summary>
-    /// Aquarium on a wooden cabinet (south wall) and the sideboard with a record player. The tank: glass box with black
-    /// trim, water volume, gravel, plants, a rock, air stone, painted backdrop, lid with a light; six fish swim
-    /// (<see cref="LobbyAquarium"/>). The record player: plinth, platter, record with a label, tone arm on a pivot
-    /// (<see cref="LobbyRecordPlayer"/>), records in the open shelf, two small speakers.
+    /// Sideboard with a record player (south wall): plinth, platter, record with a label, tone arm on a pivot
+    /// (<see cref="LobbyRecordPlayer"/>), records in the open shelf, two small speakers. The aquarium: LobbyAquariumTank.
     /// </summary>
     public static partial class MultiplayerBuilder
     {
-        private static void Aquarium(Transform parent, Vector3 pos, Material darkWood)
-        {
-            var t = Frame(parent, "Aquarium", pos, 0f); // south wall, faces +Z
-            var black = Mat("LobbyFireBlack", new Color(0.04f, 0.04f, 0.045f), null, 0.45f, Vector2.one, 0.4f);
-            // cabinet
-            RBox(t, "Cabinet", new Vector3(0f, 0.4f, 0f), new Vector3(1.3f, 0.7f, 0.5f), darkWood, 0.015f);
-            RBox(t, "CabinetTop", new Vector3(0f, 0.765f, 0f), new Vector3(1.34f, 0.03f, 0.52f), darkWood, 0.01f);
-            RBox(t, "Plinth", new Vector3(0f, 0.025f, -0.01f), new Vector3(1.24f, 0.05f, 0.44f), black, 0.006f);
-            foreach (float sx in new[] { -0.32f, 0.32f })
-            {
-                RBox(t, "Door", new Vector3(sx, 0.4f, 0.255f), new Vector3(0.6f, 0.62f, 0.012f), darkWood, 0.006f);
-                RBox(t, "Handle", new Vector3(sx + (sx < 0 ? 0.24f : -0.24f), 0.55f, 0.268f), new Vector3(0.016f, 0.12f, 0.014f), Brass, 0.006f);
-            }
-            // tank 1.2 x 0.52 x 0.44 on the cabinet
-            const float y0 = 0.78f, th = 0.52f, tw = 1.2f, td = 0.44f;
-            var tank = new GameObject("Tank").transform;
-            tank.SetParent(t, false);
-            tank.localPosition = new Vector3(0f, y0, 0f);
-            var backdrop = Mat("LobbyAquaBack", Color.white, SmoothTex("lobby2_aquaback", 128, 64, (x, y) =>
-            {
-                float v = y / 64f;
-                var c = Color.Lerp(new Color(0.02f, 0.12f, 0.2f), new Color(0.1f, 0.45f, 0.55f), v);
-                float weed = Mathf.PerlinNoise(x * 0.12f, 3.3f) * 0.8f;
-                if (v < weed * 0.7f) c = Color.Lerp(c, new Color(0.05f, 0.25f, 0.12f), 0.7f);
-                return c;
-            }), 0.2f, Vector2.one);
-            LocalBox(tank, "Backdrop", new Vector3(0f, th * 0.5f, -td * 0.5f + 0.006f), new Vector3(tw - 0.02f, th - 0.02f, 0.002f), backdrop);
-            var gravel = Mat("LobbyGravel", Color.white, SmoothTex("lobby2_gravel", 128, 64, (x, y) =>
-            {
-                float n = Mathf.PerlinNoise(x * 0.9f, y * 0.9f), h = Hash01(x / 2 * 37 + y / 2 * 91);
-                var c = h > 0.75f ? new Color(0.8f, 0.7f, 0.55f) : h > 0.45f ? new Color(0.55f, 0.5f, 0.45f) : new Color(0.35f, 0.3f, 0.28f);
-                return c * (0.75f + 0.35f * n);
-            }), 0.3f, new Vector2(2f, 1f));
-            RBox(tank, "Gravel", new Vector3(0f, 0.035f, 0f), new Vector3(tw - 0.02f, 0.05f, td - 0.02f), gravel, 0.01f, 0.012f);
-            var rock = Ball("Rock", tank, Vector3.zero, new Vector3(0.18f, 0.1f, 0.12f), Mat("LobbyRock", new Color(0.4f, 0.38f, 0.36f), null, 0.2f, Vector2.one));
-            rock.transform.localPosition = new Vector3(-0.3f, 0.08f, -0.05f);
-            rock.transform.localRotation = Quaternion.Euler(0f, 30f, 8f);
-            var weed = Mat("LobbyAquaWeed", new Color(0.18f, 0.55f, 0.2f), null, 0.4f, Vector2.one);
-            var rnd = new System.Random(3);
-            foreach (var (px, pz) in new[] { (-0.48f, -0.12f), (0.42f, -0.14f), (0.1f, -0.15f), (-0.12f, -0.1f) })
-                for (int i = 0; i < 6; i++)
-                {
-                    var g = new GameObject("Weed");
-                    g.transform.SetParent(tank, false);
-                    g.transform.localPosition = new Vector3(px + (float)(rnd.NextDouble() - 0.5) * 0.06f, 0.05f, pz);
-                    g.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
-                    g.AddComponent<MeshFilter>().sharedMesh = LeafMesh(0.18f + (float)rnd.NextDouble() * 0.2f, 0.035f, 80f, 25f);
-                    g.AddComponent<MeshRenderer>().sharedMaterial = weed;
-                }
-            Cyl("AirStone", tank, Vector3.zero, 0.04f, 0.03f, Mat("LobbyRock", new Color(0.4f, 0.38f, 0.36f), null, 0.2f, Vector2.one)).transform.localPosition = new Vector3(0.45f, 0.07f, 0.1f);
-            // fish: body + tail, bright colours
-            var cols = new[] { new Color(1f, 0.45f, 0.05f), new Color(0.15f, 0.45f, 1f), new Color(1f, 0.85f, 0.1f), new Color(0.95f, 0.25f, 0.3f), new Color(1f, 0.55f, 0.1f), new Color(0.3f, 0.9f, 0.9f) };
-            for (int i = 0; i < cols.Length; i++)
-            {
-                var fish = new GameObject("Fish" + i).transform;
-                fish.SetParent(tank, false);
-                fish.localPosition = new Vector3(-0.4f + i * 0.16f, 0.18f + (i % 3) * 0.08f, (i % 2 == 0 ? 0.05f : -0.05f));
-                var m = Mat("LobbyFish" + i, cols[i], null, 0.75f, Vector2.one);
-                float s = i % 3 == 0 ? 1.3f : 1f;
-                var body = Ball("Body", fish, fish.position, new Vector3(0.014f, 0.03f, 0.055f) * s, m);
-                body.transform.localPosition = Vector3.zero;
-                var tail = LocalBox(fish, "Tail", new Vector3(0f, 0f, -0.032f * s), new Vector3(0.002f, 0.026f * s, 0.022f * s), m);
-                tail.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
-                var fin = LocalBox(fish, "Fin", new Vector3(0f, 0.016f * s, -0.004f), new Vector3(0.002f, 0.012f * s, 0.02f * s), m);
-                fin.transform.localRotation = Quaternion.Euler(-20f, 0f, 0f);
-                foreach (float ex in new[] { -0.0072f, 0.0072f })
-                    Ball("Eye", fish, fish.position, Vector3.one * 0.006f * s, Mat("LobbyPlasticBlack", new Color(0.05f, 0.05f, 0.06f), null, 0.4f, Vector2.one)).transform.localPosition = new Vector3(ex * s, 0.004f, 0.018f * s);
-            }
-            // water + glass + trim + lid
-            LocalBox(tank, "Water", new Vector3(0f, (th - 0.05f) * 0.5f, 0f), new Vector3(tw - 0.016f, th - 0.05f, td - 0.016f), Transparent("LobbyWater", new Color(0.35f, 0.75f, 0.8f, 0.18f)))
-                .GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
-            LocalBox(tank, "Glass", new Vector3(0f, th * 0.5f, 0f), new Vector3(tw, th, td), GlassMat()).GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
-            foreach (float sx in new[] { -tw * 0.5f, tw * 0.5f })
-            foreach (float sz in new[] { -td * 0.5f, td * 0.5f })
-                LocalBox(tank, "Post", new Vector3(sx, th * 0.5f, sz), new Vector3(0.016f, th + 0.004f, 0.016f), black);
-            RBox(tank, "RimBottom", new Vector3(0f, 0.012f, 0f), new Vector3(tw + 0.02f, 0.024f, td + 0.02f), black, 0.004f);
-            RBox(tank, "Lid", new Vector3(0f, th + 0.02f, 0f), new Vector3(tw + 0.02f, 0.04f, td + 0.02f), black, 0.008f);
-            LocalBox(tank, "LidLight", new Vector3(0f, th - 0.001f, 0f), new Vector3(tw - 0.1f, 0.002f, 0.06f), Emissive("LobbyAquaLed", new Color(0.8f, 0.95f, 1f), new Color(0.6f, 0.85f, 1f) * 2f));
-            var lamp = new GameObject("TankLight").AddComponent<Light>();
-            lamp.transform.SetParent(tank, false);
-            lamp.transform.localPosition = new Vector3(0f, th - 0.06f, 0.05f);
-            lamp.type = LightType.Point;
-            lamp.color = new Color(0.6f, 0.85f, 1f);
-            lamp.range = 1.4f;
-            lamp.intensity = 0.8f;
-            var aq = tank.gameObject.AddComponent<LobbyAquarium>();
-            aq.centre = new Vector3(0f, 0.27f, 0f);
-            aq.half = new Vector3(tw * 0.5f - 0.05f, 0.19f, td * 0.5f - 0.05f);
-            aq.flakeMat = Mat("LobbyFishFood", new Color(0.8f, 0.45f, 0.2f), null, 0.2f, Vector2.one);
-            aq.bubbleMat = Transparent("LobbyBubble", new Color(0.9f, 0.97f, 1f, 0.45f));
-            BoxCollider(t, new Vector3(0f, 0.66f, 0f), new Vector3(1.34f, 1.32f, 0.52f));
-            AddProp(tank.gameObject, LobbyPropKind.Aquarium, new Vector3(0f, th + 0.06f, 0.12f), 1.9f);
-        }
-
         // ================================================================ sideboard with the record player (south wall)
 
         private static void RecordCabinet(Transform parent, Vector3 pos, Material darkWood)
