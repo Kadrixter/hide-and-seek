@@ -26,10 +26,11 @@ namespace HideAndSeek.Game.Cinematics
                 // B: close on the hand and the small lever, from the killer's left, a slow creep in.
                 float k = Mathf.Clamp01((t - IntroTimeline.ShotB) / (IntroTimeline.ShotC - IntroTimeline.ShotB));
                 // Low, from the side of the lever, looking up a little: the hand comes into the frame from above.
-                pos = _gate.Local(Vector3.Lerp(new Vector3(kx + 0.82f, 1.0f, 0.8f), new Vector3(kx + 0.7f, 1.04f, 0.68f), k));
+                // From the killer's left, between him and the wall: the lever in profile, his hand coming in.
+                pos = _gate.Local(Vector3.Lerp(new Vector3(kx + 1.08f, 1.2f, 0.44f), new Vector3(kx + 0.92f, 1.18f, 0.42f), k));
                 Vector3 knob = _gate.KnobWorld;
-                look = Vector3.Lerp(_gate.Local(new Vector3(kx + 0.05f, 1.2f, 0.15f)), knob, 0.6f);
-                fov = 40f;
+                look = Vector3.Lerp(_gate.Local(new Vector3(kx - 0.05f, 1.18f, 0.12f)), knob, 0.55f);
+                fov = 42f;
             }
             else if (t < IntroTimeline.ShotD)
             {

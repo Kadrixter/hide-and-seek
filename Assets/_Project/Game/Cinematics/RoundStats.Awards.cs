@@ -19,6 +19,9 @@ namespace HideAndSeek.Game.Cinematics
             var seekers = all.Where(e => e.Seeker).ToList();
             var hiders = all.Where(e => !e.Seeker).ToList();
             double seekFrom = SeekStart >= 0d ? SeekStart : RoundStart;
+            foreach (var e in all)
+                UnityEngine.Debug.Log($"[Stats] {e.Nick}{(e.Seeker ? " (S)" : "")}: kills {e.KnifeKills}/{e.SawKills}/{e.GlockKills} heals {e.Heals} rescues {e.Rescues}+{e.Revives} " +
+                                      $"toys {e.Toys} stuns {e.LegStuns} dist {e.Distance:0} m rc {e.RcTime:0} s voice {e.VoiceTime:0} s alive {e.AliveTime:0} s seen {e.SeenTime:0} s caught {e.CaughtAt:0.0}");
 
             Most(list, AwardId.Knifer, seekers, e => e.KnifeKills, n => AwardBook.Plural(n, "zabójstwo", "zabójstwa", "zabójstw") + " nożem");
             Most(list, AwardId.Butcher, seekers, e => e.SawKills, n => AwardBook.Plural(n, "zabójstwo", "zabójstwa", "zabójstw") + " piłą");

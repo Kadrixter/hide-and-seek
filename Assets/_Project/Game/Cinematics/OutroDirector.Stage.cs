@@ -103,8 +103,8 @@ namespace HideAndSeek.Game.Cinematics
                 float k = Mathf.Clamp01((t - OutroTimeline.Travel) / (OutroTimeline.Awards - OutroTimeline.Travel));
                 k = k * k * (3f - 2f * k);
                 float x = Mathf.Lerp(-halfRow - 0.9f, halfRow + 0.9f, k);
-                pos = new Vector3(x * 0.8f, 1.38f, RowZ + 4.1f);
-                look = new Vector3(x + 0.45f, 1.08f, RowZ);
+                pos = new Vector3(x * 0.8f, 1.45f, RowZ + 4.1f);
+                look = new Vector3(x + 0.45f, 1.3f, RowZ); // heads below the title
                 fov = n <= 2 ? 44f : 40f;
             }
             else
