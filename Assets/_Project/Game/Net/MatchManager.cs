@@ -307,6 +307,7 @@ namespace HideAndSeek.Game.Net
             ChainsawTaken.Value = false;
             SecurityCrates.Value = 0;
             ResetRcCars();
+            RollYarisEgg(); // easter egg: RC cars as blue Yarises this round (MatchManager.Yaris.cs)
             PrepareIntro();
             Phase.Value = MatchPhase.Loading;
             LoadGameSceneOrStay("round start");

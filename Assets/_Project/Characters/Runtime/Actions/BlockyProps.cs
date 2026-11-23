@@ -279,6 +279,7 @@ namespace HideAndSeek.Characters
             ant.localPosition = RcAntennaBase;
             AddPart(ant, "Whip", GetMesh("RcAntenna"), layer);
             parts.Antenna = ant;
+            RcCarSkin.Attach(parts, layer); // Yaris easter egg body next to the rally one
             return parts;
         }
 
