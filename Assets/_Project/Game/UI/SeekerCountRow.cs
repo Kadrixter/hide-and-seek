@@ -35,7 +35,7 @@ namespace HideAndSeek.Game.UI
         public static void Build(RectTransform row, Func<int> get, Action<int> set)
         {
             Button minus = null, plus = null;
-            minus = UiKit.Button("SeekersMinus", row, "-", () => set?.Invoke(Mathf.Clamp(get() - 1, 1, MatchManager.MaxSeekersSetting)), 34);
+            minus = UiKit.BoxButton("SeekersMinus", row, "-", () => set?.Invoke(Mathf.Clamp(get() - 1, 1, MatchManager.MaxSeekersSetting)), 34);
             Width(minus, 58f);
             var box = UiKit.Image("SeekersBox", row, new Color(0.11f, 0.05f, 0.05f, 1f)).Rounded();
             Width(box, 214f);
@@ -43,7 +43,7 @@ namespace HideAndSeek.Game.UI
             label.rectTransform.Stretch(4f);
             label.supportRichText = true;
             label.raycastTarget = false;
-            plus = UiKit.Button("SeekersPlus", row, "+", () => set?.Invoke(Mathf.Clamp(get() + 1, 1, MatchManager.MaxSeekersSetting)), 30);
+            plus = UiKit.BoxButton("SeekersPlus", row, "+", () => set?.Invoke(Mathf.Clamp(get() + 1, 1, MatchManager.MaxSeekersSetting)), 30);
             Width(plus, 58f);
             minus.interactable = plus.interactable = set != null;
             foreach (var b in new[] { minus, plus })

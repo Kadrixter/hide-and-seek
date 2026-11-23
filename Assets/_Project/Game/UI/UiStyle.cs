@@ -230,7 +230,7 @@ namespace HideAndSeek.Game.UI
         {
             var rt = RowBase(name, parent, label, fontSize, out var bg, out var text);
             text.rectTransform.sizeDelta = new Vector2(-190, 0);
-            var b = UiKit.Button("Action", rt, button, click, 20, new Color(0.13f, 0.32f, 0.16f));
+            var b = UiKit.BoxButton("Action", rt, button, click, 20, new Color(0.13f, 0.32f, 0.16f));
             ((RectTransform)b.transform).Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-8, 0), new Vector2(150, 38));
             return rt;
         }

@@ -8,7 +8,7 @@ using UnityEngine.UI;
 namespace HideAndSeek.Game.UI
 {
     /// <summary>Tiny code-only uGUI toolkit: consistent dark style for menu, lobby and HUD.</summary>
-    public static class UiKit
+    public static partial class UiKit
     {
         public static readonly Color Bg = new Color(0.04f, 0.045f, 0.05f, 0.92f);
         public static readonly Color Panel = new Color(0.08f, 0.09f, 0.1f, 0.94f);
@@ -107,7 +107,8 @@ namespace HideAndSeek.Game.UI
             return o;
         }
 
-        public static Button Button(string name, Transform parent, string text, Action onClick, int fontSize = 30, Color? color = null)
+        /// <summary>Old boxed button (dark rounded card): option-like buttons (toggles, steppers, list rows, banners).</summary>
+        public static Button BoxButton(string name, Transform parent, string text, Action onClick, int fontSize = 30, Color? color = null)
         {
             var img = Image(name, parent, color ?? ButtonColor);
             img.sprite = UiStyle.RoundGradient;
