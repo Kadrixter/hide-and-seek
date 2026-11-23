@@ -15,7 +15,7 @@ namespace HideAndSeek.Game.UI
         [SerializeField] private Transform previewRoot;
 
         private Canvas _canvas;
-        private RectTransform _main, _character, _browser, _options, _audio, _voicePage, _connecting, _column;
+        private RectTransform _main, _character, _browser, _options, _audio, _voicePage, _graphics, _connecting, _column;
         private Text _message, _skinLabel, _serverList, _connectingText;
         private InputField _nick, _ip, _mcNick;
         private Text _mcStatus;
@@ -67,6 +67,7 @@ namespace HideAndSeek.Game.UI
             _options = BuildOptions(_column);
             _audio = BuildAudio(_column);
             _voicePage = BuildVoice(_column);
+            _graphics = BuildGraphics(_column); // MainMenu.Graphics.cs
             _connecting = BuildConnecting(root);
             Show(_main);
             MenuWeaponPicker.Create(root, this); // bottom right: weapon of the menu character
@@ -87,7 +88,7 @@ namespace HideAndSeek.Game.UI
         /// <summary>Test switch -testmenu: walks through the pages (for screenshots).</summary>
         private System.Collections.IEnumerator TestPages()
         {
-            foreach (var p in new[] { _main, _character, _options, _audio, _voicePage, _main })
+            foreach (var p in new[] { _main, _character, _options, _audio, _voicePage, _graphics, _main })
             {
                 Show(p);
                 yield return new WaitForSeconds(2.2f);
@@ -104,7 +105,7 @@ namespace HideAndSeek.Game.UI
 
         private void Show(RectTransform page)
         {
-            foreach (var p in new[] { _main, _character, _browser, _options, _audio, _voicePage }) p.gameObject.SetActive(p == page);
+            foreach (var p in new[] { _main, _character, _browser, _options, _audio, _voicePage, _graphics }) p.gameObject.SetActive(p == page);
             if (page == _browser) LanDiscovery.StartSearch();
             else LanDiscovery.StopSearch();
             OnButtonHovered(null);

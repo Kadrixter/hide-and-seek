@@ -25,9 +25,9 @@ namespace HideAndSeek.Game
             public static Surf Glow(Color e) => new Surf { Emit = e };
         }
 
-        private readonly Dictionary<(int, int, int, bool), Material> _mats = new();
-        private readonly Dictionary<Texture, Material> _signMats = new();
-        private Shader _standard;
+        private static readonly Dictionary<(int, int, int, bool), Material> _mats = new();
+        private static readonly Dictionary<Texture, Material> _signMats = new();
+        private static Shader _standard;
 
         private Material SurfMat(in Surf s)
         {
@@ -52,7 +52,7 @@ namespace HideAndSeek.Game
                 m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
                 m.SetColor("_EmissionColor", Color.white);
             }
-            _mats[key] = m;
+            _mats[key] = Keep(m);
             return m;
         }
 
@@ -123,7 +123,7 @@ namespace HideAndSeek.Game
                     m.EnableKeyword("_ALPHATEST_ON");
                     m.renderQueue = (int)RenderQueue.AlphaTest;
                 }
-                _signMats[tex] = m;
+                _signMats[tex] = Keep(m);
             }
             r.sharedMaterial = m;
             SetupRenderer(r, false);

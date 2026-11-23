@@ -58,7 +58,7 @@ namespace HideAndSeek.Game
         private void ShowGameSettings()
         {
             if (_escMenu != null) Destroy(_escMenu.gameObject);
-            _escMenu = MenuPanel("SettingsMenu", new Vector2(680, 760));
+            _escMenu = MenuPanel("SettingsMenu", new Vector2(680, 822));
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "Ustawienia", 26).Height(56);
             SettingsUi.SensitivitySlider(panel, v => { if (NetPlayer.Local != null) NetPlayer.Local.InputReader.MouseSensitivity = v; });
@@ -69,6 +69,7 @@ namespace HideAndSeek.Game
             UiKit.Rect("Gap", panel).Height(6);
             UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 34).Height(58);
             UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 34).Height(58);
+            UiKit.Button("Graphics", panel, "Grafika", ShowGraphicsMenu, 34).Height(58); // GameHud.Graphics.cs
             UiKit.Button("Back", panel, "Wróć", () =>
             {
                 Prefs.Save();

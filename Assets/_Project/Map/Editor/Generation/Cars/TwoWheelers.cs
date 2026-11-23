@@ -160,11 +160,33 @@ namespace HideAndSeek.Map.Editor
             // seat post + saddle, stem + upright bar with grips, bell, small lamp
             Tube(mb, seatTop, seatTop + new Vector3(0f, 0.12f, -0.03f), 0.012f, steel, 6);
             CarBlob.Blob(mb, seatTop + new Vector3(0f, 0.15f, -0.02f), Quaternion.identity, new Vector3(0.09f, 0.035f, 0.13f), 0.4f, lib["Car_LeatherBlack"], 0.6f, 0.55f, 10, 6);
-            Vector3 stem = headTop + new Vector3(0f, 0.12f, -0.02f);
-            Tube(mb, headTop, stem, 0.012f, steel, 6);
-            Tube(mb, stem + new Vector3(-0.28f, 0.02f, -0.1f), stem + new Vector3(0.28f, 0.02f, -0.1f), 0.011f, steel, 6);
+            // Steering: the quill rises out of the head tube along the steering axis, the stem reaches forward to
+            // the bar clamp, the city bar sweeps back to the rider from there (everything joined, nothing floating).
+            Vector3 axis = (headTop - headBot).normalized;
+            Vector3 quill = headTop + axis * 0.1f;
+            Tube(mb, headTop - axis * 0.01f, quill, 0.013f, steel, 8);
+            mb.Cylinder(headTop - axis * 0.004f, headTop + axis * 0.012f, 0.021f, 10, steel);   // headset lock ring
+            Vector3 clamp = quill + new Vector3(0f, 0.012f, 0.055f);
+            Tube(mb, quill - axis * 0.006f, clamp, 0.012f, steel, 8);
+            mb.Cylinder(clamp - Vector3.right * 0.03f, clamp + Vector3.right * 0.03f, 0.017f, 10, steel);   // clamp collar
             foreach (float s in new[] { -1f, 1f })
-                Tube(mb, stem + new Vector3(s * 0.2f, 0.02f, -0.1f), stem + new Vector3(s * 0.3f, 0.02f, -0.12f), 0.016f, dark, 6);
+            {
+                Vector3 b0 = clamp, b1 = clamp + new Vector3(s * 0.11f, 0.004f, -0.006f);
+                Vector3 b2 = clamp + new Vector3(s * 0.2f, 0.02f, -0.06f), b3 = clamp + new Vector3(s * 0.25f, 0.026f, -0.14f);
+                Vector3 b4 = clamp + new Vector3(s * 0.27f, 0.026f, -0.2f);
+                Tube(mb, b0, b1, 0.011f, steel, 8);
+                Tube(mb, b1 - (b2 - b1).normalized * 0.004f, b2, 0.011f, steel, 8);
+                Tube(mb, b2 - (b3 - b2).normalized * 0.004f, b3, 0.011f, steel, 8);
+                Tube(mb, b3 - (b4 - b3).normalized * 0.004f, b4 + (b4 - b3).normalized * 0.012f, 0.011f, steel, 8);
+                // rubber grip on the last straight, brake lever reaching forward under it
+                Vector3 gd = (b4 - b3).normalized;
+                Tube(mb, b3 + gd * 0.005f, b4 + gd * 0.018f, 0.0165f, dark, 8);
+                Vector3 lever = b3 - gd * 0.01f + new Vector3(0f, -0.006f, 0f);
+                mb.Box(lever + new Vector3(-s * 0.004f, 0f, 0.012f), new Vector3(0.02f, 0.022f, 0.03f), dark);
+                Tube(mb, lever + new Vector3(0f, -0.01f, 0.02f), b4 + new Vector3(-s * 0.01f, -0.03f, 0.02f), 0.005f, steel, 5);
+            }
+            // bell on the left of the clamp
+            CarWheels.Lathe(mb, clamp + new Vector3(-0.07f, 0.018f, 0f), Vector3.up, new[] { new Vector2(0.004f, 0f), new Vector2(0.022f, 0.002f), new Vector2(0.02f, 0.014f), new Vector2(0f, 0.02f) }, 12, steel);
             CarWheels.Lathe(mb, headBot + new Vector3(0f, 0.05f, 0.05f), Vector3.forward, new[] { new Vector2(0f, -0.04f), new Vector2(0.03f, -0.02f), new Vector2(0.03f, 0f) }, 10, dark);
             CarWheels.Lathe(mb, headBot + new Vector3(0f, 0.05f, 0.05f), Vector3.forward, new[] { new Vector2(0.028f, 0f), new Vector2(0f, 0.004f) }, 10, lib["Car_Lens"]);
             mb.Box(ra + new Vector3(0f, 0.1f, -0.38f), new Vector3(0.05f, 0.03f, 0.01f), lib["Car_TailRed"]);

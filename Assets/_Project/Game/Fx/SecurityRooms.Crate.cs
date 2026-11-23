@@ -104,6 +104,7 @@ namespace HideAndSeek.Game
         public bool TryFindCrateAction(Vector3 feet, Vector3 eye, Vector3 fwd, bool seeker, bool sawOut, out CrateAction act, out int level, out Vector3 world, out float dist)
         {
             act = default; level = -1; world = default; dist = float.MaxValue;
+            if (!Ready) return false;
             for (int lv = 0; lv < Levels; lv++)
             {
                 if (_crates[lv] == null || Mathf.Abs(feet.y - FloorY(lv)) > 1.2f || _animStart[lv] >= 0f) continue;
@@ -142,7 +143,7 @@ namespace HideAndSeek.Game
         /// <summary>Server: <paramref name="act"/> on level <paramref name="lv"/> is allowed for a player standing at <paramref name="feet"/>.</summary>
         public bool ServerCanAct(int lv, CrateAction act, Vector3 feet, bool seeker, bool sawOut)
         {
-            if (lv < 0 || lv >= Levels || Mathf.Abs(feet.y - FloorY(lv)) > 1.3f) return false;
+            if (!Ready || lv < 0 || lv >= Levels || Mathf.Abs(feet.y - FloorY(lv)) > 1.3f) return false;
             var st = SyncedState(lv);
             if (st == CrateState.Broken) return false;
             if (!Allowed(lv, st, feet + Vector3.zero, seeker, sawOut, out var a)) return false;

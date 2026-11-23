@@ -90,6 +90,8 @@ namespace HideAndSeek.Game
             albedo.SetPixels(col);
             albedo.Apply(true, false);
             var normal = NormalFrom(h, n, k == Kind.Planks || k == Kind.Concrete ? 3.5f : 1.6f, "Sec_" + k + "_N");
+            albedo.hideFlags |= HideFlags.DontUnloadUnusedAsset;
+            normal.hideFlags |= HideFlags.DontUnloadUnusedAsset;
             t = (albedo, normal);
             Cache[k] = t;
             return t;

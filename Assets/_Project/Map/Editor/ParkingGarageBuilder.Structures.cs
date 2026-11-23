@@ -47,13 +47,13 @@ namespace HideAndSeek.Map.Editor
                 // floor markings at both transitions
                 var dTop = _decals[k];
                 dTop.Face(new Vector3(r.XTop - down.x * 0.4f, FloorY(k) + 0.01f, zc), new Vector3(0.3f, 0, 0), new Vector3(0, 0, w * 0.5f - 0.3f), HazardMat(k));
-                dTop.Text(LevelName(k + 1), new Vector3(r.XTop - down.x * 3.2f, FloorY(k) + 0.012f, zc), Vector3.up, down, 1.0f, M("Text_Floor"));
-                dTop.FloorDecal(new Vector3(r.XTop - down.x * 5.5f, FloorY(k) + 0.012f, zc), down, 1.0f, 2.2f, M("Arrow_White"));
-                dTop.Text("SLOW", new Vector3(r.XTop - down.x * 7.6f, FloorY(k) + 0.012f, zc), Vector3.up, down, 0.8f, M("Text_FloorYellow"));
+                dTop.Text(LevelName(k + 1), new Vector3(r.XTop - down.x * 3.2f, FloorY(k) + DecalY.Mark, zc), Vector3.up, down, 1.0f, M("Text_Floor"));
+                dTop.FloorDecal(new Vector3(r.XTop - down.x * 5.5f, FloorY(k) + DecalY.Mark, zc), down, 1.0f, 2.2f, M("Arrow_White"));
+                dTop.Text("SLOW", new Vector3(r.XTop - down.x * 7.6f, FloorY(k) + DecalY.Mark, zc), Vector3.up, down, 0.8f, M("Text_FloorYellow"));
                 var dBot = _decals[k + 1];
                 dBot.Face(new Vector3(r.XBot + down.x * 0.5f, FloorY(k + 1) + 0.01f, zc), new Vector3(0.25f, 0, 0), new Vector3(0, 0, w * 0.5f - 0.3f), M("Grate"));
-                dBot.Text(LevelName(k), new Vector3(r.XBot + down.x * 3.2f, FloorY(k + 1) + 0.012f, zc), Vector3.up, -down, 1.0f, M("Text_Floor"));
-                dBot.FloorDecal(new Vector3(r.XBot + down.x * 5.5f, FloorY(k + 1) + 0.012f, zc), -down, 1.0f, 2.2f, M("Arrow_White"));
+                dBot.Text(LevelName(k), new Vector3(r.XBot + down.x * 3.2f, FloorY(k + 1) + DecalY.Mark, zc), Vector3.up, -down, 1.0f, M("Text_Floor"));
+                dBot.FloorDecal(new Vector3(r.XBot + down.x * 5.5f, FloorY(k + 1) + DecalY.Mark, zc), -down, 1.0f, 2.2f, M("Arrow_White"));
             }
 
             // side walls on every level; L1 closes the void at the low end, the lowest level under the high end
@@ -96,7 +96,7 @@ namespace HideAndSeek.Map.Editor
                 float signX = lv == 0 ? door + 1.3f : door - 1.3f;
                 SignPlate(_signs[lv], new Vector3(signX, y0 + 1.6f, zf), Vector3.back, 0.9f, 0.26f, "STAIRS", 0.16f, M("Sign_Blue"), M("Text_White"));
                 _signs[lv].Text(LevelName(lv), new Vector3(x0 + StairWidth - 0.015f, y0 + 1.6f, zi + 0.9f), Vector3.left, Vector3.up, 0.5f, M("Text_White"));
-                _decals[lv].FloorQuad(door - 1.2f, door + 1.2f, zf - 1.4f, zf, y0 + 0.011f, M("Hatch_Yellow"));
+                _decals[lv].FloorQuad(door - 1.2f, door + 1.2f, zf - 1.4f, zf, y0 + DecalY.Hatch, M("Hatch_Yellow"));
                 PlaceProp(_props.ExtinguisherBox(), $"ExtinguisherBox_Stair_{x0}_{Tag(lv)}", _tPropsLv[lv],
                     new Vector3(x0 + (lv == 0 ? 3.5f : 0.5f), y0 + 1.0f, zf), 180f, null, false);
 
@@ -114,7 +114,7 @@ namespace HideAndSeek.Map.Editor
                     _signs[lv].Text(LevelName(lv), new Vector3(x0 + 2.165f, y0 + 1.6f, (zA + zB) * 0.5f), Vector3.right, Vector3.up, 0.5f, M("Text_White"));
                 }
                 if (lv < Levels - 1)
-                    _decals[lv].FloorQuad(x0, x0 + 2f, zA - 0.06f, zA, y0 + 0.006f, M("Paint_Yellow"));
+                    _decals[lv].FloorQuad(x0, x0 + 2f, zA - 0.06f, zA, y0 + DecalY.Paint, M("Paint_Yellow"));
             }
 
             for (int k = 0; k < Levels - 1; k++)
@@ -129,7 +129,7 @@ namespace HideAndSeek.Map.Editor
                     float bottom = solid ? yBot : top - 0.35f;
                     var faces = MeshBuilder.Faces.PosY | MeshBuilder.Faces.PosZ | MeshBuilder.Faces.NegZ | (solid ? 0 : MeshBuilder.Faces.NegY);
                     sb.BoxMinMax(new Vector3(x0, bottom, za), new Vector3(x0 + 2f, top, zb), M("Stair_Concrete"), faces);
-                    sb.Face(new Vector3(x0 + 1f, top + 0.004f, zb - 0.03f), new Vector3(1f, 0, 0), new Vector3(0, 0, 0.03f), M("Paint_Yellow"));
+                    sb.Face(new Vector3(x0 + 1f, top + 0.006f, zb - 0.03f), new Vector3(1f, 0, 0), new Vector3(0, 0, 0.03f), M("Paint_Yellow"));
                 }
                 if (!solid)
                 {
@@ -176,7 +176,7 @@ namespace HideAndSeek.Map.Editor
             }
             // tunnel floor markings
             for (float x = -84f; x < 84f; x += 4f)
-                _decals[lv].FloorQuad(x, x + 2f, -58.15f, -58.05f, y0 + 0.01f, M("Paint_Yellow"));
+                _decals[lv].FloorQuad(x, x + 2f, -58.15f, -58.05f, y0 + DecalY.Paint, M("Paint_Yellow"));
         }
 
         // ================================================================== lobbies
@@ -208,7 +208,7 @@ namespace HideAndSeek.Map.Editor
             var n = new Vector3(0, 0, s);
             _signs[lv].Box(new Vector3(ex, y0 + 2.62f, zFace + s * 0.03f), new Vector3(0.5f, 0.2f, 0.06f), M("Sign_Dark"));
             if (lit) _signs[lv].Text(LevelName(lv), new Vector3(ex, y0 + 2.62f, zFace + s * 0.065f), n, Vector3.up, 0.14f, M("Text_GlowRed"));
-            _decals[lv].FloorQuad(ex - 0.9f, ex + 0.9f, Mathf.Min(zFace, zFace + s * 0.25f), Mathf.Max(zFace, zFace + s * 0.25f), y0 + 0.006f, M("Metal_Steel"));
+            _decals[lv].FloorQuad(ex - 0.9f, ex + 0.9f, Mathf.Min(zFace, zFace + s * 0.25f), Mathf.Max(zFace, zFace + s * 0.25f), y0 + DecalY.Stain, M("Metal_Steel"));
             // call buttons next to the doors
             b.Box(new Vector3(ex + 1.25f, y0 + 1.15f, zFace + s * 0.03f), new Vector3(0.14f, 0.3f, 0.06f), M("Metal_Steel"));
             b.Box(new Vector3(ex + 1.25f, y0 + 1.15f, zFace + s * 0.065f), new Vector3(0.05f, 0.05f, 0.02f), M("Plastic_Black"));
@@ -231,7 +231,7 @@ namespace HideAndSeek.Map.Editor
             // light panel
             _signs[lv].Box(new Vector3(ex, y0 + 2.53f, 0f), new Vector3(1.2f, 0.02f, 1.6f), M("Text_White"));
             // floor plate
-            _decals[lv].FloorQuad(ex - hw, ex + hw, -1.4f, 1.4f, y0 + 0.007f, M("Metal_Steel"));
+            _decals[lv].FloorQuad(ex - hw, ex + hw, -1.4f, 1.4f, y0 + DecalY.Stain, M("Metal_Steel"));
             // marker for the runtime elevator (position = cabin floor centre)
             var marker = new GameObject($"ElevatorCar_{car}_L{lv}");
             marker.transform.SetParent(_tPropsLv[lv], false);
@@ -244,13 +244,13 @@ namespace HideAndSeek.Map.Editor
             LevelWall(lv, -6.2f, 6.2f, zf, zi, new Opening(-1.6f, 1.6f, 2.5f));
             LevelWall(lv, -6.2f, -6f, zi, HZ);
             LevelWall(lv, 6f, 6.2f, zi, HZ);
-            _decals[lv].FloorQuad(-6f, 6f, zi, HZ, y0 + 0.004f, M(lv == 2 ? "Floor_Concrete_Old" : "Tile_Floor"));
-            _decals[lv].FloorQuad(-1.6f, 1.6f, zf, zi, y0 + 0.004f, M("Metal_Steel"));
+            _decals[lv].FloorQuad(-6f, 6f, zi, HZ, y0 + DecalY.Under, M(lv == 2 ? "Floor_Concrete_Old" : "Tile_Floor"));
+            _decals[lv].FloorQuad(-1.6f, 1.6f, zf, zi, y0 + DecalY.Stain, M("Metal_Steel"));
             ElevatorDoors(lv, -2.6f, HZ, -1f, lv != 2);
             ElevatorDoors(lv, 2.6f, HZ, -1f, false);
             SignPlate(_signs[lv], new Vector3(0, y0 + 2.75f, zf), Vector3.back, 1.6f, 0.36f, "LIFT N " + LevelName(lv), 0.18f, M("Sign_Blue"), M("Text_White"));
             SignPlate(_signs[lv], new Vector3(-6f, y0 + 1.8f, 55.5f), Vector3.right, 0.9f, 0.7f, LevelName(lv), 0.45f, M("Sign_Blue"), M("Text_White"));
-            _decals[lv].FloorQuad(-2f, 2f, zf - 1.4f, zf, y0 + 0.011f, M("Hatch_Yellow"));
+            _decals[lv].FloorQuad(-2f, 2f, zf - 1.4f, zf, y0 + DecalY.Hatch, M("Hatch_Yellow"));
         }
 
         private void BuildLobbyCentral(int lv)
@@ -272,14 +272,14 @@ namespace HideAndSeek.Map.Editor
                 ElevatorCabin(lv, car, ex);
             }
             var tile = M(lv == 2 ? "Floor_Concrete_Old" : "Tile_Floor");
-            _decals[lv].FloorQuad(-7.8f, 7.8f, -4.8f, -1.4f, y0 + 0.004f, tile);
-            _decals[lv].FloorQuad(-7.8f, 7.8f, 1.4f, 4.8f, y0 + 0.004f, tile);
-            _decals[lv].FloorQuad(-7.8f, -5.5f, -1.4f, 1.4f, y0 + 0.004f, tile);
-            _decals[lv].FloorQuad(5.5f, 7.8f, -1.4f, 1.4f, y0 + 0.004f, tile);
+            _decals[lv].FloorQuad(-7.8f, 7.8f, -4.8f, -1.4f, y0 + DecalY.Under, tile);
+            _decals[lv].FloorQuad(-7.8f, 7.8f, 1.4f, 4.8f, y0 + DecalY.Under, tile);
+            _decals[lv].FloorQuad(-7.8f, -5.5f, -1.4f, 1.4f, y0 + DecalY.Under, tile);
+            _decals[lv].FloorQuad(5.5f, 7.8f, -1.4f, 1.4f, y0 + DecalY.Under, tile);
             foreach (var (z, n) in new[] { (-5f, Vector3.back), (5f, Vector3.forward) })
             {
                 SignPlate(_signs[lv], new Vector3(0, y0 + 2.75f, z), n, 1.6f, 0.36f, "LIFT C " + LevelName(lv), 0.18f, M("Sign_Blue"), M("Text_White"));
-                _decals[lv].FloorQuad(-2.4f, 2.4f, Mathf.Min(z, z + n.z * 1.4f), Mathf.Max(z, z + n.z * 1.4f), y0 + 0.011f, M("Hatch_Yellow"));
+                _decals[lv].FloorQuad(-2.4f, 2.4f, Mathf.Min(z, z + n.z * 1.4f), Mathf.Max(z, z + n.z * 1.4f), y0 + DecalY.Hatch, M("Hatch_Yellow"));
             }
             var t = _tPropsLv[lv];
             foreach (var (x, z, yaw) in new[] { (-6.9f, -3f, 90f), (6.9f, 3f, -90f) })
@@ -307,7 +307,7 @@ namespace HideAndSeek.Map.Editor
             string[] sub = { "HIGH VOLTAGE", "STAFF ONLY", "FLOOD RISK" };
             SignPlate(_signs[lv], new Vector3(-25f, y0 + 1.7f, zf), Vector3.back, 1.7f, 0.42f, title[lv], 0.2f, M("Sign_Yellow"), M("Text_Black"));
             SignPlate(_signs[lv], new Vector3(-25f, y0 + 1.33f, zf), Vector3.back, 1.7f, 0.24f, sub[lv], 0.12f, M("Sign_Yellow"), M("Text_Black"));
-            _decals[lv].FloorQuad(-23.2f, -20.8f, zf - 1.4f, zf, y0 + 0.011f, M("Hatch_Yellow"));
+            _decals[lv].FloorQuad(-23.2f, -20.8f, zf - 1.4f, zf, y0 + DecalY.Hatch, M("Hatch_Yellow"));
 
             // storage block: cages (L1, L3 damaged) or a workshop (L2)
             if (lv == 1)

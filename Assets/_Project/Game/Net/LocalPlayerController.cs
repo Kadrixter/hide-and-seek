@@ -46,6 +46,7 @@ namespace HideAndSeek.Game.Net
         Extinguisher,   // E on a security-room fire extinguisher (bracket / floor)
         MiniGame,       // E at a free seat of the lobby chess / tic-tac-toe table
         LobbyProp,      // E on a lobby mini interaction (switches, fireplace, record player, fish, globe, darts)
+        SecurityChair,  // E on a swivel chair in a security room
     }
 
     /// <summary>
@@ -276,11 +277,11 @@ namespace HideAndSeek.Game.Net
             bool rc = _p.RcAnimating;
             bool gasp = _p.Gasping;
             bool collapsed = _p.OverdoseActive; // lying after too many cans: the body drives the view (NetPlayer.Drunk)
-            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed && !_p.EmoteHoldsMove;
+            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed && !_p.EmoteHoldsMove && SecurityChairDriver.LocalChair < 0;
             bool poseWheel = PoseWheel.IsOpen || EmoteWheel.IsOpen; // K wheels: the mouse points at a slice instead of turning the head
             _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel && !collapsed && !_p.EmoteViewActive;
             var cc = _p.GetComponent<CharacterController>();
-            bool ccOn = !dead && _p.Seat.Value < 0 && !_p.BodyCarriedNow;
+            bool ccOn = !dead && _p.Seat.Value < 0 && !_p.BodyCarriedNow && SecurityChairDriver.LocalChair < 0;
             if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;
             if (_p.Flashlight != null)
             {
@@ -321,6 +322,9 @@ namespace HideAndSeek.Game.Net
 
             // ---- lobby chess / tic-tac-toe table: seated = the mouse belongs to the board (LocalPlayerController.MiniGames.cs)
             if (MiniGameTick(kb, mouse)) { CancelHold(); return; }
+
+            // ---- swivel chair in a security room
+            if (ChairTick(kb)) { CancelHold(); return; }
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
@@ -699,6 +703,10 @@ namespace HideAndSeek.Game.Net
             // Fire extinguishers of the security rooms (hiders).
             if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryExtPrompt(eye, fwd, out var exPos, out string exText, out float exD))
                 Offer(PromptKind.Extinguisher, exPos, exText, exD);
+
+            // Swivel chairs of the security rooms.
+            if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryChairPrompt(eye, fwd, out var chPos, out string chText, out float chD))
+                Offer(PromptKind.SecurityChair, chPos, chText, chD);
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -1093,6 +1101,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.Extinguisher:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ExtPromptE();
+                    break;
+                case PromptKind.SecurityChair:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ChairPromptE();
                     break;
             }
 

@@ -59,7 +59,7 @@ namespace HideAndSeek.Game.Editor
             Box("Beam", root, new Vector3(0.5f, 4.35f, 2.8f), new Vector3(10f, 0.3f, 0.35f), metal);
 
             // corridor behind the door, lit red
-            Box("CorrFloor", root, new Vector3(doorC, -0.05f, 7.2f), new Vector3(1.4f, 0.1f, 6f), tiles);
+            Box("CorrFloor", root, new Vector3(doorC, -0.054f, 7.2f), new Vector3(1.4f, 0.1f, 6f), tiles);
             Box("CorrWallL", root, new Vector3(doorX0 - 0.2f, 1.6f, 7.2f), new Vector3(0.3f, 3.2f, 6f), bricksSide);
             Box("CorrWallR", root, new Vector3(doorX1 + 0.2f, 1.6f, 7.2f), new Vector3(0.3f, 3.2f, 6f), bricksSide);
             Box("CorrEnd", root, new Vector3(doorC, 1.6f, 10.1f), new Vector3(1.8f, 3.2f, 0.3f), bricks);
@@ -108,7 +108,7 @@ namespace HideAndSeek.Game.Editor
             Crate("CrateR1", new Vector3(5.4f, 0, 2.2f), 0.8f, -15f);
             Crate("CrateR2", new Vector3(2.3f, 0, 3.5f), 0.6f, 35f);
             Box("TableTop", root, new Vector3(-1.1f, 0.72f, 2.0f), new Vector3(1.1f, 0.06f, 0.75f), crate);
-            var clothTop = Box("Cloth", root, new Vector3(-1.1f, 0.5f, 2.0f), new Vector3(1.2f, 0.5f, 0.85f), cloth);
+            var clothTop = Box("Cloth", root, new Vector3(-1.1f, 0.504f, 2.0f), new Vector3(1.2f, 0.5f, 0.85f), cloth);
             clothTop.transform.rotation = Quaternion.Euler(0, 6f, 0);
             Box("ClothDrape", root, new Vector3(-1.05f, 0.25f, 1.6f), new Vector3(1.0f, 0.5f, 0.05f), cloth).transform.rotation = Quaternion.Euler(-8f, 6f, 0);
 

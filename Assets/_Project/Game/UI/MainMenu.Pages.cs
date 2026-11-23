@@ -169,6 +169,7 @@ namespace HideAndSeek.Game.UI
             UiKit.Rect("Gap", page).Height(6);
             UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 34).Height(58);
             UiKit.Button("Voice", page, "Czat głosowy", () => Show(_voicePage), 34).Height(58);
+            UiKit.Button("Graphics", page, "Grafika", () => Show(_graphics), 34).Height(58);
             UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_main); }, 34).Height(58);
             return page;
         }

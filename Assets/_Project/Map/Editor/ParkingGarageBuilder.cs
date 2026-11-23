@@ -372,15 +372,15 @@ namespace HideAndSeek.Map.Editor
                 float top = y0 + o.H;
                 if (alongX)
                 {
-                    b.BoxMinMax(new Vector3(o.A0 - 0.07f, y0, t0), new Vector3(o.A0, top + 0.07f, t1), frame);
-                    b.BoxMinMax(new Vector3(o.A1, y0, t0), new Vector3(o.A1 + 0.07f, top + 0.07f, t1), frame);
-                    if (top + 0.07f < y1) b.BoxMinMax(new Vector3(o.A0, top, t0), new Vector3(o.A1, top + 0.07f, t1), frame);
+                    b.BoxMinMax(new Vector3(o.A0 - 0.07f, y0, t0), new Vector3(o.A0 + 0.004f, top + 0.07f, t1), frame);
+                    b.BoxMinMax(new Vector3(o.A1 - 0.004f, y0, t0), new Vector3(o.A1 + 0.07f, top + 0.07f, t1), frame);
+                    if (top + 0.07f < y1) b.BoxMinMax(new Vector3(o.A0, top - 0.004f, t0), new Vector3(o.A1, top + 0.07f, t1), frame);
                 }
                 else
                 {
-                    b.BoxMinMax(new Vector3(t0, y0, o.A0 - 0.07f), new Vector3(t1, top + 0.07f, o.A0), frame);
-                    b.BoxMinMax(new Vector3(t0, y0, o.A1), new Vector3(t1, top + 0.07f, o.A1 + 0.07f), frame);
-                    if (top + 0.07f < y1) b.BoxMinMax(new Vector3(t0, top, o.A0), new Vector3(t1, top + 0.07f, o.A1), frame);
+                    b.BoxMinMax(new Vector3(t0, y0, o.A0 - 0.07f), new Vector3(t1, top + 0.07f, o.A0 + 0.004f), frame);
+                    b.BoxMinMax(new Vector3(t0, y0, o.A1 - 0.004f), new Vector3(t1, top + 0.07f, o.A1 + 0.07f), frame);
+                    if (top + 0.07f < y1) b.BoxMinMax(new Vector3(t0, top - 0.004f, o.A0), new Vector3(t1, top + 0.07f, o.A1), frame);
                 }
             }
         }
@@ -401,7 +401,7 @@ namespace HideAndSeek.Map.Editor
         {
             var rot = Quaternion.LookRotation(n, Vector3.up);
             b.Box(surfacePoint + n * 0.012f, new Vector3(w, h, 0.024f), plate, rot);
-            b.Text(text, surfacePoint + n * 0.026f, n, Vector3.up, textH, textMat);
+            b.Text(text, surfacePoint + n * 0.03f, n, Vector3.up, textH, textMat);   // 6 mm over the plate
         }
 
         // ================================================================== spawn points
@@ -586,14 +586,14 @@ namespace HideAndSeek.Map.Editor
                 {
                     var p = new Vector3(x, y0 + 1.95f, z) + n * 0.3f;
                     SignPlate(s, p, n, 0.5f, 0.34f, id, 0.2f, M("Sign_White"), M("Text_Black"));
-                    s.Text(LevelName(lv), new Vector3(x, y0 + 1.6f, z) + n * 0.302f, n, Vector3.up, 0.12f, M("Text_White"));
+                    s.Text(LevelName(lv), new Vector3(x, y0 + 1.6f, z) + n * 0.306f, n, Vector3.up, 0.12f, M("Text_White"));
                 }
                 // damaged columns on the oldest level: cracks and water stains
                 if (lv == 2 && _rng.NextDouble() < 0.45)
                 {
                     var n = new[] { Vector3.forward, Vector3.back, Vector3.left, Vector3.right }[_rng.Next(4)];
                     Vector3 right = Vector3.Cross(n, Vector3.up);
-                    s.FaceUV(new Vector3(x, y0 + R(1.3f, 2.3f), z) + n * 0.305f, right * 0.3f, Vector3.up * 0.6f, M("Crack"), Vector2.zero, Vector2.one);
+                    s.FaceUV(new Vector3(x, y0 + R(1.3f, 2.3f), z) + n * 0.312f, right * 0.3f, Vector3.up * 0.6f, M("Crack"), Vector2.zero, Vector2.one);
                 }
             }
         }
@@ -639,17 +639,19 @@ namespace HideAndSeek.Map.Editor
             }
         }
 
+        private readonly List<Vector3> _evChargers = new List<Vector3>();
+
         private void AddBay(int lv, Vector3 center, Vector3 inward, float width, float depth, string label, bool noCars,
             bool noVan, bool ev)
         {
             _bays.Add(new Bay { Center = center, Inward = inward, Width = width, Depth = depth, Label = label, Level = lv, NoCars = noCars, NoVan = noVan });
             var d = _decals[lv];
             Vector3 side = Vector3.Cross(Vector3.up, inward);
-            float y = center.y + 0.01f;
+            float y = center.y + DecalY.Paint;
             if (ev)
             {
                 var c = center;
-                c.y = center.y + 0.008f;
+                c.y = center.y + DecalY.Under;
                 d.Face(c, side * (width * 0.5f - 0.1f), inward * (depth * 0.5f), M("Paint_Green"));
             }
             foreach (float s in new[] { -1f, 1f })
@@ -659,7 +661,7 @@ namespace HideAndSeek.Map.Editor
                 d.Face(c, side * 0.06f, inward * (depth * 0.5f - 0.1f), M("Paint_White"));
             }
             Vector3 tp = center - inward * (depth * 0.5f - 0.75f);
-            tp.y = center.y + 0.012f;
+            tp.y = center.y + DecalY.Mark;
             d.Text(ev ? "EV" : label, tp, Vector3.up, inward, 0.38f, M("Text_Floor"));
             if (noCars) return;
             Vector3 ws = center + inward * (depth * 0.5f - 0.75f);
@@ -669,6 +671,9 @@ namespace HideAndSeek.Map.Editor
             if (ev)
             {
                 var cp = center + inward * (depth * 0.5f - 0.05f);
+                // Back-to-back EV bays share one (double) charger: the second one stood inside the first.
+                if (_evChargers.Exists(e => (e - cp).sqrMagnitude < 1f)) return;
+                _evChargers.Add(cp);
                 PlaceProp(_props.EvCharger(), "EvCharger_" + label, _tPropsLv[lv], cp, Quaternion.LookRotation(-inward).eulerAngles.y);
             }
         }
@@ -703,7 +708,7 @@ namespace HideAndSeek.Map.Editor
         private void BuildAisleMarkings(int lv)
         {
             var d = _decals[lv];
-            float y = FloorY(lv) + 0.01f;
+            float y = FloorY(lv) + DecalY.Paint, yMark = FloorY(lv) + DecalY.Mark;
             float[][] bumps =
             {
                 new[] { -48.75f, 33.75f }, new[] { -18.75f, 56.25f }, new[] { -63.75f, 18.75f },
@@ -716,7 +721,7 @@ namespace HideAndSeek.Map.Editor
                     d.FloorQuad(x, x + 1.5f, z - 0.06f, z + 0.06f, y, M("Paint_Yellow"));
                 Vector3 dir = AisleDir[a] > 0 ? Vector3.right : Vector3.left;
                 foreach (float x in new[] { -60f, -35f, 25f, 55f })
-                    d.FloorDecal(new Vector3(x, y + 0.002f, z - 1.6f * AisleDir[a]), dir, 1.0f, 2.2f, M("Arrow_White"));
+                    d.FloorDecal(new Vector3(x, yMark, z - 1.6f * AisleDir[a]), dir, 1.0f, 2.2f, M("Arrow_White"));
                 d.FloorQuad(-ParkX, ParkX, z - AisleHalf + 0.02f, z - AisleHalf + 0.12f, y, M("Paint_White"));
                 d.FloorQuad(-ParkX, ParkX, z + AisleHalf - 0.12f, z + AisleHalf - 0.02f, y, M("Paint_White"));
                 foreach (float bx in bumps[a])
@@ -725,7 +730,7 @@ namespace HideAndSeek.Map.Editor
             // zebra crossings to the central and north lobbies
             foreach (int a in new[] { 2, 3, 5 })
                 for (float x = -1.95f; x < 1.6f; x += 0.9f)
-                    d.FloorQuad(x, x + 0.45f, AisleZ[a] - AisleHalf + 0.3f, AisleZ[a] + AisleHalf - 0.3f, y, M("Paint_White"));
+                    d.FloorQuad(x, x + 0.45f, AisleZ[a] - AisleHalf + 0.3f, AisleZ[a] + AisleHalf - 0.3f, FloorY(lv) + DecalY.Hatch, M("Paint_White"));   // over the aisle lines
             // cross aisles
             foreach (float sx in new[] { -1f, 1f })
             {
@@ -734,16 +739,16 @@ namespace HideAndSeek.Map.Editor
                     d.FloorQuad(x - 0.06f, x + 0.06f, z, z + 1.5f, y, M("Paint_Yellow"));
                 Vector3 dir = sx < 0 ? Vector3.back : Vector3.forward;
                 foreach (float z in new[] { -40f, -20f, 18f, 36f })
-                    d.FloorDecal(new Vector3(x + 2f * sx, y + 0.002f, z), dir, 1.0f, 2.2f, M("Arrow_White"));
+                    d.FloorDecal(new Vector3(x + 2f * sx, yMark, z), dir, 1.0f, 2.2f, M("Arrow_White"));
                 foreach (float z in new[] { -32f, 30f })
                     SpeedBump(lv, new Vector3(x, FloorY(lv), z), Vector3.right, 8f);
-                d.Text(LevelName(lv), new Vector3(x, y + 0.002f, -14f), Vector3.up, dir, 1.4f, M("Text_Floor"));
+                d.Text(LevelName(lv), new Vector3(x, yMark, -14f), Vector3.up, dir, 1.4f, M("Text_Floor"));
             }
             // walkways: in front of the north rooms and along the tunnel wall
             d.FloorQuad(-84f, 84f, 48.15f, 48.25f, y, M("Paint_Yellow"));
             d.FloorQuad(-84f, 84f, -53.25f, -53.15f, y, M("Paint_Yellow"));
             for (float x = -84f; x < 84f; x += 12f)
-                d.Text("WALK", new Vector3(x + 6f, y + 0.002f, -54.6f), Vector3.up, Vector3.right, 0.5f, M("Text_FloorYellow"));
+                d.Text("WALK", new Vector3(x + 6f, yMark, -54.6f), Vector3.up, Vector3.right, 0.5f, M("Text_FloorYellow"));
         }
 
         private void SpeedBump(int lv, Vector3 c, Vector3 across, float length)
@@ -764,7 +769,7 @@ namespace HideAndSeek.Map.Editor
                 if (_rng.NextDouble() < 0.4)
                 {
                     var c = bay.Center + Vector3.Cross(Vector3.up, bay.Inward) * R(-0.4f, 0.4f) + bay.Inward * R(-1f, 1f);
-                    c.y = y0 + 0.006f;
+                    c.y = y0 + DecalY.Stain;
                     float s = R(0.6f, 1.6f);
                     d.FloorDecal(c, new Vector3(R(-1, 1), 0, R(-1, 1)) + Vector3.forward * 0.01f, s, s * R(0.8f, 1.3f), M("Oil_Stain"));
                 }
@@ -773,8 +778,8 @@ namespace HideAndSeek.Map.Editor
             for (int i = 0; i < cracks; i++)
             {
                 var c = _rng.NextDouble() < 0.7
-                    ? new Vector3(R(-74f, 74f), y0 + 0.007f, AisleZ[_rng.Next(AisleZ.Length)] + R(-2.5f, 2.5f))
-                    : new Vector3((_rng.NextDouble() < 0.5 ? -1f : 1f) * (CrossX + R(-3f, 3f)), y0 + 0.007f, R(-50f, 46f));
+                    ? new Vector3(R(-74f, 74f), y0 + DecalY.Crack, AisleZ[_rng.Next(AisleZ.Length)] + R(-2.5f, 2.5f))
+                    : new Vector3((_rng.NextDouble() < 0.5 ? -1f : 1f) * (CrossX + R(-3f, 3f)), y0 + DecalY.Crack, R(-50f, 46f));
                 float s = lv == 2 ? R(2f, 4.5f) : R(1.5f, 3.5f);
                 d.FloorDecal(c, new Vector3(R(-1, 1), 0, R(-1, 1)) + Vector3.right * 0.01f, s, s, M("Crack"));
             }
@@ -788,14 +793,14 @@ namespace HideAndSeek.Map.Editor
                 else if (sel == 2) c = new Vector3(R(-84f, 84f), 0, -58.1f + R(-0.8f, 0.8f));
                 else if (sel == 3) c = new Vector3(R(-80f, 80f), 0, R(-55.5f, -53.5f));
                 else c = new Vector3(ColX[_rng.Next(ColX.Length)] + R(-1.2f, 1.2f), 0, ColZ[_rng.Next(ColZ.Length)] + R(-1.5f, 1.5f));
-                var p = new Vector3(c.x, y0 + 0.014f, c.z);
+                var p = new Vector3(c.x, y0 + DecalY.Puddle, c.z);
                 float scale = lv == 2 ? 1.5f : 1f;
                 d.FloorDecal(p, new Vector3(R(-1, 1), 0, R(-1, 1)) + Vector3.forward * 0.01f, R(1.2f, 3.2f) * scale, R(1.5f, 4f) * scale, M("Puddle"));
             }
             if (lv == 2)
             {
                 // partially flooded south-east quarter
-                foreach (var (cx, cz, w, l, yo) in new[] { (46f, -44f, 34f, 22f, 0.016f), (66f, -33f, 18f, 12f, 0.017f), (34f, -30f, 10f, 7f, 0.0175f) })
+                foreach (var (cx, cz, w, l, yo) in new[] { (46f, -44f, 34f, 22f, DecalY.Flood), (66f, -33f, 18f, 12f, DecalY.Flood + 0.004f), (34f, -30f, 10f, 7f, DecalY.Flood + 0.008f) })
                     d.FloorDecal(new Vector3(cx, y0 + yo, cz), new Vector3(R(-0.15f, 0.15f), 0, 1f), w, l, M("Flood_Water"));
                 // water stains running down the walls
                 for (int i = 0; i < 45; i++)
@@ -819,7 +824,7 @@ namespace HideAndSeek.Map.Editor
             }
             foreach (float x in new[] { -63.75f, -33.75f, -3.75f, 26.25f, 56.25f })
             foreach (float z in new[] { -36.5f, -20f, 20f, 36.5f })
-                d.FloorQuad(x - 0.25f, x + 0.25f, z - 0.25f, z + 0.25f, y0 + 0.008f, M("Grate"));
+                d.FloorQuad(x - 0.25f, x + 0.25f, z - 0.25f, z + 0.25f, y0 + DecalY.Stain, M("Grate"));
         }
 
         // ================================================================== ceiling services

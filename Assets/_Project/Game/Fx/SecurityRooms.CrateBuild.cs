@@ -15,7 +15,7 @@ namespace HideAndSeek.Game
         private readonly Transform[] _crates = new Transform[Levels];
         private readonly List<Transform>[] _crateParts = { new(), new(), new() };
         private readonly List<GameObject>[] _debris = { new(), new(), new() };
-        private Texture2D _stencilTex;
+        private static Texture2D _stencilTex;
 
         private static readonly Color CrateWood = new Color(0.95f, 0.88f, 0.8f);
         private static readonly Color CrateBatten = new Color(0.72f, 0.62f, 0.52f);
@@ -64,7 +64,7 @@ namespace HideAndSeek.Game
             {
                 if (t.name != "Board" || t.localPosition.z > 0f) continue;
                 float y = t.localPosition.y;
-                var strip = Sign(t, "Stencil", crate.TransformPoint(new Vector3(0f, y, -h.z - 0.002f)), new Vector2(CrateSize.x - 0.24f, 0.285f), Vector3.back, _stencilTex, 0.05f, true);
+                var strip = Sign(t, "Stencil", crate.TransformPoint(new Vector3(0f, y, -h.z - 0.005f)), new Vector2(CrateSize.x - 0.24f, 0.285f), Vector3.back, _stencilTex, 0.05f, true);
                 strip.transform.localScale = new Vector3((CrateSize.x - 0.24f) / t.localScale.x, 0.285f / t.localScale.y, 1f);
                 var mpb = new MaterialPropertyBlock();
                 mpb.SetVector("_MainTex_ST", new Vector4(1f, 0.285f / faceH, 0f, (y - 0.1425f + faceH * 0.5f) / faceH));

@@ -34,7 +34,7 @@ namespace HideAndSeek.Game
 
         private readonly Slot[] _slots = new Slot[Monitors];
         private Shader _monitorShader;
-        private AudioClip _switchClip, _floorClip;
+        private static AudioClip _switchClip, _floorClip;
         private readonly List<(Light light, float baseIntensity, Color baseColor)> _screenLightBase = new();
 
         private Slot MakeSlot(int i)
