@@ -138,6 +138,9 @@ namespace HideAndSeek.Player
         /// <summary>Movement speed multiplier (injured hiders limp slower).</summary>
         public float SpeedScale { get; set; } = 1f;
 
+        /// <summary>Carrying another player in the arms: no run, no jump, no crouch / crawl.</summary>
+        public bool Burdened { get; set; }
+
         /// <summary>Downed but sitting up (bandaging the own wounds): camera rises to a sitting height.</summary>
         public bool DownedSitting { get; set; }
         private float _sitUpBlend;
@@ -332,12 +335,12 @@ namespace HideAndSeek.Player
 
             // --- crouch
             // Stance commands are not gated by MovementEnabled: a toggled crouch / crawl survives menus and cutscenes.
-            bool proneCmd = cmd.Prone && !Downed && !Seated;
+            bool proneCmd = cmd.Prone && !Downed && !Seated && !Burdened;
             // Lying down needs a grounded player; getting up needs room for the crouched capsule.
             if (proneCmd && !_wantsProne && !_grounded) proneCmd = false;
             if (!proneCmd && _wantsProne && _proneLinear > 0.01f && !CanFitAt(transform.position, crouchHeight)) proneCmd = true;
             _wantsProne = proneCmd;
-            _wantsCrouch = (cmd.Crouch && !Seated) || Downed || _wantsProne || ForceCrouch;
+            _wantsCrouch = (cmd.Crouch && !Seated && !Burdened) || Downed || _wantsProne || ForceCrouch;
             _sitUpBlend = Mathf.MoveTowards(_sitUpBlend, Downed && DownedSitting ? 1f : 0f, dt * 1.6f);
             _downedBlend = Mathf.MoveTowards(_downedBlend, Downed ? 1f : 0f, dt * 1.5f);
             _seatBlend = Mathf.MoveTowards(_seatBlend, Seated ? 1f : 0f, dt * 3f);
@@ -357,7 +360,7 @@ namespace HideAndSeek.Player
 
             // --- target velocity
             bool crouching = IsCrouching;
-            bool wantsRun = hasInput && !Downed && cmd.Run && !crouching && move.y > runForwardThreshold;
+            bool wantsRun = hasInput && !Downed && !Burdened && cmd.Run && !crouching && move.y > runForwardThreshold;
             float targetSpeed = Downed ? crawlSpeed : crouching ? Mathf.Lerp(walkSpeed, crouchSpeed, Mathf.Clamp01(_crouchAmount * 2f))
                               : wantsRun ? runSpeed : walkSpeed;
             targetSpeed *= SpeedScale;
@@ -388,7 +391,7 @@ namespace HideAndSeek.Player
             }
 
             // --- jump (coyote + buffer)
-            bool canJump = !Downed && !_wantsProne && _proneAmount < 0.05f && !_jumpedSinceGrounded && _clock - _lastGroundedTime <= coyoteTime && !crouching;
+            bool canJump = !Downed && !Burdened && !_wantsProne && _proneAmount < 0.05f && !_jumpedSinceGrounded && _clock - _lastGroundedTime <= coyoteTime && !crouching;
             if (hasInput && cmd.Jump && canJump)
             {
                 if (CommandProvider == null && input != null) input.ConsumeJump();

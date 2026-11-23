@@ -513,6 +513,9 @@ namespace HideAndSeek.Characters
             // 5d. Collapse after too many cans in the lobby (overrides everything).
             if (overdoseT >= 0f) p = OverdosePose(p, overdoseT);
 
+            // 5e. Carrying somebody in the arms / being carried (BodyCarry*.cs).
+            ApplyBodyCarryLayers(ref p, dt);
+
             // 6. Additive flinches.
             ApplyAdditives(ref p, standing);
 

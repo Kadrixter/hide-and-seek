@@ -275,7 +275,7 @@ namespace HideAndSeek.Game.Net
             bool poseWheel = PoseWheel.IsOpen; // pose wheel: the mouse points at a slice instead of turning the head
             _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel && !collapsed;
             var cc = _p.GetComponent<CharacterController>();
-            bool ccOn = !dead && _p.Seat.Value < 0;
+            bool ccOn = !dead && _p.Seat.Value < 0 && !_p.BodyCarriedNow;
             if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;
             if (_p.Flashlight != null)
             {
@@ -306,6 +306,9 @@ namespace HideAndSeek.Game.Net
 
             // ---- public-address microphone in the hand: E hangs it back, LMB is the talk bar; nothing else meanwhile
             if (PaTick(kb)) { CancelHold(); return; }
+
+            // ---- body carry: B asks / puts down, Space (carried) asks to be put down; owns the input meanwhile
+            if (CarryTick(kb, phase)) { CancelHold(); return; }
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }

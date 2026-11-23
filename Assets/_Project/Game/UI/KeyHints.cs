@@ -123,6 +123,7 @@ namespace HideAndSeek.Game.UI
                 case "dust":
                     _tmp.Add(("X", "rzuć kurz w oczy szukającemu (z bliska)"));
                     _tmp.Add(("H", "przytrzymaj przy rannym - pomóż"));
+                    _tmp.Add(("B", "przytrzymaj przy rannym - nieś na rękach"));
                     break;
                 case "seek":
                     _tmp.Add(("T", "latarka"));

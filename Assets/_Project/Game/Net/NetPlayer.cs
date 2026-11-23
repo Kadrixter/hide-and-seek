@@ -361,6 +361,7 @@ namespace HideAndSeek.Game.Net
             UpdateDrunk();
             UpdateRcRemote();
             UpdateHandItem();
+            UpdateBodyCarry();
 
             float prone = Life.Value == LifeState.Alive ? Motor.ProneAmount : 0f;
             (Actions as BlockyCharacterActions)?.SetProneAmount(prone);
@@ -368,12 +369,12 @@ namespace HideAndSeek.Game.Net
             {
                 bool healing = HoldAnimVar.Value == (byte)HoldAnim.SelfHeal && Life.Value == LifeState.Downed;
                 bool vm = (Life.Value == LifeState.Alive && prone < 0.4f || healing) && !KillCam.Active && !_shockHideVm && !_odHideVm
-                          && !_rcCamOn && !(RcAnimating && !_rcHandsOn) && !SeatBodyShown;
+                          && !_rcCamOn && !(RcAnimating && !_rcHandsOn) && !OwnBodyShown;
                 if (vm != _vmVisible) { _vmVisible = vm; ViewModel?.SetVisible(vm); }
             }
 
             // Crawl drag sound while a downed (or voluntarily crawling) player moves; voluntary crawl is quieter.
-            bool downedCrawl = Life.Value == LifeState.Downed && Motor.HorizontalSpeed > 0.2f;
+            bool downedCrawl = Life.Value == LifeState.Downed && Motor.HorizontalSpeed > 0.2f && !BodyCarriedNow;
             bool crawling = downedCrawl || (prone > 0.9f && Motor.HorizontalSpeed > 0.2f);
             if (crawling && _crawlLoop == null)
                 _crawlLoop = GameAudio.StartLoop(GameSfx.CrawlLoop, transform, (IsOwner ? 0.5f : 0.8f) * (downedCrawl ? 1f : 0.45f));
@@ -391,7 +392,7 @@ namespace HideAndSeek.Game.Net
                 if (life == LifeState.Downed && _heartbeat == null) _heartbeat = GameAudio.StartLoop(GameSfx.HeartbeatLoop, null, 0.9f);
                 if (life != LifeState.Downed && _heartbeat != null) { GameAudio.StopLoop(_heartbeat, 1f); _heartbeat = null; }
                 ApplyOwnBodyMode();
-                _vmVisible = life == LifeState.Alive && !SeatBodyShown;
+                _vmVisible = life == LifeState.Alive && !OwnBodyShown;
                 ViewModel?.SetVisible(_vmVisible);
             }
             if (changed)
@@ -1121,7 +1122,7 @@ namespace HideAndSeek.Game.Net
             bca?.SetLimp(limp ? 1f : 0f);
             bca?.SetHop(hop ? ((Severed.Value & Limb.LegR) != 0 ? 0 : 1) : -1);
             if (IsOwner && Motor != null)
-                Motor.SpeedScale = (Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f) * CombatSpeedScale * GooSpeedScale;
+                Motor.SpeedScale = (Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f) * CombatSpeedScale * GooSpeedScale * CarrySpeedScale;
             if (IsOwner)
             {
                 if (_bob == null) _bob = GetComponentInChildren<HeadBob>();
@@ -1272,9 +1273,9 @@ namespace HideAndSeek.Game.Net
         {
             if (!IsOwner || Character == null) return;
             bool showAll = _cinematicBody || Life.Value == LifeState.Dead;
-            bool fp = !showAll && !SeatBodyShown;
+            bool fp = !showAll && !OwnBodyShown;
             Character.SetFirstPersonMode(fp);
-            Character.SetHeadHidden(!showAll && SeatBodyShown);
+            Character.SetHeadHidden(!showAll && OwnBodyShown);
             _shoulderLamp?.SetFirstPerson(fp);
         }
 

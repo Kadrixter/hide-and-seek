@@ -147,6 +147,7 @@ namespace HideAndSeek.Game.Net
             if (Arg("-shots") is string dir) StartCoroutine(Shots(dir));
             StartUpdateTests(Has);
             StartAnimTests(Has);
+            StartCarryTests(Has);
             StartCombatTests(Has);
             StartItemTests(Has);
             StartFlashToyTests(Has);

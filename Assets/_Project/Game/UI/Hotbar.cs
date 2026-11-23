@@ -82,6 +82,7 @@ namespace HideAndSeek.Game
             var mouse = Mouse.current;
             if (kb == null || mouse == null || LocalPlayerController.MenuOpen || p.Busy.Value || p.RcControlling || p.RcAnimating) return;
             if (p.HoldsPaMic) return; // the hand holds the public-address microphone (LMB = its talk bar)
+            if (p.BodyCarryBusy) return; // carrying somebody in the arms / being carried
             if (p.InputReader != null && !p.InputReader.InputEnabled) return;
 
             int pick = TestSelect;
