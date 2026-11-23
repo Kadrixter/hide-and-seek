@@ -42,6 +42,7 @@ namespace HideAndSeek.Game.Net
         PhonePickup,    // E on a toy phone on the floor (hiders)
         PhoneStomp,     // F on a toy phone on the floor (seeker)
         PaMic,          // E on the public-address microphone hanging on its wall station
+        MiniGame,       // E at a free seat of the lobby chess / tic-tac-toe table
     }
 
     /// <summary>
@@ -306,6 +307,9 @@ namespace HideAndSeek.Game.Net
 
             // ---- public-address microphone in the hand: E hangs it back, LMB is the talk bar; nothing else meanwhile
             if (PaTick(kb)) { CancelHold(); return; }
+
+            // ---- lobby chess / tic-tac-toe table: seated = the mouse belongs to the board (LocalPlayerController.MiniGames.cs)
+            if (MiniGameTick(kb, mouse)) { CancelHold(); return; }
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
@@ -767,6 +771,7 @@ namespace HideAndSeek.Game.Net
 
             if (phase == MatchPhase.Lobby && _p.Seat.Value < 0 && FlashlightBox.TryPrompt(_p, eye, fwd, out var fbPos, out var fbText, out float fbD))
                 Offer(PromptKind.FlashBox, fbPos, fbText, fbD);
+            if (phase == MatchPhase.Lobby && MiniGamePrompt(eye, fwd, out var mgPos, out var mgText, out float mgD)) Offer(PromptKind.MiniGame, mgPos, mgText, mgD);
 
             // Toy slime blasters (hiders): MatchManager.ToyGuns.
             if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && _p.IsAliveHider && MatchManager.Instance != null &&
@@ -1041,6 +1046,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.PhoneStomp:
                     if (kb.fKey.wasPressedThisFrame) _p.RequestPhoneStompRpc(_phoneId);
+                    break;
+                case PromptKind.MiniGame:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) { MiniGamePromptE(); _ignoreEThisFrame = true; }
                     break;
                 case PromptKind.PaMic:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) PaPromptE();

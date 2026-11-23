@@ -484,6 +484,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepToyGuns ??= UpdateToyGuns, "toy guns");
             Step(_stepPhones ??= UpdatePhones, "phones");
             Step(_stepPa ??= UpdatePa, "public address");
+            Step(_stepMiniGames ??= UpdateMiniGames, "mini games"); // lobby chess / tic-tac-toe (MatchManager.MiniGames.cs)
             Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
             if (!IsServer) return;
             Step(_stepServerProps ??= UpdateServerProps, "server props");
