@@ -239,6 +239,32 @@ namespace HideAndSeek.Map.Editor
             FaceUV(center, right * (width * 0.5f), dir * (length * 0.5f), m, Vector2.zero, Vector2.one);
         }
 
+        // ------------------------------------------------------------------ deformation
+
+        public int VertexCount => _v.Count;
+
+        /// <summary>
+        /// Moves every vertex from index <paramref name="from"/> on through <paramref name="f"/> (dents, bends, tilts);
+        /// normals follow the local Jacobian of f (finite differences), so smooth shading survives the deformation.
+        /// </summary>
+        public void Warp(int from, System.Func<Vector3, Vector3> f, float eps = 0.002f)
+        {
+            for (int i = from; i < _v.Count; i++)
+            {
+                Vector3 p = _v[i], q = f(p);
+                Vector3 jx = (f(p + new Vector3(eps, 0, 0)) - q) / eps;
+                Vector3 jy = (f(p + new Vector3(0, eps, 0)) - q) / eps;
+                Vector3 jz = (f(p + new Vector3(0, 0, eps)) - q) / eps;
+                // inverse transpose of J applied to n = cofactor matrix * n (scale does not matter)
+                Vector3 c0 = Vector3.Cross(jy, jz), c1 = Vector3.Cross(jz, jx), c2 = Vector3.Cross(jx, jy);
+                Vector3 n = _n[i];
+                Vector3 m = c0 * n.x + c1 * n.y + c2 * n.z;
+                if (Vector3.Dot(jx, c0) < 0f) m = -m; // mirrored mapping
+                _v[i] = q;
+                if (m.sqrMagnitude > 1e-14f) _n[i] = m.normalized;
+            }
+        }
+
         // ------------------------------------------------------------------ output
 
         /// <summary>

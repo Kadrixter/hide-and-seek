@@ -148,6 +148,7 @@ namespace HideAndSeek.Game.Net
             StartMapVizTests();
             StartGfxTests();
             if (Arg("-testheroes") is string heroDir) StartCoroutine(HeroCarTour(heroDir));
+            if (Arg("-testwreck") is string wreckDir) StartCoroutine(WreckTour(wreckDir));
         }
 
         private System.Collections.IEnumerator Shots(string dir)
