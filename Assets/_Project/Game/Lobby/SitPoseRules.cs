@@ -20,7 +20,8 @@ namespace HideAndSeek.Game
         public static bool Allowed(LobbySeat seat, byte id, NetPlayer who)
         {
             if (seat == null) return false;
-            return SitPoseCatalog.Allowed(seat.Shape, id, NeighbourTaken(seat, who));
+            return SitPoseCatalog.Allowed(seat.Shape, id, NeighbourTaken(seat, who)) && !SeatConflicts.ConflictsWithOthers(seat, id, who)
+                   && !SeatConflicts.BlockedByFurniture(seat, id);
         }
 
         /// <summary>

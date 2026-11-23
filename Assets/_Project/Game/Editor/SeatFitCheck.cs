@@ -25,7 +25,7 @@ namespace HideAndSeek.Game.Editor
     /// Batch: -executeMethod HideAndSeek.Game.Editor.SeatFitCheck.RunLobby  (report: Logs/seatfit.txt)
     /// Menu: Hide and Seek/Lobby/Seat fit check
     /// </summary>
-    public static class SeatFitCheck
+    public static partial class SeatFitCheck
     {
         // Penetration up to 1.5 cm is accepted (soft cushions give: the body must visibly rest on the furniture,
         // touching beats hovering); deeper is a problem.
@@ -58,6 +58,7 @@ namespace HideAndSeek.Game.Editor
             // The seat models as the builder makes them now (the saved scene may be older; nothing is saved).
             foreach (var f in Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude).Where(x => x.name == "Sofa" || x.name == "Pouf").ToList())
                 MultiplayerBuilder.RebuildSeatModel(f, MultiplayerBuilder.PoufStyle);
+            Physics.SyncTransforms();
             var meshes = CollectMeshes();
             var seats = Object.FindObjectsByType<LobbySeat>(FindObjectsInactive.Exclude).OrderBy(s => s.name, System.StringComparer.Ordinal).ToList();
             var sb = new StringBuilder();
@@ -88,6 +89,10 @@ namespace HideAndSeek.Game.Editor
             sb.AppendLine("=== Solver trace ===");
             sb.Append(trace);
             WriteViews(seats);
+            sb.AppendLine();
+            sb.AppendLine("=== Support gaps (hips on the seat, back on the backrest / armrest, legs on the cushions) ===");
+            sb.Append(SupportLog);
+            SupportLog.Clear();
             SeatPoses.UseBaked = true;
             SeatPoses.ClearCache();
             string path = Path.Combine(Directory.GetCurrentDirectory(), "Logs", "seatfit.txt");
@@ -101,6 +106,7 @@ namespace HideAndSeek.Game.Editor
 
         static (int hits, float max, int eye, int neighbours) Check(List<LobbySeat> seats, List<Mesh3> meshes, bool legacy, StringBuilder sb)
         {
+            var sb2 = SupportLog;
             sb.AppendLine(legacy ? "=== BEFORE (old poses: pelvis 0.5 m for every seat) ===" : "=== AFTER (poses fitted to the seat) ===");
             int total = 0, eyeIssues = 0, nb = 0;
             float max = 0f;
@@ -113,6 +119,11 @@ namespace HideAndSeek.Game.Editor
                 for (int v = 0; v < SeatPoses.Count; v++)
                 {
                     if (legacy ? v >= SeatPoses.RandomCount : !SeatPoses.Supports(shape.MirrorSource ?? shape, v)) continue;
+                    if (!legacy && SeatConflicts.BlockedByFurniture(seat, v))
+                    {
+                        sb.AppendLine($"{where} pose {v} {SitPoseCatalog.Name((byte)v)}: not offered here (reaches into other furniture)");
+                        continue;
+                    }
                     var lim0 = SeatPoses.Limits(v, shape);
                     var pose = legacy ? Legacy(v) : SeatPoses.Evaluate(v, shape, lim0.Center, lim0.Pitch);
                     var hits = new List<Hit>();
@@ -215,6 +226,13 @@ namespace HideAndSeek.Game.Editor
                             }
                         }
                         if (gap > ContactMax) self.Add($"hovers: nearest furniture {gap * 100f:0.0} cm away");
+                        // Support: the seat under the hips, the back against the backrest / armrest, the legs on the
+                        // cushions (lying poses) - each must touch, not only some part of the body.
+                        foreach (var (what, d) in Support(v, shape, boxes, t, meshes, seat.transform.parent))
+                        {
+                            sb2.AppendLine($"{where} pose {v}: {what} gap {d * 100f:0.0} cm");
+                            if (d > SupportMax) self.Add($"no support: {what} {d * 100f:0.0} cm from the furniture");
+                        }
                     }
 
                     var worst = hits.GroupBy(h => h.Part + " x " + h.What).Select(g => (key: g.Key, d: g.Max(h => h.Depth))).OrderByDescending(x => x.d).ToList();
@@ -264,6 +282,7 @@ namespace HideAndSeek.Game.Editor
                 if (Vector3.Distance(seats[i].transform.position, seats[j].transform.position) > 2.2f) continue;
                 float worst = 0f;
                 string at = "";
+                int prevented = 0;
                 bool sameSofa = seats[i].transform.parent != null && seats[i].transform.parent == seats[j].transform.parent;
                 for (int va = 0; va < SeatPoses.Count; va++)
                 for (int vb = 0; vb < SeatPoses.Count; vb++)
@@ -272,6 +291,8 @@ namespace HideAndSeek.Game.Editor
                             : !SeatPoses.Supports(seats[i].Shape.MirrorSource ?? seats[i].Shape, va) || !SeatPoses.Supports(seats[j].Shape.MirrorSource ?? seats[j].Shape, vb)) continue;
                     // Lying along the sofa needs the other seat of that sofa free.
                     if (!legacy && sameSofa && (SeatPoses.SpansNeighbour(va) || SeatPoses.SpansNeighbour(vb))) continue;
+                    // Pairs the game never lets happen together (SeatConflicts: the pose is not offered / one gives way).
+                    if (!legacy && SeatConflicts.Overlap(seats[i], va, seats[j], vb)) { prevented++; continue; }
                     BodyBoxes.Get(legacy ? Legacy(va) : SeatPoses.Evaluate(va, seats[i].Shape, 0f, 0f), A);
                     BodyBoxes.Get(legacy ? Legacy(vb) : SeatPoses.Evaluate(vb, seats[j].Shape, 0f, 0f), B);
                     foreach (var a in A)
@@ -282,7 +303,8 @@ namespace HideAndSeek.Game.Editor
                     }
                 }
                 if (worst > Tolerance) nb++;
-                sb.AppendLine($"neighbours {seats[i].name} x {seats[j].name}: {(worst > Tolerance ? $"OVERLAP {worst * 100f:0.0} cm ({at})" : "clear")}");
+                sb.AppendLine($"neighbours {seats[i].name} x {seats[j].name}: {(worst > Tolerance ? $"OVERLAP {worst * 100f:0.0} cm ({at})" : "clear")}" +
+                              (prevented > 0 ? $" ({prevented} overlapping pose pairs prevented in the game by SeatConflicts)" : ""));
             }
             sb.AppendLine($"{(legacy ? "BEFORE" : "AFTER")}: {total} problems, deepest {max * 100f:0.0} cm, eye problems {eyeIssues}, neighbour overlaps {nb}");
             return (total, max, eyeIssues, nb);

@@ -85,6 +85,23 @@ namespace HideAndSeek.Characters
             legs(ref p);
         }
 
+        /// <summary>
+        /// Leans the upper body back (1 degree steps, up to <paramref name="max"/>) until the back rests on the backrest /
+        /// armrest behind it (the slide back may stop early: the calves at the front edge).
+        /// </summary>
+        static void LeanToBack(ref CharacterPose p, SeatShape s, float max = 24f)
+        {
+            for (float a = 1f; a <= max; a += 1f)
+            {
+                var q = p;
+                q.Torso = q.Torso * Quaternion.Euler(-1f, 0f, 0f);
+                // The cushions' solids are puffed on every side (conservative by up to 3 cm at their edges): lean into
+                // them by that much, so the back really meets the soft cushion.
+                if (SeatPenetration(q, s, MTorso) > 0.03f) return;
+                p = q;
+            }
+        }
+
         /// <summary>A point on top of a thigh: <paramref name="along"/> 0 = hip .. 1 = knee, the fist resting on it.</summary>
         static float HandOnThigh(ref CharacterPose p, SeatShape s, int arm, int leg, float along, float outward, int selfMask)
         {
@@ -113,6 +130,7 @@ namespace HideAndSeek.Characters
                 Plant(ref q, 1, -0.15f, footZ - 0.03f, new Vector3(-0.15f, 0.6f, 1f));
             };
             SitOn(ref p, s, legs, back);
+            if (back) LeanToBack(ref p, s);
             HandOnThigh(ref p, s, 0, 0, 0.62f, 0.02f, MLegs | MTorso);
             HandOnThigh(ref p, s, 1, 1, 0.5f, 0.03f, MLegs | MTorso);
             return p;
@@ -138,6 +156,7 @@ namespace HideAndSeek.Characters
                 Plant(ref q, 1, -0.25f, footZ + 0.06f, new Vector3(-0.35f, 1f, 0.6f));
             };
             SitOn(ref p, s, legs, true);
+            LeanToBack(ref p, s);
             int side = s.ArmSide != 0 ? s.ArmSide : 1;
             int outer = side > 0 ? 0 : 1, inner = 1 - outer;
             if (s.ArmTopY > 0f)
@@ -211,6 +230,7 @@ namespace HideAndSeek.Characters
                     CrossRightLeg(ref q);
                 };
                 SitOn(ref p, s, legs, back);
+                if (back) LeanToBack(ref p, s);
                 for (int i = 0; i < 20 && Hits(p, s, MLegs); i++)
                 {
                     p.PelvisPos.z += 0.01f;

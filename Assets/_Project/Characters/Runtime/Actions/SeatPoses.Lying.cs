@@ -100,58 +100,79 @@ namespace HideAndSeek.Characters
         }
 
         /// <summary>
-        /// 5: on the back along the sofa, the head towards the middle, the room-side leg long, the other knee up (foot
-        /// on the cushion), the room-side arm hanging relaxed over the front edge, the other hand up by the head.
+        /// 5: reclined along the sofa, the back against the own armrest (leaning back on it), the legs long along the
+        /// cushions over the neighbouring seat, the room-side knee up; one hand behind the head (or on the belly / the
+        /// raised thigh, whichever fits), the other forearm along the top of the backrest. No hand touches the seat.
         /// </summary>
         static CharacterPose CarefreeBack2(SeatShape s, LookLimits lim)
         {
             var best = CharacterPose.Identity;
             float bestBad = float.MaxValue;
-            foreach (float tilt in new[] { -12f, -18f, -6f, 4f })
-            foreach (float inc in new[] { 6f, 10f, 2f })
-            foreach (float px in new[] { -0.2f, -0.26f, -0.14f })
+            foreach (float z in new[] { 0.0f, 0.03f, -0.03f })
+            foreach (float px in new[] { 0.3f, 0.26f, 0.22f, 0.34f })
             {
-                float a = inc * Mathf.Deg2Rad, t = tilt * Mathf.Deg2Rad;
-                Vector3 up = new Vector3(-Mathf.Cos(a), Mathf.Sin(a), 0f);
-                Vector3 chest = new Vector3(Mathf.Sin(a), Mathf.Cos(a) * Mathf.Cos(t), Mathf.Sin(t));
+                // Sitting sideways upright first (hips down on the cushion, the back near the armrest), then leaning back
+                // until the back rests on the armrest.
                 var p = CharacterPose.Identity;
-                p.Pelvis = Frame(up, chest);
-                p.PelvisPos = new Vector3(px, s.TopY + 0.35f, 0.02f);
+                p.Pelvis = Quaternion.Euler(0f, -82f, 0f) * Quaternion.Euler(-8f, 0f, 0f);
+                p.Torso = Quaternion.Euler(4f, 0f, 0f);
+                p.PelvisPos = new Vector3(px, s.TopY + 0.13f, z);
                 NeutralHead(ref p, lim);
                 LegsFn legs = (ref CharacterPose q) =>
                 {
-                    Vector3 hr = q.HipPos(0), hl = q.HipPos(1);
-                    q.SolveLeg(0, hr + new Vector3(0.62f, -0.01f, -0.02f), new Vector3(0f, 1f, -0.2f)); // back-side leg long
-                    Plant(ref q, 1, hl.x + 0.36f, hl.z + 0.03f, new Vector3(0.1f, 1f, 0.3f), CushionY(s)); // the room-side knee up
+                    Vector3 hl = q.HipPos(1), hr = q.HipPos(0);
+                    Plant(ref q, 1, hl.x - 0.62f, hl.z - 0.03f, Dir(0f, 1f, 0.1f), CushionY(s));
+                    Plant(ref q, 0, hr.x - 0.36f, hr.z + 0.07f, Dir(-0.1f, 1f, 0.25f), CushionY(s));
                 };
+                // Out of the armrest / back cushion if the upright body starts in them.
+                for (int i = 0; i < 12 && Hits(p, s, MTorso); i++) { p.PelvisPos.x -= 0.02f; p.PelvisPos.z += 0.01f; }
+                for (int i = 0; i < 4; i++)
+                {
+                    legs(ref p);
+                    Settle(ref p, s, MTorso | MThighs);
+                }
+                LeanToBack(ref p, s, 30f);
                 legs(ref p);
-                Lie(ref p, s, MTorso | MThighs, s.TopY + 0.2f, legs);
-                legs(ref p);
-                float bad = LegCross(p) + (Hits(p, s, MTorso | MLegs) ? 0.05f : 0f);
-                if (p.PelvisPos.y > s.TopY + 0.22f) bad += 0.05f;
-                // One arm hanging relaxed over the front edge, the other forearm draped over the back cushion (whichever
-                // side faces the room).
-                Vector3 neckP = p.TorsoPoint(BlockyCharacter.NeckRest);
-                Vector3 byHead = new Vector3(neckP.x + 0.1f, s.BackTopY - 0.02f, s.BackZ - 0.1f);
-                float armBad = float.MaxValue;
-                var armKeep = p;
-                // The room-side arm hangs over the front edge (low or mid) or rests on the cushion's front.
-                foreach (var over in new[]
-                         {
-                             new Vector3(p.PelvisPos.x + 0.1f, s.TopY - 0.12f, s.EdgeZ + 0.16f),
-                             new Vector3(p.PelvisPos.x + 0.05f, s.TopY - 0.02f, s.EdgeZ + 0.2f),
-                             new Vector3(p.PelvisPos.x + 0.2f, s.TopY + 0.11f, s.EdgeZ - 0.04f),
-                         })
-                for (int front = 0; front < 2; front++)
+                float legBad = LegCross(p);
+                float bad = legBad + (Hits(p, s, MTorso | MLegs) ? 0.05f : 0f);
+                if (p.PelvisPos.y > s.TopY + 0.16f) bad += 0.05f; // sitting on the armrest, not the cushion
+
+                // Left forearm along the top of the backrest.
+                Vector3 shL = p.ShoulderPos(1);
+                Vector3 back = new Vector3(shL.x - 0.22f, s.BackTopY + 0.18f, s.BackZ - 0.1f);
+                bad += PlaceHand(ref p, s, 1, back, Dir(0.5f, -0.6f, -0.3f), Vector3.back, Vector3.left, Vector3.up, MLegs | MTorso | MHead);
+                bad += Reach(p, 1, back) * 0.5f;
+
+                // Right hand: behind the head, else on the belly, else on the raised thigh.
+                Quaternion tr = p.TorsoRoot;
+                Vector3 neck = p.TorsoPoint(BlockyCharacter.NeckRest);
+                Vector3 chestN = tr * Vector3.forward;
+                float br = float.MaxValue;
+                var pr = p;
                 {
                     var q = p;
-                    float ab = PlaceHand(ref q, s, front, over, new Vector3(0f, -0.2f, 1f), Vector3.forward, Vector3.right, Vector3.up, MLegs | MTorso | MHead);
-                    ab += PlaceHand(ref q, s, 1 - front, byHead, new Vector3(0.2f, 1f, -0.3f), Vector3.back, Vector3.left, Vector3.up, MLegs | MTorso | MHead);
-                    if (ab < armBad) { armBad = ab; armKeep = q; }
+                    Vector3 nape = neck + tr * new Vector3(0.12f, -0.17f, -0.3f);
+                    float b = PlaceHand(ref q, s, 0, nape, tr * Dir(1f, 0.6f, -0.3f), tr * Vector3.back, tr * Vector3.right, tr * Vector3.down, MLegs | MTorso | MHead)
+                              + Reach(q, 0, nape) * 0.5f;
+                    if (b < br) { br = b; pr = q; }
                 }
-                p = armKeep;
-                bad += armBad * 0.5f;
-                Score(p, bad, ref best, ref bestBad, $"carefree 2 tilt {tilt:0} inc {inc:0} x {px:0.00}");
+                if (br > 0f)
+                {
+                    var q = p;
+                    Vector3 belly = p.TorsoPoint(new Vector3(0.05f, 0.2f, 0f)) + chestN * (0.127f + 0.127f + 0.02f);
+                    float b = PlaceHand(ref q, s, 0, belly, chestN + tr * Vector3.right, tr * Vector3.up, tr * Vector3.right, chestN, MLegs | MHead)
+                              + Reach(q, 0, belly) * 0.5f;
+                    if (b < br) { br = b; pr = q; }
+                }
+                if (br > 0f)
+                {
+                    var q = p;
+                    float b = HandOnThigh(ref q, s, 0, 0, 0.35f, 0.02f, MLegs | MTorso | MHead);
+                    if (b < br) { br = b; pr = q; }
+                }
+                p = pr;
+                bad += br;
+                Score(p, bad, ref best, ref bestBad, $"carefree recline z {z:0.00} x {px:0.00}");
                 if (bad <= 0f) return p;
             }
             return best;
@@ -164,7 +185,7 @@ namespace HideAndSeek.Characters
             float bestBad = float.MaxValue;
             foreach (float rise in new[] { 24f, 28f, 20f, 32f, 16f })
             foreach (float tilt in new[] { 0f, -8f, 8f, -15f, 15f })
-            foreach (float px in new[] { -0.08f, -0.14f, -0.02f })
+            foreach (float px in new[] { -0.2f, -0.26f, -0.14f })
             {
                 float a = rise * Mathf.Deg2Rad, t = tilt * Mathf.Deg2Rad;
                 Vector3 up = new Vector3(-Mathf.Cos(a), Mathf.Sin(a), 0f);
