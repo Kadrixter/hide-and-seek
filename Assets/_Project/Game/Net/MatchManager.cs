@@ -139,16 +139,7 @@ namespace HideAndSeek.Game.Net
             switch (phase)
             {
                 case MatchPhase.Hiding:
-                    GameAudio.Play2D(GameSfx.RoundStart);
-                    if (local != null)
-                    {
-                        int many = SeekersNow();
-                        string mates = local.IsSeeker && many > 1 ? OtherSeekerNames(local) : "";
-                        GameHud.Banner(local.IsSeeker ? "SZUKASZ" : "CHOWASZ SIĘ",
-                            local.IsSeeker ? (mates.Length > 0 ? $"Szukasz razem z: {mates}. Czekaj, aż wszyscy się schowają..." : "Czekaj, aż wszyscy się schowają...")
-                                : many > 1 ? $"Uciekaj i schowaj się, zanim szukający wyruszą! Jest ich {many}." : "Uciekaj i schowaj się, zanim szukający wyruszy!", 4f,
-                            local.IsSeeker ? Color.red : UI.UiKit.HiderColor);
-                    }
+                    if (!IntroHoldsStart) HidingStartedLocal(); // with the round intro: at its end (MatchManager.Cinematics.cs)
                     break;
                 case MatchPhase.Seeking:
                     GameAudio.Play2D(GameSfx.SeekerReleased);
@@ -157,6 +148,20 @@ namespace HideAndSeek.Game.Net
                 case MatchPhase.Ended:
                     break;
             }
+        }
+
+        /// <summary>Start of the hiding time on this client: sound and the CHOWASZ SIĘ / SZUKASZ banner.</summary>
+        private void HidingStartedLocal()
+        {
+            var local = NetPlayer.Local;
+            GameAudio.Play2D(GameSfx.RoundStart);
+            if (local == null) return;
+            int many = SeekersNow();
+            string mates = local.IsSeeker && many > 1 ? OtherSeekerNames(local) : "";
+            GameHud.Banner(local.IsSeeker ? "SZUKASZ" : "CHOWASZ SIĘ",
+                local.IsSeeker ? (mates.Length > 0 ? $"Szukasz razem z: {mates}. Czekaj, aż wszyscy się schowają..." : "Czekaj, aż wszyscy się schowają...")
+                    : many > 1 ? $"Uciekaj i schowaj się, zanim szukający wyruszą! Jest ich {many}." : "Uciekaj i schowaj się, zanim szukający wyruszy!", 4f,
+                local.IsSeeker ? Color.red : UI.UiKit.HiderColor);
         }
 
         /// <summary>Sent after Winner is set, so every client sees the right result (variable order is not guaranteed).</summary>
@@ -301,6 +306,7 @@ namespace HideAndSeek.Game.Net
             ChainsawTaken.Value = false;
             SecurityCrates.Value = 0;
             ResetRcCars();
+            PrepareIntro();
             Phase.Value = MatchPhase.Loading;
             LoadGameSceneOrStay("round start");
         }
@@ -348,6 +354,7 @@ namespace HideAndSeek.Game.Net
                     foreach (var e in ElevatorSystem.Instance.InitialStates()) Elevators.Add(e);
                 Phase.Value = MatchPhase.Hiding;
                 PhaseEnd.Value = Now + Settings.Value.HideTime;
+                BeginIntro(); // round intro: the hiding time starts after it (MatchManager.Cinematics.cs)
                 SceneBedRpc((byte)AmbientId.GarageBed);
             }
             else if (sceneName == NetSession.LobbyScene)
@@ -485,13 +492,14 @@ namespace HideAndSeek.Game.Net
             Step(_stepPhones ??= UpdatePhones, "phones");
             Step(_stepPa ??= UpdatePa, "public address");
             Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
+            Step(_stepCinematics ??= UpdateCinematics, "cinematics");
             if (!IsServer) return;
             Step(_stepServerProps ??= UpdateServerProps, "server props");
             UpdateServerTimeline();
         }
 
         private System.Action _stepLobbyWatch, _stepLobbyReturn, _stepMedkits, _stepSyringes, _stepLobbyFun, _stepRcCars, _stepRods,
-            _stepDrops, _stepFlashBox, _stepToyGuns, _stepPhones, _stepPa, _stepSceneProps, _stepServerProps;
+            _stepDrops, _stepFlashBox, _stepToyGuns, _stepPhones, _stepPa, _stepSceneProps, _stepServerProps, _stepCinematics;
         private readonly Dictionary<string, float> _stepErrorAt = new();
 
         /// <summary>Runs one per-frame part; an exception is logged (at most every 5 s per part) instead of skipping the rest of the frame.</summary>
@@ -643,7 +651,7 @@ namespace HideAndSeek.Game.Net
             if (Phase.Value == MatchPhase.Ended) return;
             Winner.Value = w;
             Phase.Value = MatchPhase.Ended;
-            PhaseEnd.Value = Now + Tuning.EndScreenTime;
+            PhaseEnd.Value = Now + BeginOutro(w); // round outro + awards (MatchManager.Cinematics.cs)
             MatchEndedRpc(w);
         }
 
@@ -685,6 +693,7 @@ namespace HideAndSeek.Game.Net
                 seeker.Held.Value = HeldItem.Knife;
                 ServerRcForcePark(victim);
                 seeker.SlashRpc(victim.NetworkObjectId);
+                Cinematics.RoundStats.Hit(seeker, victim, Cinematics.KillWeapon.Knife);
                 Wound(victim);
                 return;
             }
@@ -710,6 +719,7 @@ namespace HideAndSeek.Game.Net
                 seeker.AttackReadyAt.Value = Now + Tuning.AttackCooldown;
                 int limb = Random.value < 0.5f ? Limb.LegR : Limb.LegL;
                 seeker.SawSlashRpc(victim.NetworkObjectId, (byte)limb);
+                Cinematics.RoundStats.Hit(seeker, victim, Cinematics.KillWeapon.Saw);
                 StartCoroutine(SeverLegAfterHit(victim, limb));
                 return;
             }
@@ -805,6 +815,7 @@ namespace HideAndSeek.Game.Net
         {
             seeker.Busy.Value = true;
             victim.Busy.Value = true;
+            Cinematics.RoundStats.Hit(seeker, victim, glock ? Cinematics.KillWeapon.Glock : chainsaw ? Cinematics.KillWeapon.Saw : Cinematics.KillWeapon.Knife);
             HeldItem prevHeld = seeker.Held.Value;
             if (!chainsaw && !glock) seeker.Held.Value = HeldItem.Knife;
 
@@ -946,6 +957,7 @@ namespace HideAndSeek.Game.Net
             }
             shooter.ShotFxRpc(hitPoint, valid ? victim.NetworkObjectId : ulong.MaxValue, -1, dir);
             if (!valid) return;
+            Cinematics.RoundStats.Hit(shooter, victim, Cinematics.KillWeapon.Glock);
             if (victim.Life.Value == LifeState.Downed || victim.Wounded.Value) Kill(victim);
             else if (victim.Limping.Value) Down(victim);
             else Wound(victim);
@@ -998,6 +1010,7 @@ namespace HideAndSeek.Game.Net
             target.DownedUntil.Value = 0; // no stale deadline (player list bleed bar, like the other ways up)
             target.SfxRpc(GameSfx.ReviveDone, 1f);
             target.ToastRpc($"{helper.Nick} cię uratował. Kolejne złapanie = śmierć, chyba że użyjesz apteczki.", 5f);
+            Cinematics.RoundStats.Rescued(helper, target);
         }
 
         /// <summary>Downed hider with a medkit gets up alone (hold G). Stays wounded: the next catch kills.</summary>
@@ -1050,6 +1063,7 @@ namespace HideAndSeek.Game.Net
             target.SfxRpc(GameSfx.ReviveDone, 1f);
             target.ToastRpc($"{helper.Nick} wskrzesił cię adrenaliną! Szukający co chwilę widzi cię na mapie.", 6f);
             helper.ToastRpc($"Wskrzesiłeś {target.Nick}.", 3f);
+            Cinematics.RoundStats.Revived(helper, target);
         }
 
         public void ServerHeal(NetPlayer helper, NetPlayer target)
@@ -1063,6 +1077,7 @@ namespace HideAndSeek.Game.Net
             target.SfxRpc(GameSfx.MedkitUse, 1f);
             if (helper != target) target.ToastRpc($"{helper.Nick} opatrzył twoje rany.", 4f);
             else helper.ToastRpc("Rany opatrzone.", 3f);
+            Cinematics.RoundStats.Healed(helper, target);
         }
 
         public void ServerPickup(NetPlayer pl, int medkitId)
