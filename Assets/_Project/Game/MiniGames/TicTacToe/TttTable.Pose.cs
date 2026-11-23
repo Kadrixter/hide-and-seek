@@ -63,13 +63,17 @@ namespace HideAndSeek.Game.MiniGames
             reachW = 0f;
             bool myTurn = State.Phase == TttState.Playing && State.Turn == seat && !Animating;
             think = myTurn ? 1f : 0.2f;
-            lean = myTurn ? 6f : 0f;
+            lean = myTurn ? 2f : 0f;
             look = Centre;
             var a = _cur;
             if (a == null) return;
             if (a.Seat != seat)
             {
+                // Sit up and watch the other player's hand.
                 look = transform.TransformPoint(a.Erase ? EraserAt(a) : TipAt(a, out _));
+                float k = Mathf.Clamp01(a.T / 0.4f) * Mathf.Clamp01((a.Dur - a.T) / 0.4f);
+                lean = -9f * k;
+                think *= 1f - k;
                 return;
             }
             think = 0f;

@@ -42,7 +42,7 @@ namespace HideAndSeek.Characters
 
             // Torso: lean in (more while thinking), breathe. For a reach: the smallest lean (and turn) that brings the
             // shoulder in range; if sitting is not enough the player rises from the stool and leans over the table.
-            float baseLean = 14f + 6f * inp.Think + inp.Lean + breathe * 1.1f;
+            float baseLean = 9f + 4f * inp.Think + inp.Lean + breathe * 1.1f;
             float yaw = Noise(time * 0.07f, s) * 4f;
             float lean = baseLean, twist = yaw, rise = 0f;
             if (inp.ReachW > 0.001f)

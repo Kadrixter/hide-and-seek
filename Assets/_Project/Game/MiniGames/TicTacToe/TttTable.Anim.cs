@@ -159,12 +159,13 @@ namespace HideAndSeek.Game.MiniGames
             if (a.T >= TToStart)
             {
                 float k = Mathf.Clamp01((a.T - TToStart) / TDraw);
-                if (k > a.Drawn) { TttChalk.DrawMark(Model, a.Cell, a.Mark, k, a.Seed, a.Drawn); a.Drawn = k; Model.SlateTex.Apply(true); }
+                // In steps of a few percent (the texture upload is the expensive part), the rest at the end.
+                if (k - a.Drawn >= 0.03f || k >= 1f && a.Drawn < 1f) { TttChalk.DrawMark(Model, a.Cell, a.Mark, k, a.Seed, a.Drawn); a.Drawn = k; Model.SlateTex.Apply(true); }
             }
             if (a.Line >= 0 && a.T >= a.DrawEnd + TLine * 0.2f)
             {
                 float k = Mathf.Clamp01((a.T - a.DrawEnd - TLine * 0.2f) / (TLine * 0.8f));
-                if (k > a.LineDrawn) { TttChalk.DrawWinLine(Model, a.Line, a.LineDrawn, k); a.LineDrawn = k; Model.SlateTex.Apply(true); }
+                if (k - a.LineDrawn >= 0.03f || k >= 1f && a.LineDrawn < 1f) { TttChalk.DrawWinLine(Model, a.Line, a.LineDrawn, k); a.LineDrawn = k; Model.SlateTex.Apply(true); }
             }
             if (touching && !_scratch.isPlaying) _scratch.Play();
             else if (!touching && _scratch.isPlaying) _scratch.Pause();

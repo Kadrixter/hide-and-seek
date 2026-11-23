@@ -11,7 +11,7 @@ namespace HideAndSeek.Game.MiniGames
     /// </summary>
     public sealed class TttTableModel
     {
-        public const float TopY = 0.64f, TableTop = 0.92f, StoolZ = 0.63f;
+        public const float TopY = 0.64f, TableTop = 0.92f, StoolZ = 0.68f;
         public const float SlateSize = 0.54f, GridSize = 0.46f, Cell = GridSize / 3f;
         public const float SlateTop = TopY + 0.02f + 0.006f;
 

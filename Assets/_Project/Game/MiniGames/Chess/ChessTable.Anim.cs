@@ -181,7 +181,7 @@ namespace HideAndSeek.Game.MiniGames
             int colour = State.ColourOfSeat(seat);
             bool myTurn = State.Phase == ChessState.Playing && Target.Side == colour && !Animating;
             think = myTurn ? 1f : 0.15f;
-            lean = myTurn ? 5f : 0f;
+            lean = myTurn ? 2f : 0f;
             look = Centre;
             var a = _cur;
             if (a != null && a.Piece != null)
@@ -214,7 +214,14 @@ namespace HideAndSeek.Game.MiniGames
                     think = 0f;
                     look = PivotToWorld(a.Piece.localPosition);
                 }
-                else look = PivotToWorld(a.Piece.localPosition); // the opponent follows the moving piece
+                else
+                {
+                    // The opponent sits up and follows the moving piece (makes room for the reaching player's head).
+                    look = PivotToWorld(a.Piece.localPosition);
+                    float k = Mathf.Clamp01(a.T / 0.4f) * Mathf.Clamp01((a.Dur - a.T) / 0.4f);
+                    lean = -9f * k;
+                    think *= 1f - k;
+                }
             }
             else if (Selected >= 0 && LocalSeat == seat) look = PivotToWorld(Sq(Selected));
         }

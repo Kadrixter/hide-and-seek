@@ -39,12 +39,15 @@ namespace HideAndSeek.Game.MiniGames
             if (m.SlateTex == null || to <= from) return;
             const float step = 0.008f;
             Vector3 prev = PenAt(cell, mark, from, seed, out bool prevDown);
-            for (float t = from + step; t <= to + 1e-4f; t += step)
+            // Exactly from..to (the last piece may be shorter than a step), whatever the frame rate.
+            for (float t = from; t < to - 1e-5f;)
             {
-                Vector3 p = PenAt(cell, mark, Mathf.Min(t, to), seed, out bool down);
-                if (down && prevDown) m.ChalkLine(prev, p, 1f, seed * 13 + (int)(t * 100f), 4.6f);
+                float nt = Mathf.Min(to, t + step);
+                Vector3 p = PenAt(cell, mark, nt, seed, out bool down);
+                if (down && prevDown) m.ChalkLine(prev, p, 1f, seed * 13 + (int)(nt * 100f), 4.6f);
                 prev = p;
                 prevDown = down;
+                t = nt;
             }
         }
 
