@@ -31,12 +31,14 @@ namespace HideAndSeek.Game.UI
         public static int TestHighlight = -1;
         public static bool TestClick;
         public static int TestPage = -1;
+        /// <summary>Acts as one right click (cancel).</summary>
+        public static bool TestCancel;
 
         public static bool IsOpen => _inst != null && _inst._open;
         public static bool ConsumesEscape => IsOpen || _closedFrame >= Time.frameCount - 1;
         public static int SliceCount => _inst != null ? _inst._slices.Count : 0;
         public static int Page => _page;
-        public static NetPlayer Target => _inst != null ? _inst._target : null;
+        public static NetPlayer Target => _inst != null && _inst._hasTarget ? _inst._target : null;
 
         private bool _open, _toggle, _testHeldBefore;
         private float _anim, _openedAt, _pageAnim = 1f;
@@ -45,6 +47,7 @@ namespace HideAndSeek.Game.UI
         private EmoteId _shown = (EmoteId)255;
         private NetPlayer _target;
         private float _targetCheck;
+        private bool _hasTarget;
 
         public static void Tick()
         {
@@ -68,6 +71,7 @@ namespace HideAndSeek.Game.UI
             _cursor = Vector2.zero;
             _hl = -1;
             _target = EmoteRules.LookTarget(me);
+            _hasTarget = _target != null;
             _targetCheck = Time.unscaledTime + 0.25f;
             _root.gameObject.SetActive(true);
             _root.SetAsLastSibling();
@@ -102,7 +106,7 @@ namespace HideAndSeek.Game.UI
         {
             if (i < 0 || i >= _slices.Count) return false;
             if (!EmoteRules.Free(me, out _)) return false;
-            return _page == 0 || _target != null;
+            return _page == 0 || (_hasTarget && _target != null);
         }
 
         private void Pick(NetPlayer me, int index, bool closeAnyway)
@@ -112,7 +116,7 @@ namespace HideAndSeek.Game.UI
             if (!Available(index, me))
             {
                 GameAudio.Play2D(GameSfx.UiError, 0.5f);
-                if (_page == 1 && _target == null) GameHud.Toast("Spójrz na gracza obok (do 2.5 m).", 2f);
+                if (_page == 1 && !_hasTarget) GameHud.Toast("Spójrz na gracza obok (do 2.5 m).", 2f);
                 if (closeAnyway) Close();
                 return;
             }
@@ -193,7 +197,14 @@ namespace HideAndSeek.Game.UI
             {
                 _targetCheck = Time.unscaledTime + 0.25f;
                 var t = EmoteRules.LookTarget(me);
-                if (t != _target) { _target = t; if (_page == 1) RebuildPartner(); }
+                // Sticky: a new player re-renders the partner pictures, looking away keeps the last look (no flicker).
+                if (t != null && t != _target)
+                {
+                    bool newLook = _target == null || _target.SkinVar.Value != t.SkinVar.Value || _target.McNickVar.Value != t.McNickVar.Value;
+                    _target = t;
+                    if (newLook) RebuildPartner();
+                }
+                _hasTarget = t != null;
             }
 
             if (mouse != null)
@@ -229,7 +240,8 @@ namespace HideAndSeek.Game.UI
             UpdatePointer();
 
             bool esc = kb != null && kb.escapeKey.wasPressedThisFrame;
-            bool rmb = mouse != null && mouse.rightButton.wasPressedThisFrame;
+            bool rmb = (mouse != null && mouse.rightButton.wasPressedThisFrame) || TestCancel;
+            TestCancel = false;
             bool lmb = (mouse != null && mouse.leftButton.wasPressedThisFrame) || TestClick;
             TestClick = false;
             bool held = (kb != null && kb.kKey.isPressed) || TestHold;

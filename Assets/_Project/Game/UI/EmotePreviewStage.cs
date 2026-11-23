@@ -24,6 +24,7 @@ namespace HideAndSeek.Game.UI
         private EmoteId _shown;
         private float _clock, _time;
         private bool _fogWas;
+        private Transform _lights;
 
         public RenderTexture Texture => _rt;
 
@@ -64,6 +65,8 @@ namespace HideAndSeek.Game.UI
             _partner.transform.parent.gameObject.SetActive(false);
             BuildFloor();
 
+            _lights = new GameObject("Lights") { layer = _layer }.transform;
+            _lights.SetParent(transform, false);
             AddLight("Key", new Vector3(36f, 150f, 0f), new Color(1f, 0.95f, 0.88f), 1.05f, true);
             AddLight("Rim", new Vector3(18f, -25f, 0f), new Color(0.62f, 0.78f, 1f), 0.75f, false);
             AddLight("Fill", new Vector3(60f, 230f, 0f), new Color(0.85f, 0.88f, 1f), 0.3f, false);
@@ -100,8 +103,8 @@ namespace HideAndSeek.Game.UI
         private void AddLight(string name, Vector3 euler, Color color, float intensity, bool shadows)
         {
             var lg = new GameObject(name) { layer = _layer };
-            lg.transform.SetParent(transform, false);
-            lg.transform.rotation = Quaternion.Euler(euler);
+            lg.transform.SetParent(_lights, false);
+            lg.transform.localRotation = Quaternion.Euler(euler);
             var l = lg.AddComponent<Light>();
             l.type = LightType.Directional;
             l.color = color;
@@ -177,8 +180,9 @@ namespace HideAndSeek.Game.UI
             var info = Emotes.Get(id);
             bool pair = info != null && info.IsPair;
             bool low = id == EmoteId.SitDown;
-            Vector3 focus = pair ? new Vector3(0f, 1.02f, info.PairDistance * 0.5f) : new Vector3(0f, low ? 0.62f : 0.98f, low ? 0.05f : 0f);
-            float dist = pair ? 6.4f : low ? 4.4f : 5.6f;
+            Vector3 focus = pair ? new Vector3(0f, 1.08f, info.PairDistance * 0.5f) : new Vector3(0f, low ? 0.55f : 1.0f, low ? 0.05f : 0f);
+            if (_lights != null) _lights.localRotation = Quaternion.Euler(0f, pair ? 68f : 0f, 0f);
+            float dist = pair ? (_thumbs ? 5.0f : 5.6f) : low ? (_thumbs ? 3.3f : 3.9f) : (_thumbs ? 4.3f : 5.0f);
             float swing = _thumbs ? 0f : Mathf.Sin(_time * 0.5f);
             // Solo: in front, a little to the side. Pair: from the side, slightly in front of the own copy.
             Quaternion q = pair ? Quaternion.Euler(8f, 248f + 10f * swing, 0f) : Quaternion.Euler(low ? 14f : 6f, 180f + (_thumbs ? 22f : 18f * swing), 0f);

@@ -83,6 +83,17 @@ namespace HideAndSeek.Game.Net
             return true;
         }
 
+        /// <summary>Tests: why <paramref name="o"/> is (not) the look target.</summary>
+        public static string Explain(NetPlayer me, NetPlayer o)
+        {
+            if (me == null || o == null || me.Camera == null) return "none";
+            Transform cam = me.Camera.transform;
+            Vector3 eye = me.EyePosition, chest = o.transform.position + Vector3.up * 1.25f, to = chest - eye;
+            float ang = Vector3.Angle(new Vector3(cam.forward.x, 0f, cam.forward.z), new Vector3(to.x, 0f, to.z));
+            string hit = Physics.Linecast(eye, chest, out var h, SightMask, QueryTriggerInteraction.Ignore) ? $"{h.collider.name}/{h.collider.gameObject.layer}" : "-";
+            return $"ang={ang:0} dist={new Vector2(to.x, to.z).magnitude:0.00} fwdY={cam.forward.y:0.00} hit={hit}";
+        }
+
         /// <summary>
         /// Player the local camera points at within <see cref="Emotes.AskRange"/> (cone ~22 degrees, nothing in between),
         /// null if none.
@@ -99,10 +110,12 @@ namespace HideAndSeek.Game.Net
                 if (o == null || o == me || !o.IsSpawned || o.Life.Value != LifeState.Alive) continue;
                 Vector3 chest = o.transform.position + Vector3.up * 1.25f;
                 Vector3 to = chest - eye;
+                Vector3 flatTo = new Vector3(to.x, 0f, to.z), flatFwd = new Vector3(cam.forward.x, 0f, cam.forward.z);
                 float dist = new Vector2(o.transform.position.x - me.transform.position.x, o.transform.position.z - me.transform.position.z).magnitude;
                 if (dist > Emotes.AskRange || Mathf.Abs(o.transform.position.y - me.transform.position.y) > 0.8f) continue;
-                float ang = Vector3.Angle(cam.forward, to);
-                if (ang > 24f) continue;
+                // Mostly the direction on the floor plan counts (looking a bit up or down still picks the player).
+                float ang = Vector3.Angle(flatFwd, flatTo);
+                if (ang > 28f || cam.forward.y < -0.85f) continue;
                 if (Physics.Linecast(eye, chest, out var hit, SightMask, QueryTriggerInteraction.Ignore)
                     && hit.collider.GetComponentInParent<NetPlayer>() != o) continue;
                 float score = ang + dist * 6f;

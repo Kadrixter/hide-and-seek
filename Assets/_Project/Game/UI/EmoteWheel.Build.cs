@@ -248,8 +248,8 @@ namespace HideAndSeek.Game.UI
         {
             if (_page == 1)
             {
-                _sub.text = _target != null ? $"z: {_target.Nick}" : "Spójrz na gracza obok (do 2.5 m)";
-                _sub.color = _target != null ? UiKit.Accent : new Color(1f, 0.72f, 0.35f);
+                _sub.text = _hasTarget && _target != null ? $"z: {_target.Nick}" : "Spójrz na gracza obok (do 2.5 m)";
+                _sub.color = _hasTarget ? UiKit.Accent : new Color(1f, 0.72f, 0.35f);
             }
             else _sub.text = "";
             _hint.text = _toggle

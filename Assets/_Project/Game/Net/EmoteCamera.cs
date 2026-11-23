@@ -36,16 +36,22 @@ namespace HideAndSeek.Game.Net
         /// <summary>Body low (sitting on the floor): lower orbit.</summary>
         public bool Low { get; set; }
 
+        /// <summary>Tests: state as text.</summary>
+        public string Describe() => $"w={_w:0.00} yaw={Mathf.DeltaAngle(transform.eulerAngles.y, _yaw):0} dist={_dist:0.00} user={_userT:0.0}";
+
         public void SetWanted(bool on)
         {
-            if (on && !_wanted && _w <= 0f)
+            if (on && !_wanted)
             {
-                // Start behind the head, then drift round to the front.
-                _yaw = transform.eulerAngles.y;
-                _autoYaw = _yaw + 150f;
-                _pitch = 12f;
+                // Drift round to the three-quarter front of the current facing; from the eyes start behind the head.
+                _autoYaw = transform.eulerAngles.y + 155f;
                 _userT = 0f;
-                _dist = 0.6f;
+                if (_w <= 0f)
+                {
+                    _yaw = transform.eulerAngles.y;
+                    _pitch = 12f;
+                    _dist = 0.6f;
+                }
             }
             _wanted = on;
         }
@@ -94,7 +100,7 @@ namespace HideAndSeek.Game.Net
                 _pitch = Mathf.Clamp(_pitch - d.y, -15f, 55f);
             }
             _userT -= dt;
-            if (_userT <= 0f) _yaw = Mathf.MoveTowardsAngle(_yaw, _autoYaw, dt * 40f * Mathf.Clamp01(_w * 1.5f));
+            if (_userT <= 0f) _yaw = Mathf.LerpAngle(_yaw, _autoYaw, 1f - Mathf.Exp(-dt * 1.6f * Mathf.Clamp01(_w * 1.5f)));
 
             Vector3 root = transform.position;
             Vector3 focus = root + Vector3.up * (Low ? 0.7f : 1.15f);

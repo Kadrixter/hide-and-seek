@@ -54,7 +54,9 @@ namespace HideAndSeek.Characters
         {
             EnsureInit();
             if (id == EmoteId.None) { StopEmote(); return; }
-            if (Emotes.Get(id) == null) return;
+            var info = Emotes.Get(id);
+            if (info == null) return;
+            if (id != emoteId && !info.Loops && t >= info.Duration - 0.05f) return; // already over (late / ending)
             if (id == emoteId && !emoteStopping)
             {
                 // Same emote: only follow the shared clock when it drifted (no jitter from small corrections).

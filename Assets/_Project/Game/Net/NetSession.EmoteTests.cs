@@ -20,6 +20,46 @@ namespace HideAndSeek.Game.Net
         {
             if (has("-autoconsent")) ConsentPrompt.AutoAccept = true;
             if (has("-testemotes")) StartCoroutine(EmotesTest());
+            if (has("-emotehold")) StartCoroutine(EmoteHold());
+            if (has("-emotewatch")) StartCoroutine(EmoteWatch());
+        }
+
+        /// <summary>-emotehold Id [-emoteholdfor S]: starts one emote in the lobby and keeps it (late-join check).</summary>
+        private IEnumerator EmoteHold()
+        {
+            yield return WaitLobby();
+            var me = NetPlayer.Local;
+            if (!System.Enum.TryParse<EmoteId>(ArgOr("-emotehold", "DanceDisco"), out var id)) id = EmoteId.DanceDisco;
+            float.TryParse(ArgOr("-emoteholdfor", "40"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float len);
+            me.StartSoloEmote(id);
+            Debug.Log($"[EmoteTest] holding {id} for {len} s");
+            yield return new WaitForSeconds(Mathf.Max(5f, len));
+            me.StopEmote();
+            Debug.Log("[EmoteTest] done");
+        }
+
+        /// <summary>-emotewatch (-emoteshots dir): logs and photographs the other players' emotes every 2 s.</summary>
+        private IEnumerator EmoteWatch()
+        {
+            yield return WaitLobby();
+            string dir = ArgOr("-emoteshots", "");
+            int k = 0;
+            while (true)
+            {
+                foreach (var p in NetPlayer.All)
+                {
+                    if (p == null || p.IsOwner || p.Character == null) continue;
+                    var b = p.Character.Actions;
+                    Debug.Log($"[EmoteWatch] {p.Nick}: var={p.EmoteVar.Value.Id} pair={p.PairVar.Value.Id} body={b.Emote} w={b.EmoteWeight:0.00} t={b.EmoteTime:0.00}");
+                    if (b.EmoteWeight > 0.5f && k % 2 == 0)
+                    {
+                        var t = p.transform;
+                        CamShot(dir, $"watch_{k:000}_{p.Nick}_{b.Emote}", t.position + t.forward * 2.6f + t.right * 1.2f + Vector3.up * 1.5f, t.position + Vector3.up * 0.95f);
+                    }
+                }
+                k++;
+                yield return new WaitForSeconds(2f);
+            }
         }
 
         private IEnumerator EmotesTest()
@@ -34,7 +74,7 @@ namespace HideAndSeek.Game.Net
             NetPlayer other = null;
             foreach (var p in NetPlayer.All) if (p != me) other = p;
             Debug.Log($"[EmoteTest] start, other={(other != null ? other.Nick : "-")}");
-            yield return new WaitForSeconds(1.5f);
+            yield return new WaitForSeconds(6f); // the other one is placed in the lobby first
 
             // Stand 1.6 m in front of the other player, facing it.
             if (other != null) Face(me, other, 1.6f);
@@ -48,7 +88,7 @@ namespace HideAndSeek.Game.Net
                 yield return new WaitForSeconds(0.8f);
                 EmoteWheel.TestPage = page;
                 yield return new WaitForSeconds(0.6f);
-                Debug.Log($"[EmoteTest] wheel page {EmoteWheel.Page}: open={EmoteWheel.IsOpen} slices={EmoteWheel.SliceCount} target={(EmoteWheel.Target != null ? EmoteWheel.Target.Nick : "-")}");
+                Debug.Log($"[EmoteTest] wheel page {EmoteWheel.Page}: open={EmoteWheel.IsOpen} slices={EmoteWheel.SliceCount} target={(EmoteWheel.Target != null ? EmoteWheel.Target.Nick : "-")} {EmoteRules.Explain(me, other)}");
                 Shot(dir, $"wheel_p{page}_open");
                 int n = EmoteWheel.SliceCount;
                 for (int i = 0; i < n; i++)
@@ -58,6 +98,8 @@ namespace HideAndSeek.Game.Net
                     Shot(dir, $"wheel_p{page}_s{i}");
                 }
                 EmoteWheel.TestHighlight = -1;
+                EmoteWheel.TestCancel = true;
+                yield return null;
                 EmoteWheel.TestHold = false;
                 yield return new WaitForSeconds(0.4f);
             }
@@ -70,6 +112,20 @@ namespace HideAndSeek.Game.Net
                 yield return new WaitForSeconds(0.5f);
                 bool ok = me.StartSoloEmote(id);
                 var info = Emotes.Get(id);
+                if (id == EmoteId.Wave)
+                {
+                    // The camera going out of the eyes and back in.
+                    float[] at = { 0.15f, 0.35f, 0.7f, 1.3f, 2.2f, 3.0f, 3.4f };
+                    float last = 0f;
+                    foreach (float a in at)
+                    {
+                        yield return new WaitForSeconds(a - last);
+                        last = a;
+                        Debug.Log($"[EmoteTest] cam {a:0.00}: view={me.EmoteViewActive} {EmoteCamDebug(me)}");
+                        Shot(dir, $"cam_{a:0.00}");
+                    }
+                    continue;
+                }
                 yield return new WaitForSeconds(Mathf.Max(0.6f, info.ThumbTime));
                 var body = me.Character.Actions;
                 Debug.Log($"[EmoteTest] {id}: started={ok} var={me.EmoteVar.Value.Id} body={body.Emote} w={body.EmoteWeight:0.00} view={me.EmoteViewActive}");
@@ -113,6 +169,12 @@ namespace HideAndSeek.Game.Net
                     Debug.Log($"[EmoteTest] {id}: ended active={me.PairVar.Value.Active} view={me.EmoteViewActive}");
                 }
             Debug.Log("[EmoteTest] done");
+        }
+
+        private static string EmoteCamDebug(NetPlayer me)
+        {
+            var c = me.GetComponent<EmoteCamera>();
+            return c != null ? c.Describe() : "-";
         }
 
         private static void Face(NetPlayer me, NetPlayer other, float dist)

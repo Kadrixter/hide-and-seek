@@ -53,7 +53,7 @@ namespace HideAndSeek.Characters.Editor
                 aa.Tick(RecDt);
                 if (pair) ba.Tick(RecDt);
                 float x = t / len;
-                float y = fixedYaw ? yaw : pair ? Mathf.Lerp(70f, 110f, x) : Mathf.Lerp(28f, -28f, x);
+                float y = fixedYaw ? yaw : pair ? Mathf.Lerp(52f, 128f, x) : Mathf.Lerp(30f, -30f, x);
                 Orbit(mid, y, pair ? 3.4f : 3.3f, pair ? 0.45f : 0.3f, 36f);
                 clip.Shot(recCam);
             }

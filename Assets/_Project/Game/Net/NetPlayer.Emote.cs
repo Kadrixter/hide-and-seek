@@ -25,6 +25,7 @@ namespace HideAndSeek.Game.Net
         private MatchPhase _emotePhase;
         private EmoteCamera _emoteCam;
         private System.Func<MotorCommand> _approachCmd;
+        private float _approachLog;
 
         private BlockyCharacterActions EmoteBody => Actions as BlockyCharacterActions;
 
@@ -183,6 +184,11 @@ namespace HideAndSeek.Game.Net
             _approachCmd ??= ApproachCommand;
             if (walk && Motor.CommandProvider == null) Motor.CommandProvider = _approachCmd;
             else if (!walk && Motor.CommandProvider == _approachCmd) Motor.CommandProvider = null;
+            if (Time.unscaledTime >= _approachLog && t < 0.8 && (walk || d > 0.06f))
+            {
+                _approachLog = Time.unscaledTime + 0.5f;
+                Debug.Log($"[Emote] {Nick} approach t={t:0.00} d={d:0.00} walk={walk} cmd={(Motor.CommandProvider == _approachCmd)} move={Motor.MovementEnabled} v={Motor.HorizontalSpeed:0.00}");
+            }
             float dt = Time.deltaTime;
             Motor.SetLook(Mathf.MoveTowardsAngle(Motor.LookYaw, pv.Yaw, dt * (t < 0 ? 260f : 120f)), Mathf.MoveTowards(Motor.LookPitch, 0f, dt * 60f));
         }

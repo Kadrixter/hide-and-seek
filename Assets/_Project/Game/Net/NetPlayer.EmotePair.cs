@@ -74,7 +74,7 @@ namespace HideAndSeek.Game.Net
             spotB.y = b.y;
             float walk = Mathf.Max(Vector3.Distance(spotA, a), Vector3.Distance(spotB, b));
             float yaw = Mathf.Atan2(axis.x, axis.z) * Mathf.Rad2Deg;
-            double start = Now + Mathf.Clamp(walk / 1.4f + 0.45f, 0.55f, 2.2f);
+            double start = Now + Mathf.Clamp(walk / 1.4f + 0.7f, 0.8f, 2.4f);
             PairVar.Value = new PairEmotePack { Id = (byte)id, Role = 0, Partner = other.NetworkObjectId, StartAt = start, Spot = spotA, Yaw = yaw };
             other.PairVar.Value = new PairEmotePack { Id = (byte)id, Role = 1, Partner = NetworkObjectId, StartAt = start, Spot = spotB, Yaw = yaw + 180f };
             _pairPhase = other._pairPhase = MatchManager.Instance.Phase.Value;

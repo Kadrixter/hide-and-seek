@@ -501,7 +501,7 @@ namespace HideAndSeek.Game
         {
             var cam = Camera.main;
             bool lobby = phase == MatchPhase.Lobby || phase == MatchPhase.Loading;
-            bool canSee = lobby || me.IsHider || (me.IsSeeker && phase == MatchPhase.Seeking);
+            bool canSee = (lobby || me.IsHider || (me.IsSeeker && phase == MatchPhase.Seeking)) && !me.EmoteViewActive; // emote camera: tags would sit at the eye view
             int used = 0;
             if (cam != null && canSee)
             {
