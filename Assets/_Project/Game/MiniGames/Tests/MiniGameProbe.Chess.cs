@@ -57,7 +57,12 @@ namespace HideAndSeek.Game.MiniGames
             if (!_host)
             {
                 yield return new WaitForSeconds(1f);
-                me.MiniLeaveRpc();
+                yield return PressEscape();
+                bool asked = HideAndSeek.Game.UI.ConfirmDialog.IsOpen;
+                Log($"Esc opens the resign question: {(asked ? "OK" : "no (window without focus?) - leaving through the RPC")}");
+                Shot(Prefix() + "19b_esc_question");
+                yield return new WaitForSeconds(0.5f);
+                if (!asked || !ClickYes()) me.MiniLeaveRpc();
             }
             for (float w = 0f; w < 6f && chess.State.Phase != ChessState.Over; w += Time.deltaTime) yield return null;
             yield return new WaitForSeconds(1f);
@@ -75,6 +80,29 @@ namespace HideAndSeek.Game.MiniGames
         }
 
         string Prefix() => _host ? "a_" : "b_";
+
+        /// <summary>A real Esc key press through the Input System (as if typed).</summary>
+        static IEnumerator PressEscape()
+        {
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            if (kb == null) yield break;
+            UnityEngine.InputSystem.InputSystem.QueueStateEvent(kb, new UnityEngine.InputSystem.LowLevel.KeyboardState(UnityEngine.InputSystem.Key.Escape));
+            yield return null;
+            yield return null;
+            UnityEngine.InputSystem.InputSystem.QueueStateEvent(kb, new UnityEngine.InputSystem.LowLevel.KeyboardState());
+            yield return null;
+            yield return null;
+        }
+
+        /// <summary>Clicks "yes" in the open confirm dialog.</summary>
+        static bool ClickYes()
+        {
+            var d = FindFirstObjectByType<HideAndSeek.Game.UI.ConfirmDialog>();
+            if (d == null) return false;
+            foreach (var b in d.GetComponentsInChildren<UnityEngine.UI.Button>())
+                if (b.name == "Yes") { b.onClick.Invoke(); return true; }
+            return false;
+        }
 
         /// <summary>Plays this seat's moves of the script through virtual clicks when it is our turn.</summary>
         IEnumerator Play(ChessTable chess, int seat, string[] script, string tag)

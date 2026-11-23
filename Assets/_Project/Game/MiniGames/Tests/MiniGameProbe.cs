@@ -105,6 +105,32 @@ namespace HideAndSeek.Game.MiniGames
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(_dir, "fp_" + name + ".png"));
         }
 
+        /// <summary>
+        /// Spectator video (watcher with -mgvideo): numbered frames of the chess table from the side until the game
+        /// ends, then of the tic-tac-toe table until its second round ends (12 fps).
+        /// </summary>
+        IEnumerator WatchVideo(string dir, ChessTable chess, TttTable ttt)
+        {
+            string keep = _dir;
+            _dir = dir;
+            int n = 0;
+            float t0 = Time.unscaledTime;
+            while (Time.unscaledTime - t0 < 70f && !(chess.State.Phase == ChessState.Over && !chess.Animating && chess.State.Game >= 2))
+            {
+                Render($"w_{n++:00000}", chess.transform.TransformPoint(new Vector3(2.0f, 2.05f, -1.15f)), chess.transform.TransformPoint(new Vector3(0f, 0.85f, 0f)), 46f);
+                yield return new WaitForSecondsRealtime(1f / 12f);
+            }
+            for (float w = 0f; w < 20f && ttt.State.Phase != TttState.Playing; w += Time.unscaledDeltaTime) yield return null;
+            t0 = Time.unscaledTime;
+            while (Time.unscaledTime - t0 < 70f && !(ttt.State.Phase == TttState.Over && !ttt.Animating && ttt.State.Round >= 2))
+            {
+                Render($"w_{n++:00000}", ttt.transform.TransformPoint(new Vector3(1.9f, 2.0f, -1.1f)), ttt.transform.TransformPoint(new Vector3(0f, 0.85f, 0f)), 46f);
+                yield return new WaitForSecondsRealtime(1f / 12f);
+            }
+            Log($"watcher video frames={n}");
+            _dir = keep;
+        }
+
         /// <summary>Free camera render (what other players see) into side_NAME.png.</summary>
         void Render(string name, Vector3 from, Vector3 at, float fov = 45f)
         {
@@ -173,6 +199,8 @@ namespace HideAndSeek.Game.MiniGames
             yield return new WaitForSeconds(2f);
             Log($"watcher joined: chess phase={chess.State.Phase} ply={chess.State.Ply} fen={chess.Target.ToFen()} shown={chess.Shown.ToFen()}");
             Log($"watcher: ttt phase={ttt.State.Phase} cells={ttt.State.Cells} round={ttt.State.Round}");
+            string video = Arg("-mgvideo");
+            if (video != null) yield return WatchVideo(video, chess, ttt);
             RenderTable(chess, "watch_chess", new Vector3(1.4f, 1.45f, -1.2f));
             RenderTable(chess, "watch_chess_top", new Vector3(0.05f, 1.6f, -0.35f), 55f);
             RenderTable(ttt, "watch_ttt", new Vector3(1.3f, 1.4f, -1.1f));
