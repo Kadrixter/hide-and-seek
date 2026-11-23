@@ -12,11 +12,11 @@ namespace HideAndSeek.Game
         private void BuildShell(Transform root, int lv, float cx, float cz, float y0)
         {
             var wall = Surf.T(SecurityTextures.Kind.Concrete, 2.4f, 0.05f);
-            Box(root, "WallW", new Vector3(X0, y0 + Height * 0.5f, (Z0 + GarageWallZ) * 0.5f), new Vector3(Wall, Height, GarageWallZ - Z0), WallPaint, true, null, wall);
-            Box(root, "WallE", new Vector3(X1, y0 + Height * 0.5f, (Z0 + GarageWallZ) * 0.5f), new Vector3(Wall, Height, GarageWallZ - Z0), WallPaint, true, null, wall);
-            Box(root, "WallS1", new Vector3((X0 + DoorA) * 0.5f, y0 + Height * 0.5f, Z0), new Vector3(DoorA - X0, Height, Wall), WallPaint, true, null, wall);
-            Box(root, "WallS2", new Vector3((DoorB + X1) * 0.5f, y0 + Height * 0.5f, Z0), new Vector3(X1 - DoorB, Height, Wall), WallPaint, true, null, wall);
-            Box(root, "Lintel", new Vector3((DoorA + DoorB) * 0.5f, y0 + 2.1f + (Height - 2.1f) * 0.5f, Z0), new Vector3(DoorB - DoorA, Height - 2.1f, Wall), WallPaint, true, null, wall);
+            Box(root, "WallW", new Vector3(X0 + SkinInset * 0.5f, y0 + Height * 0.5f, (Z0 + GarageWallZ) * 0.5f), new Vector3(Wall - SkinInset, Height, GarageWallZ - Z0), WallPaint, true, null, wall);
+            Box(root, "WallE", new Vector3(X1 - SkinInset * 0.5f, y0 + Height * 0.5f, (Z0 + GarageWallZ) * 0.5f), new Vector3(Wall - SkinInset, Height, GarageWallZ - Z0), WallPaint, true, null, wall);
+            Box(root, "WallS1", new Vector3((X0 + DoorA) * 0.5f, y0 + Height * 0.5f, Z0 + SkinInset * 0.5f), new Vector3(DoorA - X0, Height, Wall - SkinInset), WallPaint, true, null, wall);
+            Box(root, "WallS2", new Vector3((DoorB + X1) * 0.5f, y0 + Height * 0.5f, Z0 + SkinInset * 0.5f), new Vector3(X1 - DoorB, Height, Wall - SkinInset), WallPaint, true, null, wall);
+            Box(root, "Lintel", new Vector3((DoorA + DoorB) * 0.5f, y0 + 2.1f + (Height - 2.1f) * 0.5f, Z0 + SkinInset * 0.5f), new Vector3(DoorB - DoorA, Height - 2.1f, Wall - SkinInset), WallPaint, true, null, wall);
             Box(root, "NorthLining", new Vector3(cx, y0 + Height * 0.5f, Z1 - 0.05f), new Vector3(X1 - X0, Height, 0.1f), new Color(0.3f, 0.32f, 0.3f), true, null, wall);
             Box(root, "Floor", new Vector3(cx, y0 + 0.02f, cz), new Vector3(X1 - X0, 0.04f, Z1 - Z0), new Color(0.5f, 0.52f, 0.5f), true, null, Surf.T(SecurityTextures.Kind.Linoleum, 1.6f, 0.25f));
             Box(root, "Baffle", new Vector3(DoorA - 0.1f, y0 + Height * 0.5f, Z0 + 1.4f), new Vector3(Wall, Height, 2.4f), WallPaint, true, null, wall);
@@ -42,6 +42,7 @@ namespace HideAndSeek.Game
                 for (int k = 0; k < 2; k++)
                     Prim(root, PrimitiveType.Cylinder, "Tube", f + new Vector3(0f, -0.05f, -0.07f + k * 0.14f), new Vector3(0.035f, 0.6f, 0.035f), new Color(0.55f, 0.56f, 0.55f), new Vector3(0f, 0f, 90f), false, Surf.Shiny(0.6f));
             }
+            BuildOutsideSkin(root, lv, y0);
         }
 
         // ================================================================ monitor wall

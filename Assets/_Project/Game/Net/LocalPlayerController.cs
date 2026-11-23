@@ -42,6 +42,7 @@ namespace HideAndSeek.Game.Net
         PhonePickup,    // E on a toy phone on the floor (hiders)
         PhoneStomp,     // F on a toy phone on the floor (seeker)
         PaMic,          // E on the public-address microphone hanging on its wall station
+        SecurityChair,  // E on a swivel chair in a security room
     }
 
     /// <summary>
@@ -271,11 +272,11 @@ namespace HideAndSeek.Game.Net
             bool rc = _p.RcAnimating;
             bool gasp = _p.Gasping;
             bool collapsed = _p.OverdoseActive; // lying after too many cans: the body drives the view (NetPlayer.Drunk)
-            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed;
+            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed && SecurityChairDriver.LocalChair < 0;
             bool poseWheel = PoseWheel.IsOpen; // pose wheel: the mouse points at a slice instead of turning the head
             _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel && !collapsed;
             var cc = _p.GetComponent<CharacterController>();
-            bool ccOn = !dead && _p.Seat.Value < 0;
+            bool ccOn = !dead && _p.Seat.Value < 0 && SecurityChairDriver.LocalChair < 0;
             if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;
             if (_p.Flashlight != null)
             {
@@ -306,6 +307,7 @@ namespace HideAndSeek.Game.Net
 
             // ---- public-address microphone in the hand: E hangs it back, LMB is the talk bar; nothing else meanwhile
             if (PaTick(kb)) { CancelHold(); return; }
+            if (ChairTick(kb)) { CancelHold(); return; }
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
@@ -677,6 +679,8 @@ namespace HideAndSeek.Game.Net
             // Public-address microphone on its wall station next to the elevators (any living player, one at a time).
             if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryPaPrompt(eye, fwd, out var paPos, out string paText, out float paD))
                 Offer(PromptKind.PaMic, paPos, paText, paD);
+            if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryChairPrompt(eye, fwd, out var chPos, out string chText, out float chD))
+                Offer(PromptKind.SecurityChair, chPos, chText, chD);
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -1044,6 +1048,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.PaMic:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) PaPromptE();
+                    break;
+                case PromptKind.SecurityChair:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ChairPromptE();
                     break;
             }
 

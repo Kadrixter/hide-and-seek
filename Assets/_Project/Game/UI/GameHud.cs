@@ -18,7 +18,7 @@ namespace HideAndSeek.Game
     /// In-session HUD (persistent): timer, player list (PlayerListHud), key hints (KeyHints), minimap, interaction prompts, blind / downed overlays,
     /// banners, toasts, Esc menu, lobby round-settings panel and spectator camera.
     /// </summary>
-    public class GameHud : MonoBehaviour
+    public partial class GameHud : MonoBehaviour
     {
         private static GameHud _instance;
 
@@ -692,12 +692,14 @@ namespace HideAndSeek.Game
             yield return new WaitForSeconds(2.2f);
             ShowVoiceMenu();
             yield return new WaitForSeconds(2.2f);
+            ShowGraphicsMenu();
+            yield return new WaitForSeconds(2.2f);
             CloseMenus();
         }
 
         private void ShowEscMenu()
         {
-            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 996 : 926));
+            _escMenu = MenuPanel("EscMenu", new Vector2(600, SteamService.InLobby ? 1066 : 996));
             var panel = _escMenu.Find("Panel");
             UiKit.Label("Title", panel, "MENU", 44, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(64);
             UiKit.Button("Resume", panel, "Wróć do gry", CloseMenus).Height(66);
@@ -710,6 +712,7 @@ namespace HideAndSeek.Game
                 UiKit.Button("Invite", panel, "Zaproś znajomych (Steam)", ShowInviteMenu, 28, new Color(0.13f, 0.32f, 0.16f)).Height(60);
             UiKit.Button("Audio", panel, "Dźwięk", ShowAudioMenu, 28).Height(60);
             UiKit.Button("Voice", panel, "Czat głosowy", ShowVoiceMenu, 28).Height(60);
+            UiKit.Button("Graphics", panel, "Grafika", ShowGraphicsMenu, 28).Height(60);
             UiKit.Button("PlayerVolumes", panel, "Głośność graczy", ShowPlayerVolumeMenu, 28).Height(60);
             bool isHost = NetworkManager.Singleton.IsServer;
             string leave = isHost ? "Zamknij serwer" : "Rozłącz";

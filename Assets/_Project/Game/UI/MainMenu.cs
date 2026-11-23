@@ -10,12 +10,12 @@ using UnityEngine.UI;
 namespace HideAndSeek.Game.UI
 {
     /// <summary>Main menu: nick + skin (live 3D preview), host, server browser with LAN search, join by IP, options.</summary>
-    public class MainMenu : MonoBehaviour
+    public partial class MainMenu : MonoBehaviour
     {
         [SerializeField] private Transform previewRoot;
 
         private Canvas _canvas;
-        private RectTransform _main, _browser, _options, _audio, _voicePage, _connecting;
+        private RectTransform _main, _browser, _options, _audio, _voicePage, _graphics, _connecting;
         private Text _message, _skinLabel, _serverList, _connectingText;
         private InputField _nick, _ip, _mcNick;
         private Text _mcStatus;
@@ -88,6 +88,7 @@ namespace HideAndSeek.Game.UI
             _options = BuildOptions(side.transform);
             _audio = BuildAudio(side.transform);
             _voicePage = BuildVoice(side.transform);
+            _graphics = BuildGraphics(side.transform);
             _connecting = BuildConnecting(root);
             Show(_main);
 
@@ -98,7 +99,7 @@ namespace HideAndSeek.Game.UI
         /// <summary>Test switch -testmenu: walks through the pages (for screenshots).</summary>
         private System.Collections.IEnumerator TestPages()
         {
-            foreach (var p in new[] { _main, _options, _audio, _voicePage, _main })
+            foreach (var p in new[] { _main, _options, _audio, _voicePage, _graphics, _main })
             {
                 Show(p);
                 yield return new WaitForSeconds(2.2f);
@@ -115,7 +116,7 @@ namespace HideAndSeek.Game.UI
 
         private void Show(RectTransform page)
         {
-            foreach (var p in new[] { _main, _browser, _options, _audio, _voicePage }) p.gameObject.SetActive(p == page);
+            foreach (var p in new[] { _main, _browser, _options, _audio, _voicePage, _graphics }) p.gameObject.SetActive(p == page);
             if (page == _browser) LanDiscovery.StartSearch();
             else LanDiscovery.StopSearch();
         }
@@ -207,6 +208,7 @@ namespace HideAndSeek.Game.UI
             SettingsUi.DiscordSwitch(page);
             UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 28).Height(60);
             UiKit.Button("Voice", page, "Czat głosowy", () => Show(_voicePage), 28).Height(60);
+            UiKit.Button("Graphics", page, "Grafika", () => Show(_graphics), 28).Height(60);
             UiKit.Rect("Gap", page).Height(20);
             UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_main); }, 28).Height(60);
             return page;

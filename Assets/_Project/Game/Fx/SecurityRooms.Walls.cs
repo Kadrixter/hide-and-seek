@@ -92,16 +92,6 @@ namespace HideAndSeek.Game
             Vector3 cork = new Vector3(X0 + 5.0f, y0 + 1.5f, Z0 + Wall * 0.5f + 0.015f);
             Box(root, "CorkBoard", cork, new Vector3(1.2f, 0.8f, 0.025f), new Color(0.9f, 0.9f, 0.9f), false, null, Surf.T(SecurityTextures.Kind.Cork, 0.6f));
             Box(root, "CorkFrame", cork + new Vector3(0f, 0f, -0.002f), new Vector3(1.26f, 0.86f, 0.02f), new Color(0.35f, 0.25f, 0.15f), false, null, Surf.T(SecurityTextures.Kind.Laminate, 0.5f, 0.3f));
-            var rnd = new System.Random(lv * 31 + 7);
-            for (int i = 0; i < 7; i++)
-            {
-                float x = -0.45f + (float)rnd.NextDouble() * 0.9f, y = -0.25f + (float)rnd.NextDouble() * 0.5f;
-                Vector3 np = cork + new Vector3(x, y, 0.016f);
-                var col = i % 3 == 0 ? new Color(0.95f, 0.85f, 0.35f) : new Color(0.9f, 0.9f, 0.86f);
-                Box(root, "Note", np, new Vector3(0.15f + (i % 2) * 0.06f, 0.2f, 0.002f), col, false, new Vector3(0f, 0f, (float)rnd.NextDouble() * 14f - 7f));
-                Prim(root, PrimitiveType.Sphere, "Pin", np + new Vector3(0f, 0.08f, 0.006f), Vector3.one * 0.014f, i % 2 == 0 ? new Color(0.8f, 0.1f, 0.1f) : new Color(0.1f, 0.3f, 0.8f));
-            }
-
             // Garage plan and calendar on the east wall (main room part).
             Sign(root, "Plan", new Vector3(eIn, y0 + 1.6f, cz + 1.6f), new Vector2(1.1f, 0.77f), west, _planTex);
             Box(root, "PlanBack", new Vector3(eIn + 0.004f, y0 + 1.6f, cz + 1.6f), new Vector3(0.006f, 0.81f, 1.14f), new Color(0.2f, 0.2f, 0.22f), false);

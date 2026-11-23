@@ -29,29 +29,24 @@ namespace HideAndSeek.Game
             }
 
             // Mugs (one with a chipped logo band), coffee inside.
-            Mug(root, new Vector3(cx - 3.3f, top, zFront + 0.12f), new Color(0.92f, 0.92f, 0.9f), new Color(0.15f, 0.3f, 0.6f), 30f);
-            Mug(root, new Vector3(cx + 1.75f, top, zBack), new Color(0.6f, 0.12f, 0.1f), new Color(0.95f, 0.95f, 0.95f), -70f);
+            MugModel(root, new Vector3(cx - 3.3f, top, zFront + 0.12f), new Color(0.92f, 0.92f, 0.9f), new Color(0.15f, 0.3f, 0.6f), 30f + lv * 40f);
+            MugModel(root, new Vector3(cx + 1.75f, top, zBack), new Color(0.6f, 0.12f, 0.1f), new Color(0.95f, 0.95f, 0.95f), -70f + lv * 25f);
 
             // Fast-food cup with a lid and a bent straw.
-            Vector3 cup = new Vector3(cx - 1.55f, top, zFront + 0.05f);
-            Prim(root, PrimitiveType.Cylinder, "Cup", cup + Vector3.up * 0.09f, new Vector3(0.09f, 0.09f, 0.09f), new Color(0.75f, 0.12f, 0.1f));
-            Prim(root, PrimitiveType.Cylinder, "CupStripe", cup + Vector3.up * 0.11f, new Vector3(0.092f, 0.02f, 0.092f), new Color(0.9f, 0.9f, 0.88f));
-            Prim(root, PrimitiveType.Cylinder, "CupLid", cup + Vector3.up * 0.185f, new Vector3(0.1f, 0.008f, 0.1f), new Color(0.85f, 0.85f, 0.87f), null, false, Surf.Shiny(0.5f));
-            Prim(root, PrimitiveType.Cylinder, "Straw", cup + new Vector3(0.012f, 0.25f, 0f), new Vector3(0.008f, 0.07f, 0.008f), new Color(1f, 0.85f, 0.2f), new Vector3(0f, 0f, -12f));
-            Prim(root, PrimitiveType.Cylinder, "StrawBend", cup + new Vector3(0.03f, 0.325f, 0f), new Vector3(0.008f, 0.025f, 0.008f), new Color(1f, 0.85f, 0.2f), new Vector3(0f, 0f, -60f));
+            CupModel(root, new Vector3(cx - 1.55f, top, zFront + 0.05f), new Color(0.75f, 0.12f, 0.1f), true);
 
             // Open donut box.
             Vector3 dbox = new Vector3(cx + 1.75f, top, zMid - 0.15f);
-            Box(root, "DonutBox", dbox + Vector3.up * 0.025f, new Vector3(0.38f, 0.05f, 0.3f), new Color(0.9f, 0.55f, 0.68f), false, new Vector3(0f, 12f, 0f));
+            var pink = new Color(0.9f, 0.55f, 0.68f);
+            var dq = Quaternion.Euler(0f, 12f, 0f);
+            Box(root, "DonutBox", dbox + Vector3.up * 0.002f, new Vector3(0.38f, 0.004f, 0.3f), pink, false, new Vector3(0f, 12f, 0f));
+            foreach (var (o, sz) in new[] { (new Vector3(0.188f, 0.025f, 0f), new Vector3(0.004f, 0.05f, 0.3f)), (new Vector3(-0.188f, 0.025f, 0f), new Vector3(0.004f, 0.05f, 0.3f)),
+                                             (new Vector3(0f, 0.025f, -0.148f), new Vector3(0.38f, 0.05f, 0.004f)), (new Vector3(0f, 0.025f, 0.148f), new Vector3(0.38f, 0.05f, 0.004f)) })
+                Box(root, "DonutBoxWall", dbox + dq * o, sz, pink * 0.95f, false, new Vector3(0f, 12f, 0f));
             Box(root, "DonutLid", dbox + new Vector3(-0.03f, 0.17f, 0.17f), new Vector3(0.38f, 0.3f, 0.01f), new Color(0.9f, 0.55f, 0.68f), false, new Vector3(-12f, 12f, 0f));
-            Color[] glaze = { new Color(0.4f, 0.22f, 0.1f), new Color(1f, 0.6f, 0.75f), new Color(0.95f, 0.9f, 0.8f) };
-            for (int i = 0; i < 2; i++)
-            {
-                Vector3 d = dbox + new Vector3(-0.08f + i * 0.13f, 0.06f, -0.03f + (i % 2) * 0.06f);
-                Prim(root, PrimitiveType.Cylinder, "Donut", d, new Vector3(0.09f, 0.015f, 0.09f), new Color(0.75f, 0.5f, 0.28f));
-                Prim(root, PrimitiveType.Cylinder, "Glaze", d + Vector3.up * 0.012f, new Vector3(0.08f, 0.004f, 0.08f), glaze[i], null, false, Surf.Shiny(0.6f));
-                Prim(root, PrimitiveType.Cylinder, "Hole", d + Vector3.up * 0.016f, new Vector3(0.025f, 0.004f, 0.025f), new Color(0.25f, 0.16f, 0.1f));
-            }
+            Color[] glaze = { new Color(0.32f, 0.17f, 0.08f), new Color(1f, 0.6f, 0.75f), new Color(0.95f, 0.9f, 0.8f) };
+            for (int i = 0; i < 3 - (lv == 2 ? 1 : 0); i++)
+                DonutModel(root, dbox + Quaternion.Euler(0f, 12f, 0f) * new Vector3(-0.115f + i * 0.115f, 0.004f, -0.03f + (i % 2) * 0.05f), glaze[i], i * 50f, i == 1);
 
             // Desk phone: wedge base, keypad, handset on the cradle, curly cord.
             Vector3 ph = new Vector3(cx + 3.0f, top, zBack);
@@ -112,24 +107,13 @@ namespace HideAndSeek.Game
             Prim(root, PrimitiveType.Cylinder, "FanCage", fan + new Vector3(0f, 0.25f, -0.025f), new Vector3(0.25f, 0.005f, 0.25f), new Color(0.65f, 0.65f, 0.65f), new Vector3(90f, 0f, 0f), false, Surf.Shiny(0.5f, 0.8f));
 
             // Energy-drink cans (one lying), pen pot.
-            Prim(root, PrimitiveType.Cylinder, "Can", new Vector3(cx + 2.65f, top + 0.06f, zBack), new Vector3(0.065f, 0.06f, 0.065f), new Color(0.12f, 0.55f, 0.18f), null, false, Surf.Shiny(0.6f, 0.7f));
-            Prim(root, PrimitiveType.Cylinder, "CanLying", new Vector3(cx + 2.85f, top + 0.033f, zBack + 0.1f), new Vector3(0.065f, 0.05f, 0.065f), new Color(0.12f, 0.55f, 0.18f), new Vector3(0f, 40f, 90f), false, Surf.Shiny(0.6f, 0.7f));
+            CanModel(root, new Vector3(cx + 2.65f, top, zBack), new Color(0.12f, 0.55f, 0.18f), 20f);
+            CanModel(root, new Vector3(cx + 2.8f, top, zBack + 0.08f), new Color(0.12f, 0.55f, 0.18f), 40f, true);
             Vector3 pot = new Vector3(cx - 2.85f, top, zBack - 0.15f);
             Prim(root, PrimitiveType.Cylinder, "PenPot", pot + Vector3.up * 0.05f, new Vector3(0.07f, 0.05f, 0.07f), new Color(0.2f, 0.2f, 0.22f), null, false, Surf.T(SecurityTextures.Kind.Metal, 0.1f, 0.4f, 0.8f));
             for (int i = 0; i < 4; i++)
                 Prim(root, PrimitiveType.Cylinder, "PotPen", pot + new Vector3(-0.015f + i * 0.01f, 0.12f, (i % 2) * 0.012f), new Vector3(0.007f, 0.07f, 0.007f),
                     i == 0 ? new Color(0.7f, 0.1f, 0.1f) : i == 1 ? new Color(0.1f, 0.2f, 0.7f) : new Color(0.1f, 0.1f, 0.1f), new Vector3(i * 6f - 9f, 0f, i * 5f - 7f));
-        }
-
-        private void Mug(Transform root, Vector3 at, Color body, Color band, float yaw)
-        {
-            Prim(root, PrimitiveType.Cylinder, "Mug", at + Vector3.up * 0.05f, new Vector3(0.08f, 0.05f, 0.08f), body, null, false, Surf.Shiny(0.55f));
-            Prim(root, PrimitiveType.Cylinder, "MugBand", at + Vector3.up * 0.065f, new Vector3(0.082f, 0.012f, 0.082f), band, null, false, Surf.Shiny(0.55f));
-            Prim(root, PrimitiveType.Cylinder, "Coffee", at + Vector3.up * 0.093f, new Vector3(0.07f, 0.003f, 0.07f), new Color(0.12f, 0.06f, 0.03f), null, false, Surf.Shiny(0.8f));
-            var q = Quaternion.Euler(0f, yaw, 0f);
-            Box(root, "MugHandleT", at + q * new Vector3(0.05f, 0.075f, 0f), new Vector3(0.025f, 0.01f, 0.012f), body, false, new Vector3(0f, yaw, 0f), Surf.Shiny(0.55f));
-            Box(root, "MugHandleB", at + q * new Vector3(0.05f, 0.03f, 0f), new Vector3(0.025f, 0.01f, 0.012f), body, false, new Vector3(0f, yaw, 0f), Surf.Shiny(0.55f));
-            Box(root, "MugHandleS", at + q * new Vector3(0.062f, 0.0525f, 0f), new Vector3(0.01f, 0.055f, 0.012f), body, false, new Vector3(0f, yaw, 0f), Surf.Shiny(0.55f));
         }
 
         private static Texture2D MakeKeyboardTexture()

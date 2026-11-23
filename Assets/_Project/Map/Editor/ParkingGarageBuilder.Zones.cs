@@ -51,8 +51,8 @@ namespace HideAndSeek.Map.Editor
             float y0 = FloorY(lv);
             LevelWall(lv, -26.2f, -26f, -6f, 6f);
             LevelWall(lv, -14f, -13.8f, -6f, 6f);
-            _decals[lv].FloorQuad(-26f, -14f, -6f, 6f, y0 + 0.004f, M("Tile_Wash"));
-            _decals[lv].FloorQuad(-20.2f, -19.8f, -5.5f, 5.5f, y0 + 0.007f, M("Grate"));
+            _decals[lv].FloorQuad(-26f, -14f, -6f, 6f, y0 + DecalY.Under, M("Tile_Wash"));
+            _decals[lv].FloorQuad(-20.2f, -19.8f, -5.5f, 5.5f, y0 + DecalY.Stain, M("Grate"));
             foreach (var (x, n) in new[] { (-26f, Vector3.right), (-14f, Vector3.left) })
             {
                 WallQuad(_walls[lv], new Vector3(x, y0 + 1.3f, 0) + n * 0.012f, n, 5.9f, 1.25f, M("Tile_Wash"));
@@ -60,11 +60,11 @@ namespace HideAndSeek.Map.Editor
             }
             foreach (var (x, n) in new[] { (-26.2f, Vector3.left), (-13.8f, Vector3.right) })
                 SignPlate(_signs[lv], new Vector3(x, y0 + 2.2f, 0), n, 2.4f, 0.4f, "CAR WASH", 0.24f, M("Sign_Blue"), M("Text_White"));
-            _decals[lv].Text("WASH", new Vector3(-20f, y0 + 0.012f, -7.6f), Vector3.up, Vector3.forward, 0.9f, M("Text_Floor"));
+            _decals[lv].Text("WASH", new Vector3(-20f, y0 + DecalY.Mark, -7.6f), Vector3.up, Vector3.forward, 0.9f, M("Text_Floor"));
             P(lv, _props.CarWashGantry(), "CarWashGantry", -20f, 1.8f, 0f);
             PlaceCar(lv, ParkedModel("Estate_1"), new Vector3(-20f, y0, 0f), Vector3.forward, 6f, "WASH", true, "CarPaint_Silver");
             for (int i = 0; i < 5; i++)
-                _decals[lv].FloorDecal(new Vector3(R(-25f, -15f), y0 + 0.014f, R(-5.5f, 5.5f)), new Vector3(R(-1, 1), 0, 1), R(1.5f, 3f), R(2f, 4f), M("Puddle"));
+                _decals[lv].FloorDecal(new Vector3(R(-25f, -15f), y0 + DecalY.Puddle, R(-5.5f, 5.5f)), new Vector3(R(-1, 1), 0, 1), R(1.5f, 3f), R(2f, 4f), M("Puddle"));
             P(lv, _props.PayMachine(), "WashTerminal", -27.2f, -6.8f, 180f);
             P(lv, _props.Drum("PM_Blue"), "Detergent", -12.8f, 6.5f, 0f);
             P(lv, _props.Drum("PM_Yellow"), "Detergent", -12.2f, 7.2f, 0f);
@@ -85,7 +85,7 @@ namespace HideAndSeek.Map.Editor
                 for (int i = 0; i < 16; i++)
                 {
                     float x = 9.5f + i * 1.2f;
-                    d.FloorQuad(x - 0.04f, x + 0.04f, zA, zB, y0 + 0.01f, M("Paint_Yellow"));
+                    d.FloorQuad(x - 0.04f, x + 0.04f, zA, zB, y0 + DecalY.Paint, M("Paint_Yellow"));
                     if (_rng.NextDouble() < 0.55)
                     {
                         float bx = x + 0.6f;
@@ -93,8 +93,8 @@ namespace HideAndSeek.Map.Editor
                         P(lv, _props.Motorbike(bikes[_rng.Next(bikes.Length)]), "Motorbike", bx, bz, (inward.z > 0 ? 0f : 180f) + R(-6f, 6f));
                     }
                 }
-                d.FloorQuad(9.5f - 0.04f + 16 * 1.2f, 9.5f + 0.04f + 16 * 1.2f, zA, zB, y0 + 0.01f, M("Paint_Yellow"));
-                d.Text("MOTO", new Vector3(19.1f, y0 + 0.012f, row == 0 ? -9.2f + 0.0f : 9.2f - 0.0f), Vector3.up, inward, 0.6f, M("Text_FloorYellow"));
+                d.FloorQuad(9.5f - 0.04f + 16 * 1.2f, 9.5f + 0.04f + 16 * 1.2f, zA, zB, y0 + DecalY.Paint, M("Paint_Yellow"));
+                d.Text("MOTO", new Vector3(19.1f, y0 + DecalY.Mark, row == 0 ? -9.2f + 0.0f : 9.2f - 0.0f), Vector3.up, inward, 0.6f, M("Text_FloorYellow"));
             }
             for (int r = 0; r < 4; r++)
             {
@@ -114,12 +114,12 @@ namespace HideAndSeek.Map.Editor
             P(lv, _props.BarrierGate(), "BarrierGate", 75.6f, -2.5f, 0f);
             P(lv, _props.BarrierGate(), "BarrierGate", 83.6f, 2.5f, 180f);
             var d = _decals[lv];
-            d.FloorQuad(75.5f, 80.5f, -3.1f, -2.9f, y0 + 0.01f, M("Paint_White"));
-            d.FloorQuad(78.6f, 83.6f, 2.9f, 3.1f, y0 + 0.01f, M("Paint_White"));
-            d.Text("STOP", new Vector3(78f, y0 + 0.012f, -4.5f), Vector3.up, Vector3.forward, 0.8f, M("Text_Floor"));
-            d.Text("STOP", new Vector3(81f, y0 + 0.012f, 4.5f), Vector3.up, Vector3.back, 0.8f, M("Text_Floor"));
-            d.FloorQuad(86.5f, 89.9f, -3.5f, 3.5f, y0 + 0.011f, M("Hatch_Yellow"));
-            d.Text("EXIT", new Vector3(84f, y0 + 0.012f, 0f), Vector3.up, Vector3.right, 0.9f, M("Text_Floor"));
+            d.FloorQuad(75.5f, 80.5f, -3.1f, -2.9f, y0 + DecalY.Paint, M("Paint_White"));
+            d.FloorQuad(78.6f, 83.6f, 2.9f, 3.1f, y0 + DecalY.Paint, M("Paint_White"));
+            d.Text("STOP", new Vector3(78f, y0 + DecalY.Mark, -4.5f), Vector3.up, Vector3.forward, 0.8f, M("Text_Floor"));
+            d.Text("STOP", new Vector3(81f, y0 + DecalY.Mark, 4.5f), Vector3.up, Vector3.back, 0.8f, M("Text_Floor"));
+            d.FloorQuad(86.5f, 89.9f, -3.5f, 3.5f, y0 + DecalY.Hatch, M("Hatch_Yellow"));
+            d.Text("EXIT", new Vector3(84f, y0 + DecalY.Mark, 0f), Vector3.up, Vector3.right, 0.9f, M("Text_Floor"));
             foreach (float z in new[] { -6f, -5f, 5f, 6f })
                 P(lv, _props.Bollard(), "Bollard", 86f, z, 0f);
         }
@@ -153,7 +153,7 @@ namespace HideAndSeek.Map.Editor
             col.transform.SetPositionAndRotation((pTop + pBot) * 0.5f - rot * Vector3.up * 0.15f, rot);
             col.AddComponent<BoxCollider>().size = new Vector3(2f, 0.3f, (pBot - pTop).magnitude + 0.1f);
             GameObjectUtility.SetStaticEditorFlags(col, DetailFlags);
-            _decals[lv].FloorQuad(-84f, -66f, zFront - 2.5f, zFront - 0.2f, y0 + 0.011f, M("Hatch_Yellow"));
+            _decals[lv].FloorQuad(-84f, -66f, zFront - 2.5f, zFront - 0.2f, y0 + DecalY.Hatch, M("Hatch_Yellow"));
             SignPlate(_signs[lv], new Vector3(-75f, y0 + 0.65f, zFront), Vector3.back, 2.6f, 0.3f, "LOADING DOCK", 0.18f, M("Sign_Yellow"), M("Text_Black"));
             float top = y0 + h;
             void D(PropMesh pm, string n, float x, float z, float yaw) =>
@@ -184,7 +184,7 @@ namespace HideAndSeek.Map.Editor
             P(lv, _props.Transformer(), "Transformer", 12f, -1f, 90f);
             P(lv, _props.Transformer(), "Transformer", 25.5f, -1f, 90f);
             P(lv, _props.Generator(), "Generator", 21f, -2.6f, 0f);
-            _decals[lv].FloorQuad(18f, 20f, -6.4f, -5f, y0 + 0.011f, M("Hatch_Yellow"));
+            _decals[lv].FloorQuad(18f, 20f, -6.4f, -5f, y0 + DecalY.Hatch, M("Hatch_Yellow"));
         }
 
         private void PalletStorage(int lv, float x0, float x1)
@@ -251,7 +251,7 @@ namespace HideAndSeek.Map.Editor
             }
             TarpCar(lv, 25f, 2.5f, 80f);
             SignPlate(_signs[lv], new Vector3(19f, y0 + 2.1f, -7.5f), Vector3.back, 2.4f, 0.4f, "DANGER", 0.24f, M("Sign_Red"), M("Text_White"));
-            _decals[lv].FloorDecal(new Vector3(19f, y0 + 0.016f, 0f), Vector3.forward, 14f, 10f, M("Flood_Water"));
+            _decals[lv].FloorDecal(new Vector3(19f, y0 + DecalY.Flood, 0f), Vector3.forward, 14f, 10f, M("Flood_Water"));
         }
 
         private void ConstructionRow(int lv)
@@ -266,7 +266,7 @@ namespace HideAndSeek.Map.Editor
             P(lv, _props.SackStack(), "Sacks", -70f, 17f, 0f);
             P(lv, _props.Rubble(3), "Rubble", -65.5f, 23f, 40f);
             P(lv, _props.Rubble(0), "Rubble", -50f, 16.8f, 0f);
-            _decals[lv].Text("CLOSED", new Vector3(-60f, y0 + 0.012f, 13.6f), Vector3.up, Vector3.forward, 0.9f, M("Text_FloorYellow"));
+            _decals[lv].Text("CLOSED", new Vector3(-60f, y0 + DecalY.Mark, 13.6f), Vector3.up, Vector3.forward, 0.9f, M("Text_FloorYellow"));
         }
 
         // ------------------------------------------------------------------ north zones (all levels)
@@ -282,7 +282,7 @@ namespace HideAndSeek.Map.Editor
                 TarpCar(lv, -72f, 56.2f, 95f);
                 P(lv, _props.Rubble(1), "Rubble", -67f, 58f, 0f);
                 P(lv, _props.Crate(1.0f), "Crate", -86.5f, 58.6f, 5f);
-                _decals[lv].FloorDecal(new Vector3(-76f, y0 + 0.016f, 54f), Vector3.right, 12f, 8f, M("Flood_Water"));
+                _decals[lv].FloorDecal(new Vector3(-76f, y0 + DecalY.Flood, 54f), Vector3.right, 12f, 8f, M("Flood_Water"));
             }
             // waste corner between the north lobby and the corridor
             P(lv, _props.WheelieBin("PM_Green"), "Bin", 7.2f, 58.9f, 10f);
@@ -346,7 +346,7 @@ namespace HideAndSeek.Map.Editor
                 P(lv, _props.Tank(), "Tank", -24f, 58.6f, 40f);
                 P(lv, _props.Pump(), "Pump", -17f, 58.9f, 0f);
                 P(lv, _props.Pump(), "Pump", -14f, 55f, 90f);
-                _decals[lv].FloorDecal(new Vector3(-22f, y0 + 0.016f, 55.5f), Vector3.right, 16f, 8f, M("Flood_Water"));
+                _decals[lv].FloorDecal(new Vector3(-22f, y0 + DecalY.Flood, 55.5f), Vector3.right, 16f, 8f, M("Flood_Water"));
             }
             // north-east open area
             if (lv == 0)
