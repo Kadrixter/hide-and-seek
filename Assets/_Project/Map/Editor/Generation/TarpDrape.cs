@@ -37,6 +37,7 @@ namespace HideAndSeek.Map.Editor
             }
         }
 
+        public static bool DebugLog;
         private readonly MeshCollider _car;
         private readonly TarpKind _kind;
         private readonly Spec _s;
@@ -77,6 +78,8 @@ namespace HideAndSeek.Map.Editor
             var r = new float[Dense, Cols];
             var edgeIdx = new int[Cols];
             var edgeY = new float[Cols];
+            var edgeRho = new float[Cols];
+            var carAll = new float[Dense, Cols];
             for (int j = 0; j < Cols; j++)
             {
                 float phi = j * Mathf.PI * 2f / Cols;
@@ -97,17 +100,35 @@ namespace HideAndSeek.Map.Editor
                     {
                         rho[i] = car[i] * h;
                         ys[i] = _o.y + car[i] * dw.y;
-                        if (rho[i] > rhoEdge) { rhoEdge = rho[i]; yEdge = ys[i]; iEdge = i; }
+                        // widest point of the body below the window line (a mirror up at 1 m is not where the skirt hangs from)
+                        if (rho[i] > rhoEdge && ys[i] < 0.85f) { rhoEdge = rho[i]; yEdge = ys[i]; iEdge = i; }
                     }
                 }
                 edgeIdx[j] = iEdge;
                 edgeY[j] = yEdge;
+                edgeRho[j] = rhoEdge;
+                for (int i = 0; i < Dense; i++) carAll[i, j] = car[i];
+            }
+            // The skirt hangs from the body line, not from a mirror caught by a few slices only (that made a vertical
+            // fin with a dark slot beside it): the hang distance is the median of the neighbouring slices; the mirror
+            // itself stays covered (support + dilation below) and the sheet runs from it diagonally to the hem.
+            var rawRho = (float[])edgeRho.Clone();
+            var win = new List<float>();
+            for (int j = 0; j < Cols; j++)
+            {
+                win.Clear();
+                for (int k = -7; k <= 7; k++) win.Add(rawRho[(j + k + Cols) % Cols]);
+                win.Sort();
+                edgeRho[j] = Mathf.Min(rawRho[j], win[win.Count / 2] + 0.02f);
+            }
+            for (int j = 0; j < Cols; j++)
+            {
                 for (int i = 0; i < Dense; i++)
                 {
                     var dw = dirs[i, j];
                     float h = Mathf.Max(1e-3f, new Vector2(dw.x, dw.z).magnitude);
-                    float s = car[i] > 0f ? car[i] + _s.Clear : 0f;
-                    if (i > iEdge) s = Mathf.Max(s, (rhoEdge + _s.Clear) / h);
+                    float s = carAll[i, j] > 0f ? carAll[i, j] + _s.Clear : 0f;
+                    if (i > edgeIdx[j]) s = Mathf.Max(s, (edgeRho[j] + _s.Clear) / h);
                     sup[i, j] = s;
                 }
                 // taut cloth: convex hull of the slice outline, partly sagging back into the hollows
@@ -119,7 +140,16 @@ namespace HideAndSeek.Map.Editor
             var dil = (float[,])sup.Clone();
             for (int i = 0; i < Dense; i++)
             for (int j = 0; j < Cols; j++)
-                sup[i, j] = Mathf.Max(dil[i, j], Mathf.Max(dil[i, (j + 1) % Cols], dil[i, (j + Cols - 1) % Cols]) - 0.01f);
+            {
+                // the neighbour's support point projected on this ray (same radius along a different direction would
+                // stick out sideways where the slices fan out fast - that made a fin next to the mirror)
+                // stick out sideways where the slices fan out fast - that made a fin next to the mirror); only real hits
+                // of the car, not the hanging line of the neighbour (its skirt is that slice's own business)
+                int na = (j + 1) % Cols, nb = (j + Cols - 1) % Cols;
+                float ca = carAll[i, na] > 0f ? carAll[i, na] + _s.Clear : 0f, cb = carAll[i, nb] > 0f ? carAll[i, nb] + _s.Clear : 0f;
+                float pa = Vector3.Dot(dirs[i, na] * ca, dirs[i, j]), pb = Vector3.Dot(dirs[i, nb] * cb, dirs[i, j]);
+                sup[i, j] = Mathf.Max(dil[i, j], Mathf.Max(pa, pb) - 0.01f);
+            }
             for (int i = 0; i < Dense; i++)
             for (int j = 0; j < Cols; j++)
                 r[i, j] = Mathf.Max(r[i, j], sup[i, j]);
@@ -130,7 +160,9 @@ namespace HideAndSeek.Map.Editor
                 for (int i = 0; i < Dense; i++)
                 for (int j = 0; j < Cols; j++)
                 {
-                    float avg = 0.25f * copy[i, (j + Cols - 1) % Cols] + 0.5f * copy[i, j] + 0.25f * copy[i, (j + 1) % Cols];
+                    int ja = (j + Cols - 1) % Cols, jb = (j + 1) % Cols;
+                    // neighbours' points projected on this ray (radii along other directions are not comparable)
+                    float avg = 0.25f * Vector3.Dot(dirs[i, ja], dirs[i, j]) * copy[i, ja] + 0.5f * copy[i, j] + 0.25f * Vector3.Dot(dirs[i, jb], dirs[i, j]) * copy[i, jb];
                     r[i, j] = Mathf.Max(sup[i, j], avg);
                 }
             }
@@ -142,9 +174,25 @@ namespace HideAndSeek.Map.Editor
                     r[i, j] = Mathf.Max(sup[i, j], 0.25f * copy[i - 1, j] + 0.5f * copy[i, j] + 0.25f * copy[i + 1, j]);
             }
 
+            // Cloth never tucks back under an overhang (mirror, bumper lip): below the widest point so far the sheet
+            // may come back in only along a steep slope, so there is no dark pocket under a covered mirror.
+            for (int j = 0; j < Cols; j++)
+            {
+                float mx = 0f, yMx = 0f;
+                for (int i = 0; i < Dense; i++)
+                {
+                    var dw = dirs[i, j];
+                    float h = Mathf.Max(1e-3f, new Vector2(dw.x, dw.z).magnitude);
+                    float rho = r[i, j] * h, y = _o.y + r[i, j] * dw.y;
+                    float need = mx - 0.55f * Mathf.Max(0f, yMx - y);
+                    if (rho < need) { r[i, j] = need / h; rho = need; y = _o.y + r[i, j] * dw.y; }
+                    if (rho >= mx) { mx = rho; yMx = y; }
+                }
+            }
             // dense points + folds below the widest point
             var dense = new Vector3[Dense, Cols];
-            var edgeArc = EdgeArc(dirs, r, edgeIdx);
+            var edgeArc = EdgeArc(dirs, r, edgeIdx, out float perim);
+            float folds = Mathf.Max(1f, Mathf.Round(perim / _s.FoldWave));
             for (int j = 0; j < Cols; j++)
             {
                 var hd = new Vector3(dirs[0, j].x, 0f, dirs[0, j].z);
@@ -157,14 +205,24 @@ namespace HideAndSeek.Map.Editor
                     if (i > edgeIdx[j] && below > 0f)
                     {
                         float k = Mathf.Clamp01(below / 0.55f);
-                        float wave = Mathf.Sin((edgeArc[j] / _s.FoldWave + Noise(edgeArc[j] * 1.7f, 3.1f) * 1.6f) * Mathf.PI * 2f);
-                        float amp = _s.FoldAmp * Mathf.Pow(k, 1.2f) * (0.6f + 0.8f * Noise(edgeArc[j] * 0.9f, 7.7f + phase));
+                        // all round the car: a whole number of folds and noise on a circle, so the column where the
+                        // sheet closes (seam) has no step
+                        float a = edgeArc[j] / perim * Mathf.PI * 2f;
+                        float wave = Mathf.Sin(a * folds + RingNoise(a, perim / 3.7f, 3.1f) * 1.6f * Mathf.PI * 2f);
+                        float amp = _s.FoldAmp * Mathf.Pow(k, 1.2f) * (0.6f + 0.8f * RingNoise(a, perim / 7f, 7.7f + phase));
                         p += hd * (amp * wave + _s.Flare * k);
                     }
                     dense[i, j] = p;
                 }
             }
             Resample(dense, edgeArc);
+            if (DebugLog)
+            {
+                var sb = new System.Text.StringBuilder($"[TarpDrape] {_kind} columns (j: rawEdge/edge edgeY | hem xz | mid xyz):" + "\n");
+                for (int j = 0; j < Cols; j++)
+                    sb.Append($"{j}: {rawRho[j]:0.00}/{edgeRho[j]:0.00} {edgeY[j]:0.00} | {P[Rows - 1, j].x:0.00},{P[Rows - 1, j].z:0.00} | {P[Rows / 2, j].x:0.00},{P[Rows / 2, j].y:0.00},{P[Rows / 2, j].z:0.00}" + "\n");
+                Debug.Log(sb.ToString());
+            }
             Wrinkle();
             if (!float.IsNaN(CutZ)) TarpCut();
         }
@@ -228,7 +286,7 @@ namespace HideAndSeek.Map.Editor
         }
 
         /// <summary>Arc length round the car at the widest point of every slice (fold phase).</summary>
-        private float[] EdgeArc(Vector3[,] dirs, float[,] r, int[] edgeIdx)
+        private float[] EdgeArc(Vector3[,] dirs, float[,] r, int[] edgeIdx, out float perimeter)
         {
             var arc = new float[Cols];
             Vector3 prev = _o + dirs[edgeIdx[0], 0] * r[edgeIdx[0], 0];
@@ -240,10 +298,17 @@ namespace HideAndSeek.Map.Editor
                 arc[j] = arc[j - 1] + Vector3.Distance(prev, p);
                 prev = p;
             }
+            Vector3 first = _o + dirs[edgeIdx[0], 0] * r[edgeIdx[0], 0];
+            first.y = 0f;
+            perimeter = Mathf.Max(0.5f, arc[Cols - 1] + Vector3.Distance(prev, first));
             return arc;
         }
 
         private float Noise(float x, float y) => Mathf.PerlinNoise(x + _noiseSeed, y + _noiseSeed * 0.37f);
+
+        /// <summary>Noise round a closed loop (angle in radians): the same value at 0 and 2 pi.</summary>
+        private float RingNoise(float angle, float radius, float salt) =>
+            Mathf.PerlinNoise(Mathf.Cos(angle) * radius + _noiseSeed + salt, Mathf.Sin(angle) * radius + _noiseSeed * 0.37f + salt * 1.9f);
 
         private float HemAt(Vector3 p)
         {
@@ -251,7 +316,7 @@ namespace HideAndSeek.Map.Editor
             float cx = Mathf.Abs(p.x - _o.x) / _ax, cz = Mathf.Abs(p.z - _o.z) / _az;
             float corner = Mathf.Pow(Mathf.Clamp01(Mathf.Min(cx, cz) * 1.35f), 2.5f);
             float ang = Mathf.Atan2(p.z - _o.z, p.x - _o.x);
-            return _s.Hem - _s.HemCorner * corner + (Noise(ang * 2.3f, 1.3f) - 0.5f) * 2f * _s.HemNoise;
+            return _s.Hem - _s.HemCorner * corner + (RingNoise(ang, 2.3f, 1.3f) - 0.5f) * 2f * _s.HemNoise;
         }
 
         /// <summary>Cuts every slice at its hem (cloth beyond the floor lies flat outwards) and resamples by arc length.</summary>
@@ -377,6 +442,25 @@ namespace HideAndSeek.Map.Editor
                 Vector3 fn = Vector3.Cross(v[c] - v[a], v[d] - v[b]);
                 if (Vector3.Dot(fn, nn[a] + nn[b] + nn[c] + nn[d]) > 0f) { list.Add(a); list.Add(b); list.Add(c); list.Add(a); list.Add(c); list.Add(d); }
                 else { list.Add(a); list.Add(c); list.Add(b); list.Add(a); list.Add(d); list.Add(c); }
+            }
+            // inner side (seen under the hem, in the pocket under a mirror): the same sheet facing in, a hair inside,
+            // so a folded-back part never shows a hole
+            int n0 = v.Count;
+            for (int k = 0; k < n0; k++)
+            {
+                v.Add(v[k] - nn[k] * 0.002f);
+                nn.Add(-nn[k]);
+                uv.Add(uv[k]);
+            }
+            foreach (var list in new[] { main, hem })
+            {
+                int count = list.Count;
+                for (int k = 0; k < count; k += 3)
+                {
+                    list.Add(list[k] + n0);
+                    list.Add(list[k + 2] + n0);
+                    list.Add(list[k + 1] + n0);
+                }
             }
             var mesh = new Mesh { name = name };
             mesh.indexFormat = v.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
