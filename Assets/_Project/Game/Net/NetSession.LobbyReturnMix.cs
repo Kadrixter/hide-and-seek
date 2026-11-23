@@ -74,7 +74,7 @@ namespace HideAndSeek.Game.Net
                 float took = Time.realtimeSinceStartup - t0;
                 yield return new WaitForSeconds(2.5f);
                 string state = LobbyViewState();
-                bool bad = !state.Contains("screen cameras 1 ") || state.Contains("listeners 0") || state.Contains("NONE");
+                bool bad = state.Contains("screen cameras 0 ") || state.Contains("listeners 0") || state.Contains("NONE") || state.Contains("own cam=False");
                 Debug.Log($"[LobbyView] {LvNick} round {round} lobby (+{took:0.0} s after the end screen shot): {state}{(bad ? " - SUSPECT" : "")}");
                 Shot(dir, $"{LvNick}_r{round}_b_lobby");
             }
