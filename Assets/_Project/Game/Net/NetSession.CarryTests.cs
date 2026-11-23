@@ -83,6 +83,25 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(0.3f);
             if (!string.IsNullOrEmpty(dir)) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "1_fpp_ahead.png"));
 
+            // Bleed-out clock stands still while carried.
+            float left0 = t.BleedPausedLeft.Value;
+            yield return new WaitForSeconds(2f);
+            Debug.Log($"[CarryTest] bleed paused: {t.BleedPaused} left {left0:0.0} -> {t.BleedPausedLeft.Value:0.0} (2 s later), shown {t.BleedLeftNow:0.0}");
+
+            // Turning: a quick mouse flick of 120 deg, the body follows slowly (view ahead of it).
+            float y0 = me.transform.eulerAngles.y;
+            Vector3 focusFix = me.transform.position + Vector3.up * 0.95f;
+            Vector3 camFix = me.transform.right * 2.8f + me.transform.forward * 1.5f + Vector3.up * 0.7f;
+            me.Motor.SetLook(y0 + 120f, me.Motor.LookPitch);
+            StartCoroutine(SideBurst(dir, "1_turn", () => focusFix, () => camFix, 10, 0.2f));
+            for (int i = 0; i < 6; i++)
+            {
+                yield return new WaitForSeconds(0.4f);
+                var turn = me.GetComponent<CarryTurn>();
+                Debug.Log($"[CarryTest] turn +{(i + 1) * 0.4f:0.0} s: body {Mathf.DeltaAngle(y0, me.transform.eulerAngles.y):0} deg, view ahead {(turn != null ? turn.Offset : 0f):0} deg");
+            }
+            yield return new WaitForSeconds(0.6f);
+
             // Walk (slow, no run) a few metres.
             me.Motor.CommandProvider = () => new MotorCommand { Move = new Vector2(0f, 1f), Run = true };
             StartCoroutine(SideBurst(dir, "1_walk", focus, side, 10, 0.2f));
@@ -135,6 +154,42 @@ namespace HideAndSeek.Game.Net
             yield return WaitCarry(me, false, 9f);
             yield return new WaitForSeconds(1.2f);
             CarryLog("after conscious carry", me, t);
+
+            // ---- 4: another hider carries the downed one, we treat him in the arms (needs a 4th instance)
+            NetPlayer u = null;
+            foreach (var p in NetPlayer.All) if (p != null && p != me && p != t && p.IsHider) u = p;
+            if (u != null)
+            {
+                mm.TestDown(t);
+                yield return new WaitForSeconds(2.0f);
+                Vector3 tp = t.transform.position;
+                u.TeleportRpc(tp + t.transform.right * 1.0f, t.transform.eulerAngles.y - 90f);
+                me.TeleportLocal(tp + t.transform.right * 1.0f + t.transform.forward * 2.4f, t.transform.eulerAngles.y + 180f);
+                yield return new WaitForSeconds(1.0f);
+                u.ServerStartCarry(t); // consent skipped (tested above)
+                yield return new WaitForSeconds(BodyCarryTimeline.LiftFloor + 1.0f);
+                Debug.Log($"[CarryTest] 4 carried by {(t.CarriedBy != null ? t.CarriedBy.Nick : "-")}, bleed paused {t.BleedPaused}");
+                me.MedkitCount.Value = 1;
+                Vector3 look = t.ChestPosition - me.EyePosition;
+                me.Motor.SetLook(Quaternion.LookRotation(new Vector3(look.x, 0f, look.z)).eulerAngles.y, -15f);
+                yield return new WaitForSeconds(0.5f);
+                Func<Vector3> hf = () => t.ChestPosition;
+                Func<Vector3> hs = () => Vector3.Cross(Vector3.up, (me.transform.position - u.transform.position).normalized) * 2.6f + Vector3.up * 0.6f;
+                LocalPlayerController.TestCarryHeal = true;
+                StartCoroutine(SideBurst(dir, "4_heal", hf, hs, 14, 0.4f));
+                yield return new WaitForSeconds(2.5f);
+                Debug.Log($"[CarryTest] 4 healing: target={me.CarryHealTarget.Value} progress={me.CarryHealProgress.Value} carrierSpeed={u.CarrySpeedScale:0.00} locked={u.CarryTurnLocked}");
+                if (!string.IsNullOrEmpty(dir)) ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, "4_heal_fpp.png"));
+                yield return new WaitForSeconds(BodyCarryTimeline.HealTime - 2.5f + 1.0f);
+                LocalPlayerController.TestCarryHeal = false;
+                Debug.Log($"[CarryTest] 4 after heal: life={t.Life.Value} wounded={t.Wounded.Value} medkits={me.MedkitCount.Value} carriedBy={(t.CarriedBy != null ? t.CarriedBy.Nick : "-")} bleedPaused={t.BleedPaused}");
+                yield return new WaitForSeconds(1.5f);
+                yield return SideBurst(dir, "4_awake", hf, hs, 1, 0.05f);
+                u.RequestCarryPutDownRpc();
+                yield return new WaitForSeconds(BodyCarryTimeline.PutDownStanding + 1.5f);
+                Debug.Log($"[CarryTest] 4 put down: carriedBy={(t.CarriedBy != null ? t.CarriedBy.Nick : "-")} life={t.Life.Value}");
+            }
+            else Debug.Log("[CarryTest] 4 skipped (no third hider)");
             Debug.Log("[CarryTest] done");
         }
 

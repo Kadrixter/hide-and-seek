@@ -40,6 +40,7 @@ namespace HideAndSeek.Game.Net
             bool space = kb.spaceKey.wasPressedThisFrame || TestCarrySpace;
             TestCarryB = TestCarrySpace = false;
 
+            if ((_p.IsCarryingBody || _p.BodyCarriedNow) && _p.HealingCarried) StopCarryHeal();
             if (_p.IsCarryingBody)
             {
                 _carryCandidate = null;
@@ -63,6 +64,10 @@ namespace HideAndSeek.Game.Net
                 return true;
             }
 
+            // H held on a carried player (medkit): treat him in the carrier's arms.
+            if (CarryHealTick(kb)) { _carryCandidate = null; return true; }
+            bool healHint = !string.IsNullOrEmpty(CarryConsentPrompt.Hint);
+
             // B held on an injured hider: ask him.
             _carryCandidate = FindCarryCandidate(phase);
             if (_carryCandidate == null) { _carryHold = 0f; _carrySent = false; return false; }
@@ -70,8 +75,11 @@ namespace HideAndSeek.Game.Net
             if (b && !held) { _carryHold = CarryHoldTime; } // test press
             else if (held) _carryHold += Time.deltaTime;
             else { _carryHold = 0f; _carrySent = false; }
-            CarryConsentPrompt.Hint = $"<color=#ffd27a>B</color>  przytrzymaj - podnieś na ręce ({_carryCandidate.Nick})";
-            CarryConsentPrompt.HintProgress = _carryHold / CarryHoldTime;
+            if (!healHint || _carryHold > 0f)
+            {
+                CarryConsentPrompt.Hint = $"<color=#ffd27a>B</color>  przytrzymaj - podnieś na ręce ({_carryCandidate.Nick})";
+                CarryConsentPrompt.HintProgress = _carryHold / CarryHoldTime;
+            }
             if (_carryHold >= CarryHoldTime && !_carrySent)
             {
                 _carrySent = true;

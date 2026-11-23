@@ -22,6 +22,7 @@ namespace HideAndSeek.Characters
         float bodyOutW;
         CharacterPose bodyOutPose;
         float bodyDynY, bodyDynVel, bodyLegPh, bodyGruntT;
+        float bodyAwakeW = -1f, bodyHealW;
         bool bodyDynInit;
 
         /// <summary>This character carries somebody (also during lift / put down / drop).</summary>
@@ -43,6 +44,8 @@ namespace HideAndSeek.Characters
             bodyHasLast = bodyHasFrom = false;
             bodyDynInit = false;
             bodyOutW = 0f;
+            bodyAwakeW = -1f;
+            bodyHealW = 0f;
             bodyGruntT = state.Phase == BodyCarryPhase.Lift ? state.Time : 99f;
             carried.AttachBodyCarried(state);
         }
@@ -64,6 +67,7 @@ namespace HideAndSeek.Characters
         /// <summary>Called from <see cref="ApplyLayer"/> before the additive flinches: both sides of the carry.</summary>
         void ApplyBodyCarryLayers(ref CharacterPose p, float dt)
         {
+            ApplyCarryHealer(ref p, dt);
             ApplyBodyCarrier(ref p, dt);
             ApplyBodyCarried(ref p, dt);
         }
@@ -75,7 +79,7 @@ namespace HideAndSeek.Characters
             {
                 if (bodyOutW > 0f)
                 {
-                    bodyOutW = Mathf.Max(0f, bodyOutW - dt / 0.6f);
+                    bodyOutW = Mathf.Max(0f, bodyOutW - dt / 1.0f); // standing up from the kneel: no hurry
                     var keep = p.PropR;
                     p = CharacterPose.Lerp(p, bodyOutPose, ActionTimeline.SmoothStep01(bodyOutW));
                     p.PropR = keep;
@@ -93,9 +97,12 @@ namespace HideAndSeek.Characters
 
             bool mir = st.Mirror;
             var cb = mir ? BodyCarryPoses.Mirror(p) : p; // canonical base (locomotion + whatever was on it)
-            float t = st.Time;
+            float t = BodyCarryTimeline.KeyTime(st.Phase, st.Time, st.FromFloor, st.EndStanding); // the same keys, played calmly
             float speed = animator != null && animator.Source != null ? Mathf.Max(0f, animator.Source.HorizontalSpeed) : 0f;
             bodyLegPh += dt * (1.2f + speed * 2.6f);
+            float awake = st.Conscious ? 1f : 0f;
+            bodyAwakeW = bodyAwakeW < 0f ? awake : Mathf.MoveTowards(bodyAwakeW, awake, dt / 1.4f); // waking up in the arms: slowly
+            bodyHealW = Mathf.MoveTowards(bodyHealW, st.HealT >= 0f ? 1f : 0f, dt / 0.5f);
             float legSway = 7f * Mathf.Sin(bodyLegPh) * Mathf.Clamp01(speed / 1.4f) + 2f * Mathf.Sin(time * 1.3f);
 
             CharacterPose kc, cc;
@@ -203,13 +210,11 @@ namespace HideAndSeek.Characters
             }
             float bounce = Mathf.Clamp(bodyDynY - y, -0.045f, 0.045f);
             var cr = BodyCarryPoses.Hold;
-            if (bodyCarrying != null && bodyCarrying.Conscious)
-            {
-                // Awake: sits up more in the arms (and can reach round the neck).
-                cr.Rise += 13f;
-                cr.Curl += 4f;
-                cr.Pelvis += new Vector3(0.02f, 0.03f, -0.02f);
-            }
+            float aw = ActionTimeline.SmoothStep01(Mathf.Max(0f, bodyAwakeW));
+            // Awake: sits up more in the arms (and can reach round the neck).
+            cr.Rise += 13f * aw;
+            cr.Curl += 4f * aw;
+            cr.Pelvis += new Vector3(0.02f, 0.03f, -0.02f) * aw;
             cr.Pelvis.y += bounce;
             cr.Curl += 1.6f * Mathf.Sin(breathPhase * 0.9f + 2f); // the carried breathes too (slower, shallow)
             cr.Swing = -bounce * 260f;
@@ -243,7 +248,7 @@ namespace HideAndSeek.Characters
             else
             {
                 var h = HoldCarried(hold, legSway, 0f);
-                cc = CharacterPose.Lerp(BodyCarryPoses.CradlePose(BodyCarryPoses.Mid), h, Back(ActionTimeline.Remap01(t, 1.0f, BodyCarryTimeline.LiftFloor)));
+                cc = CharacterPose.Lerp(BodyCarryPoses.CradlePose(BodyCarryPoses.Mid), h, Back(ActionTimeline.Remap01(t, 1.0f, BodyCarryTimeline.KeyLiftFloor)));
             }
 
             if (t < 0.3f) kc = CharacterPose.Lerp(cb, BodyCarryPoses.Stoop(), S(t, 0f, 0.3f));
@@ -256,9 +261,9 @@ namespace HideAndSeek.Characters
                 float shake = Mathf.Sin(time * 47f) * 0.6f * Mathf.Sin(x * Mathf.PI);
                 kc.Torso = kc.Torso * Quaternion.Euler(shake, 0f, shake * 0.5f);
             }
-            else kc = CharacterPose.Lerp(BodyCarryPoses.Rise(1f), hold, S(t, 1.0f, BodyCarryTimeline.LiftFloor));
+            else kc = CharacterPose.Lerp(BodyCarryPoses.Rise(1f), hold, S(t, 1.0f, BodyCarryTimeline.KeyLiftFloor));
             ikW = S(t, 0.14f, 0.42f);
-            detailW = S(t, 0.95f, BodyCarryTimeline.LiftFloor);
+            detailW = S(t, 0.95f, BodyCarryTimeline.KeyLiftFloor);
         }
 
         void LiftStanding(BodyCarryState st, in CharacterPose cb, float t, float legSway,
@@ -272,13 +277,13 @@ namespace HideAndSeek.Characters
             var hold = HoldCarrier(cb);
             if (t < 0.35f) cc = CharacterPose.Lerp(s, lean, S(t, 0f, 0.35f));
             else if (t < 0.75f) cc = CharacterPose.Lerp(lean, BodyCarryPoses.CradlePose(mid), S(t, 0.35f, 0.75f));
-            else cc = CharacterPose.Lerp(BodyCarryPoses.CradlePose(mid), HoldCarried(hold, legSway, 0f), Back(ActionTimeline.Remap01(t, 0.75f, BodyCarryTimeline.LiftStanding)));
+            else cc = CharacterPose.Lerp(BodyCarryPoses.CradlePose(mid), HoldCarried(hold, legSway, 0f), Back(ActionTimeline.Remap01(t, 0.75f, BodyCarryTimeline.KeyLiftStanding)));
 
             if (t < 0.35f) kc = CharacterPose.Lerp(cb, BodyCarryPoses.Dip(1f), S(t, 0f, 0.35f));
             else if (t < 0.75f) kc = CharacterPose.Lerp(BodyCarryPoses.Dip(1f), BodyCarryPoses.Dip(0.35f), S(t, 0.35f, 0.75f));
-            else kc = CharacterPose.Lerp(BodyCarryPoses.Dip(0.35f), hold, S(t, 0.75f, BodyCarryTimeline.LiftStanding));
+            else kc = CharacterPose.Lerp(BodyCarryPoses.Dip(0.35f), hold, S(t, 0.75f, BodyCarryTimeline.KeyLiftStanding));
             ikW = S(t, 0.08f, 0.32f);
-            detailW = S(t, 0.7f, BodyCarryTimeline.LiftStanding);
+            detailW = S(t, 0.7f, BodyCarryTimeline.KeyLiftStanding);
         }
 
         void PutDown(BodyCarryState st, in CharacterPose cb, float t, float legSway,
@@ -291,8 +296,8 @@ namespace HideAndSeek.Characters
             {
                 var end = EndCanonical(st, BodyCarryPoses.StandRest());
                 var lean = BodyCarryPoses.LeanBack(new Vector3(end.PelvisPos.x, 0f, end.PelvisPos.z), 26f);
-                cc = t < 0.45f ? CharacterPose.Lerp(fromC, lean, S(t, 0f, 0.45f)) : CharacterPose.Lerp(lean, end, S(t, 0.45f, BodyCarryTimeline.PutDownStanding));
-                kc = t < 0.45f ? CharacterPose.Lerp(fromK, BodyCarryPoses.Dip(0.8f), S(t, 0f, 0.45f)) : CharacterPose.Lerp(BodyCarryPoses.Dip(0.8f), cb, S(t, 0.45f, BodyCarryTimeline.PutDownStanding));
+                cc = t < 0.45f ? CharacterPose.Lerp(fromC, lean, S(t, 0f, 0.45f)) : CharacterPose.Lerp(lean, end, S(t, 0.45f, BodyCarryTimeline.KeyPutDownStanding));
+                kc = t < 0.45f ? CharacterPose.Lerp(fromK, BodyCarryPoses.Dip(0.8f), S(t, 0f, 0.45f)) : CharacterPose.Lerp(BodyCarryPoses.Dip(0.8f), cb, S(t, 0.45f, BodyCarryTimeline.KeyPutDownStanding));
                 ikW = 1f - S(t, 0.42f, 0.8f);
             }
             else
@@ -302,10 +307,10 @@ namespace HideAndSeek.Characters
                 low.Pelvis = new Vector3(end.PelvisPos.x, low.Pelvis.y, end.PelvisPos.z);
                 if (t < 0.4f) cc = CharacterPose.Lerp(fromC, BodyCarryPoses.CradlePose(BodyCarryPoses.Mid), S(t, 0f, 0.4f));
                 else if (t < 0.8f) cc = BodyCarryPoses.CradlePose(BodyCarryPoses.Cradle.Lerp(BodyCarryPoses.Mid, low, S(t, 0.4f, 0.8f)));
-                else cc = CharacterPose.Lerp(BodyCarryPoses.CradlePose(low), end, S(t, 0.8f, BodyCarryTimeline.PutDownFloor));
+                else cc = CharacterPose.Lerp(BodyCarryPoses.CradlePose(low), end, S(t, 0.8f, BodyCarryTimeline.KeyPutDownFloor));
                 if (t < 0.4f) kc = CharacterPose.Lerp(fromK, BodyCarryPoses.Rise(1f), S(t, 0f, 0.4f));
                 else kc = CharacterPose.Lerp(BodyCarryPoses.Rise(1f), BodyCarryPoses.Kneel(30f), S(t, 0.4f, 0.8f));
-                ikW = 1f - 0.75f * S(t, 0.82f, BodyCarryTimeline.PutDownFloor);
+                ikW = 1f - 0.75f * S(t, 0.82f, BodyCarryTimeline.KeyPutDownFloor);
             }
             detailW = 1f - S(t, 0f, 0.4f);
         }
@@ -332,7 +337,7 @@ namespace HideAndSeek.Characters
             }
             var stag = BodyCarryPoses.Stagger(cb);
             kc = t < 0.22f ? CharacterPose.Lerp(fromK, stag, ActionTimeline.EaseOut(ActionTimeline.Remap01(t, 0f, 0.22f)))
-                : CharacterPose.Lerp(stag, cb, S(t, 0.22f, BodyCarryTimeline.DropTime));
+                : CharacterPose.Lerp(stag, cb, S(t, 0.22f, BodyCarryTimeline.KeyDropTime));
             ikW = 1f - S(t, 0f, 0.1f);
             detailW = 1f - S(t, 0f, 0.15f);
         }
@@ -344,24 +349,34 @@ namespace HideAndSeek.Characters
             // Look of the carried player, canonical carrier space (zero = along the carrier's forward).
             Vector3 look = st.CarriedLook.sqrMagnitude > 1e-4f ? Quaternion.Inverse(transform.rotation) * st.CarriedLook : Vector3.forward;
             if (st.Mirror) look.x = -look.x;
-            var arms = c;
             float br = Mathf.Sin(breathPhase * 1.3f + 1f);
-            BodyCarryPoses.RestArms(ref arms, br);
-            if (st.Conscious)
+            // Awake: inner (right) arm round the carrier's neck, hand over his left shoulder, head follows the look.
+            var awakeP = c;
+            BodyCarryPoses.RestArms(ref awakeP, br);
+            awakeP.SolveArm(0, k.TorsoPoint(new Vector3(-0.13f, 0.7f, -0.08f)), new Vector3(0.1f, -1f, 0.7f));
+            awakeP.Head = BodyCarryPoses.HeadToward(awakeP, look);
+            // Barely conscious: outer (left) arm hangs limp and swings; the head lolls but still follows the look a little.
+            var limpP = c;
+            BodyCarryPoses.RestArms(ref limpP, br);
+            Vector3 sh = limpP.ShoulderPos(1);
+            float sw = Mathf.Sin(bodyLegPh + 1.1f) * Mathf.Clamp01(speed / 1.4f);
+            Vector3 hang = new Vector3(0.12f * sw, -1f, 0.1f + 0.18f * sw + 0.05f * Mathf.Sin(time * 0.9f));
+            limpP.SolveArm(1, sh + hang.normalized * 0.47f, new Vector3(-0.2f, 0f, 1f));
+            var loll = Quaternion.Euler(-26f + 4f * br, 16f + 6f * Mathf.Sin(time * 0.6f), 14f);
+            limpP.Head = Quaternion.Slerp(loll, BodyCarryPoses.HeadToward(limpP, look), 0.5f);
+            var arms = CharacterPose.Lerp(limpP, awakeP, ActionTimeline.SmoothStep01(Mathf.Clamp01(bodyAwakeW)));
+            if (bodyHealW > 0.001f)
             {
-                // Inner (right) arm round the carrier's neck: hand over his left shoulder.
-                arms.SolveArm(0, k.TorsoPoint(new Vector3(-0.13f, 0.7f, -0.08f)), new Vector3(0.1f, -1f, 0.7f));
-                arms.Head = BodyCarryPoses.HeadToward(arms, look);
-            }
-            else
-            {
-                // Outer (left) arm hangs limp and swings; the head lolls but still follows the look a little.
-                Vector3 sh = arms.ShoulderPos(1);
-                float sw = Mathf.Sin(bodyLegPh + 1.1f) * Mathf.Clamp01(speed / 1.4f);
-                Vector3 hang = new Vector3(0.12f * sw, -1f, 0.1f + 0.18f * sw + 0.05f * Mathf.Sin(time * 0.9f));
-                arms.SolveArm(1, sh + hang.normalized * 0.47f, new Vector3(-0.2f, 0f, 1f));
-                var loll = Quaternion.Euler(-26f + 4f * br, 16f + 6f * Mathf.Sin(time * 0.6f), 14f);
-                arms.Head = Quaternion.Slerp(loll, BodyCarryPoses.HeadToward(arms, look), 0.5f);
+                // Being treated: looks down at the own belly, flinches when the pad goes on, the outer hand comes in.
+                float hw = ActionTimeline.SmoothStep01(bodyHealW);
+                float ht = Mathf.Max(0f, st.HealT);
+                float wince = ht > CarryHealPad - 0.1f && ht < CarryHealPad + 0.6f ? Mathf.Sin((ht - CarryHealPad + 0.1f) / 0.7f * Mathf.PI) : 0f;
+                var down = BodyCarryPoses.HeadToward(arms, arms.TorsoRoot * new Vector3(0f, -0.35f, 1f));
+                arms.Head = Quaternion.Slerp(arms.Head, down * Quaternion.Euler(-10f * wince, 0f, 0f), hw * 0.8f);
+                arms.Torso = arms.Torso * Quaternion.Euler(4f * wince * hw, 0f, 0f);
+                var held = arms;
+                held.SolveArm(1, held.TorsoPoint(new Vector3(-0.2f, 0.32f, 0.16f)), held.TorsoRoot * new Vector3(-1f, -0.4f, 0f));
+                CharacterPose.LerpArm(ref arms, held, 1, hw);
             }
             CharacterPose.LerpArm(ref c, arms, 0, w);
             CharacterPose.LerpArm(ref c, arms, 1, w);

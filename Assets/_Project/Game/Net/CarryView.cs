@@ -52,7 +52,7 @@ namespace HideAndSeek.Game.Net
                 if (_bob == null) return;
             }
             var act = _p.Actions as BlockyCharacterActions;
-            bool on = act != null && _p.Life.Value != LifeState.Dead && (act.IsCarryingBody || act.IsCarriedBody || act.IsSettlingAfterCarry);
+            bool on = act != null && _p.Life.Value != LifeState.Dead && (act.IsCarryingBody || act.IsCarriedBody || act.IsSettlingAfterCarry || act.CarryHealWeight > 0.01f);
             float rate = on ? 1f / 0.25f : 1f / 0.4f;
             _w = Mathf.MoveTowards(_w, on ? 1f : 0f, Time.deltaTime * rate);
             _p.SetCarryBodyShown(_w > 0.001f);

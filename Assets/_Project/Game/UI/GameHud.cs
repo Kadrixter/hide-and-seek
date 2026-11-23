@@ -386,11 +386,11 @@ namespace HideAndSeek.Game
             _vignette.gameObject.SetActive(downed);
             if (downed)
             {
-                double left = me.DownedUntil.Value - (mm != null ? mm.Now : 0);
+                double left = me.BleedLeftNow; // stands still while somebody carries us
                 float pulse = 0.35f + 0.15f * Mathf.Sin(Time.time * 6f);
                 _vignette.color = new Color(0.55f, 0f, 0f, pulse + 0.35f * (1f - (float)(left / (mm != null ? mm.BleedOut : Tuning.BleedOutTime))));
                 bool weak = LocalPlayerController.Instance != null && LocalPlayerController.Instance.CrawlExhausted;
-                _downText.text = $"Wykrwawiasz się: {UiKit.FormatTime(left)}\n" + (weak
+                _downText.text = (me.BleedPaused ? $"Wykrwawianie wstrzymane: {UiKit.FormatTime(left)} - ktoś cię niesie\n" : $"Wykrwawiasz się: {UiKit.FormatTime(left)}\n") + (weak
                     ? "Nie masz już sił się czołgać. Czekaj na pomoc."
                     : "Czołgaj się do kryjówki. Inny chowający może cię uratować.")
                     + (me.MedkitCount.Value > 0 ? "\n<color=#7dff8a>Masz apteczkę: przytrzymaj G, żeby się podnieść.</color>" : "");

@@ -167,6 +167,51 @@ namespace HideAndSeek.Characters.Editor
                     Kill(rig.Carried);
                     break;
                 }
+                case "heal":
+                {
+                    // Third player treats the body in the carrier's arms: the carried wakes up and is put on his feet.
+                    var rig = SpawnCarry(true, false);
+                    rig.SetPhase(BodyCarryPhase.Hold);
+                    for (int i = 0; i < 40; i++) rig.Tick(RecDt);
+                    Vector3 belly = rig.Carried.Torso.TransformPoint(new Vector3(0f, 0.2f, 0f));
+                    Vector3 dir = new Vector3(belly.x, 0f, belly.z).normalized;
+                    var h = SpawnAt(2, new Vector3(belly.x, 0f, belly.z) + dir * 0.68f, Quaternion.LookRotation(-dir).eulerAngles.y, out _, out var ha);
+                    TickAll(0.4f, ha);
+                    var clip = NewClip("carry_heal");
+                    float total = 0f;
+                    void Frame()
+                    {
+                        rig.Tick(RecDt);
+                        ha.Tick(RecDt);
+                        total += RecDt;
+                        Orbit(mid + new Vector3(0f, 0f, 0.2f), 70f + 30f * Mathf.Sin(total * 0.3f), 4.6f, 0.45f);
+                        clip.Shot(recCam);
+                    }
+                    for (float t = 0f; t < 0.6f; t += RecDt) Frame();
+                    for (float t = 0f; t < BodyCarryTimeline.HealTime; t += RecDt)
+                    {
+                        h.Actions.SetCarryHealing(t, rig.Carried.Torso);
+                        rig.State.HealT = t;
+                        rig.Carried.Actions.SetBandaged(ActionTimeline.Remap01(t, BlockyCharacterActions.CarryHealPad, BlockyCharacterActions.CarryHealWrapEnd));
+                        Frame();
+                    }
+                    h.Actions.SetCarryHealing(-1f, null);
+                    rig.State.HealT = -1f;
+                    rig.State.Conscious = true;
+                    rig.Carried.Actions.SetLifeState(LifeState.Alive);
+                    rig.Carried.Actions.SetBandaged(1f);
+                    for (float t = 0f; t < 2.2f; t += RecDt) Frame();
+                    rig.State.EndStanding = true;
+                    rig.SetPhase(BodyCarryPhase.PutDown);
+                    for (float t = 0f; t < BodyCarryTimeline.PutDownStanding; t += RecDt) Frame();
+                    rig.Release();
+                    for (float t = 0f; t < 1.5f; t += RecDt) Frame();
+                    Debug.Log($"[CarryRec] heal: {clip.Frame} frames");
+                    Kill(h);
+                    Kill(rig.Carrier);
+                    Kill(rig.Carried);
+                    break;
+                }
                 case "floor":
                 case "stand":
                 case "mirror":

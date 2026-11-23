@@ -15,18 +15,39 @@ namespace HideAndSeek.Characters
     /// <summary>Timing and placement of the body carry, shared by the animation, the game and the server.</summary>
     public static class BodyCarryTimeline
     {
-        public const float LiftFloor = 1.35f;      // downed player from the floor
-        public const float LiftStanding = 1.1f;    // injured player who still stands
-        public const float PutDownFloor = 1.1f;
-        public const float PutDownStanding = 0.95f;
-        public const float DropTime = 0.8f;
-        /// <summary>First part of the lift in which the carrier steps to the right spot next to the body.</summary>
-        public const float ApproachTime = 0.32f;
+        // Real durations (calm, readable; the user asked for no rushed moves).
+        public const float LiftFloor = 2.4f;       // downed player from the floor
+        public const float LiftStanding = 1.9f;    // injured player who still stands
+        public const float PutDownFloor = 2.1f;
+        public const float PutDownStanding = 1.7f;
+        public const float DropTime = 1.05f;
+        // Key lengths the pose sequences are written in (BlockyCharacterActions.BodyCarry.cs); played stretched to the above.
+        public const float KeyLiftFloor = 1.35f, KeyLiftStanding = 1.1f, KeyPutDownFloor = 1.1f, KeyPutDownStanding = 0.95f, KeyDropTime = 0.8f;
+        /// <summary>First part of the lift in which the carrier steps to the right spot next to the body (real time).</summary>
+        public const float ApproachTime = 0.6f;
+        /// <summary>Carrier's turning speed while carrying (deg/s): the body turns slowly, the camera may look ahead.</summary>
+        public const float TurnRate = 70f, TurnRateWalking = 95f, LookAheadMax = 100f;
+        /// <summary>Third player treating the carried one with a medkit (H held), seconds.</summary>
+        public const float HealTime = 5f;
         /// <summary>Carrier's speed while carrying (no running).</summary>
         public const float SpeedScale = 0.6f;
         /// <summary>Lying root frame: the pelvis lies this far behind the root (DownedPose / DeadPose).</summary>
         public const float LyingPelvisBack = 0.6f;
-        /// <summary>Effort grunt (s into the lift).</summary>
+        /// <summary>Phase time mapped onto the key lengths of the pose sequences.</summary>
+        public static float KeyTime(BodyCarryPhase phase, float t, bool fromFloor, bool standing)
+        {
+            float real = Duration(phase, fromFloor, standing);
+            if (real <= 0f) return t;
+            float key = phase switch
+            {
+                BodyCarryPhase.Lift => fromFloor ? KeyLiftFloor : KeyLiftStanding,
+                BodyCarryPhase.PutDown => standing ? KeyPutDownStanding : KeyPutDownFloor,
+                _ => KeyDropTime,
+            };
+            return t * key / real;
+        }
+
+        /// <summary>Effort grunt (key time into the lift).</summary>
         public const float LiftGruntTime = 0.62f;
 
         public static float Lift(bool fromFloor) => fromFloor ? LiftFloor : LiftStanding;
@@ -137,6 +158,8 @@ namespace HideAndSeek.Characters
         public Quaternion EndRot = Quaternion.identity;
         /// <summary>Where the carried looks (world direction; zero = carrier's forward).</summary>
         public Vector3 CarriedLook;
+        /// <summary>A third player treats the carried one: seconds into it (negative = nobody).</summary>
+        public float HealT = -1f;
 
         // ---- written by the carrier's layer every frame
         internal BlockyCharacterActions Carrier, Carried;

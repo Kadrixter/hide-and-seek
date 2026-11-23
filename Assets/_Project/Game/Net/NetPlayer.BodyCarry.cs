@@ -61,6 +61,7 @@ namespace HideAndSeek.Game.Net
         private Quaternion _approachFromRot, _approachToRot;
         private bool _approach;
         private CarryView _carryView;
+        private CarryTurn _carryTurn;
 
         /// <summary>The player this one carries (null = none).</summary>
         public NetPlayer CarriedPlayer => CarryVar.Value.Active ? Find(CarryVar.Value.Target) : null;
@@ -89,7 +90,7 @@ namespace HideAndSeek.Game.Net
             {
                 var v = CarryVar.Value;
                 if (!v.Active) return 1f;
-                return v.PhaseValue == BodyCarryPhase.Hold ? BodyCarryTimeline.SpeedScale : 0f;
+                return v.PhaseValue == BodyCarryPhase.Hold && !CarryTurnLocked ? BodyCarryTimeline.SpeedScale : 0f;
             }
         }
 
@@ -104,7 +105,13 @@ namespace HideAndSeek.Game.Net
         /// <summary>Every peer, every frame (NetPlayer.Update).</summary>
         private void UpdateBodyCarry()
         {
-            if (IsServer) ServerCarryTick();
+            if (IsServer)
+            {
+                ServerCarryTick();
+                ServerBleedPause();
+            }
+            UpdateCarryHeal();
+            UpdateCarryHealPatient();
             var bca = Actions as BlockyCharacterActions;
             var pack = CarryVar.Value;
             var target = pack.Active ? Find(pack.Target) : null;
@@ -142,6 +149,7 @@ namespace HideAndSeek.Game.Net
             if (IsOwner)
             {
                 if (_carryView == null) _carryView = gameObject.AddComponent<CarryView>();
+                if (_carryTurn == null) _carryTurn = gameObject.AddComponent<CarryTurn>();
                 if (Motor != null) Motor.Burdened = pack.Active;
                 UpdateApproach(pack);
             }
@@ -177,6 +185,8 @@ namespace HideAndSeek.Game.Net
                 st.EndRot = Quaternion.Euler(0f, pack.EndYaw, 0f);
             }
             float pitch = target.Motor != null ? target.Motor.LookPitch : 0f;
+            var healer = CarryHealerOf(target);
+            st.HealT = healer != null ? healer.CarryHealShownT : -1f;
             st.CarriedLook = Quaternion.Euler(-pitch, target.transform.eulerAngles.y, 0f) * Vector3.forward;
         }
 

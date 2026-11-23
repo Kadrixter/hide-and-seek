@@ -133,7 +133,7 @@ namespace HideAndSeek.Characters
             if (!bodyRelease) return;
 
             bodyRelT += dt;
-            const float fallTime = 0.45f;
+            const float fallTime = 0.6f;
             var q = bodyRelPose;
             if (bodyRelFall)
             {
@@ -163,16 +163,16 @@ namespace HideAndSeek.Characters
             if (lifeState == LifeState.Downed)
             {
                 // Rolls from the back onto the belly (the downed crawl pose).
-                Key(PoseId.Side, 0.45f, Ease.Smooth);
-                Key(PoseId.Downed, 0.95f, Ease.Smooth);
+                Key(PoseId.Side, 0.8f, Ease.Smooth);
+                Key(PoseId.Downed, 1.6f, Ease.Smooth);
             }
             else
             {
                 // Dropped but conscious: onto the side, all fours, knees, up.
-                Key(PoseId.Side, 0.35f, Ease.Smooth);
-                Key(PoseId.AllFours, 0.75f, Ease.Smooth);
-                Key(PoseId.Kneel, 1.05f, Ease.Smooth);
-                Key(PoseId.Base, 1.45f, Ease.Smooth);
+                Key(PoseId.Side, 0.6f, Ease.Smooth);
+                Key(PoseId.AllFours, 1.2f, Ease.Smooth);
+                Key(PoseId.Kneel, 1.7f, Ease.Smooth);
+                Key(PoseId.Base, 2.3f, Ease.Smooth);
             }
             pathTime = 0f;
             pathActive = true;

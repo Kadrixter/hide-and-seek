@@ -381,6 +381,7 @@ namespace HideAndSeek.Game.Net
             }
 
             FindPrompt(phase);
+            FilterCarryPrompt(); // body carry: no kneeling rescue / heal on a body lying in somebody's arms
             HandlePromptInput(kb);
         }
 

@@ -164,7 +164,8 @@ namespace HideAndSeek.Game.UI
                     if (phase == MatchPhase.Seeking && mm != null && p.DownedUntil.Value > 0d)
                     {
                         float total = mm.BleedOut;
-                        float left = Mathf.Max(0f, (float)(p.DownedUntil.Value - mm.Now));
+                        float left = Mathf.Max(0f, (float)p.BleedLeftNow); // paused while carried
+                        if (p.BleedPaused) { d.State = "niesiony"; d.Pulse = false; }
                         d.BleedTotal = total;
                         d.BleedLeft = left;
                         d.Bleed = total > 0f ? Mathf.Clamp01(left / total) : 0f;
