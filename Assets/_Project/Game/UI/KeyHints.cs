@@ -106,11 +106,12 @@ namespace HideAndSeek.Game.UI
                 case "lobby":
                     _tmp.Add(("E", "usiądź na kanapie / pufie"));
                     _tmp.Add(("E", "tablica na ścianie - ustawienia rundy"));
+                    _tmp.Add(("K", "emotki (przytrzymaj), kółko myszy - solo / wspólne"));
                     if (ptt) _tmp.Add(("V", "mów (przytrzymaj)"));
                     _tmp.Add(("Esc", "menu i ustawienia"));
                     break;
                 case "seat":
-                    _tmp.Add(("G", "wybierz pozę"));
+                    _tmp.Add(("K", "wybierz pozę (przytrzymaj)"));
                     _tmp.Add(("E / Spacja", "wstań"));
                     break;
                 case "hide":

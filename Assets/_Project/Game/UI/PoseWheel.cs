@@ -11,17 +11,17 @@ using UnityEngine.UI;
 namespace HideAndSeek.Game.UI
 {
     /// <summary>
-    /// Pose wheel (like an emote wheel) for a player sitting in the lobby. Hold G: the wheel opens in the middle of the
+    /// Pose wheel (like an emote wheel) for a player sitting in the lobby. Hold K: the wheel opens in the middle of the
     /// screen, the camera stops turning and moving the mouse picks a slice by direction; release G = take the
-    /// highlighted pose, left click = take it too, Esc / right click = cancel. A short tap of G leaves the wheel open
-    /// (then a click or G again picks). One slice per pose of the seat (<see cref="SitPoseRules.Poses"/>, i.e.
+    /// highlighted pose, left click = take it too, Esc / right click = cancel. A short tap of K leaves the wheel open
+    /// (then a click or K again picks). One slice per pose of the seat (<see cref="SitPoseRules.Poses"/>, i.e.
     /// <see cref="SitPoseCatalog"/>), shown only by its look - no names: each slice holds a small picture of the own
     /// character (own skin) in that pose on the same seat, rendered once per pose when the wheel opens by a still
     /// thumbnail stage (<see cref="PosePreviewStage.CreateThumbs"/>, same posing code as the game). States are drawn,
     /// not written: current pose = green strip and green rim, unavailable = greyed out and darkened, new = small gold dot.
     /// In the middle a live preview of the own character shows the highlighted pose (<see cref="PosePreviewStage"/>).
     /// The pick goes to the server (<see cref="NetPlayer.RequestSitPose"/>).
-    /// G stays the medkit key everywhere else (<see cref="OwnsG"/>).
+    /// Standing, K opens the <see cref="EmoteWheel"/> instead; G is only the medkit.
     /// </summary>
     public sealed class PoseWheel : MonoBehaviour
     {
@@ -36,7 +36,7 @@ namespace HideAndSeek.Game.UI
         private static int _closedFrame = -10;
 
         // Test hooks (scripted tests drive the same code paths as the keyboard / mouse).
-        /// <summary>Acts as G held down.</summary>
+        /// <summary>Acts as K held down.</summary>
         public static bool TestHold;
         /// <summary>&gt;= 0: highlights this slice (as if the mouse pointed at it). -1 = the mouse decides.</summary>
         public static int TestHighlight = -1;
@@ -48,9 +48,6 @@ namespace HideAndSeek.Game.UI
 
         /// <summary>Esc this frame belongs to the wheel (it was open or just closed by it): no Esc menu.</summary>
         public static bool ConsumesEscape => IsOpen || _closedFrame >= Time.frameCount - 1;
-
-        /// <summary>G opens the pose wheel instead of using the medkit: the player sits (only possible in the lobby).</summary>
-        public static bool OwnsG(NetPlayer p) => p != null && p.Seat.Value >= 0;
 
         /// <summary>Slices on the open wheel (tests).</summary>
         public static int SliceCount => _inst != null ? _inst._slices.Count : 0;
@@ -355,7 +352,7 @@ namespace HideAndSeek.Game.UI
 
             if (!_open)
             {
-                if (can && ((kb != null && kb.gKey.wasPressedThisFrame) || testPress)) Open(me);
+                if (can && ((kb != null && kb.kKey.wasPressedThisFrame) || testPress)) Open(me);
             }
             else if (!can || me.Seat.Value != _seat)
             {
@@ -435,8 +432,8 @@ namespace HideAndSeek.Game.UI
             bool rmb = mouse != null && mouse.rightButton.wasPressedThisFrame;
             bool lmb = (mouse != null && mouse.leftButton.wasPressedThisFrame) || TestClick;
             TestClick = false;
-            bool gHeld = (kb != null && kb.gKey.isPressed) || TestHold;
-            bool gAgain = kb != null && kb.gKey.wasPressedThisFrame && _toggle;
+            bool gHeld = (kb != null && kb.kKey.isPressed) || TestHold;
+            bool gAgain = kb != null && kb.kKey.wasPressedThisFrame && _toggle;
 
             if (esc || rmb)
             {
@@ -472,8 +469,8 @@ namespace HideAndSeek.Game.UI
         private void UpdateTexts()
         {
             _hint.text = _toggle
-                ? "mysz - wskaż   |   LPM / G - wybierz   |   PPM / Esc - anuluj"
-                : "mysz - wskaż   |   puść G / LPM - wybierz   |   PPM / Esc - anuluj";
+                ? "mysz - wskaż   |   LPM / K - wybierz   |   PPM / Esc - anuluj"
+                : "mysz - wskaż   |   puść K / LPM - wybierz   |   PPM / Esc - anuluj";
         }
 
         private void AnimateSlices()

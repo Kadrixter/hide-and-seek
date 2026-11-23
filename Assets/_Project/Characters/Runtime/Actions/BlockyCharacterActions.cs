@@ -415,6 +415,7 @@ namespace HideAndSeek.Characters
             ApplyToyGun(ref p, dt, standing, lookPitch);
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand
             ApplyPaMic(ref p, dt, standing);
+            ApplyEmote(ref p, dt, standing); // K wheel emotes (full body, below every layer after this)
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
@@ -536,6 +537,7 @@ namespace HideAndSeek.Characters
         {
             // Actions and lying down show their own item: the hand needs no put-away motion afterwards.
             if (action != ActionKind.None || VisualLifeState != LifeState.Alive) drawnItem = heldItem;
+            if (emoteW > 0.05f) return HeldItem.None; // emote: hands free (comes back with the draw motion)
             if (VendingShowsCan) return HeldItem.Can;
             if (PhoneSmashing) return HeldItem.None;
             if (RemoteThrowing) return RemoteShownItem();

@@ -47,7 +47,7 @@ namespace HideAndSeek.Game.Net
             HandGrip grip = def?.Hand;
             // Weapons (and anything the seeker draws through Held) have their own hold; busy hands put the item away.
             if (def != null && def.Weapon != HeldItem.None) grip = null;
-            if (Busy.Value || Seat.Value >= 0 || RcAnimating) grip = null;
+            if (Busy.Value || Seat.Value >= 0 || RcAnimating || EmoteHandsBusy) grip = null;
             HandItem = grip != null ? item : HotbarItem.None;
             int key = grip != null ? (int)item : 0;
             (Actions as BlockyCharacterActions)?.SetCarried(key, grip);

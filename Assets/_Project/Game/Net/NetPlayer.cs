@@ -361,6 +361,7 @@ namespace HideAndSeek.Game.Net
             UpdateDrunk();
             UpdateRcRemote();
             UpdateHandItem();
+            UpdateEmote();
 
             float prone = Life.Value == LifeState.Alive ? Motor.ProneAmount : 0f;
             (Actions as BlockyCharacterActions)?.SetProneAmount(prone);
@@ -368,7 +369,7 @@ namespace HideAndSeek.Game.Net
             {
                 bool healing = HoldAnimVar.Value == (byte)HoldAnim.SelfHeal && Life.Value == LifeState.Downed;
                 bool vm = (Life.Value == LifeState.Alive && prone < 0.4f || healing) && !KillCam.Active && !_shockHideVm && !_odHideVm
-                          && !_rcCamOn && !(RcAnimating && !_rcHandsOn) && !SeatBodyShown;
+                          && !_rcCamOn && !(RcAnimating && !_rcHandsOn) && !SeatBodyShown && !EmoteViewActive;
                 if (vm != _vmVisible) { _vmVisible = vm; ViewModel?.SetVisible(vm); }
             }
 

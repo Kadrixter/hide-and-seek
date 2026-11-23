@@ -103,6 +103,7 @@ namespace HideAndSeek.Characters.Editor
 
         static void RecordItem(string item)
         {
+            if (item.StartsWith("emote:")) { RecordEmote(item.Substring(6)); return; }
             if (item.StartsWith("kill:"))
             {
                 if (Enum.TryParse<KillMove>(item.Substring(5), out var move)) RecordKill(move);
