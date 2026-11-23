@@ -6,7 +6,9 @@ namespace HideAndSeek.Game
     /// <summary>Boombox panel (E): now playing, progress, loading state, transport, volume, bass, queue, adding links.</summary>
     public partial class Boombox
     {
-        public static bool PanelOpen { get; private set; }
+        /// <summary>Some boombox panel is open (the lobby one or a map radio's).</summary>
+        public static bool PanelOpen => _panelOwner != null;
+        private static Boombox _panelOwner;
         private string _urlField = "";
         private string _note;
         private float _noteUntil;
@@ -15,19 +17,22 @@ namespace HideAndSeek.Game
 
         // ================================================================ panel
 
-        public static void OpenPanel()
+        /// <summary>Opens the lobby boombox's panel.</summary>
+        public static void OpenPanel() => OpenPanel(Instance);
+
+        public static void OpenPanel(Boombox box)
         {
-            if (Instance == null) return;
-            PanelOpen = true;
+            if (box == null) return;
+            _panelOwner = box;
             LocalPlayerController.MenuOpen = true;
             var me = NetPlayer.Local;
             if (me != null && me.InputReader != null) me.InputReader.SetCursorLocked(false);
-            Instance._urlField = "";
+            box._urlField = "";
         }
 
         public static void ClosePanel()
         {
-            PanelOpen = false;
+            _panelOwner = null;
             LocalPlayerController.MenuOpen = false;
             var me = NetPlayer.Local;
             if (me != null && me.InputReader != null) me.InputReader.SetCursorLocked(true);
@@ -60,20 +65,21 @@ namespace HideAndSeek.Game
 
         private void OnGUI()
         {
-            if (!PanelOpen) return;
+            if (_panelOwner != this) return;
             var mm = MatchManager.Instance;
             var me = NetPlayer.Local;
-            if (mm == null || me == null) { ClosePanel(); return; }
+            var ch = Channel;
+            if (mm == null || me == null || ch == null || (PanelAllowed != null && !PanelAllowed())) { ClosePanel(); return; }
             Styles();
             float s = Screen.height / 1080f;
             float w = 900 * s, h = 640 * s, x = (Screen.width - w) * 0.5f, y = (Screen.height - h) * 0.5f, p = 24 * s, row = 46 * s;
             GUI.Box(new Rect(x, y, w, h), GUIContent.none, _box);
             float cy = y + p;
-            GUI.Label(new Rect(x + p, cy, w, 44 * s), "BOOMBOX", _big);
+            GUI.Label(new Rect(x + p, cy, w, 44 * s), PanelTitle, _big);
             cy += 54 * s;
 
-            var r = mm.Radio.Value;
-            string url = r.Index >= 0 && r.Index < mm.RadioQueue.Count ? mm.RadioQueue[r.Index].ToString() : null;
+            var r = ch.State.Value;
+            string url = ch.Current;
             (string title, float dur) inf = default;
             bool known = url != null && TryInfo(url, out inf);
             float pos = r.Loading ? 0f : r.Playing ? Mathf.Max(0f, (float)(mm.Now - r.StartTime)) : r.PausedAt;
@@ -99,25 +105,25 @@ namespace HideAndSeek.Game
 
             // Transport + volume + bass.
             float bx = x + p, bwid = 150 * s, gap = 10 * s;
-            if (GUI.Button(new Rect(bx, cy, bwid, row), "<< Poprz.", _btn)) me.RequestRadioRpc(RadioOp.Prev, default);
-            if (GUI.Button(new Rect(bx + (bwid + gap), cy, bwid * 1.2f, row), r.Playing ? "|| Pauza" : "> Wznów", _btn)) me.RequestRadioRpc(RadioOp.Toggle, default);
-            if (GUI.Button(new Rect(bx + (bwid + gap) * 2.2f, cy, bwid, row), "Nast. >>", _btn)) me.RequestRadioRpc(RadioOp.Next, default);
+            if (GUI.Button(new Rect(bx, cy, bwid, row), "<< Poprz.", _btn)) ch.Request(me, RadioOp.Prev, default);
+            if (GUI.Button(new Rect(bx + (bwid + gap), cy, bwid * 1.2f, row), r.Playing ? "|| Pauza" : "> Wznów", _btn)) ch.Request(me, RadioOp.Toggle, default);
+            if (GUI.Button(new Rect(bx + (bwid + gap) * 2.2f, cy, bwid, row), "Nast. >>", _btn)) ch.Request(me, RadioOp.Next, default);
             cy += row + gap;
             GUI.Label(new Rect(bx, cy + 6 * s, 170 * s, row), $"Głośność {r.Volume}%", _label);
-            if (GUI.Button(new Rect(bx + 190 * s, cy, 60 * s, row), "-", _btn)) me.RequestRadioRpc(RadioOp.VolDown, default);
-            if (GUI.Button(new Rect(bx + 260 * s, cy, 60 * s, row), "+", _btn)) me.RequestRadioRpc(RadioOp.VolUp, default);
+            if (GUI.Button(new Rect(bx + 190 * s, cy, 60 * s, row), "-", _btn)) ch.Request(me, RadioOp.VolDown, default);
+            if (GUI.Button(new Rect(bx + 260 * s, cy, 60 * s, row), "+", _btn)) ch.Request(me, RadioOp.VolUp, default);
             GUI.Label(new Rect(bx + 380 * s, cy + 6 * s, 170 * s, row), $"Bas {r.Bass}%", _label);
-            if (GUI.Button(new Rect(bx + 540 * s, cy, 60 * s, row), "-", _btn)) me.RequestRadioRpc(RadioOp.BassDown, default);
-            if (GUI.Button(new Rect(bx + 610 * s, cy, 60 * s, row), "+", _btn)) me.RequestRadioRpc(RadioOp.BassUp, default);
+            if (GUI.Button(new Rect(bx + 540 * s, cy, 60 * s, row), "-", _btn)) ch.Request(me, RadioOp.BassDown, default);
+            if (GUI.Button(new Rect(bx + 610 * s, cy, 60 * s, row), "+", _btn)) ch.Request(me, RadioOp.BassUp, default);
             cy += row + gap * 2f;
 
             // Queue.
-            GUI.Label(new Rect(bx, cy, w, row * 0.7f), $"Kolejka ({mm.RadioQueue.Count}/{MatchManager.RadioMaxQueue}):", _small);
+            GUI.Label(new Rect(bx, cy, w, row * 0.7f), $"Kolejka ({ch.Count}/{MatchManager.RadioMaxQueue}):", _small);
             cy += row * 0.7f;
-            int first = Mathf.Clamp(r.Index - 1, 0, Mathf.Max(0, mm.RadioQueue.Count - 5));
-            for (int i = first; i < Mathf.Min(mm.RadioQueue.Count, first + 5); i++)
+            int first = Mathf.Clamp(r.Index - 1, 0, Mathf.Max(0, ch.Count - 5));
+            for (int i = first; i < Mathf.Min(ch.Count, first + 5); i++)
             {
-                string u = mm.RadioQueue[i].ToString();
+                string u = ch.At(i);
                 string t = TryInfo(u, out var qi) ? qi.title : u;
                 GUI.color = i == r.Index ? new Color(0.5f, 1f, 0.6f) : i < r.Index ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
                 GUI.Label(new Rect(bx, cy, w - 2 * p, row * 0.62f), $"{i + 1}. {t}", _small);
@@ -138,7 +144,7 @@ namespace HideAndSeek.Game
                 string u = (_urlField ?? "").Trim();
                 if (MatchManager.IsYoutubeUrl(u))
                 {
-                    me.RequestRadioRpc(RadioOp.Add, new Unity.Collections.FixedString128Bytes(u));
+                    ch.Request(me, RadioOp.Add, new Unity.Collections.FixedString128Bytes(u));
                     _urlField = "";
                 }
                 else { _note = "To nie jest link z YouTube."; _noteUntil = Time.unscaledTime + 3f; }

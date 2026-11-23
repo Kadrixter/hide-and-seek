@@ -42,6 +42,7 @@ namespace HideAndSeek.Game.Net
         PhonePickup,    // E on a toy phone on the floor (hiders)
         PhoneStomp,     // F on a toy phone on the floor (seeker)
         PaMic,          // E on the public-address microphone hanging on its wall station
+        MapRadio,       // E / R on a radio lying on the parking (hiders)
     }
 
     /// <summary>
@@ -306,6 +307,7 @@ namespace HideAndSeek.Game.Net
 
             // ---- public-address microphone in the hand: E hangs it back, LMB is the talk bar; nothing else meanwhile
             if (PaTick(kb)) { CancelHold(); return; }
+            if (MapRadioTick(kb)) { CancelHold(); return; } // radio on the shoulder: Q puts it down, R panel
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
@@ -677,6 +679,8 @@ namespace HideAndSeek.Game.Net
             // Public-address microphone on its wall station next to the elevators (any living player, one at a time).
             if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryPaPrompt(eye, fwd, out var paPos, out string paText, out float paD))
                 Offer(PromptKind.PaMic, paPos, paText, paD);
+            if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryMapRadioPrompt(eye, fwd, out var mrPos, out string mrText, out float mrD))
+                Offer(PromptKind.MapRadio, mrPos, mrText, mrD);
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -1044,6 +1048,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.PaMic:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) PaPromptE();
+                    break;
+                case PromptKind.MapRadio:
+                    MapRadioPromptKeys(kb);
                     break;
             }
 
