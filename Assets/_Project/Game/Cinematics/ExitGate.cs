@@ -94,7 +94,7 @@ namespace HideAndSeek.Game.Cinematics
             if (_block != null) _block.enabled = f < 0.35f;
             float lit = Mathf.Clamp01(f * 1.6f) * (StreetVisible ? 1f : 0f);
             if (_street != null) _street.intensity = StreetLight * lit;
-            if (_streetFill != null) _streetFill.intensity = 0.35f * lit;
+            if (_streetFill != null) _streetFill.intensity = 0.8f * lit;
         }
 
         /// <summary>Lever throw 0 = up (armed), 1 = down (pulled).</summary>

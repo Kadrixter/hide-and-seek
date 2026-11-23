@@ -79,7 +79,7 @@ namespace HideAndSeek.Game.Cinematics
             Vector3 belly = p.TorsoPoint(new Vector3(-0.02f, 0.2f, 0.17f)) + Vector3.up * 0.02f * bounce;
             p.SolveArm(1, Vector3.Lerp(cur.HandPos(1), belly, S(t, IntroTimeline.LaughStart, IntroTimeline.LaughStart + 0.4f) * body),
                 new Vector3(-1f, -0.4f, 0.2f));
-            Vector3 knifeUp = p.TorsoPoint(new Vector3(0.34f, 0.62f + 0.12f * big, 0.18f)) + Vector3.up * 0.03f * bounce;
+            Vector3 knifeUp = p.TorsoPoint(new Vector3(0.52f, 0.5f + 0.1f * big, 0.3f)) + Vector3.up * 0.03f * bounce;
             Vector3 rhand = Vector3.Lerp(cur.HandPos(0), knifeUp, body * Mathf.Lerp(0.55f, 1f, big));
             p.SolveArm(0, rhand, new Vector3(1f, -0.5f, -0.4f));
             return p;

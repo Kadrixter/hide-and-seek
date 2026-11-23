@@ -5,7 +5,7 @@ namespace HideAndSeek.Game.Cinematics
 {
     public sealed partial class ExitGate
     {
-        const float StreetLight = 2.6f;
+        const float StreetLight = 4.2f;
         Material _steel, _slat, _dark, _rubber, _hazard, _boxPaint, _chrome, _knobRed, _label, _asphalt, _curb, _concrete, _facade, _window, _lampHead;
 
         void Materials()
@@ -26,7 +26,7 @@ namespace HideAndSeek.Game.Cinematics
             _curb = CineKit.Mat("StreetCurb", new Color(0.3f, 0.3f, 0.29f), 0f, 0.15f);
             _concrete = CineKit.Mat("StreetWall", new Color(0.17f, 0.17f, 0.18f), 0f, 0.1f);
             _facade = CineKit.Mat("StreetFacade", new Color(0.07f, 0.07f, 0.08f), 0f, 0.15f);
-            _window = CineKit.Glow("StreetWindow", new Color(1f, 0.72f, 0.38f), 0.9f);
+            _window = CineKit.Glow("StreetWindow", new Color(1f, 0.72f, 0.38f), 1.4f);
             _lampHead = CineKit.Glow("StreetLampHead", new Color(1f, 0.7f, 0.35f), 3f);
         }
 
@@ -146,14 +146,14 @@ namespace HideAndSeek.Game.Cinematics
             _street = CineKit.Node("StreetLight", t, pole + new Vector3(0f, 4.9f, 1.1f), Quaternion.Euler(62f, 0f, 0f)).gameObject.AddComponent<Light>();
             _street.type = LightType.Spot;
             _street.spotAngle = 105f;
-            _street.range = 22f;
+            _street.range = 26f;
             _street.color = new Color(1f, 0.66f, 0.32f);
             _street.shadows = LightShadows.Soft;
             // Spill on the driveway asphalt (cheap fake bounce).
             var fill = CineKit.Node("StreetFill", t, new Vector3(0f, 1.6f, -5f)).gameObject.AddComponent<Light>();
             fill.type = LightType.Point;
             fill.range = 7f;
-            fill.intensity = 0.35f;
+            fill.intensity = 0.8f;
             fill.color = new Color(1f, 0.6f, 0.35f);
             fill.shadows = LightShadows.None;
             _streetFill = fill;

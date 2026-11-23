@@ -67,7 +67,7 @@ namespace HideAndSeek.Game.Cinematics
         }
 
         /// <summary>Killer's feet: in front of the box, a little to the right of the lever (his left hand reaches it).</summary>
-        Vector3 KillerStand => _gate.Local(new Vector3(ExitGate.BoxPos.x - 0.16f, 0f, 0.6f));
+        Vector3 KillerStand => _gate.Local(new Vector3(ExitGate.BoxPos.x - 0.27f, 0f, 0.58f));
 
         static float YawOf(Vector3 d) => Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
 
@@ -102,10 +102,11 @@ namespace HideAndSeek.Game.Cinematics
             if (!Recording && _clock != null)
             {
                 // Stay on the server clock (frame hitches, a slow scene load): jump when far off, drift otherwise.
+                // Behind: catch up (jump when far). Ahead: never jump back, just hold until the server time is there.
                 float server = (float)(_clock() - _startAt);
                 float err = server - _t;
-                if (Mathf.Abs(err) > 0.35f) _t = server;
-                else _t += err * Mathf.Min(1f, dt * 2f);
+                if (err > 0.35f) _t = server;
+                else _t += Mathf.Max(err, -dt) * Mathf.Min(1f, err > 0f ? dt * 2f : 1f);
             }
             float t = _t;
             Events(_prevT, t);

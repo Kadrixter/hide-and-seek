@@ -17,18 +17,19 @@ namespace HideAndSeek.Game.Cinematics
             {
                 // A: wide, from the garage: the open gate with the street light, the killer by the box. Slow push in.
                 float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / IntroTimeline.ShotB));
-                pos = _gate.Local(Vector3.Lerp(new Vector3(2.6f, 1.45f, 8.2f), new Vector3(1.4f, 1.38f, 6.4f), k));
-                look = _gate.Local(Vector3.Lerp(new Vector3(-1.2f, 1.25f, 0f), new Vector3(-2.2f, 1.25f, 0.2f), k));
-                fov = 46f;
+                pos = _gate.Local(Vector3.Lerp(new Vector3(1.3f, 1.5f, 6.4f), new Vector3(0.3f, 1.42f, 5.0f), k));
+                look = _gate.Local(Vector3.Lerp(new Vector3(-1.9f, 1.2f, 0f), new Vector3(-2.7f, 1.22f, 0.3f), k));
+                fov = 44f;
             }
             else if (t < IntroTimeline.ShotC)
             {
                 // B: close on the hand and the small lever, from the killer's left, a slow creep in.
                 float k = Mathf.Clamp01((t - IntroTimeline.ShotB) / (IntroTimeline.ShotC - IntroTimeline.ShotB));
-                pos = _gate.Local(Vector3.Lerp(new Vector3(kx + 0.62f, 1.42f, 0.95f), new Vector3(kx + 0.5f, 1.36f, 0.8f), k));
+                // Low, from the side of the lever, looking up a little: the hand comes into the frame from above.
+                pos = _gate.Local(Vector3.Lerp(new Vector3(kx + 0.82f, 1.0f, 0.8f), new Vector3(kx + 0.7f, 1.04f, 0.68f), k));
                 Vector3 knob = _gate.KnobWorld;
-                look = Vector3.Lerp(_gate.Local(new Vector3(kx + 0.1f, 1.22f, 0.2f)), knob, 0.55f);
-                fov = 36f;
+                look = Vector3.Lerp(_gate.Local(new Vector3(kx + 0.05f, 1.2f, 0.15f)), knob, 0.6f);
+                fov = 40f;
             }
             else if (t < IntroTimeline.ShotD)
             {

@@ -19,9 +19,9 @@ namespace HideAndSeek.Game.Cinematics
             main.loop = false;
             main.startLifetime = new ParticleSystem.MinMaxCurve(1.6f, 3.2f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 2.6f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.9f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.5f);
             main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
-            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.62f, 0.58f, 0.52f, 0.5f), new Color(0.45f, 0.42f, 0.38f, 0.35f));
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.62f, 0.58f, 0.52f, 0.32f), new Color(0.45f, 0.42f, 0.38f, 0.22f));
             main.gravityModifier = -0.02f;
             main.maxParticles = 300;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
@@ -31,12 +31,12 @@ namespace HideAndSeek.Game.Cinematics
             em.SetBursts(new[] { new ParticleSystem.Burst(0f, 90), new ParticleSystem.Burst(0.1f, 50), new ParticleSystem.Burst(0.25f, 25) });
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(half * 2f, 0.05f, 0.1f);
+            shape.scale = new Vector3(half * 2f, 0.3f, 0.2f);
             var vel = ps.velocityOverLifetime;
             vel.enabled = true;
             vel.space = ParticleSystemSimulationSpace.Local;
-            vel.y = new ParticleSystem.MinMaxCurve(0.05f, 0.35f);
-            vel.z = new ParticleSystem.MinMaxCurve(0.2f, 1.4f);
+            vel.y = new ParticleSystem.MinMaxCurve(0.15f, 0.7f);
+            vel.z = new ParticleSystem.MinMaxCurve(0.3f, 2.2f);
             var limit = ps.limitVelocityOverLifetime;
             limit.enabled = true;
             limit.dampen = 0.08f;

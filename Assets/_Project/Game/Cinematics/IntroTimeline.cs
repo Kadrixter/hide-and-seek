@@ -19,7 +19,7 @@ namespace HideAndSeek.Game.Cinematics
         public const float Impact = DropStart + DropTime;
         public const float TitleIn = 7.25f, FadeOut = 7.85f, Length = 8.3f;
         /// <summary>The server starts the intro this long after the players were placed (teleports settle).</summary>
-        public const float Lead = 0.6f;
+        public const float Lead = 2.0f; // the first frames after the map load hitch (security rooms, cameras)
 
         static float S(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
 

@@ -31,16 +31,24 @@ namespace HideAndSeek.Game.Cinematics
             return m;
         }
 
+        /// <summary>
+        /// Self-lit surface (lamps, lit windows). Unlit (Sprites/Default) instead of Standard emission: the emission
+        /// variant may be stripped from the build. <paramref name="intensity"/> 0 = off (dark glass), 1+ = full.
+        /// </summary>
         public static Material Glow(string name, Color c, float intensity)
         {
-            var m = Mat(name, c * 0.4f, 0f, 0.8f);
-            m.EnableKeyword("_EMISSION");
-            m.SetColor("_EmissionColor", c * intensity);
-            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            var m = new Material(FxUtil.Unlit) { name = name };
+            SetGlow(m, c, intensity);
             return m;
         }
 
-        public static void SetGlow(Material m, Color c, float intensity) => m.SetColor("_EmissionColor", c * intensity);
+        public static void SetGlow(Material m, Color c, float intensity)
+        {
+            float k = Mathf.Clamp01(intensity / 2f);
+            var off = new Color(c.r * 0.12f + 0.03f, c.g * 0.12f + 0.03f, c.b * 0.12f + 0.03f, 1f);
+            var on = new Color(Mathf.Min(1f, c.r), Mathf.Min(1f, c.g), Mathf.Min(1f, c.b), 1f);
+            m.color = Color.Lerp(off, on, k);
+        }
 
         public static Transform Node(string name, Transform parent, Vector3 pos, Quaternion? rot = null)
         {

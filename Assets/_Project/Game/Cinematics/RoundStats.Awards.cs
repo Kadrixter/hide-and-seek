@@ -24,19 +24,19 @@ namespace HideAndSeek.Game.Cinematics
             Most(list, AwardId.Butcher, seekers, e => e.SawKills, n => AwardBook.Plural(n, "zabójstwo", "zabójstwa", "zabójstw") + " piłą");
             Most(list, AwardId.Sniper, seekers, e => e.GlockKills, n => AwardBook.Plural(n, "zabójstwo", "zabójstwa", "zabójstw") + " z glocka");
             if (FirstBloodId != ulong.MaxValue && Find(FirstBloodId) is Entry fb && NetPlayer.Find(fb.Id) != null)
-                Add(list, AwardId.FirstBlood, new List<Entry> { fb }, "trafienie po " + AwardBook.Clock(fb.FirstHitAt - seekFrom) + " szukania");
-            Most(list, AwardId.ToyBreaker, seekers, e => e.Toys, n => AwardBook.Plural(n, "rozwalona zabawka", "rozwalone zabawki", "rozwalonych zabawek"));
+                Add(list, AwardId.FirstBlood, new List<Entry> { fb }, "pierwsze trafienie, po " + AwardBook.Clock(fb.FirstHitAt - seekFrom) + " szukania");
+            Most(list, AwardId.ToyBreaker, seekers, e => e.Toys, n => AwardBook.Plural(n, "rozwalona zabawka", "rozwalone zabawki", "rozwalonych zabawek") + " (RC, telefony)");
 
             Most(list, AwardId.Angel, hiders, e => e.Heals, n => AwardBook.Plural(n, "uleczona osoba", "uleczone osoby", "uleczonych osób"));
-            Most(list, AwardId.Rescuer, hiders, e => e.Rescues + e.Revives, n => AwardBook.Plural(n, "uratowana osoba", "uratowane osoby", "uratowanych osób"));
+            Most(list, AwardId.Rescuer, hiders, e => e.Rescues + e.Revives, n => AwardBook.Plural(n, "podniesiona osoba", "podniesione osoby", "podniesionych osób") + " (z wskrzeszonymi)");
             Ghost(list, hiders);
             LastStand(list, hiders, seekersWon);
-            Most(list, AwardId.LegBonk, hiders, e => e.LegStuns, n => AwardBook.Plural(n, "ogłuszenie", "ogłuszenia", "ogłuszeń"));
+            Most(list, AwardId.LegBonk, hiders, e => e.LegStuns, n => AwardBook.Plural(n, "ogłuszenie", "ogłuszenia", "ogłuszeń") + " rzuconą nogą");
             Unlucky(list, hiders, seekFrom);
 
-            MostF(list, AwardId.Marathon, all, e => e.Distance, 30f, AwardBook.Metres);
-            MostF(list, AwardId.RallyDriver, hiders, e => e.RcTime, 2f, v => "jeździł " + AwardBook.Duration(v));
-            MostF(list, AwardId.Chatterbox, all, e => e.VoiceTime, 3f, v => "mówił " + AwardBook.Duration(v));
+            MostF(list, AwardId.Marathon, all, e => e.Distance, 30f, v => "przebiegł " + AwardBook.Metres(v));
+            MostF(list, AwardId.RallyDriver, hiders, e => e.RcTime, 2f, v => "jeździł autkiem RC " + AwardBook.Duration(v));
+            MostF(list, AwardId.Chatterbox, all, e => e.VoiceTime, 3f, v => "mówił " + AwardBook.Duration(v) + " na czacie głosowym");
             return list;
         }
 
@@ -70,8 +70,8 @@ namespace HideAndSeek.Game.Cinematics
             var top = hiders.Where(e => e.AliveTime >= best - 2f).OrderBy(e => e.SeenTime).ToList();
             var g = top[0];
             string value = g.DiedAt < 0d
-                ? (g.SeenTime < 0.5f ? "przeżył, nikt go nie widział" : $"przeżył, widziany {AwardBook.Duration(g.SeenTime)}")
-                : "przeżył " + AwardBook.Clock(g.AliveTime);
+                ? (g.SeenTime < 0.5f ? "przeżył najdłużej, nikt go nie widział" : $"przeżył najdłużej, widziany tylko {AwardBook.Duration(g.SeenTime)}")
+                : "przeżył najdłużej: " + AwardBook.Clock(g.AliveTime);
             Add(list, AwardId.Ghost, new List<Entry> { g }, value);
         }
 
@@ -83,18 +83,18 @@ namespace HideAndSeek.Game.Cinematics
             {
                 if (DeathOrder.Count == 0) return;
                 var last = Find(DeathOrder[^1]);
-                if (last != null && NetPlayer.Find(last.Id) != null) Add(list, AwardId.LastStand, new List<Entry> { last }, "padł jako ostatni");
+                if (last != null && NetPlayer.Find(last.Id) != null) Add(list, AwardId.LastStand, new List<Entry> { last }, "ostatni żywy, padł jako ostatni");
                 return;
             }
             var alive = hiders.Where(e => NetPlayer.Find(e.Id) is NetPlayer p && p.Life.Value != LifeState.Dead).ToList();
-            if (alive.Count == 1) Add(list, AwardId.LastStand, alive, "jedyny żywy do końca");
+            if (alive.Count == 1) Add(list, AwardId.LastStand, alive, "jedyny przeżył do końca");
         }
 
         static void Unlucky(List<AwardPack> list, List<Entry> hiders, double seekFrom)
         {
             var caught = hiders.Where(e => e.CaughtAt >= 0d).OrderBy(e => e.CaughtAt).ToList();
             if (caught.Count == 0 || hiders.Count < 2) return;
-            Add(list, AwardId.Unlucky, new List<Entry> { caught[0] }, "złapany po " + AwardBook.Clock(caught[0].CaughtAt - seekFrom));
+            Add(list, AwardId.Unlucky, new List<Entry> { caught[0] }, "złapany pierwszy, po " + AwardBook.Clock(caught[0].CaughtAt - seekFrom) + " szukania");
         }
 
         static Unity.Collections.FixedString128Bytes Clip128(string s)

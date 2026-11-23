@@ -103,15 +103,15 @@ namespace HideAndSeek.Game.Cinematics
                 float k = Mathf.Clamp01((t - OutroTimeline.Travel) / (OutroTimeline.Awards - OutroTimeline.Travel));
                 k = k * k * (3f - 2f * k);
                 float x = Mathf.Lerp(-halfRow - 0.9f, halfRow + 0.9f, k);
-                pos = new Vector3(x, 1.34f, RowZ + 2.7f);
-                look = new Vector3(x + 0.55f, 1.12f, RowZ);
-                fov = n <= 2 ? 44f : 38f;
+                pos = new Vector3(x * 0.8f, 1.38f, RowZ + 4.1f);
+                look = new Vector3(x + 0.45f, 1.08f, RowZ);
+                fov = n <= 2 ? 44f : 40f;
             }
             else
             {
-                pos = new Vector3(0f, 1.75f, RowZ + 6.2f + Mathf.Max(0f, halfRow - 2.5f));
-                look = new Vector3(0f, 1.3f, RowZ);
-                fov = 50f;
+                pos = new Vector3(0f, 1.55f, RowZ + 5.6f + Mathf.Max(0f, halfRow - 1.6f) * 1.6f);
+                look = new Vector3(0f, 1.2f, RowZ);
+                fov = 46f;
             }
             Vector3 wp = _gate.Local(pos), wl = _gate.Local(look);
             if (!_camInit) { _camPos = wp; _camLook = wl; _camFov = fov; _camInit = true; }

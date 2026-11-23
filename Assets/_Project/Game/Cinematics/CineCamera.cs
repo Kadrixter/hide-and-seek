@@ -69,7 +69,7 @@ namespace HideAndSeek.Game.Cinematics
             Title = UiKit.Label("T", tr, "", 76, TextAnchor.MiddleCenter, Color.white, FontStyle.Bold);
             Title.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 30), new Vector2(0, 100));
             Title.AddOutline(2f, 0.6f);
-            Sub = UiKit.Label("S", tr, "", 30, TextAnchor.MiddleCenter, CineStyle.Accent);
+            Sub = UiKit.Label("S", tr, "", 36, TextAnchor.MiddleCenter, CineStyle.Accent);
             Sub.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -42), new Vector2(0, 50));
             Sub.AddOutline(1.5f, 0.6f);
 

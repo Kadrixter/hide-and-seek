@@ -14,18 +14,16 @@ namespace HideAndSeek.Game.Cinematics
             var awards = _pack.Awards ?? System.Array.Empty<AwardPack>();
             int n = awards.Length;
             if (n == 0) return;
-            int cols = n <= 4 ? 2 : 3;
-            int rows = (n + cols - 1) / cols;
-            float scale = rows > 5 ? 5f / rows : 1f;
-            float w = CardW * scale, h = CardH * scale;
-            float top = rows * h + (rows - 1) * GapY;
+            // Two columns at the sides of the screen, the winners stay visible in the middle.
+            int per = (n + 1) / 2;
+            float scale = per > 6 ? 6f / per : 1f;
+            float w = CardW * scale * 0.86f, h = CardH * scale;
             for (int i = 0; i < n; i++)
             {
                 var a = awards[i];
-                int r = i / cols, c = i % cols;
-                int inRow = Mathf.Min(cols, n - r * cols);
-                float x = (c - (inRow - 1) * 0.5f) * (w + GapX);
-                float y = top * 0.5f - r * (h + GapY) - h * 0.5f - 70f;
+                int c = i < per ? 0 : 1, r = i < per ? i : i - per;
+                float x = (c == 0 ? -1f : 1f) * (960f - 36f - w * 0.5f);
+                float y = 250f - h * 0.5f - r * (h + GapY);
                 var card = Card(root, (AwardId)a.Id, a.Nicks.ToString(), a.Value.ToString(), w, h);
                 var home = new Vector2(x, y);
                 card.anchoredPosition = home;
@@ -56,7 +54,7 @@ namespace HideAndSeek.Game.Cinematics
             var who = UiKit.Label("Nick", rt, nicks, Mathf.RoundToInt(27 * k), TextAnchor.UpperLeft, accent, FontStyle.Bold);
             who.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(104f * k, -42f * k), new Vector2(-116f * k, 32f * k));
             who.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var res = UiKit.Label("Value", rt, value + "  ·  " + AwardBook.Description(id), Mathf.RoundToInt(19 * k), TextAnchor.UpperLeft, CineStyle.Dim);
+            var res = UiKit.Label("Value", rt, value, Mathf.RoundToInt(20 * k), TextAnchor.UpperLeft, CineStyle.Dim);
             res.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(104f * k, -78f * k), new Vector2(-116f * k, 26f * k));
             res.horizontalOverflow = HorizontalWrapMode.Overflow;
             return rt;

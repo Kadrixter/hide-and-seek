@@ -34,7 +34,8 @@ namespace HideAndSeek.Game.Cinematics
         {
             if (_depth == 0) return;
             if (--_depth > 0) return;
-            foreach (var c in _added) if (c != null) Object.Destroy(c);
+            // Switched back on, not destroyed: a destroyed nested canvas leaves its graphics unregistered (invisible).
+            foreach (var c in _added) if (c != null) c.enabled = true;
             foreach (var c in _offCanvases) if (c != null) c.enabled = true;
             _added.Clear();
             _offCanvases.Clear();
