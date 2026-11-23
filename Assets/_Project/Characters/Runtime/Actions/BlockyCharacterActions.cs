@@ -414,6 +414,7 @@ namespace HideAndSeek.Characters
             ApplyFlashTake(ref p, dt);
             ApplyToyGun(ref p, dt, standing, lookPitch);
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand
+            ApplyLegThrow(ref p, dt, lookPitch); // cut-off leg: wind-up / throw (LegThrow.cs)
             ApplyPaMic(ref p, dt, standing);
             ApplyShoulderRadio(ref p, dt, standing); // boombox on the shoulder (map radio)
             ApplyExtLayers(ref p, dt, standing, lookPitch); // fire extinguisher in the hands / foam wiped off the face
@@ -514,6 +515,7 @@ namespace HideAndSeek.Characters
 
             // 5d. Collapse after too many cans in the lobby (overrides everything).
             if (overdoseT >= 0f) p = OverdosePose(p, overdoseT);
+            if (stunT >= 0f) p = StunPose(p, stunT); // 5e. knocked out by a thrown leg (Stun.cs)
 
             // 6. Additive flinches.
             ApplyAdditives(ref p, standing);
@@ -543,7 +545,7 @@ namespace HideAndSeek.Characters
             if (RemoteThrowing) return RemoteShownItem();
             if (PaMicBusy || RadioBusy) return HeldItem.None;
             if (ExtHandsBusy) return HeldItem.None; // fire extinguisher in both hands
-            if (vendingOn || ShockHidesItem || GunHidesItem || overdoseT >= 0f) return HeldItem.None;
+            if (vendingOn || ShockHidesItem || GunHidesItem || overdoseT >= 0f || stunT >= 0f) return HeldItem.None;
             var rc = RcShownItem();
             if (rc != HeldItem.None || rcW > 0.5f) return rc;
             var hold = HoldShownItem();

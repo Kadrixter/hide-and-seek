@@ -361,13 +361,15 @@ namespace HideAndSeek.Game.Net
             UpdateDrunk();
             UpdateRcRemote();
             UpdateHandItem();
+            UpdateLegThrow(); // NetPlayer.LegThrow.cs
+            UpdateStun(); // NetPlayer.Stun.cs
 
             float prone = Life.Value == LifeState.Alive ? Motor.ProneAmount : 0f;
             (Actions as BlockyCharacterActions)?.SetProneAmount(prone);
             if (IsOwner)
             {
                 bool healing = HoldAnimVar.Value == (byte)HoldAnim.SelfHeal && Life.Value == LifeState.Downed;
-                bool vm = (Life.Value == LifeState.Alive && prone < 0.4f || healing) && !KillCam.Active && !_shockHideVm && !_odHideVm
+                bool vm = (Life.Value == LifeState.Alive && prone < 0.4f || healing) && !KillCam.Active && !_shockHideVm && !_odHideVm && !StunHidesVm
                           && !_rcCamOn && !(RcAnimating && !_rcHandsOn) && !SeatBodyShown;
                 if (vm != _vmVisible) { _vmVisible = vm; ViewModel?.SetVisible(vm); }
             }
@@ -1217,6 +1219,7 @@ namespace HideAndSeek.Game.Net
             Vector3 impulse = dir * Random.Range(0.6f, 1.6f) + side * Random.Range(-0.7f, 0.7f) + Vector3.up * Random.Range(0.7f, 1.6f);
             if (!Character.Sever(limb, impulse)) return;
             var gib = Character.LastGib;
+            if (gib != null && SeveredLegs.ServerOwned(this, limb)) { Destroy(gib); gib = null; } // the server's leg item takes its place
             if (gib != null)
             {
                 BloodFx.Stump(gib.transform, gib.transform.position, gib.transform.rotation,
