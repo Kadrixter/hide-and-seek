@@ -214,16 +214,20 @@ namespace HideAndSeek.Game.UI
 
         private static void Arrow(RectTransform row, string glyph, Vector2 pos, Action click)
         {
-            var b = UiKit.Image("Arrow" + glyph, row, new Color(1f, 1f, 1f, 0.05f));
-            SquareBorder("Ring", b.transform, SqBorder);
+            // dark square like the row, light arrow; hover: sea-green outline and arrow (UiArrowFx)
+            var b = UiKit.Image("Arrow" + glyph, row, new Color(0f, 0f, 0f, 0.32f));
+            var ring = SquareBorder("Ring", b.transform, SqBorder);
             b.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), pos, new Vector2(36, 36));
-            var t = UiKit.Label("T", b.transform, glyph, 24, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);
+            var t = UiKit.Label("T", b.transform, glyph, 24, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.85f), FontStyle.Bold);
             t.rectTransform.Stretch();
             var btn = b.gameObject.AddComponent<Button>();
-            var cols = btn.colors;
-            cols.highlightedColor = new Color(2.5f, 2.5f, 2.5f, 2.5f);
-            cols.colorMultiplier = 3f;
-            btn.colors = cols;
+            btn.transition = Selectable.Transition.None;
+            var nav = btn.navigation;
+            nav.mode = Navigation.Mode.None;
+            btn.navigation = nav;
+            var fx = b.gameObject.AddComponent<UiArrowFx>();
+            fx.Ring = ring;
+            fx.Glyph = t;
             btn.onClick.AddListener(() =>
             {
                 GameAudio.Play2D(GameSfx.UiClick, 0.7f);
@@ -379,6 +383,37 @@ namespace HideAndSeek.Game.UI
         {
             if (_bg != null) _bg.color = Color.Lerp(_bg.color, _hover ? UiStyle.SqRowHover : UiStyle.SqRow, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
             if (_border != null) _border.color = Color.Lerp(_border.color, _hover ? UiStyle.WidgetHoverBorder : UiStyle.SqBorder, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
+        }
+    }
+
+    /// <summary>Hover of the square "&lt;" / "&gt;" arrows: outline and arrow ease to the sea-green accent.</summary>
+    public class UiArrowFx : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        public Image Ring;
+        public Text Glyph;
+        private bool _hover;
+        private float _h;
+
+        public void OnPointerEnter(PointerEventData e) => _hover = true;
+        public void OnPointerExit(PointerEventData e) => _hover = false;
+
+        private void OnDisable()
+        {
+            _hover = false;
+            _h = 0f;
+            Apply();
+        }
+
+        private void Update()
+        {
+            _h = Mathf.Lerp(_h, _hover ? 1f : 0f, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 16f));
+            Apply();
+        }
+
+        private void Apply()
+        {
+            if (Ring != null) Ring.color = Color.Lerp(UiStyle.SqBorder, UiStyle.WidgetHoverBorder, _h);
+            if (Glyph != null) Glyph.color = Color.Lerp(new Color(1f, 1f, 1f, 0.85f), UiStyle.WidgetAccent, _h);
         }
     }
 
