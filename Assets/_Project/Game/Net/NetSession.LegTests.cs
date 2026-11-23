@@ -72,26 +72,46 @@ namespace HideAndSeek.Game.Net
             }
             if (!me.IsHider || seeker == null || victim == null) { Debug.Log("[LegTest] need host hider + a seeker + a second hider"); yield break; }
             Vector3 spot = me.transform.position;
-            TestLamp(spot + Vector3.up * 2.6f + Vector3.forward * 3f, 2.2f);
+            Vector3 fw = OpenDirection(spot, out float room);
+            Vector3 rt = Vector3.Cross(Vector3.up, fw);
+            float yawF = Mathf.Atan2(fw.x, fw.z) * Mathf.Rad2Deg;
+            me.TeleportRpc(spot, yawF);
+            Debug.Log($"[LegTest] test lane from {spot} towards {fw} ({room:0.0} m free)");
+            TestLamp(spot + Vector3.up * 2.6f + fw * 3f, 2.2f);
+            TestLamp(spot + Vector3.up * 2.6f + fw * 6.5f, 2.2f);
 
             // 1. The saw's first hit: the victim's leg falls as an item.
-            victim.TeleportRpc(spot + Vector3.forward * 2f, 180f);
-            seeker.TeleportRpc(spot + Vector3.forward * 3.1f, 180f);
+            victim.TeleportRpc(spot + fw * 2f, yawF + 180f);
+            seeker.TeleportRpc(spot + fw * 3.1f, yawF + 180f);
             yield return new WaitForSeconds(1f);
             seeker.HasChainsaw.Value = true;
             seeker.Held.Value = HeldItem.Chainsaw;
             seeker.AttackReadyAt.Value = 0;
             int before = LegDrops(mm, out _, out _);
+            yield return new WaitForSeconds(0.5f);
             LegLookAt(me, victim.ChestPosition);
-            mm.ServerChainsaw(seeker, victim);
-            yield return new WaitForSeconds(BlockyCharacterActions.SawSlashHitTime + 0.15f);
+            for (int tries = 0; tries < 6 && victim.Severed.Value == 0; tries++)
+            {
+                float w = 0f;
+                while (w < 3f && Vector3.Distance(seeker.transform.position, victim.transform.position) > 1.6f) { w += Time.deltaTime; yield return null; }
+                seeker.AttackReadyAt.Value = 0;
+                Debug.Log($"[LegTest] saw try {tries}: dist={Vector3.Distance(seeker.transform.position, victim.transform.position):0.00} seekerBusy={seeker.Busy.Value} victimBusy={victim.Busy.Value} held={seeker.Held.Value}");
+                mm.ServerChainsaw(seeker, victim);
+                yield return new WaitForSeconds(BlockyCharacterActions.SawSlashHitTime + 0.15f);
+                if (victim.Severed.Value == 0)
+                {
+                    victim.TeleportRpc(spot + fw * 2f, yawF + 180f);
+                    seeker.TeleportRpc(spot + fw * 3.1f, yawF + 180f);
+                    yield return new WaitForSeconds(1f);
+                }
+            }
             LegShot("cut");
             yield return new WaitForSeconds(2.4f);
             int legs = LegDrops(mm, out int legId, out Vector3 legPos);
             Debug.Log($"[LegTest] saw hit: victim severed={victim.Severed.Value} leg drops {before} -> {legs} (expected +1) at {legPos} " +
                       $"(victim at {victim.transform.position}) looseParts={GameObject.Find("SeveredLimb") != null} (expected False)");
             LegLookAt(me, legPos);
-            yield return new WaitForSeconds(0.3f);
+            yield return new WaitForSeconds(0.5f);
             LegShot("leg_on_floor");
 
             // 2. Pick it up.
@@ -107,9 +127,9 @@ namespace HideAndSeek.Game.Net
             // 3. Wind up and throw at the seeker 6 m away.
             seeker.Held.Value = HeldItem.Knife;
             seeker.AttackReadyAt.Value = 0;
-            me.TeleportRpc(spot, 0f);
-            seeker.TeleportRpc(spot + Vector3.forward * 6f, 180f);
-            victim.TeleportRpc(spot + Vector3.right * 4f + Vector3.forward * 2f, 270f);
+            me.TeleportRpc(spot, yawF);
+            seeker.TeleportRpc(spot + fw * 6f, yawF + 180f);
+            victim.TeleportRpc(spot + rt * 2.5f + fw * 1f, yawF);
             yield return new WaitForSeconds(1.2f);
             LegLookAt(me, seeker.ChestPosition + Vector3.up * 0.3f);
             yield return new WaitForSeconds(0.4f);
@@ -143,7 +163,7 @@ namespace HideAndSeek.Game.Net
                     mm.ServerKnife(seeker, me);
                     yield return new WaitForSeconds(0.2f);
                     Debug.Log($"[LegTest] knife while stunned: limping {limp0} -> {me.Limping.Value}, busy={me.Busy.Value} (expected no change)");
-                    me.TeleportRpc(spot, 0f);
+                    me.TeleportRpc(spot, yawF);
                     yield return null;
                     LegLookAt(me, seeker.ChestPosition);
                 }
@@ -153,13 +173,13 @@ namespace HideAndSeek.Game.Net
 
             // 4. Again while he is immune: a hit without a knock-out.
             legs = LegDrops(mm, out legId, out legPos);
-            me.TeleportRpc(legPos + Vector3.right * 0.8f, 0f);
+            me.TeleportRpc(legPos + rt * 0.8f, 0f);
             yield return new WaitForSeconds(0.4f);
             mm.ServerPickupDrop(me, legId);
             yield return new WaitForSeconds(0.4f);
             slot = Inventory.SlotOf(me, HotbarItem.SeveredLeg);
             Hotbar.TestSelect = slot;
-            me.TeleportRpc(seeker.transform.position - seeker.transform.forward * -4.5f, 180f);
+            me.TeleportRpc(spot + fw * 1.5f, yawF);
             yield return new WaitForSeconds(0.8f);
             LegLookAt(me, seeker.ChestPosition);
             Hotbar.TestHold = true;
@@ -173,9 +193,9 @@ namespace HideAndSeek.Game.Net
 
             // 5. A saw kill takes the other leg too; the body shows on the hiders' minimap on its level only.
             before = LegDrops(mm, out _, out _);
-            victim.TeleportRpc(spot + Vector3.forward * 3f, 180f);
-            seeker.TeleportRpc(spot + Vector3.forward * 4.2f, 180f);
-            me.TeleportRpc(spot, 0f);
+            victim.TeleportRpc(spot + fw * 3f, yawF + 180f);
+            seeker.TeleportRpc(spot + fw * 4.2f, yawF + 180f);
+            me.TeleportRpc(spot, yawF);
             yield return new WaitForSeconds(0.8f);
             seeker.AttackReadyAt.Value = 0;
             LegLookAt(me, victim.ChestPosition);
@@ -185,12 +205,30 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(1f);
             LegShot("body_minimap");
             Debug.Log($"[LegTest] body dots same level: {Minimap.BodyDots} (expected 1) body at {victim.ChestPosition}");
-            Vector3 other = spot + Vector3.down * 3.4f;
+            Vector3 other = spot + (spot.y < -5f ? Vector3.up : Vector3.down) * 3.4f;
             me.TeleportRpc(other, 0f);
             yield return new WaitForSeconds(1.5f);
             Debug.Log($"[LegTest] body dots from y={me.transform.position.y:0.0}: {Minimap.BodyDots} (expected 0 if another level)");
             LegShot("other_level");
             Debug.Log("[LegTest] done");
+        }
+
+        /// <summary>Flat direction from <paramref name="spot"/> with the most free room at chest height (a lane for the test).</summary>
+        private static Vector3 OpenDirection(Vector3 spot, out float best)
+        {
+            best = 0f;
+            Vector3 dir = Vector3.forward;
+            for (int i = 0; i < 24; i++)
+            {
+                Vector3 d = Quaternion.Euler(0f, i * 15f, 0f) * Vector3.forward;
+                float free = 12f;
+                foreach (var h in Physics.RaycastAll(spot + Vector3.up * 1.2f, d, 12f, ~0, QueryTriggerInteraction.Ignore))
+                    if (h.collider.GetComponentInParent<NetPlayer>() == null && h.distance < free) free = h.distance;
+                foreach (var h in Physics.RaycastAll(spot + Vector3.up * 0.3f, d, 12f, ~0, QueryTriggerInteraction.Ignore))
+                    if (h.collider.GetComponentInParent<NetPlayer>() == null && h.distance < free) free = h.distance;
+                if (free > best) { best = free; dir = d; }
+            }
+            return dir;
         }
 
         private IEnumerator StunViewTest()

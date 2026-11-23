@@ -61,13 +61,13 @@ namespace HideAndSeek.Characters
             Vector3 hold = g != null ? g.FpHand : new Vector3(0.3f, -0.36f, 0.58f);
             Quaternion holdRot = g != null ? Quaternion.Euler(g.FpRotation) : Quaternion.identity;
             float tremble = t < 0f ? 0.006f * vmLegPower * cock : 0f;
-            Vector3 cocked = new Vector3(0.36f, -0.06f, 0.5f) + new Vector3(Mathf.Sin(time * 41f), Mathf.Sin(time * 37f + 1f), 0f) * tremble;
+            Vector3 cocked = new Vector3(0.42f, -0.02f, 0.44f) + new Vector3(Mathf.Sin(time * 41f), Mathf.Sin(time * 37f + 1f), 0f) * tremble;
             Vector3 release = new Vector3(0.1f, 0.02f, 0.62f);
             Vector3 after = new Vector3(-0.12f, -0.72f, 0.5f);
             Vector3 hidden = new Vector3(0.3f, -0.95f, 0.35f);
             rightT = Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(hold, cocked, cock), release, swing), after, follow), hidden, back);
 
-            Quaternion cockRot = LegRotFp(new Vector3(0.3f, 0.5f, -0.8f), Vector3.right);
+            Quaternion cockRot = LegRotFp(new Vector3(0.45f, 0.42f, -0.79f), Vector3.right);
             Quaternion relRot = LegRotFp(new Vector3(-0.05f, 0.75f, 0.66f), Vector3.right);
             propRot = Quaternion.Slerp(Quaternion.Slerp(holdRot, cockRot, cock), relRot, swing);
             SolveArm(shR, elR, ShoulderR, rightT, Vector3.Lerp(new Vector3(1f, -1f, -0.4f), new Vector3(1f, 0.2f, -0.6f), cock * (1f - swing)));

@@ -55,9 +55,9 @@ namespace HideAndSeek.Characters
             Hang = true,
             Rotation = new Vector3(0f, 0f, 180f),
             FpGrip = AnkleGrip,
-            FpHand = new Vector3(0.31f, -0.38f, 0.56f),
+            FpHand = new Vector3(0.34f, -0.41f, 0.6f),
             FpRotation = HandGrip.Aim(Vector3.up, new Vector3(0.12f, 0.5f, 0.86f), Vector3.forward, Vector3.right),
-            FpScale = 0.72f,
+            FpScale = 0.52f,
         };
 
         /// <summary>Puts the owner's skin on a leg built earlier (e.g. once the owner's character is known).</summary>

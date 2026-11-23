@@ -59,13 +59,19 @@ namespace HideAndSeek.Game.Net
             var c = victim.Character;
             Vector3 hip = c != null && c.IsBuilt ? c.LimbJointPosition(limb) : victim.transform.position + Vector3.up * BlockyCharacter.HipHeight;
             Quaternion rot = c != null && c.IsBuilt && c.LimbJoint(limb) != null ? c.LimbJoint(limb).rotation : victim.transform.rotation;
+            // The body of a remote player not where its root is (not built yet / just teleported): from the root instead.
+            if ((hip - victim.transform.position).sqrMagnitude > 4f)
+            {
+                hip = victim.transform.position + Vector3.up * BlockyCharacter.HipHeight;
+                rot = victim.transform.rotation;
+            }
             Vector3 dir = hip - awayFrom;
             dir.y = 0f;
             dir = dir.sqrMagnitude > 0.01f ? dir.normalized : victim.transform.forward;
             Vector3 side = Vector3.Cross(Vector3.up, dir);
             Vector3 vel = dir * Random.Range(0.6f, 1.6f) + side * Random.Range(-0.7f, 0.7f) + Vector3.up * Random.Range(0.7f, 1.6f);
             SpawnLegDrop(SeveredLegs.Code(victim, limb), hip + rot * LegBoxCenter, rot, vel, Random.onUnitSphere * 5f, victim.transform.position, out int id);
-            Debug.Log($"[Legs] {victim.Nick}: {(limb == Limb.LegL ? "left" : "right")} leg off -> drop #{id}");
+            Debug.Log($"[Legs] {victim.Nick}: {(limb == Limb.LegL ? "left" : "right")} leg off -> drop #{id} from the hip at {hip} (root {victim.transform.position}, body {(c != null ? c.transform.position : Vector3.zero)})");
         }
 
         /// <summary>Server: the legs a saw kill cuts off, on the same marks as the clients' animation.</summary>
