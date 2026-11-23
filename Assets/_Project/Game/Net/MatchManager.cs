@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using HideAndSeek.Audio;
 using HideAndSeek.Characters;
@@ -487,6 +487,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepPhones ??= UpdatePhones, "phones");
             Step(_stepPa ??= UpdatePa, "public address");
             Step(_stepExt ??= UpdateExtinguishers, "extinguishers");
+            Step(_stepMiniGames ??= UpdateMiniGames, "mini games"); // lobby chess / tic-tac-toe (MatchManager.MiniGames.cs)
             Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
             if (!IsServer) return;
             Step(_stepServerProps ??= UpdateServerProps, "server props");
