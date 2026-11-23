@@ -20,6 +20,7 @@ namespace HideAndSeek.Game.Net
     {
         private void StartLobbyReturnTests(Func<string, string> arg)
         {
+            StartLobbyMixWatch();
             if (arg("-testlobbyreturn") is string n && int.TryParse(n, out int rounds) && rounds > 0)
                 StartCoroutine(LobbyReturnTest(rounds));
         }
@@ -59,6 +60,8 @@ namespace HideAndSeek.Game.Net
                 if (!r.Playing && r.Index >= 0 && r.Index < mm.RadioQueue.Count) mm.ServerRadio(NetPlayer.Local, RadioOp.Toggle, null);
                 yield return new WaitForSeconds(2f);
                 LTLog($"round {round}: radio playing={mm.Radio.Value.Playing} loading={mm.Radio.Value.Loading}, boombox={(Boombox.Instance != null)}");
+                bool mix = HasArg("-lobbytestmix");
+                if (mix) LobbyMixLobby(round, LTLog);
                 foreach (var p in NetPlayer.All) if (p != null) p.Ready.Value = true;
                 var s = mm.Settings.Value;
                 s.Mode = (byte)GameMode.HideAndSeek;
@@ -78,14 +81,24 @@ namespace HideAndSeek.Game.Net
 
                 // ---- on the map: items on the floor, one hider dead (watches through the spectator camera)
                 mm.TestScatter(3);
-                NetPlayer victim = null;
-                foreach (var p in NetPlayer.All) if (p != null && p.IsHider && (victim == null || p != NetPlayer.Local)) victim = p;
-                if (victim != null)
+                if (mix)
                 {
-                    mm.TestKill(victim); // the last hider: the seekers win at once, the dead one watches the end screen
-                    LTLog($"round {round}: {victim.Nick} killed (spectates until the lobby)");
+                    int rr = round;
+                    yield return LobbyMixKills(mm, round, l => LTLog($"round {rr}: {l}"));
+                    float tk = Time.realtimeSinceStartup;
+                    while (mm.Phase.Value == MatchPhase.Seeking && Time.realtimeSinceStartup - tk < (round % 2 == 1 ? 25f : play)) yield return null;
                 }
-                yield return new WaitForSeconds(play);
+                else
+                {
+                    NetPlayer victim = null;
+                    foreach (var p in NetPlayer.All) if (p != null && p.IsHider && (victim == null || p != NetPlayer.Local)) victim = p;
+                    if (victim != null)
+                    {
+                        mm.TestKill(victim); // the last hider: the seekers win at once, the dead one watches the end screen
+                        LTLog($"round {round}: {victim.Nick} killed (spectates until the lobby)");
+                    }
+                    yield return new WaitForSeconds(play);
+                }
 
                 // ---- end -> lobby
                 int doneBefore = mm.LobbyReturnsCompleted;
