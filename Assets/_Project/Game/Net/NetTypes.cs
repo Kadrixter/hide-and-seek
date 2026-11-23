@@ -231,10 +231,10 @@ namespace HideAndSeek.Game.Net
         public const float RcStompStandOff = 0.42f;    // seeker distance from the car during the stomp
 
         // Melee cooldown, chainsaw first hit, dust
-        public const float AttackCooldown = 10f;       // seconds between two melee attacks of the seeker
-        public const float AttackSlowScale = 0.65f;    // seeker speed right after an attack / a kill (hider can run away)
-        public const float AttackSlowHold = 1.5f;      // full slowdown this long, then a smooth return
-        public const float AttackSlowFade = 1.2f;
+        public const float AttackCooldown = 13f;       // seconds between two melee attacks of the seeker
+        public const float AttackSlowScale = 0.5f;     // seeker speed right after an attack / a kill (hider can run away)
+        public const float AttackSlowHold = 2.5f;      // full slowdown this long, then a smooth return
+        public const float AttackSlowFade = 1.5f;
         // Glock aiming (RMB): spread cone (degrees), zoom, walking speed while aiming
         public const float GlockHipSpread = 2.6f;
         public const float GlockAimSpread = 0.3f;
