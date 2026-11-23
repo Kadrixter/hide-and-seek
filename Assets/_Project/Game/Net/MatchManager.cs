@@ -497,6 +497,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>Runs one per-frame part; an exception is logged (at most every 5 s per part) instead of skipping the rest of the frame.</summary>
         private void Step(System.Action part, string name)
         {
+            double t0 = FrameHitchLog.Now;
             try { part(); }
             catch (System.Exception e)
             {
@@ -505,6 +506,8 @@ namespace HideAndSeek.Game.Net
                 Debug.LogWarning($"[Match] {name} failed (phase {Phase.Value}, scene {SceneManager.GetActiveScene().name}): {e.GetType().Name}");
                 Debug.LogException(e);
             }
+            double ms = FrameHitchLog.Now - t0;
+            if (ms > 60) Debug.LogWarning($"[Hitch] MatchManager part '{name}' took {ms:0} ms (phase {Phase.Value})");
         }
 
         private void UpdateSceneProps()

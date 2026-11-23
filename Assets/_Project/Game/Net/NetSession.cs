@@ -1333,6 +1333,7 @@ namespace HideAndSeek.Game.Net
         public void Leave(string message = null)
         {
             if (message != null) LastMessage = message;
+            Debug.Log($"[NetSession] leave to the menu ({message ?? "own choice"}), scene {SceneManager.GetActiveScene().name}, t {Time.realtimeSinceStartup:0.0} s");
             LanDiscovery.StopResponder();
             SteamService.LeaveLobby();
             if (Manager.IsListening) Manager.Shutdown();
@@ -1426,6 +1427,7 @@ namespace HideAndSeek.Game.Net
             }
             // We are a client and got disconnected (or failed to connect).
             string reason = Manager.DisconnectReason;
+            Debug.LogWarning($"[NetSession] disconnected from the server (client {clientId}, scene {SceneManager.GetActiveScene().name}, t {Time.realtimeSinceStartup:0.0} s): '{reason}'");
             Leave(string.IsNullOrEmpty(reason) ? "Rozłączono z serwerem." : reason);
         }
     }
