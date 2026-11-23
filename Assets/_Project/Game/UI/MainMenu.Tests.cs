@@ -61,6 +61,8 @@ namespace HideAndSeek.Game.UI
             yield return Shot("07_browser", 1.5f);
             Show(_options);
             yield return Shot("08_options", 1.0f);
+            Show(_graphics);
+            yield return Shot("08b_graphics", 1.0f);
             Show(_audio);
             yield return Shot("09_audio", 1.0f);
             Show(_voicePage);

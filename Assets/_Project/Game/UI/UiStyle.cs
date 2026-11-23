@@ -17,6 +17,45 @@ namespace HideAndSeek.Game.UI
         public static readonly Color TrackOff = new Color(0.25f, 0.26f, 0.29f, 1f);
         public static readonly Color Border = new Color(1f, 1f, 1f, 0.1f);
 
+        // Settings widgets (rows, switches, pickers, sliders): flat, square, sea-green accent like the text buttons.
+        public static Color WidgetAccent => UiKit.ButtonHover;
+        public static readonly Color SqRow = new Color(1f, 1f, 1f, 0.045f);
+        public static readonly Color SqRowHover = new Color(1f, 1f, 1f, 0.085f);
+        public static readonly Color SqBorder = new Color(1f, 1f, 1f, 0.12f);
+        public static readonly Color SqTrack = new Color(1f, 1f, 1f, 0.16f);
+        public static Color WidgetHoverBorder => new Color(WidgetAccent.r, WidgetAccent.g, WidgetAccent.b, 0.6f);
+
+        private static Sprite _sqRing;
+
+        /// <summary>1 px square outline (9-sliced, any size).</summary>
+        public static Sprite SquareRing
+        {
+            get
+            {
+                if (_sqRing != null) return _sqRing;
+                const int n = 8;
+                var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Point, hideFlags = HideFlags.DontSave };
+                var px = new Color32[n * n];
+                for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                    px[y * n + x] = (x == 0 || y == 0 || x == n - 1 || y == n - 1) ? new Color32(255, 255, 255, 255) : new Color32(255, 255, 255, 0);
+                tex.SetPixels32(px);
+                tex.Apply();
+                return _sqRing = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(2, 2, 2, 2));
+            }
+        }
+
+        /// <summary>Square 1 px outline stretched over <paramref name="parent"/>.</summary>
+        public static Image SquareBorder(string name, Transform parent, Color color)
+        {
+            var r = UiKit.Image(name, parent, color);
+            r.sprite = SquareRing;
+            r.type = Image.Type.Sliced;
+            r.raycastTarget = false;
+            r.rectTransform.Stretch();
+            return r;
+        }
+
         private static Sprite _round, _round6, _circle, _grad, _ring, _ringSmall;
 
         /// <summary>Rounded rectangle with a vertical gradient baked in (top lighter): button base.</summary>
@@ -120,9 +159,9 @@ namespace HideAndSeek.Game.UI
 
         private static RectTransform RowBase(string name, Transform parent, string label, int fontSize, out Image bg, out Text text)
         {
-            bg = UiKit.Image(name, parent, Row).Rounded();
+            bg = UiKit.Image(name, parent, SqRow);
             var rt = bg.rectTransform;
-            Ring("Border", rt, Border);
+            SquareBorder("Border", rt, SqBorder);
             text = UiKit.Label("Label", rt, label, fontSize);
             text.rectTransform.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0, 0.5f), new Vector2(20, 0), new Vector2(-200, 0));
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
@@ -133,22 +172,14 @@ namespace HideAndSeek.Game.UI
         public static RectTransform Switch(string name, Transform parent, string label, Func<bool> get, Action<bool> set, int fontSize = 24)
         {
             var rt = RowBase(name, parent, label, fontSize, out var bg, out _);
-            var track = UiKit.Image("Track", rt, TrackOff);
-            track.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-20, 0), new Vector2(68, 34));
-            track.sprite = MakePill(); // capsule
-            track.type = Image.Type.Sliced;
+            var track = UiKit.Image("Track", rt, SqTrack);
+            track.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-20, 0), new Vector2(UiSwitch.TrackW, UiSwitch.TrackH));
             track.raycastTarget = false;
-            // Inner "I" / "O" marks like a real switch.
-            var markOn = UiKit.Label("I", track.transform, "I", 18, TextAnchor.MiddleCenter, new Color(0f, 0f, 0f, 0.45f), FontStyle.Bold);
-            markOn.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(18, 0), new Vector2(20, 30));
-            var markOff = UiKit.Label("O", track.transform, "o", 18, TextAnchor.MiddleCenter, new Color(1f, 1f, 1f, 0.35f), FontStyle.Bold);
-            markOff.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-17, 0), new Vector2(20, 30));
             var knob = UiKit.Image("Knob", track.transform, Color.white);
-            knob.sprite = Circle;
-            knob.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(17, 0), new Vector2(26, 26));
-            knob.AddDrop(2f, 0.4f);
+            knob.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(UiSwitch.KnobOff, 0), new Vector2(UiSwitch.Knob, UiSwitch.Knob));
+            knob.raycastTarget = false;
             var state = UiKit.Label("State", rt, "", fontSize - 4, TextAnchor.MiddleRight, UiKit.TextDim);
-            state.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-100, 0), new Vector2(90, 0));
+            state.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-86, 0), new Vector2(110, 0));
 
             var sw = rt.gameObject.AddComponent<UiSwitch>();
             sw.Init(bg, track, knob.rectTransform, state, get, set);
@@ -171,7 +202,7 @@ namespace HideAndSeek.Game.UI
         {
             var rt = RowBase(name, parent, label, fontSize, out var bg, out var labelText);
             labelText.rectTransform.sizeDelta = new Vector2(-330, 0);
-            var val = UiKit.Label("Value", rt, value(), fontSize, TextAnchor.MiddleCenter, UiKit.Accent, FontStyle.Bold);
+            var val = UiKit.Label("Value", rt, value(), fontSize, TextAnchor.MiddleCenter, WidgetAccent, FontStyle.Bold);
             val.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-66, 0), new Vector2(240, 0));
             val.horizontalOverflow = HorizontalWrapMode.Overflow;
             Arrow(rt, "<", new Vector2(-300, 0), () => { step(-1); val.text = value(); });
@@ -183,14 +214,10 @@ namespace HideAndSeek.Game.UI
 
         private static void Arrow(RectTransform row, string glyph, Vector2 pos, Action click)
         {
-            var b = UiKit.Image("Arrow" + glyph, row, new Color(1f, 1f, 1f, 0.07f));
-            b.sprite = Circle;
-            var ring = UiKit.Image("Ring", b.transform, new Color(1f, 1f, 1f, 0.12f));
-            ring.sprite = MakeCircleRing();
-            ring.rectTransform.Stretch();
-            ring.raycastTarget = false;
-            b.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), pos, new Vector2(40, 40));
-            var t = UiKit.Label("T", b.transform, glyph, 26, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);
+            var b = UiKit.Image("Arrow" + glyph, row, new Color(1f, 1f, 1f, 0.05f));
+            SquareBorder("Ring", b.transform, SqBorder);
+            b.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), pos, new Vector2(36, 36));
+            var t = UiKit.Label("T", b.transform, glyph, 24, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);
             t.rectTransform.Stretch();
             var btn = b.gameObject.AddComponent<Button>();
             var cols = btn.colors;
@@ -235,15 +262,15 @@ namespace HideAndSeek.Game.UI
             return rt;
         }
 
-        /// <summary>Label + value on one line, a chunky rounded slider below, all inside one row card.</summary>
+        /// <summary>Label + value on one line, a thin square slider below, all inside one flat row card.</summary>
         public static Slider SliderRow(Transform parent, string label, float min, float max, float value, Action<float> set, Func<float, string> fmt, int fontSize = 22)
         {
-            var card = UiKit.Image("SliderRow", parent, Row).Rounded();
+            var card = UiKit.Image("SliderRow", parent, SqRow);
             card.Height(68);
-            Ring("Border", card.transform, Border);
+            SquareBorder("Border", card.transform, SqBorder);
             var l = UiKit.Label("Label", card.transform, label, fontSize);
             l.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, 1), new Vector2(20, -3), new Vector2(-140, 28));
-            var v = UiKit.Label("Value", card.transform, fmt(value), fontSize, TextAnchor.MiddleRight, UiKit.Accent, FontStyle.Bold);
+            var v = UiKit.Label("Value", card.transform, fmt(value), fontSize, TextAnchor.MiddleRight, WidgetAccent, FontStyle.Bold);
             v.rectTransform.Place(new Vector2(1, 1), new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -3), new Vector2(120, 28));
             var s = UiKit.Slider("S", card.transform, min, max, value, false, x =>
             {
@@ -297,10 +324,10 @@ namespace HideAndSeek.Game.UI
                 Accent.color = c;
                 Accent.rectTransform.sizeDelta = new Vector2(5f, -20f + 8f * e);
             }
-            if (Border != null) Border.color = Color.Lerp(UiStyle.Border, new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0.7f), e);
+            if (Border != null) Border.color = Color.Lerp(UiStyle.SqBorder, UiStyle.WidgetHoverBorder, e);
             if (Drop != null)
             {
-                Drop.effectColor = Color.Lerp(new Color(0f, 0f, 0f, 0.4f), new Color(UiKit.Accent.r * 0.5f, UiKit.Accent.g * 0.5f, UiKit.Accent.b * 0.5f, 0.55f), e);
+                Drop.effectColor = Color.Lerp(new Color(0f, 0f, 0f, 0.3f), new Color(UiKit.ButtonHover.r * 0.4f, UiKit.ButtonHover.g * 0.4f, UiKit.ButtonHover.b * 0.4f, 0.45f), e);
                 Drop.effectDistance = new Vector2(0f, -(3f + 2f * e) + (_down ? 2f : 0f));
             }
             if (Label != null) Label.anchoredPosition = new Vector2(wide ? 5f * e : 0f, _down ? -2f : 0f);
@@ -350,14 +377,16 @@ namespace HideAndSeek.Game.UI
 
         private void Update()
         {
-            if (_bg != null) _bg.color = Color.Lerp(_bg.color, _hover ? UiStyle.RowHover : UiStyle.Row, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
-            if (_border != null) _border.color = Color.Lerp(_border.color, _hover ? new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0.55f) : UiStyle.Border, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
+            if (_bg != null) _bg.color = Color.Lerp(_bg.color, _hover ? UiStyle.SqRowHover : UiStyle.SqRow, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
+            if (_border != null) _border.color = Color.Lerp(_border.color, _hover ? UiStyle.WidgetHoverBorder : UiStyle.SqBorder, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
         }
     }
 
     /// <summary>Animated on/off switch row.</summary>
     public class UiSwitch : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
     {
+        // Rectangular track with a square knob (3 px inset).
+        public const float TrackW = 52f, TrackH = 24f, Knob = 18f, KnobOff = 3f + Knob * 0.5f;
         private Image _bg, _track, _border;
         private RectTransform _knob;
         private Text _state;
@@ -404,12 +433,12 @@ namespace HideAndSeek.Game.UI
         private void Apply()
         {
             float e = _t * _t * (3f - 2f * _t);
-            _knob.anchoredPosition = new Vector2(Mathf.Lerp(17f, 51f, e), 0f);
-            _track.color = Color.Lerp(UiStyle.TrackOff, UiKit.Accent, e);
+            _knob.anchoredPosition = new Vector2(Mathf.Lerp(KnobOff, TrackW - KnobOff, e), 0f);
+            _track.color = Color.Lerp(UiStyle.SqTrack, UiStyle.WidgetAccent, e);
             _state.text = _get() ? "włączone" : "wyłączone";
-            _state.color = _get() ? UiKit.Accent : UiKit.TextDim;
-            if (_bg != null) _bg.color = Color.Lerp(_bg.color, _hover ? UiStyle.RowHover : UiStyle.Row, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
-            if (_border != null) _border.color = Color.Lerp(_border.color, _hover ? new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0.55f) : UiStyle.Border, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
+            _state.color = _get() ? UiStyle.WidgetAccent : UiKit.TextDim;
+            if (_bg != null) _bg.color = Color.Lerp(_bg.color, _hover ? UiStyle.SqRowHover : UiStyle.SqRow, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
+            if (_border != null) _border.color = Color.Lerp(_border.color, _hover ? UiStyle.WidgetHoverBorder : UiStyle.SqBorder, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f));
         }
     }
 }

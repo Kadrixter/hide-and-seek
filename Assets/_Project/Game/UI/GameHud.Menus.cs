@@ -93,6 +93,8 @@ namespace HideAndSeek.Game
             yield return Shot(dir, "esc_root_hover_leave", 0.6f);
             ShowGameSettings();
             yield return Shot(dir, "esc_settings", 1.0f);
+            ShowGraphicsMenu();
+            yield return Shot(dir, "esc_graphics", 1.0f);
             ShowAudioMenu();
             yield return Shot(dir, "esc_audio", 1.0f);
             ShowVoiceMenu();

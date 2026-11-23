@@ -83,7 +83,7 @@ namespace HideAndSeek.Game.UI
             _preview.rectTransform.Stretch();
             _preview.raycastTarget = false;
             RingSector.Create("PreviewRim", _ring, pr - 1f, pr + 1.5f, 0f, 360f, 0f, new Color(1f, 1f, 1f, 0.16f));
-            _pointer = RingSector.Create("Pointer", _ring, InnerR - 11f, InnerR - 4f, 0f, 30f, 0f, UiKit.Accent, 1.5f);
+            _pointer = RingSector.Create("Pointer", _ring, InnerR - 11f, InnerR - 4f, 0f, 30f, 0f, UiKit.ButtonHover, 1.5f);
             _dot = UiKit.Image("Cursor", _root, Color.white);
             _dot.sprite = UiStyle.Circle;
             _dot.raycastTarget = false;
@@ -100,7 +100,7 @@ namespace HideAndSeek.Game.UI
                     new Vector2(TabX[i], TabY), new Vector2(TabW, TabH));
                 _tabBg[i] = bg;
                 // Hover dwell: a thin bar filling under the tab.
-                var fill = UiKit.Image("Dwell", bg.transform, UiKit.Accent);
+                var fill = UiKit.Image("Dwell", bg.transform, UiKit.ButtonHover);
                 fill.raycastTarget = false;
                 fill.rectTransform.Place(new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(6f, -7f), new Vector2(0f, 3f));
                 _tabFill[i] = fill;
@@ -137,7 +137,7 @@ namespace HideAndSeek.Game.UI
                 s.Rt.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * (OuterR * 2f + 60f));
                 s.Glow = RingSector.Create("Glow", s.Rt, SliceIn - 4f, OuterR + 6f, a, step, Gap, new Color(0f, 0f, 0f, 0f), 16f);
                 s.Fill = RingSector.Create("Fill", s.Rt, SliceIn, OuterR, a, step, Gap, Color.white);
-                s.Edge = RingSector.Create("Edge", s.Rt, OuterR - 5f, OuterR, a, step, Gap, UiKit.Accent);
+                s.Edge = RingSector.Create("Edge", s.Rt, OuterR - 5f, OuterR, a, step, Gap, UiKit.ButtonHover);
                 Vector2 c = RingSector.Dir(a) * mid;
                 var holder = UiKit.Image("Thumb", s.Rt, dark);
                 holder.sprite = UiStyle.Circle;
@@ -244,7 +244,7 @@ namespace HideAndSeek.Game.UI
             for (int i = 0; i < 2; i++)
             {
                 bool on = i == _page;
-                _tabBg[i].color = on ? new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0.92f) : new Color(0.06f, 0.065f, 0.075f, 0.8f);
+                _tabBg[i].color = on ? new Color(UiKit.ButtonHover.r, UiKit.ButtonHover.g, UiKit.ButtonHover.b, 0.92f) : new Color(0.06f, 0.065f, 0.075f, 0.8f);
                 _tabText[i].color = on ? new Color(0.05f, 0.08f, 0.06f) : UiKit.TextDim;
                 bool hov = i == _tabHover && !on;
                 _tabBg[i].rectTransform.localScale = Vector3.one * (on ? 1.04f : hov ? 1.02f : 0.96f);
@@ -272,11 +272,11 @@ namespace HideAndSeek.Game.UI
             {
                 float k = i == _tabHover && i != _page ? Mathf.Clamp01(_tabHoverT / TabDwell) : 0f;
                 _tabFill[i].rectTransform.sizeDelta = new Vector2((TabW - 12f) * k, 3f);
-                _tabFill[i].color = i == _page ? new Color(0.05f, 0.08f, 0.06f, 0.8f) : UiKit.Accent;
+                _tabFill[i].color = i == _page ? new Color(0.05f, 0.08f, 0.06f, 0.8f) : UiKit.ButtonHover;
             }
             float m = _cursor.magnitude;
             _pointer.CentreAngle = Mathf.Atan2(_cursor.x, _cursor.y) * Mathf.Rad2Deg;
-            var pc = UiKit.Accent;
+            var pc = UiKit.ButtonHover;
             pc.a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, DeadZone + 0.05f, m));
             pc.a *= _tabHover >= 0 ? 0f : 1f - 0.7f * out01;
             _pointer.color = pc;
@@ -287,7 +287,7 @@ namespace HideAndSeek.Game.UI
             if (_page == 1)
             {
                 _sub.text = _hasTarget && _target != null ? $"z: {_target.Nick}" : "Spójrz na gracza obok (do 2.5 m)";
-                _sub.color = _hasTarget ? UiKit.Accent : new Color(1f, 0.72f, 0.35f);
+                _sub.color = _hasTarget ? UiKit.ButtonHover : new Color(1f, 0.72f, 0.35f);
             }
             else _sub.text = "";
             _hint.text = _toggle
@@ -298,7 +298,7 @@ namespace HideAndSeek.Game.UI
         private void AnimateSlices(NetPlayer me)
         {
             float dt = Time.unscaledDeltaTime;
-            var acc = UiKit.Accent;
+            var acc = UiKit.ButtonHover;
             for (int i = 0; i < _slices.Count; i++)
             {
                 var s = _slices[i];
