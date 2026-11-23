@@ -60,20 +60,14 @@ namespace HideAndSeek.Game.Net
         /// <summary>Server: asks <paramref name="target"/>; calls <see cref="ServerCarryAnswered"/> once (no answer = no).</summary>
         private void ServerAskCarry(NetPlayer target)
         {
-            var mm = MatchManager.Instance;
-            if (mm == null || target == null) return;
-            ulong tid = target.NetworkObjectId;
-            if (_carryAsks.TryGetValue(tid, out var a) && a.until > mm.Now && a.carrier != NetworkObjectId)
-            {
-                ToastRpc($"Ktoś inny już pyta {target.Nick}.", 2.5f);
-                return;
-            }
-            _carryAsks[tid] = (NetworkObjectId, mm.Now + CarryConsentTime + 0.5);
-            target.CarryAskRpc(NetworkObjectId, NickVar.Value, RpcTarget.Single(target.OwnerClientId, RpcTargetUse.Temp));
-            CarryAskSentRpc(tid);
-            Debug.Log($"[Carry] {Nick} asks {target.Nick}");
+            if (target == null) return;
+            // Shared consent system (Game/Net/Consent.cs, the same [Y]/[N] prompt as the pair emotes).
+            Consent.Ask(this, target, ConsentKind.Carry, 0, "chce cię podnieść i nieść na rękach",
+                a => ServerCarryAnswered(target, a == ConsentAnswer.Yes), () => CanCarry(this, target, out _));
+            Debug.Log($"[Carry] {Nick} asks {target.Nick} (Consent)");
         }
 
+        // Old carry-only question (kept unused for now; the shared Consent above replaces it).
         /// <summary>The question on the carried player's screen.</summary>
         [Rpc(SendTo.SpecifiedInParams)]
         private void CarryAskRpc(ulong carrierId, FixedString32Bytes nick, RpcParams rpcParams)
