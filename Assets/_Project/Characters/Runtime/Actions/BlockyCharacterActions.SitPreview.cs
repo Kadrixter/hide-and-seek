@@ -64,7 +64,8 @@ namespace HideAndSeek.Characters
         /// <summary>Seated pose in seat space (blended from the previous variant after a change).</summary>
         CharacterPose SitPoseSeat(float lookPitch)
         {
-            var p = SeatPoses.Evaluate(sitVariant, sitShape, sitHeadYaw, lookPitch);
+            Vector2 wander = SitLookAround(sitHeadYaw, lookPitch); // idle: the head looks round (clamped like the look)
+            var p = SeatPoses.Evaluate(sitVariant, sitShape, sitHeadYaw + wander.x, lookPitch + wander.y);
             if (sitBlendT < 1f)
             {
                 float t = ActionTimeline.SmoothStep01(sitBlendT);

@@ -18,7 +18,7 @@ namespace HideAndSeek.Game
         public int Index => Seats.IndexOf(this);
 
         /// <summary>Point players look at to get the "sit" prompt (the cushion).</summary>
-        public Vector3 AimPoint => transform.position + Vector3.up * 0.45f - transform.forward * 0.15f;
+        public Vector3 AimPoint => transform.position + Vector3.up * (Shape.TopY + 0.04f) - transform.forward * 0.15f;
 
         public static LobbySeat Get(int index) => index >= 0 && index < Seats.Count ? Seats[index] : null;
 

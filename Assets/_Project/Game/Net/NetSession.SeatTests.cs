@@ -140,6 +140,29 @@ namespace HideAndSeek.Game.Net
             {
                 ("ahead", 0f, 0f), ("down", 0f, -90f), ("downleft", -90f, -90f), ("downright", 90f, -90f), ("left", -90f, 0f), ("right", 90f, 0f)
             };
+            // Idle motion must not move the own first-person camera: sit still 8 s without touching the look
+            // (the head would start looking round after 2.5 s if the own body were not recognised as first person).
+            foreach (int v in new[] { 0, 4 })
+            {
+                var s0 = seats.Find(x => SitPoseCatalog.Allowed(x.Shape, (byte)v));
+                if (s0 == null) continue;
+                NetPlayer.TestSitPose = v;
+                TestSitOn(me, s0);
+                yield return new WaitForSeconds(SeatPoses.Lying(v) ? 1.8f : 1.3f);
+                Vector3 p0 = me.Camera.transform.position;
+                Quaternion r0 = me.Camera.transform.rotation;
+                float maxMove = 0f, maxTurn = 0f, t0 = Time.time;
+                while (Time.time - t0 < 8f)
+                {
+                    yield return null;
+                    maxMove = Mathf.Max(maxMove, (me.Camera.transform.position - p0).magnitude);
+                    maxTurn = Mathf.Max(maxTurn, Quaternion.Angle(r0, me.Camera.transform.rotation));
+                }
+                Debug.Log($"[SeatFit] idle camera pose {v}: moved {maxMove * 100f:0.00} cm, turned {maxTurn:0.00} deg over 8 s (head hidden {me.Character.HeadHidden})");
+                TestStandUp(me, s0);
+                yield return new WaitForSeconds(0.8f);
+            }
+
             foreach (var seat in seats)
             {
                 for (int v = 0; v < BlockyCharacterActions.SitPoseCount; v++)

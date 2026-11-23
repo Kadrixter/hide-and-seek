@@ -151,11 +151,13 @@ namespace HideAndSeek.Game.UI
         // ------------------------------------------------------------------ seat model
 
         /// <summary>
-        /// Small model of the seat from its solids (<see cref="SeatShape"/>, seat space = the stage root), each part
-        /// with the material of the real piece of furniture it sits in (cushions, pillows, wooden base...).
+        /// The seat under the copy: the real furniture's meshes (<see cref="CopyRealSeat"/>), else a small model from its
+        /// solids (<see cref="SeatShape"/>, seat space = the stage root), each part with the material of the real piece
+        /// of furniture it sits in.
         /// </summary>
         private void BuildSeat(LobbySeat seat)
         {
+            if (CopyRealSeat(seat)) return;
             Renderer[] real = seat != null && seat.transform.parent != null ? seat.transform.parent.GetComponentsInChildren<Renderer>() : new Renderer[0];
             Material fallback = null;
             foreach (var r in real)
@@ -193,6 +195,39 @@ namespace HideAndSeek.Game.UI
                 mr.lightProbeUsage = LightProbeUsage.Off;
                 mr.reflectionProbeUsage = ReflectionProbeUsage.Off;
             }
+        }
+
+        /// <summary>
+        /// The real piece of furniture (sofa / pouf meshes from LobbySeatModels) copied into the stage in seat space,
+        /// so the preview shows exactly the seat the player sits on. False when there is nothing to copy (or the meshes
+        /// were merged by static batching), then the seat is built from its solids.
+        /// </summary>
+        private bool CopyRealSeat(LobbySeat seat)
+        {
+            if (seat == null || seat.transform.parent == null) return false;
+            var st = seat.transform;
+            int n = 0;
+            foreach (var mf in st.parent.GetComponentsInChildren<MeshFilter>())
+            {
+                var mr = mf.GetComponent<MeshRenderer>();
+                if (mr == null || mf.sharedMesh == null || mf.GetComponentInParent<LobbySeat>() != null) continue;
+                if (mf.sharedMesh.name.StartsWith("Combined Mesh")) return false;
+                var g = new GameObject("SeatPart");
+                g.layer = _layer;
+                g.transform.SetParent(transform, false);
+                g.transform.localPosition = st.InverseTransformPoint(mf.transform.position);
+                g.transform.localRotation = Quaternion.Inverse(st.rotation) * mf.transform.rotation;
+                g.transform.localScale = mf.transform.lossyScale;
+                g.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+                var r = g.AddComponent<MeshRenderer>();
+                r.sharedMaterials = mr.sharedMaterials;
+                r.shadowCastingMode = ShadowCastingMode.On;
+                r.receiveShadows = true;
+                r.lightProbeUsage = LightProbeUsage.Off;
+                r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                n++;
+            }
+            return n > 0;
         }
 
         /// <summary>Material of the smallest real renderer of the furniture whose bounds hold this seat-space point.</summary>

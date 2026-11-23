@@ -55,6 +55,9 @@ namespace HideAndSeek.Game.Editor
         {
             if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             EditorSceneManager.OpenScene(MultiplayerBuilder.LobbyScenePath, OpenSceneMode.Single);
+            // The seat models as the builder makes them now (the saved scene may be older; nothing is saved).
+            foreach (var f in Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude).Where(x => x.name == "Sofa" || x.name == "Pouf").ToList())
+                MultiplayerBuilder.RebuildSeatModel(f, MultiplayerBuilder.PoufStyle);
             var meshes = CollectMeshes();
             var seats = Object.FindObjectsByType<LobbySeat>(FindObjectsInactive.Exclude).OrderBy(s => s.name, System.StringComparer.Ordinal).ToList();
             var sb = new StringBuilder();
@@ -116,9 +119,9 @@ namespace HideAndSeek.Game.Editor
                     BodyBoxes.Get(pose, boxes);
                     for (int i = 0; i < boxes.Length; i++)
                         Furniture(World(Breath(boxes[i]), t), meshes, hits);
-                    // Idle motion (pin-up poses): the body at several moments of the cycle.
+                    // Idle motion (every pose): the body at several moments of the cycle.
                     var idleSelf = new List<string>();
-                    if (!legacy && v >= SeatPoses.RandomCount)
+                    if (!legacy)
                     {
                         var ib = new PartBox[BodyBoxes.Count];
                         for (int k = 1; k < IdleSamples; k++)
@@ -188,6 +191,13 @@ namespace HideAndSeek.Game.Editor
                     // Feet: lowest point of each shin.
                     float soleR = Lowest(World(boxes[(int)BodyPart.ShinR], t)), soleL = Lowest(World(boxes[(int)BodyPart.ShinL], t));
                     float floor = FloorBelow(meshes, t.TransformPoint(new Vector3(0f, 0f, 0.3f)));
+                    if (!legacy)
+                    {
+                        // Feet that should stand on the floor must not hang (nor sink into it).
+                        int planted = SeatPoses.PlantedFeet(v, shape);
+                        if ((planted & 1) != 0 && Mathf.Abs(soleR - floor) > 0.025f) self.Add($"right foot {(soleR - floor) * 100f:0.0} cm off the floor");
+                        if ((planted & 2) != 0 && Mathf.Abs(soleL - floor) > 0.025f) self.Add($"left foot {(soleL - floor) * 100f:0.0} cm off the floor");
+                    }
                     // Contact: how far the body (torso and legs) is from the furniture it rests on (seat meshes only).
                     float gap = float.MaxValue;
                     string gapAt = "";
@@ -422,7 +432,7 @@ namespace HideAndSeek.Game.Editor
             }
         }
 
-        const int IdleSamples = 12;
+        const int IdleSamples = 36;
 
         static IEnumerable<(float yaw, float pitch)> LookGrid(SeatPoses.LookLimits lim)
         {

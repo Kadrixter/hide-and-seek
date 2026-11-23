@@ -26,42 +26,11 @@ namespace HideAndSeek.Game.Editor
                 if (t == null) continue;
                 switch (t.name)
                 {
-                    case "Seat" when t.parent != null && t.parent.name == "Sofa": RoundCube(t, 0.07f, 0f); break;
-                    case "Back" when t.parent != null && t.parent.name == "Sofa": RoundCube(t, 0.07f, 0f); break;
-                    case "ArmL":
-                    case "ArmR": RoundCube(t, 0.06f, 0f); break;
-                    case "Base" when t.parent != null && t.parent.name == "Sofa": RoundCube(t, 0.02f, 0f); break;
-                    case "SeatCushion": RoundCube(t, 0.045f, 0.025f); break;
-                    case "Pillow": RoundCube(t, 0.055f, 0.05f); break;
                     case "CoffeeTable": RoundCube(t, 0.018f, 0f); break;
                 }
             }
 
-            // Poufs: tufting button + piping round the top edge.
-            var piping = Mat("LobbySofaPiping", new Color(0.18f, 0.04f, 0.035f), null, 0.2f, Vector2.one);
-            foreach (var t in root.GetComponentsInChildren<Transform>(true))
-            {
-                if (t == null || t.name != "Pouf") continue;
-                var body = t.Find("Body");
-                var fabric = body != null ? body.GetComponent<MeshRenderer>().sharedMaterial : piping;
-                var ring = Cylinder("PipingRing", t, new Vector3(0, 0.415f, 0), new Vector3(0.635f, 0.012f, 0.635f), piping);
-                Object.DestroyImmediate(ring.GetComponent<Collider>());
-                var low = Cylinder("PipingLow", t, new Vector3(0, 0.01f, 0), new Vector3(0.635f, 0.01f, 0.635f), piping);
-                Object.DestroyImmediate(low.GetComponent<Collider>());
-                var btn = Cylinder("Button", t, new Vector3(0, 0.448f, 0), new Vector3(0.06f, 0.008f, 0.06f), piping);
-                Object.DestroyImmediate(btn.GetComponent<Collider>());
-                // Top: puffy round cushion instead of a flat disc.
-                var top = t.Find("Top");
-                if (top != null)
-                {
-                    // The body's collider is the seat (0.42 m); the soft cushion bump has none (no floating on top).
-                    foreach (var c in top.GetComponents<Collider>()) Object.DestroyImmediate(c);
-                    top.GetComponent<MeshFilter>().sharedMesh = PuffDisc(0.28f, 0.035f);
-                    top.localScale = Vector3.one;
-                    top.localPosition = new Vector3(0, 0.42f, 0);
-                    top.GetComponent<MeshRenderer>().sharedMaterial = fabric;
-                }
-            }
+            BuildSeatModels(root); // sofas and poufs (LobbySeatModels.cs)
 
             // Plants: tapered, arched leaves (two shades), a few stems.
             var leafDark = Mat("LobbyLeafDark", new Color(0.12f, 0.32f, 0.12f), null, 0.35f, Vector2.one);
@@ -202,7 +171,7 @@ namespace HideAndSeek.Game.Editor
             return SaveMesh(m, key);
         }
 
-        /// <summary>Round cushion top: radius r, bulging up by height (flat underside at y=0).</summary>
+        /// <summary>Round cushion top: radius r, bulging up by height (flat underside at y=0). (Old pouf, unused.)</summary>
         private static Mesh PuffDisc(float r, float height)
         {
             string key = $"Puff_{r:0.000}_{height:0.000}".Replace(',', '.');
