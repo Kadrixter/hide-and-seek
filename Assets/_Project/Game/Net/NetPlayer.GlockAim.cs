@@ -37,6 +37,7 @@ namespace HideAndSeek.Game.Net
             var mm = MatchManager.Instance;
             if (mm == null || mm.Phase.Value != MatchPhase.Seeking || LocalPlayerController.MenuOpen || KillCam.Active) return false;
             if (mm.Now < BlindUntil.Value) return false;
+            if (FoamBlocksAttack) return false; // extinguisher foam (NetPlayer.Extinguisher)
             if (Actions is BlockyCharacterActions b && b.IsBusy) return false; // reloading
             if (TestAim) return true;
             var mouse = Mouse.current;

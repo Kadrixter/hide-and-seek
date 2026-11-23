@@ -102,6 +102,7 @@ namespace HideAndSeek.Game.Net
             InitDrops();
             InitToyGuns();
             InitPhones();
+            InitExtinguishers();
         }
 
         public override void OnNetworkSpawn()
@@ -484,6 +485,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepToyGuns ??= UpdateToyGuns, "toy guns");
             Step(_stepPhones ??= UpdatePhones, "phones");
             Step(_stepPa ??= UpdatePa, "public address");
+            Step(_stepExt ??= UpdateExtinguishers, "extinguishers");
             Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
             if (!IsServer) return;
             Step(_stepServerProps ??= UpdateServerProps, "server props");
@@ -687,6 +689,7 @@ namespace HideAndSeek.Game.Net
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
             if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value || seeker.Gooed) return; // 8 s between attacks, no attacks while blinded / gooed
+            if (seeker.FoamBlocksAttack) return; // extinguisher foam in the eyes (NetPlayer.Extinguisher)
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.KnifeServerRange) return;
             if (!victim.Limping.Value && !victim.Wounded.Value && victim.Severed.Value == 0)
             {
@@ -711,6 +714,7 @@ namespace HideAndSeek.Game.Net
             if (!seeker.HasChainsaw.Value || seeker.Held.Value != HeldItem.Chainsaw) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
             if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value || seeker.Gooed) return; // 8 s between attacks, no attacks while blinded / gooed
+            if (seeker.FoamBlocksAttack) return; // extinguisher foam in the eyes (NetPlayer.Extinguisher)
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.ChainsawServerRange) return;
             ServerRcForcePark(victim);
             bool injured = victim.Limping.Value || victim.Wounded.Value || victim.Severed.Value != 0;
@@ -931,6 +935,7 @@ namespace HideAndSeek.Game.Net
         {
             if (!Seeking || shooter == null || !shooter.IsSeeker || !shooter.HasGlock.Value || shooter.Busy.Value) return;
             if (shooter.Held.Value != HeldItem.Glock || _reloading.Contains(shooter.OwnerClientId)) return;
+            if (shooter.FoamBlocksAttack) return; // extinguisher foam in the eyes (NetPlayer.Extinguisher)
             double now = Now;
             if (_lastShot.TryGetValue(shooter.OwnerClientId, out double last) && now - last < Tuning.FireInterval * 0.85f) return;
             if (shooter.Ammo.Value == 0)

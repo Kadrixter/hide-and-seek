@@ -1,4 +1,4 @@
-﻿using HideAndSeek.Audio;
+using HideAndSeek.Audio;
 using HideAndSeek.Core;
 using HideAndSeek.Game.UI;
 using Unity.Netcode;
@@ -43,6 +43,7 @@ namespace HideAndSeek.Game.Net
         PhoneStomp,     // F on a toy phone on the floor (seeker)
         PaMic,          // E on the public-address microphone hanging on its wall station
         MapRadio,       // E / R on a radio lying on the parking (hiders)
+        Extinguisher,   // E on a security-room fire extinguisher (bracket / floor)
     }
 
     /// <summary>
@@ -308,6 +309,9 @@ namespace HideAndSeek.Game.Net
             // ---- public-address microphone in the hand: E hangs it back, LMB is the talk bar; nothing else meanwhile
             if (PaTick(kb)) { CancelHold(); return; }
             if (MapRadioTick(kb)) { CancelHold(); return; } // radio on the shoulder: Q puts it down, R panel
+
+            // ---- fire extinguisher in both hands (LMB spray, Q put down) / foamed seeker: nothing else meanwhile
+            if (ExtTick(kb, mouse)) { CancelHold(); return; }
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
@@ -682,6 +686,10 @@ namespace HideAndSeek.Game.Net
             if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryMapRadioPrompt(eye, fwd, out var mrPos, out string mrText, out float mrD))
                 Offer(PromptKind.MapRadio, mrPos, mrText, mrD);
 
+            // Fire extinguishers of the security rooms (hiders).
+            if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryExtPrompt(eye, fwd, out var exPos, out string exText, out float exD))
+                Offer(PromptKind.Extinguisher, exPos, exText, exD);
+
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
             {
@@ -1051,6 +1059,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.MapRadio:
                     MapRadioPromptKeys(kb);
+                    break;
+                case PromptKind.Extinguisher:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ExtPromptE();
                     break;
             }
 

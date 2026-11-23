@@ -1121,7 +1121,7 @@ namespace HideAndSeek.Game.Net
             bca?.SetLimp(limp ? 1f : 0f);
             bca?.SetHop(hop ? ((Severed.Value & Limb.LegR) != 0 ? 0 : 1) : -1);
             if (IsOwner && Motor != null)
-                Motor.SpeedScale = (Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f) * CombatSpeedScale * GooSpeedScale;
+                Motor.SpeedScale = (Time.time < _dustFreezeUntil ? 0f : hop ? Tuning.HopSpeedScale : limp ? 0.8f : 1f) * CombatSpeedScale * GooSpeedScale * FoamSpeedScale;
             if (IsOwner)
             {
                 if (_bob == null) _bob = GetComponentInChildren<HeadBob>();
