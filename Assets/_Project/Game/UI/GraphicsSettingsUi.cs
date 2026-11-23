@@ -29,23 +29,23 @@ namespace HideAndSeek.Game.UI
                 p = p < 0 ? (s > 0 ? 0 : n - 1) : (p + s + n) % n;
                 GfxSettings.ApplyPreset(p);
             });
-            Row(refresher, parent, "GfxAa", "Wygładzanie krawędzi", () => GfxSettings.AaName(GfxSettings.Aa),
+            Row(refresher, parent, "GfxAa", "Wygładzanie", () => GfxSettings.AaName(GfxSettings.Aa),
                 s => GfxSettings.Aa = (AaMode)Cycle((int)GfxSettings.Aa, s, 8));
-            Row(refresher, parent, "GfxAniso", "Filtrowanie anizotropowe", () => GfxSettings.Aniso == 0 ? "wyłączone" : GfxSettings.Aniso + "x",
+            Row(refresher, parent, "GfxAniso", "Filtrowanie tekstur", () => GfxSettings.Aniso == 0 ? "wyłączone" : GfxSettings.Aniso + "x",
                 s => GfxSettings.Aniso = Step(GfxSettings.AnisoLevels, GfxSettings.Aniso, s));
             Row(refresher, parent, "GfxTex", "Jakość tekstur", () => GfxSettings.TextureName(GfxSettings.TextureLevel),
                 s => GfxSettings.TextureLevel = Cycle(GfxSettings.TextureLevel, -s, 3));
-            Row(refresher, parent, "GfxShadows", "Jakość cieni", () => GfxSettings.ShadowName(GfxSettings.Shadows),
+            Row(refresher, parent, "GfxShadows", "Cienie", () => GfxSettings.ShadowName(GfxSettings.Shadows),
                 s => GfxSettings.Shadows = Cycle(GfxSettings.Shadows, s, 5));
             Row(refresher, parent, "GfxShadowDist", "Zasięg cieni", () => $"{GfxSettings.ShadowDistance:0} m",
                 s => GfxSettings.ShadowDistance = Step(ShadowDists, GfxSettings.ShadowDistance, s));
             Row(refresher, parent, "GfxLights", "Świateł na obiekt", () => GfxSettings.PixelLights.ToString(),
                 s => GfxSettings.PixelLights = Step(LightCounts, GfxSettings.PixelLights, s));
-            Row(refresher, parent, "GfxBloom", "Poświata lamp (bloom)", () => GfxSettings.Bloom ? "włączona" : "wyłączona",
+            Row(refresher, parent, "GfxBloom", "Poświata lamp", () => GfxSettings.Bloom ? "włączona" : "wyłączona",
                 _ => GfxSettings.Bloom = !GfxSettings.Bloom);
-            Row(refresher, parent, "GfxVsync", "Synchronizacja pionowa", () => GfxSettings.VSync ? "włączona" : "wyłączona",
+            Row(refresher, parent, "GfxVsync", "VSync", () => GfxSettings.VSync ? "włączona" : "wyłączona",
                 _ => GfxSettings.VSync = !GfxSettings.VSync);
-            Row(refresher, parent, "GfxFps", "Limit FPS", () => GfxSettings.VSync ? "synchr. pionowa" : GfxSettings.FpsCap <= 0 ? "bez limitu" : GfxSettings.FpsCap.ToString(),
+            Row(refresher, parent, "GfxFps", "Limit FPS", () => GfxSettings.VSync ? "VSync" : GfxSettings.FpsCap <= 0 ? "bez limitu" : GfxSettings.FpsCap.ToString(),
                 s => GfxSettings.FpsCap = Step(GfxSettings.FpsCaps, GfxSettings.FpsCap, s));
             var fps = UiKit.Label("Fps", parent, "", 20, TextAnchor.MiddleLeft, UiKit.TextDim);
             fps.Height(28);
@@ -55,7 +55,7 @@ namespace HideAndSeek.Game.UI
         private static void Row(GfxRowRefresher r, Transform parent, string name, string label, Func<string> value, Action<int> step)
         {
             var rt = UiStyle.Choice(name, parent, label, value, step, 22);
-            rt.Height(54);
+            rt.Height(50);
             var t = rt.Find("Value")?.GetComponent<Text>();
             if (t != null) r.Rows.Add((t, value));
         }
@@ -97,7 +97,7 @@ namespace HideAndSeek.Game.UI
             if (Fps != null && _frames > 0)
             {
                 float ms = _acc / _frames * 1000f;
-                Fps.text = $"Teraz: {1000f / Mathf.Max(ms, 0.01f):0} FPS ({ms:0.0} ms na klatkę). Rozdzielczość i tryb okna są w ustawieniach ogólnych.";
+                Fps.text = $"Teraz: {1000f / Mathf.Max(ms, 0.01f):0} FPS ({ms:0.0} ms na klatkę)";
             }
             _acc = 0f;
             _frames = 0;
