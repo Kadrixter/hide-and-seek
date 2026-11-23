@@ -26,7 +26,7 @@ namespace HideAndSeek.Characters
         static int sitIdleSeeds;
 
         /// <summary>The own body seen from its eyes: no idle motion that would move the camera.</summary>
-        bool SitIdleFirstPerson => character != null && character.IsFirstPerson;
+        bool SitIdleFirstPerson => character != null && (character.IsFirstPerson || character.HeadHidden); // seated FPP draws the body with the head hidden
 
         void ApplySitIdle(ref CharacterPose p) => SeatIdle.Apply(sitVariant, sitShape, ref p, sitIdleClock, SitIdleSeed, SitIdleFirstPerson);
 
