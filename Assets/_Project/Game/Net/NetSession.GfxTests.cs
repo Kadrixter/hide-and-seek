@@ -102,6 +102,29 @@ namespace HideAndSeek.Game.Net
             float t0 = Time.realtimeSinceStartup;
             while (!GarageReflections.Ready && Time.realtimeSinceStartup - t0 < 120f) yield return null;
             Debug.Log($"[GfxTest] reflection probes ready: {GarageReflections.Ready}, render {GarageReflections.LastRenderMs:0} ms");
+            // Fixed cameras (no player in the way), the same frame without / with the probes.
+            var shots = new (string n, Vector3 pos, Vector3 at)[]
+            {
+                ("flood", new Vector3(28f, -5.4f, -54f), new Vector3(44f, -6.8f, -44f)),
+                ("flood2", new Vector3(60f, -5.6f, -26f), new Vector3(66f, -6.8f, -34f)),
+                ("cars", new Vector3(-12f, 1.5f, -26.5f), new Vector3(-6f, 0.5f, -22f)),
+                ("aisle", new Vector3(-30f, 1.5f, -28.25f), new Vector3(-10f, 0f, -28.25f)),
+                ("puddles2", new Vector3(-40f, -5.3f, -11.75f), new Vector3(-20f, -6.8f, -11.75f)),
+            };
+            if (me.Flashlight != null) me.Flashlight.SetOn(false, false);
+            foreach (var c in shots)
+            {
+                var testLamp = CrateTestLight(Vector3.Lerp(c.pos, c.at, 0.35f) + Vector3.up * 1.6f);
+                testLamp.GetComponent<Light>().range = 16f;
+                foreach (bool refl in new[] { false, true })
+                {
+                    GfxSettings.TestReflections = refl;
+                    yield return null;
+                    yield return null;
+                    CamShot(dir, $"refl_{c.n}_{(refl ? "on" : "off")}", c.pos, c.at);
+                }
+                Destroy(testLamp);
+            }
             foreach (var v in views)
             {
                 me.Motor.Teleport(v.pos, v.yaw, v.pitch);
