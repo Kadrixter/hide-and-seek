@@ -1,12 +1,16 @@
 namespace HideAndSeek.Game.Voice
 {
     /// <summary>
-    /// Test hooks of <see cref="VoiceStream"/> used by the boombox / voice tests. The pre-22.11 playback has no
-    /// per-frame latency stamps or callback timing, so those report zero; -vcwav records the played voice (16 kHz mono).
+    /// Test hooks of <see cref="VoiceStream"/> used by the boombox / voice tests. -vcwav records the played voice (16 kHz
+    /// mono, before 3D / effects). GapMs = silence played inside speech (the buffer ran dry while the talker kept talking).
     /// </summary>
     public partial class VoiceStream
     {
-        public double GapMs => 0;
+        public double GapMs { get { lock (_lock) return _gapSamples * 1000.0 / Rate; } }
+        /// <summary>Real dropouts (ran dry while the talker kept talking), both modes.</summary>
+        public int Gaps { get { lock (_lock) return _gaps; } }
+        public int Dropouts => _dropouts;
+        public bool LowLatency => _low;
         public double OutputMs => 0;
         public float JitterMs => 0f;
         public (double sum, int n, double max) LatencyTotals => (0, 0, 0);
@@ -48,5 +52,8 @@ namespace HideAndSeek.Game.Voice
             _rec = null;
             return true;
         }
+
+        /// <summary>Kept for the stats log (no per-frame latency stamps; -testvoicemode measures it end to end).</summary>
+        public string LatencyReport() => $"mode={(_low ? "low" : "classic")} gaps={Gaps} gapMs={GapMs:0}";
     }
 }

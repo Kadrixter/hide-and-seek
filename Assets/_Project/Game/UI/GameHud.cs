@@ -770,7 +770,7 @@ namespace HideAndSeek.Game
             var mm = MatchManager.Instance;
             if (mm == null) return;
             bool host = NetworkManager.Singleton.IsServer;
-            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 1060 + 58 + 54));
+            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 1060 + 58 + 54 + VoiceModeRow.Height));
             var panel = _settingsPanel.Find("Panel");
             var s = mm.Settings.Value;
             UiKit.Label("Title", panel, "USTAWIENIA RUNDY", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(56);
@@ -906,6 +906,8 @@ namespace HideAndSeek.Game
             var syr = UiKit.Slider("Syringes", panel, 0, 6, s.Syringes, true, v => { s.Syringes = (byte)v; syrL.text = $"Strzykawki z adrenaliną: {v:0}"; Push(); });
             syr.Height(30);
             syrL.text = $"Strzykawki z adrenaliną: {s.Syringes}";
+
+            VoiceModeRow.Build(panel, () => s, host ? (m, ms) => { s.VoiceMode = m; s.VoiceDelayMs = ms; Push(); } : null);
 
             foreach (var sl in new[] { hide, seek, hs, hi, med, bleed, syr }) sl.interactable = host;
             modeB.interactable = host;

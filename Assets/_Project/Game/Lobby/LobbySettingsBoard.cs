@@ -244,6 +244,7 @@ namespace HideAndSeek.Game
             float bleed = s.BleedOut > 1f ? s.BleedOut : 78f;
             Set(6, $"{bleed:0} s", "po złapaniu", bleed / 180f);
             RefreshLastTile(s, players);
+            RefreshVoice(s); // LobbySettingsBoard.Voice
 
             // Players.
             int n = 0;
