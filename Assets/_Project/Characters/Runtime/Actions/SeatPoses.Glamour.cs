@@ -7,8 +7,8 @@ namespace HideAndSeek.Characters
     /// Pin-up poses for the pose wheel (see SitPoseCatalog), solved like the others against the seat's solids.
     /// Sofa (seat space of the left-hand seat, the armrest on the right; the other seat mirrors it):
     /// 4 reclined on the side against the armrest, facing the room, the lower forearm on the armrest, the upper hand on
-    /// the thigh, the top knee forward ("draw me like one of your French girls"); 5 on the back, the head towards
-    /// the middle of the sofa, a hand on the belly, one ankle on the raised knee; 6 on the belly, chin on the
+    /// the thigh, the top knee forward ("draw me like one of your French girls"); 5 reclined along the sofa with the
+    /// back against the armrest, legs long, one knee up, a hand behind the head, the other forearm on the backrest; 6 on the belly, chin on the
     /// fists, shins up; 7 sideways with the back against the armrest, knees up on the cushion, forearm along the
     /// backrest. 4-6 lie along both seats (solved against <see cref="SeatShape.Wide"/>), 7 stays on the own seat.
     /// Pouf: 8 legs crossed high, hand on the top knee, the other on the hip, back arched; 9 kneeling on the
@@ -25,7 +25,7 @@ namespace HideAndSeek.Characters
             switch (v)
             {
                 case 4: return new LookLimits(55f, 30f, 35f, 0f, -5f, -20f);
-                case 5: return new LookLimits(60f, 80f, -10f, 90f, 40f);
+                case 5: return new LookLimits(65f, 35f, 35f, -70f, 8f);
                 case 6: return new LookLimits(65f, 35f, 30f, -90f, 0f);
                 case 7: return new LookLimits(70f, 35f, 45f, -70f, 0f);
                 case 8: return new LookLimits(70f, 40f, 50f, 15f, 5f, 6f);

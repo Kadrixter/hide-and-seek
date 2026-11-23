@@ -195,7 +195,7 @@ namespace HideAndSeek.Characters
             Trace?.AppendLine($"  solving {shape.Kind} (id {shape.Id}) pose {variant}");
             // Lying along the sofa: solved against the whole sofa (the neighbouring seat is free then).
             var solve = SpansNeighbour(variant) && shape.Wide != null ? shape.Wide : shape;
-            float sink = solve.Sink + (variant == 4 || variant == 7 ? 0.008f : variant == 5 ? -0.006f : variant == 6 ? 0.02f : variant == 8 || variant == 10 ? 0.008f : 0f); // measured contact gaps (editor seat check)
+            float sink = solve.Sink + (variant == 4 || variant == 5 || variant == 7 ? 0.008f : variant == 6 ? 0.02f : variant == 8 || variant == 10 ? 0.008f : 0f); // measured contact gaps (editor seat check)
             PlantLift = sink;
             e.Body = Build(variant, solve, e.Limits);
             // Down onto the real cushion (the solids are conservative), see SeatShape.Sink; planted feet were placed that much higher.

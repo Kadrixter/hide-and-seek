@@ -31,7 +31,7 @@ namespace HideAndSeek.Characters
                 case 2: return new Habits { Breath = 0.6f, Sway = 0.6f, LookYaw = 26f, LookPitch = 9f, Bounce = -1, Swing = -1, Drum = -1, Hair = -1 };
                 case 3: return new Habits { Breath = 1.1f, Sway = 1.3f, LookYaw = 30f, LookPitch = 8f, Bounce = -1, Swing = -1, Drum = 0, Hair = -1 };
                 case 4: return new Habits { Breath = 1.2f, Sway = 0.8f, LookYaw = 24f, LookPitch = 6f, Bounce = -1, Swing = -1, SwingAmp = 5f, Drum = 1, Hair = -1 };
-                case 5: return new Habits { Breath = 1.4f, Sway = 0.6f, LookYaw = 28f, LookPitch = 10f, Bounce = -1, Swing = 1, SwingAmp = 4f, Drum = 1, Hair = -1 };
+                case 5: return new Habits { Breath = 1.4f, Sway = 0.8f, LookYaw = 30f, LookPitch = 8f, Bounce = -1, Swing = 0, SwingAmp = 3f, Drum = 1, Hair = -1 };
                 case 6: return new Habits { Breath = 1.0f, Sway = 0.8f, LookYaw = 28f, LookPitch = 7f, Bounce = -1, Swing = 0, SwingAmp = 9f, Drum = -1, Hair = -1 };
                 case 7: return new Habits { Breath = 1.2f, Sway = 1.0f, LookYaw = 30f, LookPitch = 8f, Bounce = -1, Swing = -1, Drum = 0, Hair = 0 };
                 case 8: return new Habits { Breath = 1.1f, Sway = 1.4f, LookYaw = 30f, LookPitch = 7f, Bounce = -1, Swing = 0, SwingAmp = 7f, Drum = 1, Hair = 0 };
