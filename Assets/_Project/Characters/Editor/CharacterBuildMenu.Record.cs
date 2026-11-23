@@ -108,6 +108,7 @@ namespace HideAndSeek.Characters.Editor
                 if (Enum.TryParse<KillMove>(item.Substring(5), out var move)) RecordKill(move);
                 return;
             }
+            if (RecordLeg(item)) return; // CharacterBuildMenu.RecordLeg.cs
             RecordMisc(item);
         }
 

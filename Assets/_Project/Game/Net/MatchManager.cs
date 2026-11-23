@@ -480,6 +480,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepRcCars ??= UpdateRcCars, "rc cars");
             Step(_stepRods ??= UpdateRods, "rods");
             Step(_stepDrops ??= UpdateDrops, "drops");
+            Step(_stepLegs ??= UpdateLegs, "legs");
             Step(_stepFlashBox ??= UpdateFlashBox, "flash box");
             Step(_stepToyGuns ??= UpdateToyGuns, "toy guns");
             Step(_stepPhones ??= UpdatePhones, "phones");
@@ -490,7 +491,7 @@ namespace HideAndSeek.Game.Net
             UpdateServerTimeline();
         }
 
-        private System.Action _stepLobbyWatch, _stepLobbyReturn, _stepMedkits, _stepSyringes, _stepLobbyFun, _stepRcCars, _stepRods,
+        private System.Action _stepLegs, _stepLobbyWatch, _stepLobbyReturn, _stepMedkits, _stepSyringes, _stepLobbyFun, _stepRcCars, _stepRods,
             _stepDrops, _stepFlashBox, _stepToyGuns, _stepPhones, _stepPa, _stepSceneProps, _stepServerProps;
         private readonly Dictionary<string, float> _stepErrorAt = new();
 
@@ -674,7 +675,7 @@ namespace HideAndSeek.Game.Net
         {
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
-            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value || seeker.Gooed) return; // 8 s between attacks, no attacks while blinded / gooed
+            if (Now < seeker.AttackReadyAt.Value || seeker.CannotAttack) return; // cooldown; blinded / gooed / knocked out (NetPlayer.AttackBlock)
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.KnifeServerRange) return;
             if (!victim.Limping.Value && !victim.Wounded.Value && victim.Severed.Value == 0)
             {
@@ -698,7 +699,7 @@ namespace HideAndSeek.Game.Net
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (!seeker.HasChainsaw.Value || seeker.Held.Value != HeldItem.Chainsaw) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
-            if (Now < seeker.AttackReadyAt.Value || Now < seeker.BlindUntil.Value || seeker.Gooed) return; // 8 s between attacks, no attacks while blinded / gooed
+            if (Now < seeker.AttackReadyAt.Value || seeker.CannotAttack) return; // cooldown; blinded / gooed / knocked out (NetPlayer.AttackBlock)
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.ChainsawServerRange) return;
             ServerRcForcePark(victim);
             bool injured = victim.Limping.Value || victim.Wounded.Value || victim.Severed.Value != 0;
@@ -722,6 +723,7 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(BlockyCharacterActions.SawSlashHitTime);
             if (victim == null || !victim.IsSpawned || !victim.IsAliveHider) yield break;
             victim.Severed.Value = (byte)(victim.Severed.Value | limb);
+            ServerLegCut(victim, limb, NearestSeekerPos(victim)); // the leg falls as an item (MatchManager.Legs)
             victim.ToastRpc("Piła odcięła ci nogę! Skaczesz na jednej nodze. Kolejny atak piłą = śmierć.", 6f);
         }
 
@@ -831,6 +833,7 @@ namespace HideAndSeek.Game.Net
             if (last) _finisherRunning = true;
             Debug.Log($"[Match] kill {seeker.Nick} -> {victim.Nick}: {move}{(last ? " (last hider, shown to everybody)" : "")}");
             seeker.KnifeSequenceRpc(victim.NetworkObjectId, (byte)move, last);
+            StartCoroutine(ServerKillLegs(seeker, victim, move)); // cut-off legs become items (MatchManager.Legs)
 
             if (KillMoves.EndsDead(move))
             {

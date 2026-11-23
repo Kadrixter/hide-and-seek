@@ -98,6 +98,7 @@ namespace HideAndSeek.Characters
             if (FlashTakeHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (PhoneHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (RemoteThrowHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (LegThrowHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true; // FirstPersonViewModel.LegThrow.cs
             if (PaMicHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (VendingHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             if (overrideOn && rig != null)

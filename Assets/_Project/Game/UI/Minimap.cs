@@ -388,6 +388,7 @@ namespace HideAndSeek.Game
             UpdatePoi(pos, pxPerM, floor);
             UpdateItemMarkers(me, pos, pxPerM, size);
             UpdateTabs(me, floor);
+            UpdateBodyDots(me, pos, pxPerM, size); // dead hiders' bodies (Minimap.Bodies)
             UpdateTeamDots(me, pos, pxPerM, size);
             UpdatePins(pos, pxPerM, size, floor);
             UpdateSeekerDrops(me, pos, pxPerM, size);

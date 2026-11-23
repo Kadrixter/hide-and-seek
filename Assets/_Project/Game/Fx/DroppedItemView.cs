@@ -54,7 +54,8 @@ namespace HideAndSeek.Game
             // Model centred on the root, collider round its bounds.
             var holder = new GameObject("Model").transform;
             holder.SetParent(root.transform, false);
-            def?.Model?.Invoke(holder);
+            if (def?.ModelFor != null) def.ModelFor(holder, d.Extra);
+            else def?.Model?.Invoke(holder);
             var b = new Bounds(Vector3.zero, Vector3.zero);
             bool any = false;
             foreach (var r in holder.GetComponentsInChildren<Renderer>(true))
@@ -95,6 +96,7 @@ namespace HideAndSeek.Game
             }
 
             view.IgnorePlayers();
+            SeveredLegs.OnDropView(view, d); // cut-off leg: owner's skin, bleeding (SeveredLegs.cs)
             if (d.Settled) view.Settle(d.Pos, d.Rot, true);
             else
             {

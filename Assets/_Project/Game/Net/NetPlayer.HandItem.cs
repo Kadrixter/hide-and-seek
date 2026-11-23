@@ -44,7 +44,7 @@ namespace HideAndSeek.Game.Net
 
             var item = SelectedItem;
             var def = item != HotbarItem.None ? ItemDefs.Get(item) : null;
-            HandGrip grip = def?.Hand;
+            HandGrip grip = item == HotbarItem.SeveredLeg ? SeveredLegs.Grip(LegCode.Value) : def?.Hand; // the leg: whose leg it is
             // Weapons (and anything the seeker draws through Held) have their own hold; busy hands put the item away.
             if (def != null && def.Weapon != HeldItem.None) grip = null;
             if (Busy.Value || Seat.Value >= 0 || RcAnimating) grip = null;

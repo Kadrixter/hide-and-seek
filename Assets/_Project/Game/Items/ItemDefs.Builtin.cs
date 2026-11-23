@@ -160,6 +160,7 @@ namespace HideAndSeek.Game
                 Hint = p => p.PhoneRinging ? "DZWONI!  E - rzuć i zdepcz" : "V - słyszą cię inni, którzy mają telefon",
                 Hand = Grips.Phone,
             };
+            yield return SeveredLegDef(); // ItemDefs.Leg.cs
         }
 
         private static PromptKind Prompt => LocalPlayerController.Instance != null ? LocalPlayerController.Instance.Prompt : PromptKind.None;

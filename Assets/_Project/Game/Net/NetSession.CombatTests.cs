@@ -6,7 +6,7 @@ namespace HideAndSeek.Game.Net
 {
     /// <summary>
     /// Fight tests in the built game:
-    ///  -testslow (host -forceseeker + a hider client): knife hit, logs the 10 s cooldown and the seeker's slowdown
+    ///  -testslow (host -forceseeker + a hider client): knife hit, logs the 13 s cooldown and the seeker's slowdown
     ///      (speed scale over time), a rejected attack during the cooldown, then a kill and the slowdown after it.
     ///  -testaim (host -forceseeker, -aimshots dir): Glock from the hip vs aimed (RMB): spread statistics, first-person
     ///      screenshots (hip, aimed, camera kick right after a shot), third-person side shots of the own body.
@@ -23,6 +23,7 @@ namespace HideAndSeek.Game.Net
             if (has("-aimwatch")) StartCoroutine(AimWatch());
             if (has("-sawfpp")) StartCoroutine(SawFppShots());
             StartSeatTests(has);
+            StartLegTests(has); // NetSession.LegTests.cs
         }
 
         private static NetPlayer FirstOther(NetPlayer me, bool hider)
@@ -49,7 +50,7 @@ namespace HideAndSeek.Game.Net
             mm.ServerKnife(me, victim);
             double t0 = mm.Now;
             Debug.Log($"[SlowTest] knife hit: victim limping={victim.Limping.Value}, cooldown={me.AttackReadyAt.Value - mm.Now:0.00} s");
-            for (int i = 0; i < 13; i++)
+            for (int i = 0; i < 18; i++)
             {
                 yield return new WaitForSeconds(0.25f);
                 Debug.Log($"[SlowTest] t={mm.Now - t0:0.00} attackSlow={me.AttackSlowScale:0.00} motorSpeedScale={me.Motor.SpeedScale:0.00}");
@@ -62,6 +63,27 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[SlowTest] attack at t={mm.Now - t0:0.0} s (cooldown left {me.AttackReadyAt.Value - mm.Now:0.0}): busy={me.Busy.Value} (expected False = rejected)");
             while (mm.Now < me.AttackReadyAt.Value) yield return null;
             Debug.Log($"[SlowTest] cooldown over at t={mm.Now - t0:0.00} s");
+            // Chainsaw: the first hit only takes a leg (the victim lives) - the seeker is slowed the same way.
+            victim.Severed.Value = 0;
+            victim.Wounded.Value = false;
+            victim.Limping.Value = false;
+            victim.Busy.Value = false;
+            yield return new WaitForSeconds(0.5f);
+            me.AttackReadyAt.Value = 0;
+            me.HasChainsaw.Value = true;
+            me.Held.Value = HeldItem.Chainsaw;
+            Bring();
+            yield return new WaitForSeconds(0.6f);
+            mm.ServerChainsaw(me, victim);
+            double t2 = mm.Now;
+            Debug.Log($"[SlowTest] saw hit: cooldown={me.AttackReadyAt.Value - mm.Now:0.00} s");
+            for (int i = 0; i < 18; i++)
+            {
+                yield return new WaitForSeconds(0.25f);
+                Debug.Log($"[SlowTest] saw t={mm.Now - t2:0.00} attackSlow={me.AttackSlowScale:0.00} motorSpeedScale={me.Motor.SpeedScale:0.00} victimSevered={victim.Severed.Value} alive={victim.Life.Value}");
+            }
+            while (mm.Now < me.AttackReadyAt.Value) yield return null;
+            me.Held.Value = HeldItem.Knife;
             Bring();
             yield return new WaitForSeconds(0.3f);
             mm.ServerKnife(me, victim);
@@ -70,11 +92,12 @@ namespace HideAndSeek.Game.Net
             while (me.Busy.Value) yield return null;
             double t1 = mm.Now;
             Debug.Log($"[SlowTest] kill over: victim life={victim.Life.Value}, next attack in {me.AttackReadyAt.Value - mm.Now:0.00} s");
-            for (int i = 0; i < 13; i++)
+            for (int i = 0; i < 18; i++)
             {
                 Debug.Log($"[SlowTest] after kill t={mm.Now - t1:0.00} attackSlow={me.AttackSlowScale:0.00} motorSpeedScale={me.Motor.SpeedScale:0.00}");
                 yield return new WaitForSeconds(0.25f);
             }
+
             Debug.Log("[SlowTest] done");
         }
 
