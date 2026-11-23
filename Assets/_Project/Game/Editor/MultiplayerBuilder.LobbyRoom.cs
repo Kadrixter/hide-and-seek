@@ -40,7 +40,7 @@ namespace HideAndSeek.Game.Editor
             // wallpaper runs 1 m wide strips: per wall tiling so the pattern keeps its size
             BuildLobbyWalls(root, darkWood, trim);
 
-            // ---- lounge: L of two sofas, the coffee table 0.35 m in front of the north-facing one, poufs on the east side
+            // ---- lounge: L of two sofas, the coffee table 0.58 m in front of the north-facing one, poufs on the east side
             Sofa(root, LobbyLayout.SofaFront.pos, LobbyLayout.SofaFront.yaw, fabric, darkWood);
             Sofa(root, LobbyLayout.SofaSide.pos, LobbyLayout.SofaSide.yaw, fabric, darkWood);
             Vector3 tc = LobbyLayout.CoffeeTable;

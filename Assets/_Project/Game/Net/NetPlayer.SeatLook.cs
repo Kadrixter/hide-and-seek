@@ -86,6 +86,7 @@ namespace HideAndSeek.Game.Net
                     var s = LobbySeat.Get(seat);
                     // A pose that needs the whole sofa only when the other seat is free (tests may force any pose).
                     if (s != null && !SitPoseCatalog.Allowed(s.Shape, (byte)pose, SeatNeighbourTaken(s))) pose = 0;
+                    if (s != null) pose = SeatConflicts.SafePose(s, this, pose); // nobody nearby is reached into
                     SitPoseVar.Value = (byte)pose;
                     _seatYaw = s != null ? s.transform.eulerAngles.y : transform.eulerAngles.y;
                     // Lying poses look along the sofa: start at the pose's neutral look.

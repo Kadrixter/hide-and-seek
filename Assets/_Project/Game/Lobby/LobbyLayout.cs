@@ -17,8 +17,8 @@ namespace HideAndSeek.Game
         public const float HalfW = W * 0.5f, HalfD = D * 0.5f;
 
         // ---- lounge
-        /// <summary>Coffee table centre (floor); it stands 0.4 m in front of the north-facing sofa (closer and stretched legs hit it).</summary>
-        public static readonly Vector3 CoffeeTable = new(-4.0f, 0f, 2.86f);
+        /// <summary>Coffee table centre (floor); it stands 0.58 m in front of the north-facing sofa (closer and the seated poses' hands / legs hit it).</summary>
+        public static readonly Vector3 CoffeeTable = new(-4.0f, 0f, 3.03f);
         /// <summary>Sofa facing north (towards the fireplace) and sofa facing east (towards the table): centre, yaw.</summary>
         public static readonly (Vector3 pos, float yaw) SofaFront = (new Vector3(-4.0f, 0f, 1.55f), 180f);
         public static readonly (Vector3 pos, float yaw) SofaSide = (new Vector3(-5.85f, 0f, 3.6f), -90f);
