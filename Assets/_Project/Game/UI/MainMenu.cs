@@ -109,7 +109,7 @@ namespace HideAndSeek.Game.UI
             if (page == _browser) LanDiscovery.StartSearch();
             else LanDiscovery.StopSearch();
             OnButtonHovered(null);
-            if (_footer != null) _footer.gameObject.SetActive(page != _audio && page != _voicePage);
+            if (_footer != null) _footer.gameObject.SetActive(page != _audio && page != _voicePage && page != _graphics);
         }
 
         // ================================================================ actions

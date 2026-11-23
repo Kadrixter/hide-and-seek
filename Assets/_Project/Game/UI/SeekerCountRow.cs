@@ -37,7 +37,7 @@ namespace HideAndSeek.Game.UI
             Button minus = null, plus = null;
             minus = UiKit.BoxButton("SeekersMinus", row, "-", () => set?.Invoke(Mathf.Clamp(get() - 1, 1, MatchManager.MaxSeekersSetting)), 34);
             Width(minus, 58f);
-            var box = UiKit.Image("SeekersBox", row, new Color(0.11f, 0.05f, 0.05f, 1f)).Rounded();
+            var box = UiKit.Image("SeekersBox", row, new Color(0.11f, 0.05f, 0.05f, 0.85f)); // square, like the other widgets
             Width(box, 214f);
             var label = UiKit.Label("SeekersLabel", box.transform, "", 22, TextAnchor.MiddleCenter, null, FontStyle.Bold);
             label.rectTransform.Stretch(4f);

@@ -132,7 +132,7 @@ namespace HideAndSeek.Game.UI
             _preview.raycastTarget = false;
             RingSector.Create("PreviewRim", _ring, pr - 1f, pr + 1.5f, 0f, 360f, 0f, new Color(1f, 1f, 1f, 0.16f));
 
-            _pointer = RingSector.Create("Pointer", _ring, InnerR - 11f, InnerR - 4f, 0f, 30f, 0f, UiKit.Accent, 1.5f);
+            _pointer = RingSector.Create("Pointer", _ring, InnerR - 11f, InnerR - 4f, 0f, 30f, 0f, UiKit.ButtonHover, 1.5f);
 
             _hint = UiKit.Label("Hint", _root, "", 19, TextAnchor.MiddleCenter, UiKit.TextDim);
             _hint.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, -OuterR - 30f), new Vector2(1000f, 30f));
@@ -157,10 +157,10 @@ namespace HideAndSeek.Game.UI
                 var s = new Slice { Info = poses[i] };
                 s.Rt = UiKit.Rect("Slice" + i, _ring);
                 s.Rt.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one * (OuterR * 2f + 60f));
-                s.Glow = RingSector.Create("Glow", s.Rt, SliceIn - 4f, OuterR + 6f, a, step, Gap, new Color(UiKit.Accent.r, UiKit.Accent.g, UiKit.Accent.b, 0f), 16f);
+                s.Glow = RingSector.Create("Glow", s.Rt, SliceIn - 4f, OuterR + 6f, a, step, Gap, new Color(UiKit.ButtonHover.r, UiKit.ButtonHover.g, UiKit.ButtonHover.b, 0f), 16f);
                 s.Fill = RingSector.Create("Fill", s.Rt, SliceIn, OuterR, a, step, Gap, Color.white);
-                s.Edge = RingSector.Create("Edge", s.Rt, OuterR - 5f, OuterR, a, step, Gap, UiKit.Accent);
-                s.Mark = RingSector.Create("Current", s.Rt, SliceIn, SliceIn + 5f, a, step, Gap, UiKit.Accent);
+                s.Edge = RingSector.Create("Edge", s.Rt, OuterR - 5f, OuterR, a, step, Gap, UiKit.ButtonHover);
+                s.Mark = RingSector.Create("Current", s.Rt, SliceIn, SliceIn + 5f, a, step, Gap, UiKit.ButtonHover);
 
                 // Picture of the pose: a round window (masked render texture) in the middle of the slice.
                 Vector2 c = RingSector.Dir(a) * mid;
@@ -424,7 +424,7 @@ namespace HideAndSeek.Game.UI
             // Pointer arc follows the cursor direction.
             float m = _cursor.magnitude;
             _pointer.CentreAngle = Mathf.Atan2(_cursor.x, _cursor.y) * Mathf.Rad2Deg;
-            var pc = UiKit.Accent;
+            var pc = UiKit.ButtonHover;
             pc.a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, DeadZone + 0.05f, m));
             _pointer.color = pc;
 
@@ -490,7 +490,7 @@ namespace HideAndSeek.Game.UI
                     ? Color.Lerp(new Color(0.105f, 0.115f, 0.135f, 0.8f), new Color(0.2f, 0.225f, 0.255f, 0.94f), h)
                     : Color.Lerp(new Color(0.07f, 0.072f, 0.08f, 0.55f), new Color(0.11f, 0.11f, 0.12f, 0.7f), h);
                 s.Fill.color = fill;
-                var acc = UiKit.Accent;
+                var acc = UiKit.ButtonHover;
                 s.Glow.color = new Color(acc.r, acc.g, acc.b, s.Available ? 0.2f * h : 0f);
                 s.Edge.color = new Color(acc.r, acc.g, acc.b, s.Available ? h : 0f);
                 s.Mark.color = new Color(acc.r, acc.g, acc.b, s.Current ? 0.95f : 0f);

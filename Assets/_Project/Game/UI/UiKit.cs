@@ -110,10 +110,8 @@ namespace HideAndSeek.Game.UI
         /// <summary>Old boxed button (dark rounded card): option-like buttons (toggles, steppers, list rows, banners).</summary>
         public static Button BoxButton(string name, Transform parent, string text, Action onClick, int fontSize = 30, Color? color = null)
         {
-            var img = Image(name, parent, color ?? ButtonColor);
-            img.sprite = UiStyle.RoundGradient;
-            img.type = UnityEngine.UI.Image.Type.Sliced;
-            var drop = img.AddDrop(3f, 0.4f);
+            var img = Image(name, parent, color ?? new Color(1f, 1f, 1f, 0.06f)); // flat square card
+            var drop = img.AddDrop(2f, 0.3f);
             var b = img.gameObject.AddComponent<Button>();
             var colors = b.colors;
             colors.normalColor = Color.white;
@@ -128,14 +126,14 @@ namespace HideAndSeek.Game.UI
             nav.mode = Navigation.Mode.None; // no sticky "selected" highlight after a click
             b.navigation = nav;
             // Ring border (turns green on hover), accent bar on the left, chevron on the right.
-            var border = UiStyle.Ring("Border", img.transform, UiStyle.Border);
-            var accent = Image("Accent", img.transform, new Color(Accent.r, Accent.g, Accent.b, 0f)).Rounded(true);
+            var border = UiStyle.SquareBorder("Border", img.transform, UiStyle.SqBorder);
+            var accent = Image("Accent", img.transform, new Color(ButtonHover.r, ButtonHover.g, ButtonHover.b, 0f));
             accent.rectTransform.Place(new Vector2(0, 0), new Vector2(0, 1), new Vector2(0, 0.5f), new Vector2(9, 0), new Vector2(5, -20));
             accent.raycastTarget = false;
             var label = Label("Label", img.transform, text, fontSize, TextAnchor.MiddleCenter, null, FontStyle.Bold);
             label.rectTransform.Stretch(8f);
             label.AddDrop(2f, 0.55f);
-            var chevron = Label("Chevron", img.transform, ">", fontSize, TextAnchor.MiddleRight, Accent, FontStyle.Bold);
+            var chevron = Label("Chevron", img.transform, ">", fontSize, TextAnchor.MiddleRight, ButtonHover, FontStyle.Bold);
             chevron.rectTransform.Place(new Vector2(1, 0), new Vector2(1, 1), new Vector2(1, 0.5f), new Vector2(-18, 0), new Vector2(40, 0));
             var fx = img.gameObject.AddComponent<UiButtonFx>();
             fx.Accent = accent;
@@ -157,10 +155,10 @@ namespace HideAndSeek.Game.UI
 
         public static InputField Input(string name, Transform parent, string value, string placeholder, int fontSize = 28)
         {
-            var img = Image(name, parent, new Color(0.035f, 0.038f, 0.045f, 1f)).Rounded();
-            UiStyle.Ring("Border", img.transform, UiStyle.Border);
+            var img = Image(name, parent, new Color(0f, 0f, 0f, 0.35f));
+            UiStyle.SquareBorder("Border", img.transform, UiStyle.SqBorder);
             var field = img.gameObject.AddComponent<InputField>();
-            field.selectionColor = new Color(Accent.r, Accent.g, Accent.b, 0.35f);
+            field.selectionColor = new Color(ButtonHover.r, ButtonHover.g, ButtonHover.b, 0.35f);
             var text = Label("Text", img.transform, value, fontSize, TextAnchor.MiddleLeft);
             text.rectTransform.Stretch(16f);
             text.supportRichText = false;
@@ -176,31 +174,25 @@ namespace HideAndSeek.Game.UI
         public static Slider Slider(string name, Transform parent, float min, float max, float value, bool whole, Action<float> onChange)
         {
             var root = Rect(name, parent);
-            var bg = Image("Bg", root, new Color(0.05f, 0.055f, 0.065f, 1f)).Rounded(true);
-            bg.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(0, 10));
-            UiStyle.Ring("Border", bg.transform, UiStyle.Border, true);
+            // thin square track, sea-green fill, square handle (minimal style of the menus)
+            var bg = Image("Bg", root, UiStyle.SqTrack);
+            bg.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(0, 4));
             var fillArea = Rect("FillArea", root);
-            fillArea.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-5, 0), new Vector2(-10, 10));
-            var fill = Image("Fill", fillArea, Accent).Rounded(true);
+            fillArea.Place(new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(0, 4));
+            var fill = Image("Fill", fillArea, UiStyle.WidgetAccent);
             fill.rectTransform.Stretch();
-            fill.rectTransform.offsetMax = new Vector2(10, 0);
             var handleArea = Rect("HandleArea", root);
-            handleArea.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(-24, 0));
+            handleArea.Place(new Vector2(0, 0), new Vector2(1, 1), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(-14, 0));
             var handle = Image("Handle", handleArea, Color.white);
-            handle.sprite = UiStyle.Circle;
-            handle.rectTransform.sizeDelta = new Vector2(22, 22);
-            handle.AddDrop(2f, 0.55f);
-            var dot = Image("Dot", handle.transform, Accent);
-            dot.sprite = UiStyle.Circle;
-            dot.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(8, 8));
-            dot.raycastTarget = false;
+            handle.rectTransform.sizeDelta = new Vector2(14, 14);
+            handle.AddDrop(2f, 0.45f);
             var s = root.gameObject.AddComponent<Slider>();
             s.fillRect = fill.rectTransform;
             s.handleRect = handle.rectTransform;
             s.targetGraphic = handle;
             var sc = s.colors;
-            sc.highlightedColor = new Color(0.8f, 1f, 0.82f, 1f);
-            sc.pressedColor = UiKit.Accent;
+            sc.highlightedColor = new Color(0.75f, 1f, 0.95f, 1f);
+            sc.pressedColor = UiStyle.WidgetAccent;
             s.colors = sc;
             var snav = s.navigation;
             snav.mode = Navigation.Mode.None;

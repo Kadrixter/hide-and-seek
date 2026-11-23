@@ -804,7 +804,7 @@ namespace HideAndSeek.Game
                 gameModeInfo.text = info.Ready ? info.Tagline : info.Tagline + " Jeszcze nie gotowy - nie da się go uruchomić.";
                 gameModeInfo.color = info.Ready ? UiKit.TextDim : UiKit.Danger;
                 Push();
-            }, 27, new Color(0.13f, 0.2f, 0.15f, 1f));
+            }, 27, new Color(UiKit.ButtonHover.r * 0.28f, UiKit.ButtonHover.g * 0.28f, UiKit.ButtonHover.b * 0.28f, 0.95f)); // dark sea-green
             gameModeB.Height(54);
             gameModeB.interactable = host;
             var gmInfo = GameModes.Get(s.Mode);
