@@ -345,7 +345,7 @@ namespace HideAndSeek.Game
                 else if (nm.IsServer)
                 {
                     sb.Append("Twój serwer LAN / UDP. Adresy do połączenia:\n");
-                    foreach (var (ip, _) in LanDiscovery.LocalIPv4()) sb.Append("  ").Append(ip).Append('\n');
+                    foreach (var (ip, _) in LanDiscovery.CachedLocalIPv4()) sb.Append("  ").Append(ip).Append('\n');
                 }
                 else if (NetSession.Instance != null && NetSession.Instance.UsingSteam)
                     sb.Append("Połączono przez <color=#6dff7a>Steam</color>.\n");
