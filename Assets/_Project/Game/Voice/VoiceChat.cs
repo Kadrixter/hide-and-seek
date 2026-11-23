@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.Voice
 {
     /// <summary>
     /// Proximity voice chat over the game connection (no external service).
-    /// Microphone -> 20 ms 16 kHz mu-law frames -> server -> only listeners allowed by <see cref="VoiceRules"/> ->
+    /// Microphone -> 40 ms (classic) / 20 ms (low latency, <see cref="VoiceMode"/>) 16 kHz mu-law frames -> server -> only listeners allowed by <see cref="VoiceRules"/> ->
     /// <see cref="VoicePlayback"/>. Frames go unreliable and carry a sequence number: a lost frame becomes a short
     /// concealed gap instead of stalling everything behind it (reliable delivery waits for the resend).
     /// Lobby: everybody hears everybody. Round: within <see cref="HearRange"/> m; the dead have their own channel and
@@ -43,14 +43,15 @@ namespace HideAndSeek.Game.Voice
 
         private AudioClip _mic;
         private int _readPos;
-        private readonly float[] _frame = new float[VoiceCodec.FrameSamples];
+        private readonly float[] _frame40 = new float[VoiceCodec.FrameSamples], _frame20 = new float[VoiceCodec.FrameSamples / 2];
+        private float[] _frame;
         private readonly byte[] _encoded = new byte[VoiceCodec.FrameSamples];
         private byte[] _rx = new byte[VoiceCodec.FrameSamples * 2];
         private float _vadHangover;
         private NetworkManager _registeredOn;
         private ushort _seq;
         private bool _wantMic;
-        private float _frameLevel;
+        private float _frameLevel, _prevSum;
         private string _deviceArg;
 
         public static void EnsureExists()
@@ -106,11 +107,14 @@ namespace HideAndSeek.Game.Voice
             if (nm == null || !nm.IsListening) _registeredOn = null;
 
             LogStats();
+            _frame = VoiceMode.FrameSamples == _frame20.Length ? _frame20 : _frame40; // 40 ms classic, 20 ms low latency
+            if (session) SimFlush(nm); // -testvoicemode: delayed (jittered) frames due now
             if (session && TestTone)
             {
                 ToneFrames(nm);
                 return;
             }
+            if (session && FeedFrames(nm)) return; // -testvoicemode: a speech recording instead of the microphone
 
             bool want = session && LocalProfile.VoiceEnabled;
             if (want && !_wantMic) StartMic();
@@ -123,15 +127,15 @@ namespace HideAndSeek.Game.Voice
                 return;
             }
 
-            // Read every complete 20 ms frame the microphone has delivered since the last frame.
+            // Read every complete frame the microphone has delivered since the last frame.
             int pos = Microphone.GetPosition(_deviceArg);
             int len = _mic.samples;
             int available = (pos - _readPos + len) % len;
-            while (available >= VoiceCodec.FrameSamples)
+            while (available >= _frame.Length)
             {
                 _mic.GetData(_frame, _readPos);
-                _readPos = (_readPos + VoiceCodec.FrameSamples) % len;
-                available -= VoiceCodec.FrameSamples;
+                _readPos = (_readPos + _frame.Length) % len;
+                available -= _frame.Length;
                 ProcessFrame(nm, false, 0);
             }
         }
@@ -147,11 +151,15 @@ namespace HideAndSeek.Game.Voice
                 _frame[i] = v;
                 sum += v * v;
             }
-            float rms = Mathf.Sqrt(sum / _frame.Length);
+            // 20 ms frames: the level is measured over the last 40 ms like with 40 ms frames (meter, voice activation, shouts).
+            float rms = _frame.Length < VoiceCodec.FrameSamples
+                ? Mathf.Sqrt((sum + _prevSum) / (_frame.Length * 2)) : Mathf.Sqrt(sum / _frame.Length);
+            _prevSum = sum;
             // dB meter: -50 dBFS = 0, -5 dBFS = 1 (normal speech ~0.4-0.6, shouting > 0.8).
             float db = 20f * Mathf.Log10(Mathf.Max(rms, 1e-5f));
             float level = Mathf.Clamp01((db + 50f) / 45f);
-            MicLevel = Mathf.Max(level, MicLevel * 0.92f); // fast attack, slower release for the HUD (20 ms frames)
+            float release = _frame.Length == VoiceCodec.FrameSamples ? 0.92f : 0.959f; // the same 0.92 per 40 ms with 20 ms frames
+            MicLevel = Mathf.Max(level, MicLevel * release); // fast attack, slower release for the HUD
             _frameLevel = level;
 
             bool menu = LocalPlayerController.MenuOpen;
@@ -159,7 +167,7 @@ namespace HideAndSeek.Game.Voice
             if (LocalProfile.VoiceOpenMic)
             {
                 if (MicLevel >= LocalProfile.MicThreshold) _vadHangover = 0.35f;
-                else _vadHangover -= VoiceCodec.FrameSamples / (float)VoiceCodec.SampleRate;
+                else _vadHangover -= _frame.Length / (float)VoiceCodec.SampleRate;
                 send = _vadHangover > 0f;
             }
             else
@@ -177,15 +185,16 @@ namespace HideAndSeek.Game.Voice
             _txPackets++;
             _seq++;
 
-            for (int i = 0; i < _frame.Length; i++) _encoded[i] = VoiceCodec.Encode(_frame[i]);
+            int n = _frame.Length;
+            for (int i = 0; i < n; i++) _encoded[i] = VoiceCodec.Encode(_frame[i]);
             byte lvl = (byte)Mathf.RoundToInt(_frameLevel * 255f);
 
-            if (nm.IsServer) Relay(nm, nm.LocalClientId, _seq, lvl, _encoded, _encoded.Length, stamp, pa);
+            if (nm.IsServer) Relay(nm, nm.LocalClientId, _seq, lvl, _encoded, n, stamp, pa);
             else
             {
-                using var writer = new FastBufferWriter(_encoded.Length + 16, Allocator.Temp);
-                WriteFrame(writer, _seq, lvl, _encoded, _encoded.Length, stamp, pa);
-                nm.CustomMessagingManager.SendNamedMessage(Message, NetworkManager.ServerClientId, writer, Delivery);
+                using var writer = new FastBufferWriter(n + 16, Allocator.Temp);
+                WriteFrame(writer, _seq, lvl, _encoded, n, stamp, pa);
+                Send(nm, NetworkManager.ServerClientId, writer);
             }
         }
 
@@ -241,7 +250,7 @@ namespace HideAndSeek.Game.Voice
         {
             var speaker = NetPlayer.FindByClient(speakerId);
             if (speaker == null) return;
-            Cinematics.RoundStats.Voice(speaker, VoiceCodec.FrameSamples / (float)VoiceCodec.SampleRate); // Gaduła award
+            Cinematics.RoundStats.Voice(speaker, len / (float)VoiceCodec.SampleRate); // Gaduła award
             bool shout = level / 255f >= ShoutLevel;
             // Public address: only the current holder of the wall microphone; everybody gets it (own speakers on every level).
             bool paOk = pa && VoiceRules.PaLink(speaker);
@@ -266,7 +275,7 @@ namespace HideAndSeek.Game.Voice
                         writers[ch].WriteValueSafe(ch);
                         WriteFrame(writers[ch], seq, level, data, len, stamp);
                     }
-                    nm.CustomMessagingManager.SendNamedMessage(Message, listener.OwnerClientId, writers[ch], Delivery);
+                    Send(nm, listener.OwnerClientId, writers[ch]);
                 }
             }
             finally

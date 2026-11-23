@@ -33,7 +33,7 @@ namespace HideAndSeek.Game.Voice
 
         private void ToneFrames(NetworkManager nm)
         {
-            const float frameTime = VoiceCodec.FrameSamples / (float)VoiceCodec.SampleRate;
+            float frameTime = _frame.Length / (float)VoiceCodec.SampleRate;
             _toneClock += Time.unscaledDeltaTime;
             while (_toneClock >= frameTime)
             {

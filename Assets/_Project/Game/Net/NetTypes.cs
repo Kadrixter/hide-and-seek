@@ -74,6 +74,8 @@ namespace HideAndSeek.Game.Net
         public byte Laps;            // RC race: laps to win
         public bool SeekerTakesItems; // the seeker may pick up hiders' items (medkits, syringes, rods) to deny them
         public byte Seekers;         // killers (seekers) per round, 1..players-1 (0 = old default = 1)
+        public byte VoiceMode;       // voice chat: 0 = classic, 1 = low latency (Voice.VoiceMode)
+        public ushort VoiceDelayMs;  // voice jitter buffer: classic = start, low latency = target (0 = mode default)
 
         /// <summary>Wanted number of seekers (at least 1); the lever refuses a start when it leaves no hider.</summary>
         public int SeekerCount => Seekers < 1 ? 1 : Seekers;
@@ -92,6 +94,8 @@ namespace HideAndSeek.Game.Net
             Mode = (byte)GameMode.HideAndSeek,
             Laps = 3,
             Seekers = 1,
+            VoiceMode = 0,
+            VoiceDelayMs = 160,
         };
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
@@ -109,12 +113,15 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Laps);
             s.SerializeValue(ref SeekerTakesItems);
             s.SerializeValue(ref Seekers);
+            s.SerializeValue(ref VoiceMode);
+            s.SerializeValue(ref VoiceDelayMs);
         }
 
         public bool Equals(NetSettings o) => HideTime == o.HideTime && SeekTime == o.SeekTime && HintStart == o.HintStart &&
                                              HintInterval == o.HintInterval && HintMode == o.HintMode && Glock == o.Glock &&
                                              Medkits == o.Medkits && BleedOut == o.BleedOut && Syringes == o.Syringes && Mode == o.Mode && Laps == o.Laps &&
-                                             SeekerTakesItems == o.SeekerTakesItems && Seekers == o.Seekers;
+                                             SeekerTakesItems == o.SeekerTakesItems && Seekers == o.Seekers &&
+                                             VoiceMode == o.VoiceMode && VoiceDelayMs == o.VoiceDelayMs;
     }
 
     public struct MedkitState : INetworkSerializable, IEquatable<MedkitState>
