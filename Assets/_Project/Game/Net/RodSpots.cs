@@ -5,9 +5,10 @@ using UnityEngine;
 namespace HideAndSeek.Game.Net
 {
     /// <summary>
-    /// Where metal rods can lie on the game map: leaning against pallet racks, cage shelves and temporary wire-mesh
-    /// fences that the map generator already placed ("PalletRack_", "Shelf_Cage_", "TempFence_" objects). The map is
-    /// not changed: a spot is a free piece of floor right next to such an object, the rod leans on its face.
+    /// Where metal rods are on the game map: stuck in rubble heaps at the "RodSocket" markers the map generator put
+    /// on them (position = where the rod enters the rubble, up = the rod, forward = free floor for the puller).
+    /// Maps without sockets (older builds): leaning against pallet racks, cage shelves and temporary wire-mesh fences
+    /// ("PalletRack_", "Shelf_Cage_", "TempFence_" objects), a free piece of floor right next to such an object.
     /// </summary>
     public static class RodSpots
     {
@@ -18,32 +19,66 @@ namespace HideAndSeek.Game.Net
         {
             public Vector3 Base, Top;
             public string Near;
+            /// <summary>Stuck in rubble; <see cref="Stand"/> = where the puller stands.</summary>
+            public bool Embedded;
+            public Vector3 Stand;
+        }
+
+        public const string SocketName = "RodSocket";
+
+        /// <summary>Rod sockets on the rubble heaps with a free spot to stand in front (empty on old maps).</summary>
+        public static List<Spot> Sockets()
+        {
+            var list = new List<Spot>();
+            foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude))
+            {
+                if (t.name != SocketName || InSecurityZone(t.position) || !HideAndSeek.Map.MapInfo.InsideGarage(t.position, 0.3f)) continue;
+                Vector3 axis = t.up, fwd = t.forward;
+                fwd.y = 0f;
+                if (fwd.sqrMagnitude < 1e-4f) continue;
+                fwd.Normalize();
+                Vector3 stand = t.position + fwd * RodPullTimeline.StandDistance;
+                if (!Physics.Raycast(stand + Vector3.up * 0.8f, Vector3.down, out var fh, 1.6f, ~0, QueryTriggerInteraction.Ignore) || fh.normal.y < 0.9f) continue;
+                stand = fh.point;
+                if (!OnGarageFloor(stand)) continue;
+                if (Physics.CheckCapsule(stand + Vector3.up * 0.5f, stand + Vector3.up * 1.6f, 0.28f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                Vector3 b = t.position - axis * RodPullTimeline.Buried;
+                list.Add(new Spot { Base = b, Top = b + axis * RodModel.Length, Near = t.parent != null ? t.parent.name : t.name, Embedded = true, Stand = stand });
+            }
+            return list;
         }
 
         /// <summary>Up to <paramref name="count"/> spots far apart (prefers different levels), random each call.</summary>
         public static List<Spot> Pick(int count, float minSpacing = 18f)
         {
-            var all = Candidates();
-            for (int i = all.Count - 1; i > 0; i--)
-            {
-                int j = Random.Range(0, i + 1);
-                (all[i], all[j]) = (all[j], all[i]);
-            }
+            // Rubble sockets first (shuffled), the old rack / fence spots only when there are too few of them.
+            var all = Shuffled(Sockets());
+            if (all.Count < count) all.AddRange(Shuffled(Candidates()));
             var picked = new List<Spot>();
-            // First pass: different levels; second pass: anything far enough.
-            for (int pass = 0; pass < 2 && picked.Count < count; pass++)
+            // First pass: different levels; second: anything far enough; third: half the spacing.
+            for (int pass = 0; pass < 3 && picked.Count < count; pass++)
                 foreach (var s in all)
                 {
                     if (picked.Count >= count) break;
                     bool ok = true;
                     foreach (var p in picked)
                     {
-                        if (Vector3.Distance(p.Base, s.Base) < minSpacing) ok = false;
+                        if (Vector3.Distance(p.Base, s.Base) < (pass == 2 ? minSpacing * 0.5f : minSpacing)) ok = false;
                         if (pass == 0 && Mathf.Abs(p.Base.y - s.Base.y) < 1.5f) ok = false;
                     }
                     if (ok) picked.Add(s);
                 }
             return picked;
+        }
+
+        private static List<Spot> Shuffled(List<Spot> all)
+        {
+            for (int i = all.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (all[i], all[j]) = (all[j], all[i]);
+            }
+            return all;
         }
 
         /// <summary>Every valid spot next to every rack / shelf / fence (one per object).</summary>

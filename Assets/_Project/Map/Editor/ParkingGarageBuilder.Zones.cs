@@ -215,7 +215,7 @@ namespace HideAndSeek.Map.Editor
         private void TarpCar(int lv, float x, float z, float yaw)
         {
             var type = _rng.NextDouble() < 0.6 ? CarType.Sedan : _rng.NextDouble() < 0.5 ? CarType.Suv : CarType.Van;
-            P(lv, _props.TarpCar(type, _rng.NextDouble() < 0.5 ? "Tarp_Blue" : "Tarp_Grey"), "TarpCar", x, z, yaw);
+            DrapedCar(lv, type, _rng.NextDouble() < 0.5, x, z, yaw); // same random draws as the old box version
             _carCount++;
         }
 

@@ -101,9 +101,9 @@ namespace HideAndSeek.Game.Net
             }
             if (mm.Rods.Count == 0) mm.SpawnRods(2);
             var rod = mm.Rods[0];
-            yield return LookAt(me, rod.Middle, me.transform.position);
+            yield return LookAt(me, rod.Exposed, rod.Embedded ? rod.Stand : me.transform.position);
             me.RequestPickupRodRpc(rod.Id);
-            yield return new WaitForSeconds(0.8f);
+            yield return new WaitForSeconds(rod.Embedded ? HideAndSeek.Characters.RodPullTimeline.Duration + 1f : 0.8f);
             InvLog(me, "after map pickups");
             Shot(dir, "h02_items");
             Hotbar.TestSelect = Hotbar.SlotOf(me, HotbarItem.Syringe);

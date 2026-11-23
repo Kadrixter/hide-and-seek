@@ -415,6 +415,7 @@ namespace HideAndSeek.Characters
             ApplyToyGun(ref p, dt, standing, lookPitch);
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand
             ApplyPaMic(ref p, dt, standing);
+            ApplyRodPullLayer(ref p, dt); // pulling a rod out of rubble (whole body)
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));

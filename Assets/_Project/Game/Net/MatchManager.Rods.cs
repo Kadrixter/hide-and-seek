@@ -10,15 +10,33 @@ using UnityEngine.SceneManagement;
 
 namespace HideAndSeek.Game.Net
 {
-    /// <summary>Metal rod lying on the map (server-written).</summary>
+    /// <summary>Metal rod on the map (server-written): stuck in a rubble heap, or (old maps) leaning on a rack.</summary>
     public struct RodState : INetworkSerializable, IEquatable<RodState>
     {
+        public const ulong NoPuller = ulong.MaxValue;
+
         public int Id;
-        public Vector3 Base;   // foot on the floor
-        public Vector3 Top;    // top end leaning on the rack / fence
+        public Vector3 Base;   // foot (in the rubble: the buried end)
+        public Vector3 Top;    // top end
         public bool Taken;
+        /// <summary>Stuck in rubble (pulled out in 5 s) instead of lying loose.</summary>
+        public bool Embedded;
+        /// <summary>Floor point where the puller stands.</summary>
+        public Vector3 Stand;
+        /// <summary>NetworkObjectId of the player pulling it now, <see cref="NoPuller"/> when nobody.</summary>
+        public ulong Puller;
+        /// <summary>Server time the current pull started.</summary>
+        public double PullStart;
+        /// <summary>Yanks already done (an interrupted pull keeps them).</summary>
+        public byte Done;
 
         public Vector3 Middle => (Base + Top) * 0.5f;
+        public Vector3 Axis => (Top - Base).normalized;
+        /// <summary>Where the rod enters the rubble (embedded rods).</summary>
+        public Vector3 Entry => Base + Axis * RodPullTimeline.Buried;
+        /// <summary>Middle of the part sticking out (prompt point).</summary>
+        public Vector3 Exposed => Embedded ? (Entry + Top) * 0.5f : Middle;
+        public bool BeingPulled => Puller != NoPuller;
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
@@ -26,15 +44,21 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Base);
             s.SerializeValue(ref Top);
             s.SerializeValue(ref Taken);
+            s.SerializeValue(ref Embedded);
+            s.SerializeValue(ref Stand);
+            s.SerializeValue(ref Puller);
+            s.SerializeValue(ref PullStart);
+            s.SerializeValue(ref Done);
         }
 
-        public bool Equals(RodState o) => Id == o.Id && Taken == o.Taken && Base == o.Base && Top == o.Top;
+        public bool Equals(RodState o) => Id == o.Id && Taken == o.Taken && Base == o.Base && Top == o.Top && Embedded == o.Embedded &&
+                                          Stand == o.Stand && Puller == o.Puller && PullStart == o.PullStart && Done == o.Done;
     }
 
     /// <summary>Tuning of the rod / peg leg and the item markers.</summary>
     public static class ItemTuning
     {
-        public const int MinRods = 1, MaxRods = 3;       // per round, random
+        public const int MinRods = 4, MaxRods = 6;       // per round, random (stuck in rubble heaps)
         public const int MaxRodsCarried = 1;
         public const float RodSpeedScale = 0.62f;        // walking on a rod (hopping 0.34, limping 0.8, healthy 1)
         public const float RodRunScale = 0.5f;           // running on a rod (of the normal run speed)
@@ -42,8 +66,8 @@ namespace HideAndSeek.Game.Net
     }
 
     /// <summary>
-    /// Rods on the map: 1-3 per round next to shelving / fences (<see cref="RodSpots"/>), picked up with E into the
-    /// inventory (alive hiders), fitted onto a cut-off leg from the hotbar. Server: spawn, pickup, fitting with a
+    /// Rods on the map: 4-6 per round stuck in rubble heaps (<see cref="RodSpots"/>), pulled out with E (5 s, see
+    /// MatchManager.RodPull) into the inventory (alive hiders), fitted onto a cut-off leg from the hotbar. Server: spawn, pickup, fitting with a
     /// timer (interrupted when the hider is hit). All clients: rod views, per-player <see cref="RodLegDriver"/>, hotbar.
     /// </summary>
     public partial class MatchManager
@@ -51,6 +75,9 @@ namespace HideAndSeek.Game.Net
         public NetworkList<RodState> Rods;
 
         private readonly Dictionary<int, GameObject> _rodViews = new();
+
+        /// <summary>View of rod <paramref name="id"/> on this instance (null when taken / not in the game scene).</summary>
+        public RodView RodViewOf(int id) => _rodViews.TryGetValue(id, out var go) && go != null ? go.GetComponent<RodView>() : null;
         private readonly Dictionary<ulong, Coroutine> _rodAttach = new();
         private bool _rodsSpawned;
 
@@ -61,8 +88,12 @@ namespace HideAndSeek.Game.Net
         {
             HotbarHud.Ensure();
             foreach (var pl in NetPlayer.All)
+            {
                 if (pl != null && pl.GetComponent<RodLegDriver>() == null) pl.gameObject.AddComponent<RodLegDriver>();
+                if (pl != null && pl.GetComponent<RodPullDriver>() == null) pl.gameObject.AddComponent<RodPullDriver>();
+            }
             UpdateRodViews();
+            UpdateLeaks();
             if (!IsServer) return;
 
             var ph = Phase.Value;
@@ -94,8 +125,9 @@ namespace HideAndSeek.Game.Net
             var spots = RodSpots.Pick(count);
             for (int i = 0; i < spots.Count; i++)
             {
-                Rods.Add(new RodState { Id = 200 + i, Base = spots[i].Base, Top = spots[i].Top, Taken = false });
-                Debug.Log($"[Rods] rod {200 + i} at {spots[i].Base} next to {spots[i].Near}");
+                var sp = spots[i];
+                Rods.Add(new RodState { Id = 200 + i, Base = sp.Base, Top = sp.Top, Taken = false, Embedded = sp.Embedded, Stand = sp.Stand, Puller = RodState.NoPuller });
+                Debug.Log($"[Rods] rod {200 + i} at {sp.Base} {(sp.Embedded ? "stuck in" : "next to")} {sp.Near}");
             }
         }
 
@@ -108,7 +140,8 @@ namespace HideAndSeek.Game.Net
                 var r = Rods[i];
                 if (r.Taken) continue;
                 alive.Add(r.Id);
-                if (!_rodViews.TryGetValue(r.Id, out var go) || go == null) _rodViews[r.Id] = RodView.Create(r.Base, r.Top);
+                if (!_rodViews.TryGetValue(r.Id, out var go) || go == null) _rodViews[r.Id] = go = RodView.Create(r);
+                if (go.TryGetComponent<RodView>(out var rv)) rv.Sync(r);
             }
             List<int> remove = null;
             foreach (var kv in _rodViews)
@@ -127,7 +160,7 @@ namespace HideAndSeek.Game.Net
             {
                 var r = Rods[i];
                 if (r.Taken) continue;
-                Vector3 mp = r.Middle;
+                Vector3 mp = r.Exposed;
                 float d = Vector3.Distance(eye, mp);
                 if (d >= dist || d > Tuning.PickupRange + 1f || Vector3.Angle(fwd, mp - eye) > 55f) continue;
                 id = r.Id;
@@ -135,7 +168,16 @@ namespace HideAndSeek.Game.Net
                 dist = d;
             }
             if (dist == float.MaxValue) return false;
-            text = me.RodCount.Value >= ItemTuning.MaxRodsCarried ? "E  (masz już pręt)" : Inventory.PickupText(me, HotbarItem.Rod, "E  podnieś metalowy pręt");
+            RodState rod = default;
+            for (int i = 0; i < Rods.Count; i++) if (Rods[i].Id == id) rod = Rods[i];
+            if (rod.BeingPulled)
+            {
+                if (rod.Puller == me.NetworkObjectId) return false; // pulling it now: no prompt
+                text = "(ktoś wyciąga ten pręt)";
+                return true;
+            }
+            text = me.RodCount.Value >= ItemTuning.MaxRodsCarried ? "E  (masz już pręt)"
+                : Inventory.PickupText(me, HotbarItem.Rod, rod.Embedded ? "E  wyciągnij pręt z gruzu" : "E  podnieś metalowy pręt");
             return true;
         }
 
@@ -152,17 +194,28 @@ namespace HideAndSeek.Game.Net
             {
                 var r = Rods[i];
                 if (r.Id != id || r.Taken) continue;
-                if (Vector3.Distance(pl.transform.position, r.Middle) > Tuning.PickupRange + 1.5f) return;
+                if (Vector3.Distance(pl.transform.position, r.Exposed) > Tuning.PickupRange + 1.5f) return;
+                if (r.Embedded)
+                {
+                    ServerStartRodPull(pl, i);
+                    return;
+                }
                 r.Taken = true;
                 Rods[i] = r;
-                int slot = Inventory.PredictSlot(pl, HotbarItem.Rod) + 1;
-                pl.RodCount.Value++;
-                pl.SfxRpc(GameSfx.MedkitPickup, 0.7f);
-                pl.ToastRpc(pl.IsSeeker ? "Zabrałeś chowającym pręt (Q - wyrzuć)."
-                    : pl.FreeStump != 0 ? $"Masz pręt: wybierz go ({slot}) i kliknij LPM, żeby zrobić z niego nogę."
-                    : $"Masz pręt (slot {slot}). Przyda się, jeśli stracisz nogę.", 4f);
+                GiveRod(pl, true);
                 return;
             }
+        }
+
+        /// <summary>Server: the rod goes into the inventory (picked up or pulled out of the rubble).</summary>
+        private void GiveRod(NetPlayer pl, bool sound)
+        {
+            int slot = Inventory.PredictSlot(pl, HotbarItem.Rod) + 1;
+            pl.RodCount.Value++;
+            if (sound) pl.SfxRpc(GameSfx.MedkitPickup, 0.7f);
+            pl.ToastRpc(pl.IsSeeker ? "Zabrałeś chowającym pręt (Q - wyrzuć)."
+                : pl.FreeStump != 0 ? $"Masz pręt: wybierz go ({slot}) i kliknij LPM, żeby zrobić z niego nogę."
+                : $"Masz pręt (slot {slot}). Przyda się, jeśli stracisz nogę.", 4f);
         }
 
         /// <summary>Hider with a free stump and a rod: fitting takes <see cref="RodTimeline.Duration"/> (can be interrupted).</summary>

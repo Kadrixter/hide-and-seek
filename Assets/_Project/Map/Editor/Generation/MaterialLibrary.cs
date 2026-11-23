@@ -136,6 +136,7 @@ namespace HideAndSeek.Map.Editor
             for (int i = 0; i < CarPaints.Length; i++)
                 Make(CarPaints[i], paints[i], null, 1f, 0.55f, 0.78f);
             BuildDetailedCarMaterials();
+            BuildDetailMaterials();
         }
 
         private Material Make(string name, Color color, string tex, float tile, float metallic, float smoothness,
