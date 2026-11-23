@@ -56,6 +56,7 @@ namespace HideAndSeek.Game.Net
 
         private RadioChannel[] _mapChannels;
         private bool _mapRadioSpawned;
+        private readonly Vector3[] _mapRadioCarrierAt = new Vector3[MapRadioMax]; // last feet of the carrier (he may leave)
 
         public static readonly ItemPlacement.Profile RadioPlace = new ItemPlacement.Profile
         {
@@ -141,6 +142,7 @@ namespace HideAndSeek.Game.Net
                 var s = MapRadios[i];
                 if (s.Mode != MapRadioState.Carried) continue;
                 var c = NetPlayer.Find(s.Carrier);
+                if (c != null) _mapRadioCarrierAt[i] = c.transform.position;
                 bool round = ph == MatchPhase.Hiding || ph == MatchPhase.Seeking || ph == MatchPhase.Ended;
                 if (c == null || !c.IsAliveHider || c.Motion.Value.IsProne || c.Seat.Value >= 0 || c.RcControlling || !round)
                     ServerMapRadioFall(i, c);
@@ -209,11 +211,12 @@ namespace HideAndSeek.Game.Net
         private void ServerMapRadioFall(int i, NetPlayer pl)
         {
             var s = MapRadios[i];
-            Vector3 feet = pl != null ? pl.transform.position : s.Pos;
+            Vector3 feet = pl != null ? pl.transform.position : _mapRadioCarrierAt[i];
             Vector3 right = pl != null ? pl.transform.right : Vector3.right;
             Vector3 fwd = pl != null ? pl.transform.forward : Vector3.forward;
             right.y = fwd.y = 0f;
-            if (pl != null) s.Pos = ItemPlacement.PutDown(feet, feet + right.normalized * 0.55f + fwd.normalized * 0.15f, RadioPlace, "radio", pl.transform);
+            if (pl != null || feet != Vector3.zero)
+                s.Pos = ItemPlacement.PutDown(feet, feet + right.normalized * 0.55f + fwd.normalized * 0.15f, RadioPlace, "radio", pl != null ? pl.transform : null);
             s.Yaw = (pl != null ? pl.transform.eulerAngles.y + 90f : s.Yaw) + UnityEngine.Random.Range(-35f, 35f);
             s.Mode = MapRadioState.Lying;
             s.LastCarrier = s.Carrier;

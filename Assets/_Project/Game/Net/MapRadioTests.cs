@@ -110,9 +110,10 @@ namespace HideAndSeek.Game.Net
                 Boombox.TestUrl = ArgOr("-radiourl", BoomboxTests.DefaultUrl);
                 yield return new WaitForSeconds(0.5f);
                 Screen("panel");
+                yield return new WaitForSeconds(0.3f);
                 Boombox.ClosePanel();
                 var box = MapRadioSystem.Instance.ViewOf(0);
-                float until = Time.time + 100f;
+                float until = Time.time + 150f;
                 while (Time.time < until && !(box != null && box.MusicAudible)) yield return new WaitForSeconds(0.5f);
                 Log($"music: audible={box != null && box.MusicAudible} {box?.DebugState}");
                 yield return new WaitForSeconds(4f);
@@ -232,6 +233,11 @@ namespace HideAndSeek.Game.Net
                 angle += fast ? 2.2f : 12f;
                 Vector3 at = c.transform.position + Vector3.up * (s.Mode == MapRadioState.Carried ? 1.15f : 0.8f);
                 Vector3 off = Quaternion.Euler(0f, angle, 0f) * (c.transform.forward * 2.3f) + Vector3.up * 0.35f;
+                // Keep the camera out of walls / cars (pull it in front of what is in the way).
+                float camD = off.magnitude;
+                if (Physics.SphereCast(at, 0.2f, off / camD, out var hit, camD, ~((1 << 9) | (1 << PlayerAvatarBinder.LocalBodyLayer)), QueryTriggerInteraction.Ignore) &&
+                    !hit.transform.IsChildOf(c.transform) && hit.collider.GetComponentInParent<Boombox>() == null)
+                    off = off / camD * Mathf.Max(0.7f, hit.distance - 0.15f);
                 MapRadioLitShot($"watch_{n++:000}_m{s.Mode}_v{s.Move}{(playing ? "_music" : "")}", at + off, at);
             }
             Log($"watch done, {n} shots");
