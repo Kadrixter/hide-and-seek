@@ -23,7 +23,7 @@ namespace HideAndSeek.Game
         private const int MaxChipsPerRoom = 320;
         private readonly List<Chip>[] _chips = { new(), new(), new() };
         private readonly Transform[] _kerf = new Transform[Levels];
-        private AudioClip _scrapeClip, _sawWoodClip, _breakClip;
+        private static AudioClip _scrapeClip, _sawWoodClip, _breakClip;
         private float _nextChip;
 
         // ---------------------------------------------------------------- saw
@@ -171,9 +171,9 @@ namespace HideAndSeek.Game
 
         private void BuildCrateSounds()
         {
-            _scrapeClip = MakeScrapeClip();
-            _sawWoodClip = MakeSawWoodClip();
-            _breakClip = MakeBreakClip();
+            if (_scrapeClip == null) _scrapeClip = Keep(MakeScrapeClip());
+            if (_sawWoodClip == null) _sawWoodClip = Keep(MakeSawWoodClip());
+            if (_breakClip == null) _breakClip = Keep(MakeBreakClip());
         }
 
         /// <summary>Wood dragged over concrete, following the shoves: rumble + stick-slip judder + creaks, a knock at each stop.</summary>

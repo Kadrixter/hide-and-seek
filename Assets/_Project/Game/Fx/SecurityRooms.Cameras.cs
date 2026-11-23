@@ -27,8 +27,8 @@ namespace HideAndSeek.Game
         private readonly List<int>[] _levelCams = { new(), new(), new() };
         private readonly Dictionary<ulong, Vector3> _prev = new();
         private readonly MaterialPropertyBlock _ledMpb = new();
-        private Material[] _cctvMats;
-        private Material _haloMat;
+        private static Material[] _cctvMats;
+        private static Material _haloMat;
         private float _nextSense, _lastSense;
 
         private void AddCam(int lv, string name, Vector3 pos, Vector3 dir)
@@ -42,18 +42,19 @@ namespace HideAndSeek.Game
         /// <summary>CCTV camera hanging from the ceiling (<see cref="CctvModel"/>: housing, sun hood, lens, bracket, cable, LED) plus the LED halo.</summary>
         private (Renderer model, Renderer halo) BuildCameraModel(Vector3 pos, Quaternion rot, int lv)
         {
-            _cctvMats ??= CctvModel.Materials();
+            if (_cctvMats == null || _cctvMats.Length == 0 || _cctvMats[0] == null) { _cctvMats = CctvModel.Materials(); foreach (var mat in _cctvMats) Keep(mat); }
             var root = new GameObject("CCTV").transform;
             root.SetParent(transform, false);
             root.SetPositionAndRotation(pos, rot);
-            root.gameObject.AddComponent<MeshFilter>().sharedMesh = CctvModel.Build(pos, rot, FloorY(lv) + 3.0f);
+            if (!_cctvMeshes.TryGetValue((pos, rot), out var cm) || cm == null) _cctvMeshes[(pos, rot)] = cm = Keep(CctvModel.Build(pos, rot, FloorY(lv) + 3.0f));
+            root.gameObject.AddComponent<MeshFilter>().sharedMesh = cm;
             var mr = root.gameObject.AddComponent<MeshRenderer>();
             mr.sharedMaterials = _cctvMats;
             CctvModel.Setup(mr);
             if (_haloMat == null)
             {
                 var sh = Resources.Load<Shader>("Shaders/HnsLedGlow");
-                if (sh != null) _haloMat = new Material(sh) { name = "CctvLedHalo" };
+                if (sh != null) _haloMat = Keep(new Material(sh) { name = "CctvLedHalo" });
             }
             Renderer halo = null;
             if (_haloMat != null)
@@ -109,21 +110,30 @@ namespace HideAndSeek.Game
             _cams[list[index]] = c;
         }
 
-        private void BuildCameraPoints()
+        private static SortedDictionary<int, float> _elevXCache;
+        private static readonly Dictionary<(Vector3, Quaternion), Mesh> _cctvMeshes = new();
+
+        /// <summary>CCTV points of one level (built level by level over frames; the models are cached for the session).</summary>
+        private void BuildCameraPoints(int level)
         {
             float[] aisleZ = { -44.75f, -28.25f, -11.75f, 11.75f, 28.25f, 44.75f };
             // Stairwells (Map ParkingGarageBuilder.Stairs): door on the south face, x0 + 1 on level 0, x0 + 3 below.
             var stairs = new[] { (x0: -62f, zf: 50.8f), (x0: 46f, zf: 50.8f), (x0: -34f, zf: -4.6f), (x0: 30f, zf: -4.6f) };
             // Elevators: the scene has "ElevatorCar_<n>_..." markers, one per level; doors face z = +-1.4.
-            var elevX = new SortedDictionary<int, float>();
-            foreach (var t in FindObjectsByType<Transform>(FindObjectsInactive.Exclude))
+            var elevX = _elevXCache;
+            if (elevX == null || elevX.Count == 0)
             {
-                if (!t.name.StartsWith("ElevatorCar_")) continue;
-                var p = t.name.Split('_');
-                if (p.Length >= 2 && int.TryParse(p[1], out int car)) elevX[car] = t.position.x;
+                elevX = new SortedDictionary<int, float>();
+                foreach (var t in FindObjectsByType<Transform>(FindObjectsInactive.Exclude))
+                {
+                    if (!t.name.StartsWith("ElevatorCar_")) continue;
+                    var p = t.name.Split('_');
+                    if (p.Length >= 2 && int.TryParse(p[1], out int car)) elevX[car] = t.position.x;
+                }
+                _elevXCache = elevX;
             }
 
-            for (int lv = 0; lv < Levels; lv++)
+            for (int lv = level; lv <= level; lv++)
             {
                 float y0 = FloorY(lv), y = y0 + 2.3f;
                 for (int i = 0; i < 6; i++)

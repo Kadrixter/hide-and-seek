@@ -9,7 +9,7 @@ namespace HideAndSeek.Game
     /// </summary>
     public partial class SecurityRooms
     {
-        private Texture2D _microTex, _chipsTex, _tinTex;
+        private static Texture2D _microTex, _chipsTex, _tinTex;
 
         private void BuildCoffeeCorner(Transform root, int lv, float y0)
         {
@@ -22,7 +22,7 @@ namespace HideAndSeek.Game
             Box(root, "Counter", new Vector3(cx, y0 + 0.51f, cz), new Vector3(x1 - x0, 0.82f, depth), white, true, null, Surf.Shiny(0.3f));
             float top = y0 + 0.04f + h + 0.03f;
             Box(root, "Worktop", new Vector3(cx, top - 0.015f, cz + 0.015f), new Vector3(x1 - x0 + 0.04f, 0.03f, depth + 0.03f), new Color(0.55f, 0.42f, 0.3f), true, null, lam);
-            Box(root, "WorktopEdge", new Vector3(cx, top - 0.015f, cz + depth * 0.5f + 0.031f), new Vector3(x1 - x0 + 0.04f, 0.032f, 0.003f), new Color(0.2f, 0.16f, 0.12f), false);
+            Box(root, "WorktopEdge", new Vector3(cx, top - 0.015f, cz + depth * 0.5f + 0.031f), new Vector3(x1 - x0 + 0.04f, 0.026f, 0.003f), new Color(0.2f, 0.16f, 0.12f), false);
             float fz = cz + depth * 0.5f + 0.006f;
             // Mini fridge at the west end, three cupboard doors, two drawers.
             Box(root, "FridgeDoor", new Vector3(x0 + 0.31f, y0 + 0.5f, fz), new Vector3(0.58f, 0.74f, 0.012f), new Color(0.93f, 0.93f, 0.92f), false, null, Surf.Shiny(0.55f));
@@ -132,7 +132,7 @@ namespace HideAndSeek.Game
             var legCol = new Color(0.2f, 0.2f, 0.22f);
             float top = floor.y + 0.74f;
             Box(root, "TableTop", new Vector3(floor.x, top - 0.015f, floor.z), new Vector3(0.85f, 0.03f, 0.85f), new Color(0.78f, 0.76f, 0.7f), true, null, Surf.T(SecurityTextures.Kind.Laminate, 0.8f, 0.3f));
-            Box(root, "TableEdge", new Vector3(floor.x, top - 0.015f, floor.z), new Vector3(0.856f, 0.032f, 0.856f), new Color(0.15f, 0.15f, 0.16f), false);
+            Box(root, "TableEdge", new Vector3(floor.x, top - 0.015f, floor.z), new Vector3(0.856f, 0.024f, 0.856f), new Color(0.15f, 0.15f, 0.16f), false);
             var leg = CachedMesh("TableLeg", p => p.Lathe(new[] { new Vector2(0f, 0f), new Vector2(0.018f, 0f), new Vector2(0.016f, 0.012f), new Vector2(0.016f, 0.71f), new Vector2(0f, 0.71f) }, 10, 40f));
             foreach (var (sx, sz) in new[] { (-1f, -1f), (1f, -1f), (-1f, 1f), (1f, 1f) })
                 MeshObj(root, "TableLeg", leg, floor + new Vector3(sx * 0.37f, 0f, sz * 0.37f), Quaternion.identity, legCol, Surf.Shiny(0.6f, 0.8f));

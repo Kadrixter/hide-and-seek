@@ -90,7 +90,7 @@ namespace HideAndSeek.Game
 
         // ================================================================ desk console + level buttons
 
-        private Texture2D _panelTex;
+        private static Texture2D _panelTex;
 
         private void BuildConsole(Transform root, int lv, float cx, float y0)
         {
@@ -118,7 +118,7 @@ namespace HideAndSeek.Game
             if (_panelTex == null) _panelTex = MakePanelTexture();
             Vector3 pc = new Vector3(cx, top + 0.03f, Z1 - 0.97f);
             Box(root, "ButtonPanel", pc, new Vector3(2.6f, 0.06f, 0.36f), new Color(0.2f, 0.21f, 0.22f), false, null, Surf.T(SecurityTextures.Kind.Metal, 1f, 0.35f, 0.5f));
-            Sign(root, "PanelFace", pc + Vector3.up * 0.031f, new Vector2(2.56f, 0.34f), Vector3.up, _panelTex, 0.3f);
+            Sign(root, "PanelFace", pc + Vector3.up * 0.033f, new Vector2(2.56f, 0.34f), Vector3.up, _panelTex, 0.3f);
             for (int f = 0; f < Levels; f++)
             {
                 Vector3 bp = new Vector3(cx - 1.0f + f * 1.0f, y0 + 0.8f, Z1 - 1.0f);
@@ -176,22 +176,24 @@ namespace HideAndSeek.Game
 
         // ================================================================ sign over the door (outside)
 
-        private Texture2D _signTex;
+        private static Texture2D _signTex;
+
+        private static Texture2D MakeDoorSignTexture()
+        {
+            var tb = new TextureBaker(512, 128, new Color(0.07f, 0.13f, 0.34f));
+            tb.Frame(0.5f, 0.5f, 0.97f, 0.88f, 0.05f, new Color(0.85f, 0.86f, 0.9f));
+            tb.Text("SECURITY", 0.5f, 0.6f, 0.34f, Color.white);
+            tb.Text("TYLKO PERSONEL", 0.5f, 0.22f, 0.12f, new Color(0.8f, 0.85f, 1f));
+            return tb.Finish("SecSign", 0.35f, 2);
+        }
 
         private void BuildDoorSign(Transform root, int lv, float y0)
         {
-            if (_signTex == null)
-            {
-                var tb = new TextureBaker(512, 128, new Color(0.07f, 0.13f, 0.34f));
-                tb.Frame(0.5f, 0.5f, 0.97f, 0.88f, 0.05f, new Color(0.85f, 0.86f, 0.9f));
-                tb.Text("SECURITY", 0.5f, 0.6f, 0.34f, Color.white);
-                tb.Text("TYLKO PERSONEL", 0.5f, 0.22f, 0.12f, new Color(0.8f, 0.85f, 1f));
-                _signTex = tb.Finish("SecSign", 0.35f, 2);
-            }
+            if (_signTex == null) _signTex = MakeDoorSignTexture();
             float doorX = (DoorA + DoorB) * 0.5f;
             Vector3 sp = new Vector3(doorX, y0 + 2.42f, Z0 - Wall * 0.5f - 0.025f);
             Box(root, "SignPlate", sp + new Vector3(0f, 0f, 0.008f), new Vector3(1.74f, 0.46f, 0.03f), new Color(0.75f, 0.76f, 0.8f), false, null, Surf.Shiny(0.4f, 0.6f));
-            Sign(root, "SignFace", sp + new Vector3(0f, 0f, -0.009f), new Vector2(1.7f, 0.42f), Vector3.back, _signTex, 0.35f);
+            Sign(root, "SignFace", sp + new Vector3(0f, 0f, -0.012f), new Vector2(1.7f, 0.42f), Vector3.back, _signTex, 0.35f);
             // Small caged bulb over the sign, lighting just the sign and the crate.
             Vector3 lamp = sp + new Vector3(0f, 0.36f, -0.12f);
             Box(root, "SignLampArm", lamp + new Vector3(0f, 0f, 0.06f), new Vector3(0.04f, 0.04f, 0.12f), DarkPlastic, false);

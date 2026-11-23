@@ -208,6 +208,7 @@ namespace HideAndSeek.Game
             var tex = new Texture2D(_w, _h, TextureFormat.RGBA32, true) { name = name, wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, anisoLevel = 4 };
             tex.SetPixels32(px);
             tex.Apply(true, false);
+            tex.hideFlags |= HideFlags.DontUnloadUnusedAsset;   // cached for the whole session (SecurityRooms)
             return tex;
         }
     }

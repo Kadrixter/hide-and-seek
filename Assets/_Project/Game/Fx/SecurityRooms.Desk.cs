@@ -5,7 +5,7 @@ namespace HideAndSeek.Game
     /// <summary>Things on the console desk: keyboards, mice, mugs, phone, lamp (a real warm light), logbook, papers, radio, fan, snacks.</summary>
     public partial class SecurityRooms
     {
-        private Texture2D _keysTex, _phoneTex, _logTex;
+        private static Texture2D _keysTex, _phoneTex, _logTex;
 
         private void BuildDeskClutter(Transform root, int lv, float cx, float top)
         {
@@ -20,7 +20,7 @@ namespace HideAndSeek.Game
                 Vector3 kb = new Vector3(kx, top, zFront + 0.02f);
                 var rot = new Vector3(0f, yaw, 0f);
                 Box(root, "Keyboard", kb + Vector3.up * 0.012f, new Vector3(0.46f, 0.022f, 0.16f), new Color(0.12f, 0.12f, 0.13f), false, rot, Surf.Shiny(0.3f));
-                var face = Sign(root, "Keys", kb + Vector3.up * 0.0235f, new Vector2(0.44f, 0.145f), Vector3.up, _keysTex, 0.25f);
+                var face = Sign(root, "Keys", kb + Vector3.up * 0.026f, new Vector2(0.44f, 0.145f), Vector3.up, _keysTex, 0.25f);
                 face.transform.rotation = Quaternion.Euler(0f, yaw, 0f) * face.transform.rotation;
                 Vector3 mp = new Vector3(kx + 0.42f, top, zFront + 0.04f);
                 Box(root, "MousePad", mp + Vector3.up * 0.002f, new Vector3(0.24f, 0.004f, 0.2f), new Color(0.1f, 0.12f, 0.22f), false, null, Surf.T(SecurityTextures.Kind.Fabric, 0.3f));

@@ -5,9 +5,9 @@ namespace HideAndSeek.Game
     /// <summary>Wall details: safety posters, key board, fire extinguisher, clock, garage plan, calendar, cork board, first-aid box, cables.</summary>
     public partial class SecurityRooms
     {
-        private Texture2D _posterBhp, _posterSmoke, _posterWatch, _posterExit, _extSign, _planTex, _calTex, _keyTagTex, _aidTex;
+        private static Texture2D _posterBhp, _posterSmoke, _posterWatch, _posterExit, _extSign, _planTex, _calTex, _keyTagTex, _aidTex;
 
-        private void BakeWallTextures()
+        private static void BakeWallTextures()
         {
             if (_posterBhp != null) return;
             var paper = new Color(0.9f, 0.88f, 0.82f);
@@ -94,7 +94,7 @@ namespace HideAndSeek.Game
             Box(root, "CorkFrame", cork + new Vector3(0f, 0f, -0.002f), new Vector3(1.26f, 0.86f, 0.02f), new Color(0.35f, 0.25f, 0.15f), false, null, Surf.T(SecurityTextures.Kind.Laminate, 0.5f, 0.3f));
             // Garage plan and calendar on the east wall (main room part).
             Sign(root, "Plan", new Vector3(eIn, y0 + 1.6f, cz + 1.6f), new Vector2(1.1f, 0.77f), west, _planTex);
-            Box(root, "PlanBack", new Vector3(eIn + 0.004f, y0 + 1.6f, cz + 1.6f), new Vector3(0.006f, 0.81f, 1.14f), new Color(0.2f, 0.2f, 0.22f), false);
+            Box(root, "PlanBack", new Vector3(eIn + 0.006f, y0 + 1.6f, cz + 1.6f), new Vector3(0.006f, 0.81f, 1.14f), new Color(0.2f, 0.2f, 0.22f), false);
             Sign(root, "Calendar", new Vector3(eIn, y0 + 1.65f, cz + 0.4f), new Vector2(0.3f, 0.42f), west, _calTex);
 
             // Wall clock on the west wall (hands follow the real time).

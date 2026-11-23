@@ -730,7 +730,7 @@ namespace HideAndSeek.Map.Editor
             // zebra crossings to the central and north lobbies
             foreach (int a in new[] { 2, 3, 5 })
                 for (float x = -1.95f; x < 1.6f; x += 0.9f)
-                    d.FloorQuad(x, x + 0.45f, AisleZ[a] - AisleHalf + 0.3f, AisleZ[a] + AisleHalf - 0.3f, y, M("Paint_White"));
+                    d.FloorQuad(x, x + 0.45f, AisleZ[a] - AisleHalf + 0.3f, AisleZ[a] + AisleHalf - 0.3f, FloorY(lv) + DecalY.Hatch, M("Paint_White"));   // over the aisle lines
             // cross aisles
             foreach (float sx in new[] { -1f, 1f })
             {

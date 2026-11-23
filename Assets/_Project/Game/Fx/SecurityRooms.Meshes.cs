@@ -6,14 +6,14 @@ namespace HideAndSeek.Game
     /// <summary>Procedural mesh parts (<see cref="ProcMesh"/>) for the security rooms: built once, shared by the three levels.</summary>
     public partial class SecurityRooms
     {
-        private readonly Dictionary<string, Mesh> _meshCache = new();
+        private static readonly Dictionary<string, Mesh> _meshCache = new();
 
         private Mesh CachedMesh(string key, System.Action<ProcMesh> build)
         {
             if (_meshCache.TryGetValue(key, out var m) && m != null) return m;
             var pm = new ProcMesh();
             build(pm);
-            m = pm.ToMesh("Sec_" + key);
+            m = Keep(pm.ToMesh("Sec_" + key));
             _meshCache[key] = m;
             return m;
         }

@@ -109,11 +109,11 @@ namespace HideAndSeek.Game
             if (_pizzaLid == null) _pizzaLid = MakePizzaLid();
             var face = Sign(parent, "PizzaLidPrint", hinge + lidRot * new Vector3(0f, 0.0025f, -0.17f), new Vector2(0.32f, 0.32f), lidRot * Vector3.up, _pizzaLid, 0.05f);
             face.transform.rotation = Quaternion.LookRotation(-(lidRot * Vector3.up), lidRot * Vector3.forward);
-            Box(parent, "GreasePaper", at + Vector3.up * 0.0045f, new Vector3(0.31f, 0.001f, 0.31f), new Color(0.85f, 0.8f, 0.68f), false, new Vector3(0f, yaw + 7f, 0f));
-            return at + Vector3.up * 0.005f;
+            Box(parent, "GreasePaper", at + Vector3.up * 0.0065f, new Vector3(0.31f, 0.001f, 0.31f), new Color(0.85f, 0.8f, 0.68f), false, new Vector3(0f, yaw + 7f, 0f));
+            return at + Vector3.up * 0.0075f;
         }
 
-        private Texture2D _pizzaLid;
+        private static Texture2D _pizzaLid;
 
         private static Texture2D MakePizzaLid()
         {

@@ -13,11 +13,11 @@ namespace HideAndSeek.Game
     public partial class SecurityRooms
     {
         private const float SkinInset = 0.04f;
-        private Dictionary<string, Material> _garageMats;
+        private static Dictionary<string, Material> _garageMats;   // garage assets: the same every round
 
         private Material GarageMat(string name)
         {
-            if (_garageMats == null)
+            if (_garageMats == null || _garageMats.Count == 0 || !_garageMats.TryGetValue("Wall_Concrete", out var probe) || probe == null)
             {
                 _garageMats = new Dictionary<string, Material>();
                 foreach (var r in FindObjectsByType<MeshRenderer>(FindObjectsInactive.Exclude))

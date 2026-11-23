@@ -37,36 +37,73 @@ namespace HideAndSeek.Game
             if (Instance != null) return;
             var go = new GameObject("SecurityRooms");
             Instance = go.AddComponent<SecurityRooms>();
-            Instance.Build();
+            Instance.StartCoroutine(Instance.BuildRoutine());
         }
 
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
             foreach (var s in _slots)
-                if (s != null && s.Rt != null) s.Rt.Release();
+            {
+                if (s == null) continue;
+                if (s.Rt != null) s.Rt.Release();
+                foreach (var m in s.Mats) if (m != null) Destroy(m);   // per-round screen materials (the shared ones are cached)
+            }
         }
 
         public static string LevelName(int lv) => lv == 0 ? "0" : "-" + lv;
         private static float FloorY(int lv) => -3.4f * lv;
         public static Vector3 RoomFloorPoint(int level) => new Vector3((X0 + X1) * 0.5f + 1.5f, FloorY(level), 56.6f);
 
-        private void Build()
+        /// <summary>
+        /// Built over several frames (shared resources, cameras + feeds, then one level per frame) so the round start
+        /// does not stall; textures, materials, meshes and sounds are cached for the session and normally already
+        /// prepared in the menu / lobby (SecurityRooms.Warm.cs). <see cref="Ready"/> once everything stands.
+        /// </summary>
+        private System.Collections.IEnumerator BuildRoutine()
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var parts = new System.Text.StringBuilder();
+            float worst = 0f;
+            void Lap(string what)
+            {
+                float ms = (float)sw.Elapsed.TotalMilliseconds;
+                worst = Mathf.Max(worst, ms);
+                parts.Append($" {what} {ms:0}");
+                sw.Restart();
+            }
+            float total0 = Time.realtimeSinceStartup;
             _monitorShader = Resources.Load<Shader>("Shaders/HnsMonitor");
-            _switchClip = MakeStaticClip("MonitorSwitch", 0.5f, 11);
-            _floorClip = MakeStaticClip("MonitorFloor", 0.95f, 23);
+            if (_switchClip == null) _switchClip = Keep(MakeStaticClip("MonitorSwitch", 0.5f, 11));
+            if (_floorClip == null) _floorClip = Keep(MakeStaticClip("MonitorFloor", 0.95f, 23));
             BuildCrateSounds();
-
-            BuildCameraPoints();
+            for (int lv = 0; lv < Levels; lv++)
+            {
+                BuildCameraPoints(lv);
+                Lap("cams" + LevelName(lv));
+                yield return null;
+                sw.Restart();
+            }
             for (int i = 0; i < Monitors; i++) _slots[i] = MakeSlot(i);
-            for (int lv = 0; lv < Levels; lv++) BuildRoom(lv);
+            for (int lv = 0; lv < Levels; lv++)
+            {
+                BuildRoom(lv);
+                Lap("level" + LevelName(lv));
+                yield return null;
+                sw.Restart();
+            }
             var mm = MatchManager.Instance;
             _floor = mm != null ? Mathf.Clamp(mm.SecurityFloor.Value, 0, Levels - 1) : 0;
             AssignAll();
             for (int i = 0; i < _buttonRenderers.Count; i++) PaintButton(i);
-            Debug.Log($"[Security] rooms built on 3 levels, {_cams.Count} cameras");
+            Lap("assign");
+            Ready = true;
+            Debug.Log($"[Security] rooms built on 3 levels, {_cams.Count} cameras, {_chairs.Count} chairs: longest frame {worst:0} ms, " +
+                      $"total {(Time.realtimeSinceStartup - total0) * 1000f:0} ms over {2 * Levels + 1} frames (ms:{parts}; prewarmed {WarmDone})");
         }
+
+        /// <summary>Everything built (the rooms appear over the first few frames of a round).</summary>
+        public bool Ready { get; private set; }
 
         private void BuildRoom(int lv)
         {
@@ -169,6 +206,7 @@ namespace HideAndSeek.Game
 
         private void Update()
         {
+            if (!Ready) return;
             var mm = MatchManager.Instance;
             if (mm != null && mm.SecurityFloor.Value != _floor) ApplyFloor(mm.SecurityFloor.Value);
             if (Time.time >= _nextSense)

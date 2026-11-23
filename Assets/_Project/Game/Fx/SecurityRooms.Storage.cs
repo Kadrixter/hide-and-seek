@@ -9,7 +9,7 @@ namespace HideAndSeek.Game
     /// </summary>
     public partial class SecurityRooms
     {
-        private Texture2D _boxLabel, _jacketPrint, _noteA, _noteB, _photo;
+        private static Texture2D _boxLabel, _jacketPrint, _noteA, _noteB, _photo;
 
         private void BuildStorage(Transform root, int lv, float y0)
         {
@@ -121,17 +121,36 @@ namespace HideAndSeek.Game
                 var sleeve = CachedMesh("JacketSleeve" + s, p => p.Tube(new[] { new Vector3(0f, -0.1f, 0.2f * s), new Vector3(0.01f, -0.3f, 0.25f * s), new Vector3(0.025f, -0.62f, 0.22f * s) }, 0.055f, 10));
                 MeshObj(root, "JacketSleeve", sleeve, hook + new Vector3(-0.06f, 0f, 0f), Quaternion.identity, navy * 0.9f, fab);
             }
+            BakeStorageTextures();
+            Sign(root, "JacketPrint", hook + new Vector3(-0.134f, -0.2f, 0f), new Vector2(0.34f, 0.12f), Vector3.left, _jacketPrint, 0.1f);
+        }
+
+        private void BuildCorkNotes(Transform root, int lv, Vector3 face)
+        {
+            BakeStorageTextures();
+            var rnd = new System.Random(lv * 13 + 2);
+            var items = new (Texture2D tex, Vector2 size, float x, float y)[]
+            {
+                (_photo, new Vector2(0.2f, 0.15f), -0.3f, 0.17f), (_noteA, new Vector2(0.12f, 0.15f), 0.05f, 0.2f),
+                (_noteB, new Vector2(0.15f, 0.19f), 0.3f, 0.12f), (_photo, new Vector2(0.18f, 0.135f), -0.12f, -0.18f), (_noteB, new Vector2(0.13f, 0.16f), 0.4f, -0.2f),
+            };
+            for (int i = 0; i < items.Length; i++)
+            {
+                var it = items[i];
+                var g = Sign(root, "CorkNote", face + new Vector3(it.x, it.y, 0.0005f * i), it.size, Vector3.forward, it.tex, 0.1f);
+                g.transform.rotation = Quaternion.AngleAxis((float)rnd.NextDouble() * 12f - 6f, Vector3.forward) * g.transform.rotation;
+                Prim(root, PrimitiveType.Sphere, "Pin", face + new Vector3(it.x, it.y + it.size.y * 0.42f, 0.006f), Vector3.one * 0.014f, i % 2 == 0 ? new Color(0.8f, 0.1f, 0.1f) : new Color(0.1f, 0.3f, 0.8f));
+            }
+        }
+
+        private static void BakeStorageTextures()
+        {
             if (_jacketPrint == null)
             {
                 var tb = new TextureBaker(256, 96, new Color(0.06f, 0.07f, 0.12f));
                 tb.Text("OCHRONA", 0.5f, 0.5f, 0.55f, new Color(0.9f, 0.88f, 0.4f), TextAnchor.MiddleCenter, true, 0.94f);
                 _jacketPrint = tb.Finish("JacketPrint", 0.25f, 25);
             }
-            Sign(root, "JacketPrint", hook + new Vector3(-0.134f, -0.2f, 0f), new Vector2(0.34f, 0.12f), Vector3.left, _jacketPrint, 0.1f);
-        }
-
-        private void BuildCorkNotes(Transform root, int lv, Vector3 face)
-        {
             if (_noteA == null)
             {
                 var ink = new Color(0.1f, 0.15f, 0.45f);
@@ -149,19 +168,6 @@ namespace HideAndSeek.Game
                 tb.Text("CAM07 03:47", 0.04f, 0.9f, 0.1f, new Color(0.9f, 0.9f, 0.9f), TextAnchor.MiddleLeft);
                 tb.Circle(0.62f, 0.55f, 0.2f, new Color(0.85f, 0.1f, 0.1f), 0.17f, new Color(0f, 0f, 0f, 0f));
                 _photo = tb.Finish("CctvPrint", 0.3f, 28);
-            }
-            var rnd = new System.Random(lv * 13 + 2);
-            var items = new (Texture2D tex, Vector2 size, float x, float y)[]
-            {
-                (_photo, new Vector2(0.2f, 0.15f), -0.3f, 0.17f), (_noteA, new Vector2(0.12f, 0.15f), 0.05f, 0.2f),
-                (_noteB, new Vector2(0.15f, 0.19f), 0.3f, 0.12f), (_photo, new Vector2(0.18f, 0.135f), -0.12f, -0.18f), (_noteB, new Vector2(0.13f, 0.16f), 0.4f, -0.2f),
-            };
-            for (int i = 0; i < items.Length; i++)
-            {
-                var it = items[i];
-                var g = Sign(root, "CorkNote", face + new Vector3(it.x, it.y, 0.0005f * i), it.size, Vector3.forward, it.tex, 0.1f);
-                g.transform.rotation = Quaternion.AngleAxis((float)rnd.NextDouble() * 12f - 6f, Vector3.forward) * g.transform.rotation;
-                Prim(root, PrimitiveType.Sphere, "Pin", face + new Vector3(it.x, it.y + it.size.y * 0.42f, 0.006f), Vector3.one * 0.014f, i % 2 == 0 ? new Color(0.8f, 0.1f, 0.1f) : new Color(0.1f, 0.3f, 0.8f));
             }
         }
 
