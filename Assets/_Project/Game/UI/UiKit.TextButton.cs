@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.UI
     public static partial class UiKit
     {
         /// <summary>Hover colour of the text buttons (one place to change the menu accent).</summary>
-        public static readonly Color ButtonHover = new Color(0.36f, 0.85f, 0.42f, 1f); // #5cd96b
+        public static readonly Color ButtonHover = new Color(0.247f, 0.722f, 0.659f, 1f); // #3fb8a8 (morski, wybór użytkownika 23.11)
         /// <summary>Hover colour of the "danger" buttons (quit, leave, close server).</summary>
         public static readonly Color ButtonDanger = new Color(1f, 0.353f, 0.31f, 1f);  // #ff5a4f
 
