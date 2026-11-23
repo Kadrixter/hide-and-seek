@@ -60,6 +60,33 @@ namespace HideAndSeek.Game.Net
             }
         }
 
+        private bool _ghost;
+        private readonly System.Collections.Generic.Dictionary<Renderer, UnityEngine.Rendering.ShadowCastingMode> _ghostOriginal = new();
+
+        /// <summary>
+        /// This peer only: another player's body is drawn as shadow only, apart from the right arm (used while the
+        /// other player draws on the chalkboard right in front of the local board camera; the hand and chalk stay).
+        /// </summary>
+        internal void SetGhostBody(bool on)
+        {
+            if (Character == null || on == _ghost) return;
+            _ghost = on;
+            if (on)
+            {
+                foreach (var r in Character.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r.transform.IsChildOf(Character.ShoulderRight) || r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly) continue;
+                    _ghostOriginal[r] = r.shadowCastingMode;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+                }
+            }
+            else
+            {
+                foreach (var kv in _ghostOriginal) if (kv.Key != null) kv.Key.shadowCastingMode = kv.Value;
+                _ghostOriginal.Clear();
+            }
+        }
+
         /// <summary>Got up from the table: render modes back to normal first person.</summary>
         internal void BoardBodyEnd()
         {

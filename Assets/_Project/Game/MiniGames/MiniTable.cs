@@ -103,6 +103,7 @@ namespace HideAndSeek.Game.MiniGames
         static void StopPose(NetPlayer pl)
         {
             if (pl == null) return;
+            pl.SetGhostBody(false);
             (pl.Actions as BlockyCharacterActions)?.SetBoardGame(false, default, default, 0f, default, 0f, 0f, default, 0f, 0f);
         }
 

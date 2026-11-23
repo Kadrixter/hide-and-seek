@@ -24,7 +24,7 @@ namespace HideAndSeek.Game.MiniGames
         public override bool Playing => State.Phase == TttState.Playing;
 
         /// <summary>Where the players wait: half a metre left / right of the centre, this far out from the wall.</summary>
-        const float StandX = 0.45f, StandZ = 0.85f;
+        const float StandX = 0.45f, StandZ = 0.95f;
 
         public override Vector3 SeatStand(int seat) => transform.TransformPoint(new Vector3(seat == 0 ? StandX : -StandX, TttTableModel.FloorY + 0.02f, StandZ));
         public override float SeatYaw(int seat) => transform.eulerAngles.y + 180f;
@@ -33,7 +33,7 @@ namespace HideAndSeek.Game.MiniGames
 
         public override void CameraPose(int seat, float zoom, out Vector3 pos, out Quaternion rot)
         {
-            pos = transform.TransformPoint(new Vector3(seat == 0 ? 0.06f : -0.06f, TttTableModel.GridY + 0.05f, 0.74f * zoom));
+            pos = transform.TransformPoint(new Vector3(seat == 0 ? 0.06f : -0.06f, TttTableModel.GridY + 0.05f, 0.86f * zoom));
             rot = Quaternion.LookRotation(transform.TransformPoint(new Vector3(0f, TttTableModel.GridY, 0f)) - pos, Vector3.up);
         }
 
@@ -181,6 +181,18 @@ namespace HideAndSeek.Game.MiniGames
         {
             PoseInputs(seat, out var reach, out float reachW, out float think, out var look, out _);
             act.SetBoardStand(reach, reachW, think, look, StepTo(seat), seed);
+            // The other player steps in front of our board camera to draw: only the hand and chalk are drawn for us.
+            int local = LocalSeat;
+            if (local >= 0 && local != seat)
+            {
+                var other = NetPlayer.Find(SeatPlayer(seat));
+                if (other != null) other.SetGhostBody(_cur != null && _cur.Seat == seat && reachW > 0.05f);
+            }
+            else if (local < 0)
+            {
+                var other = NetPlayer.Find(SeatPlayer(seat));
+                if (other != null && !other.IsOwner) other.SetGhostBody(false);
+            }
             return reachW;
         }
     }
