@@ -93,6 +93,20 @@ namespace HideAndSeek.Characters
 
         public bool HasBack => !float.IsNaN(BackZ);
 
+        // ------------------------------------------------------------------ lobby furniture sizes
+        // The lobby models (Game/Editor/LobbySeatModels) are built from the same numbers the poses are fitted to.
+
+        /// <summary>Pouf: height of the top at its centre (low enough for the rig's short legs to reach the floor).</summary>
+        public const float PoufTopY = 0.27f;
+        /// <summary>Pouf: the seat point lies this far in front of the pouf's centre.</summary>
+        public const float PoufSeatZ = 0.12f;
+
+        // Sofa (sofa space: X along the sofa, the backrest at +Z, the floor at 0; seats at x -+0.55, z -0.3).
+        public const float SofaLegH = 0.07f, SofaBaseTopY = 0.18f, SofaSeatTopY = 0.27f, SofaCushionRearZ = 0.17f;
+        public const float SofaArmX = 1.11f, SofaArmTopY = 0.54f, SofaArmRoll = 0.09f;
+        public const float SofaBackFrameZ = 0.18f, SofaBackTopY = 0.76f, SofaBackRoll = 0.075f;
+        public const float SofaBackTilt = 10f, SofaBackCushionT = 0.24f, SofaBackCushionY = 0.483f, SofaBackCushionZ = 0.088f;
+
         /// <summary>True when <paramref name="p"/> is inside a solid or below the floor (both grown by <paramref name="margin"/>).</summary>
         public bool Contains(Vector3 p, float margin)
         {
@@ -141,30 +155,28 @@ namespace HideAndSeek.Characters
                 ArmSide = idx == 0 ? 1 : -1,
                 Solids = new[]
                 {
-                    B(0f, 0.25f, 0f, 2.4f, 0.4f, 0.9f),                  // seat block
-                    B(0f, 0.65f, 0.38f, 2.4f, 0.8f, 0.2f),               // backrest
-                    B(-1.15f, 0.5f, 0f, 0.2f, 0.6f, 0.9f),               // arms
-                    B(1.15f, 0.5f, 0f, 0.2f, 0.6f, 0.9f),
-                    C(-1.15f, 0.8f, 0f, 0.22f, 0.9f, new Vector3(90f, 0f, 0f)),   // arm rolls
-                    C(1.15f, 0.8f, 0f, 0.22f, 0.9f, new Vector3(90f, 0f, 0f)),
-                    C(0f, 1.05f, 0.38f, 0.22f, 2.4f, new Vector3(0f, 0f, 90f)),   // backrest roll
-                    B(-0.53f, 0.48f, -0.04f, 1.02f, 0.1f, 0.78f, default, 0.025f), // seat cushions
-                    B(0.53f, 0.48f, -0.04f, 1.02f, 0.1f, 0.78f, default, 0.025f),
-                    B(-0.82f, 0.72f, 0.2f, 0.42f, 0.4f, 0.13f, new Vector3(-18f, 12f, 8f), 0.05f),   // throw pillows
-                    B(0.82f, 0.72f, 0.2f, 0.42f, 0.4f, 0.13f, new Vector3(-18f, -12f, -8f), 0.05f),
-                    B(-0.53f, 0.53f, -0.43f, 1.0f, 0.018f, 0.018f),     // piping on the cushion fronts
-                    B(0.53f, 0.53f, -0.43f, 1.0f, 0.018f, 0.018f),
+                    B(0f, (SofaLegH + SofaBaseTopY) * 0.5f, 0f, 2.4f, SofaBaseTopY - SofaLegH, 0.9f),                       // base
+                    B(-0.505f, SofaBaseTopY + 0.032f, (SofaCushionRearZ - 0.45f) * 0.5f, 1.0f, 0.084f, SofaCushionRearZ + 0.45f, default, 0.016f), // seat cushions
+                    B(0.505f, SofaBaseTopY + 0.032f, (SofaCushionRearZ - 0.45f) * 0.5f, 1.0f, 0.084f, SofaCushionRearZ + 0.45f, default, 0.016f),
+                    B(0f, (SofaLegH + SofaBackTopY - SofaBackRoll) * 0.5f + 0.01f, (SofaBackFrameZ + 0.45f) * 0.5f, 2.4f, SofaBackTopY - SofaBackRoll - SofaLegH + 0.02f, 0.45f - SofaBackFrameZ), // back frame
+                    C(0f, SofaBackTopY - SofaBackRoll, SofaBackFrameZ + 0.07f, 2f * SofaBackRoll, 2.4f, new Vector3(0f, 0f, 90f)),      // back roll
+                    B(-SofaArmX, (SofaLegH + SofaArmTopY - SofaArmRoll) * 0.5f + 0.015f, 0f, 0.17f, SofaArmTopY - SofaArmRoll - SofaLegH + 0.03f, 0.9f), // arms
+                    B(SofaArmX, (SofaLegH + SofaArmTopY - SofaArmRoll) * 0.5f + 0.015f, 0f, 0.17f, SofaArmTopY - SofaArmRoll - SofaLegH + 0.03f, 0.9f),
+                    C(-SofaArmX - 0.012f, SofaArmTopY - SofaArmRoll, 0f, 2f * SofaArmRoll, 0.9f, new Vector3(90f, 0f, 0f)),         // arm rolls
+                    C(SofaArmX + 0.012f, SofaArmTopY - SofaArmRoll, 0f, 2f * SofaArmRoll, 0.9f, new Vector3(90f, 0f, 0f)),
+                    B(-0.505f, SofaBackCushionY, SofaBackCushionZ, 1.0f, 0.42f, SofaBackCushionT, new Vector3(SofaBackTilt, 0f, 0f), 0.03f), // back cushions
+                    B(0.505f, SofaBackCushionY, SofaBackCushionZ, 1.0f, 0.42f, SofaBackCushionT, new Vector3(SofaBackTilt, 0f, 0f), 0.03f),
                     // Not furniture: the half of the sofa that belongs to the other seat (its sitter's body).
                     SeatSolid.Box(new Vector3((idx == 0 ? -1f : 1f) * (0.55f + 0.3f), 1f, 0f), new Vector3(0.6f, 2f, 3f), Quaternion.identity),
                 },
-                EdgeZ = 0.155f,
-                TopY = 0.555f,
-                BackZ = -0.58f,
-                RearZ = -0.56f,
-                ArmInnerX = 0.5f,
-                ArmTopY = 0.91f,
-                BackTopY = 1.16f,
-                Sink = 0.024f,
+                EdgeZ = 0.15f,
+                TopY = SofaSeatTopY,
+                BackZ = -0.22f,
+                RearZ = -0.2f,
+                ArmInnerX = SofaArmX - 0.085f - 0.55f,
+                ArmTopY = SofaArmTopY,
+                BackTopY = SofaBackTopY,
+                Sink = 0.025f,
             };
             // Lying along the cushions: the whole sofa, the neighbouring seat must be free (checked by the game).
             s.Wide = new SeatShape
@@ -172,7 +184,7 @@ namespace HideAndSeek.Characters
                 Kind = s.Kind, Id = s.Id, ArmSide = s.ArmSide, EdgeZ = s.EdgeZ, TopY = s.TopY, BackZ = s.BackZ, RearZ = s.RearZ,
                 ArmInnerX = s.ArmInnerX, ArmTopY = s.ArmTopY, BackTopY = s.BackTopY, Sink = s.Sink,
                 Solids = WithoutLast(s.Solids), // everything but the neighbour block
-                OtherArmInnerX = 2.1f - s.ArmInnerX,
+                OtherArmInnerX = 2f * (SofaArmX - 0.085f) - s.ArmInnerX,
             };
             s.OtherArmInnerX = s.Wide.OtherArmInnerX;
             Sofas[idx] = s;
@@ -188,25 +200,51 @@ namespace HideAndSeek.Characters
             return r;
         }
 
-        /// <summary>Lobby pouf (seat point 0.14 m in front of its centre).</summary>
+        /// <summary>Pouf model used in the lobby: 0 tufted chesterfield, 1 bean bag, 2 channel-tufted drum on legs, 3 wicker cube with a cushion.</summary>
+        public const int PoufStyle = 0;
+
+        /// <summary>Lobby pouf (seat point <see cref="PoufSeatZ"/> in front of its centre).</summary>
         public static SeatShape Pouf()
         {
             if (_pouf != null) return _pouf;
-            Vector3 c = new Vector3(0f, 0f, -0.14f);
+            Vector3 c = new Vector3(0f, 0f, -PoufSeatZ);
+            SeatSolid[] solids;
+            float radius;
+            switch (PoufStyle)
+            {
+                case 1: // bean bag: wide, the back rim higher
+                    radius = 0.39f;
+                    solids = new[]
+                    {
+                        SeatSolid.Cyl(c + new Vector3(0f, (PoufTopY - 0.02f) * 0.5f, 0f), radius, PoufTopY - 0.02f, Quaternion.identity),
+                        SeatSolid.Cyl(c + new Vector3(0f, PoufTopY - 0.02f, 0f), 0.3f, 0f, Quaternion.identity, 0.02f),
+                        SeatSolid.Box(c + new Vector3(0f, PoufTopY + 0.05f, -0.25f), new Vector3(0.4f, 0.1f, 0.12f), Quaternion.identity, 0.03f),
+                    };
+                    break;
+                case 3: // wicker cube with a cushion
+                    radius = 0.265f;
+                    solids = new[]
+                    {
+                        SeatSolid.Box(c + new Vector3(0f, (PoufTopY - 0.012f) * 0.5f, 0f), new Vector3(0.53f, PoufTopY - 0.012f, 0.53f), Quaternion.identity, 0.006f),
+                    };
+                    break;
+                default: // round: tufted / drum, the top domed a little
+                    radius = PoufStyle == 2 ? 0.3f : 0.318f;
+                    solids = new[]
+                    {
+                        SeatSolid.Cyl(c + new Vector3(0f, (PoufTopY - 0.025f) * 0.5f, 0f), radius, PoufTopY - 0.025f, Quaternion.identity),
+                        SeatSolid.Cyl(c + new Vector3(0f, PoufTopY - 0.025f, 0f), radius - 0.03f, 0f, Quaternion.identity, 0.025f),
+                    };
+                    break;
+            }
             return _pouf = new SeatShape
             {
                 Kind = SeatKind.Pouf,
                 Id = 20,
-                Solids = new[]
-                {
-                    // Body with the piping ring round its top edge (0.3175 m, up to 0.427 m) as one cylinder.
-                    SeatSolid.Cyl(c + new Vector3(0f, 0.2135f, 0f), 0.3175f, 0.427f, Quaternion.identity),
-                    SeatSolid.Cyl(c + new Vector3(0f, 0.42f, 0f), 0.28f, 0f, Quaternion.identity, 0.035f),     // puffy top
-                    SeatSolid.Cyl(c + new Vector3(0f, 0.448f, 0f), 0.03f, 0.016f, Quaternion.identity),        // tufting button
-                },
-                EdgeZ = c.z + 0.3175f,
-                TopY = 0.456f,
-                RearZ = c.z - 0.24f,
+                Solids = solids,
+                EdgeZ = c.z + radius,
+                TopY = PoufTopY,
+                RearZ = c.z - radius + 0.06f,
                 Sink = 0.008f,
             };
         }

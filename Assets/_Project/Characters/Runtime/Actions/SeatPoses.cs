@@ -40,7 +40,7 @@ namespace HideAndSeek.Characters
         /// Bump when a recipe, the solver or a seat shape changes: baked results (SeatPoses.Baked.cs, written by the
         /// editor seat check) of another version are ignored and the poses are solved at runtime instead.
         /// </summary>
-        public const int SolverVersion = 2;
+        public const int SolverVersion = 4;
 
         /// <summary>Use the baked results when they match <see cref="SolverVersion"/> (the editor check turns this off to solve afresh).</summary>
         public static bool UseBaked = true;
@@ -195,9 +195,11 @@ namespace HideAndSeek.Characters
             Trace?.AppendLine($"  solving {shape.Kind} (id {shape.Id}) pose {variant}");
             // Lying along the sofa: solved against the whole sofa (the neighbouring seat is free then).
             var solve = SpansNeighbour(variant) && shape.Wide != null ? shape.Wide : shape;
+            float sink = solve.Sink + (variant == 4 || variant == 7 ? 0.008f : variant == 5 ? -0.006f : variant == 6 ? 0.02f : variant == 8 || variant == 10 ? 0.008f : 0f); // measured contact gaps (editor seat check)
+            PlantLift = sink;
             e.Body = Build(variant, solve, e.Limits);
-            // Down onto the real cushion (the solids are conservative), see SeatShape.Sink.
-            e.Body.PelvisPos.y -= solve.Sink + (variant == 4 || variant == 7 ? 0.008f : variant == 5 ? -0.012f : 0f); // on the side / against the arm: deeper; on the back the head lies near the cushion: less
+            // Down onto the real cushion (the solids are conservative), see SeatShape.Sink; planted feet were placed that much higher.
+            e.Body.PelvisPos.y -= sink;
             SolveLookTable(e, solve);
             Cache[key] = e;
             return e;
@@ -291,10 +293,10 @@ namespace HideAndSeek.Characters
         {
             switch (v)
             {
-                case 1: return s.Kind == SeatKind.Sofa && s.HasBack ? Lounge(s, lim) : BestLean(s, Casual, 0f, 16f, -6f);
-                case 2: return Forward(s);
-                case 3: return BestLean(s, FigureFour, 0f, 12f, -10f);
-                case 0: return BestLean(s, Upright, 4f, 30f);
+                case 1: return Lounging(s);
+                case 2: return ElbowsOnKnees(s);
+                case 3: return FigureFourPlanted(s);
+                case 0: return Relaxed(s);
                 default: return BuildGlamour(v, s, lim);
             }
         }
@@ -323,103 +325,9 @@ namespace HideAndSeek.Characters
             return best;
         }
 
-        /// <summary>Upright on the front half of the seat, leaning a little forward, hands resting on the knees, legs hanging.</summary>
-        static CharacterPose Upright(SeatShape s, float lean, out float bad)
+        /// <summary>Bent forward over the (already placed) legs, elbows on the knees, hands loosely together.</summary>
+        static CharacterPose ForwardArms(CharacterPose p, SeatShape s)
         {
-            var p = CharacterPose.Identity;
-            p.Pelvis = Quaternion.Euler(3f, 0f, 0f);
-            p.Torso = Quaternion.Euler(lean - 3f, 0f, 0f);
-            p.PelvisPos = new Vector3(0f, s.TopY + 0.13f, s.EdgeZ - 0.26f);
-            Leg(ref p, 0, 6f, 4f, 13f, 3f);
-            Leg(ref p, 1, 6f, 4f, 13f, 3f);
-            FitSeat(ref p, s, MThighs);
-            bad = 0f;
-            for (int arm = 0; arm < 2; arm++) bad += HandOnKnee(ref p, s, arm, arm, 0.04f, MLegs | MTorso);
-            return p;
-        }
-
-        /// <summary>Pouf: casual, right hand on the right knee, left hand on the left hip, the left leg stretched out.</summary>
-        static CharacterPose Casual(SeatShape s, float lean, out float bad)
-        {
-            var p = CharacterPose.Identity;
-            p.Pelvis = Quaternion.Euler(0f, 5f, 0f);
-            p.Torso = Quaternion.Euler(lean - 4f, 4f, -2f);
-            p.PelvisPos = new Vector3(0f, s.TopY + 0.13f, s.EdgeZ - 0.27f);
-            Leg(ref p, 0, 5f, 4f, 10f, 2f);
-            Leg(ref p, 1, 12f, 0f, 48f, 6f);
-            FitSeat(ref p, s, MThighs);
-            bad = HandOnKnee(ref p, s, 0, 0, 0.03f, MLegs | MTorso);
-            bad += HandOnHip(ref p, s, 1);
-            return p;
-        }
-
-        /// <summary>
-        /// Sofa: sunk back against the backrest (the throw pillow), legs stretched out, the outer forearm along the
-        /// armrest, the inner one over the top of the backrest. Leans back as far as the pillow allows.
-        /// </summary>
-        static CharacterPose Lounge(SeatShape s, LookLimits lim)
-        {
-            CharacterPose best = CharacterPose.Identity;
-            float bestBad = float.MaxValue;
-            for (float lean = 28f; lean >= 6f; lean -= 2f)
-            {
-                var p = CharacterPose.Identity;
-                p.Pelvis = Quaternion.Euler(-8f, 0f, 0f);
-                p.Torso = Quaternion.Euler(8f - lean, 0f, 0f);
-                p.PelvisPos = new Vector3(0f, s.TopY + 0.13f, s.EdgeZ - 0.22f);
-                float shin = 42f;
-                Leg(ref p, 0, 6f, -1f, shin, 5f);
-                Leg(ref p, 1, 6f, -1f, shin, 5f);
-                Settle(ref p, s, MThighs);
-                if (Hits(p, s, MTorso) || HeadHitsAnywhere(p, s, lim)) continue; // too far back even sitting forward
-                // Slide back until the back, or the head anywhere in its look range, meets the backrest / pillow.
-                for (int i = 0; i < 60; i++)
-                {
-                    var q = p;
-                    q.PelvisPos.z -= 0.01f;
-                    Settle(ref q, s, MThighs);
-                    if (Hits(q, s, MTorso) || HeadHitsAnywhere(q, s, lim)) break;
-                    p = q;
-                }
-                // Legs out further until the shins clear the front of the seat.
-                while (Hits(p, s, MShins) && shin < 84f)
-                {
-                    shin += 3f;
-                    Leg(ref p, 0, 6f, -1f, shin, 5f);
-                    Leg(ref p, 1, 6f, -1f, shin, 5f);
-                }
-                int side = s.ArmSide != 0 ? s.ArmSide : 1;
-                int outer = side > 0 ? 0 : 1, inner = 1 - outer;
-                float bad = 0f;
-                if (s.ArmSide != 0 && s.ArmTopY > 0f)
-                {
-                    // Forearm along the armrest top, the elbow back by the shoulder.
-                    Vector3 hand = new Vector3(side * (s.ArmInnerX + 0.1f), s.ArmTopY + 0.07f, p.ShoulderPos(outer).z + 0.2f);
-                    bad += PlaceHand(ref p, s, outer, hand, new Vector3(side, -0.7f, -0.15f), Vector3.right * side, Vector3.forward, Vector3.up, MLegs | MTorso);
-                }
-                else bad += HandOnHip(ref p, s, outer);
-                if (s.BackTopY > 0f)
-                {
-                    // Inner forearm over the top of the backrest, behind the shoulder.
-                    Vector3 hand = new Vector3(-side * 0.4f, s.BackTopY + 0.07f, s.BackZ - 0.1f);
-                    bad += PlaceHand(ref p, s, inner, hand, new Vector3(-side * 0.7f, -0.3f, -0.6f), Vector3.right * -side, Vector3.back, Vector3.up, MLegs | MTorso);
-                }
-                else bad += HandOnHip(ref p, s, inner);
-                if (bad <= 0f) return p;
-                if (bad < bestBad) { bestBad = bad; best = p; }
-            }
-            return best;
-        }
-
-        /// <summary>Bent forward on the front of the seat, elbows on the knees, hands loosely together.</summary>
-        static CharacterPose Forward(SeatShape s)
-        {
-            var p = CharacterPose.Identity;
-            p.Pelvis = Quaternion.Euler(6f, 0f, 0f);
-            p.PelvisPos = new Vector3(0f, s.TopY + 0.13f, s.EdgeZ - 0.24f);
-            Leg(ref p, 0, 10f, 5f, 4f, 7f);
-            Leg(ref p, 1, 10f, 5f, 4f, 7f);
-            FitSeat(ref p, s, MThighs);
 
             // Leans at which both upper arms reach the elbows' resting spots on the knees, best first.
             var elbow = new Vector3[2];
@@ -431,7 +339,7 @@ namespace HideAndSeek.Characters
             var leans = new List<Vector2>();
             for (float lean = 10f; lean <= 55f; lean += 1f)
             {
-                p.Torso = Quaternion.Euler(lean - 6f, 0f, 0f);
+                p.Torso = Quaternion.Euler(lean - 8f, 0f, 0f);
                 float err = 0f;
                 for (int arm = 0; arm < 2; arm++) err += Mathf.Abs((p.ShoulderPos(arm) - elbow[arm]).magnitude - RigIK.UpperArm);
                 leans.Add(new Vector2(lean, err));
@@ -443,7 +351,7 @@ namespace HideAndSeek.Characters
             for (int n = 0; n < 10 && n < leans.Count; n++)
             {
                 var q = p;
-                q.Torso = Quaternion.Euler(leans[n].x - 6f, 0f, 0f);
+                q.Torso = Quaternion.Euler(leans[n].x - 8f, 0f, 0f);
                 float bad = 0f;
                 for (int arm = 0; arm < 2; arm++)
                 {
@@ -459,44 +367,6 @@ namespace HideAndSeek.Characters
                 if (bad < bestBad) { bestBad = bad; best = q; }
             }
             return best;
-        }
-
-        /// <summary>
-        /// Right ankle on the left knee (figure four): the right knee falls open to the side, the right hand rests on
-        /// it, the left hand on the right ankle (or the left forearm on the armrest when it is on the left).
-        /// </summary>
-        static CharacterPose FigureFour(SeatShape s, float lean, out float bad)
-        {
-            var p = CharacterPose.Identity;
-            p.Pelvis = Quaternion.Euler(-3f, -4f, 0f);
-            p.Torso = Quaternion.Euler(lean, 9f, -1f); // turned a little towards the open knee
-            p.PelvisPos = new Vector3(0f, s.TopY + 0.13f, s.EdgeZ - 0.27f);
-            Leg(ref p, 1, 3f, 4f, 12f, 2f);
-            CrossRightLeg(ref p);
-            FitSeat(ref p, s, MThighs);
-            CrossRightLeg(ref p);
-            // Clear the seat's front with the open knee too.
-            for (int i = 0; i < 30 && Hits(p, s, MLegs); i++)
-            {
-                p.PelvisPos.z += 0.01f;
-                Settle(ref p, s, MThighs);
-                CrossRightLeg(ref p);
-            }
-
-            bad = HandOnKnee(ref p, s, 0, 0, 0.03f, MLegs | MTorso);
-            if (s.ArmSide < 0 && s.ArmTopY > 0f)
-            {
-                Vector3 hand = new Vector3(-(s.ArmInnerX + 0.1f), s.ArmTopY + 0.07f, p.ShoulderPos(1).z + 0.2f);
-                bad += PlaceHand(ref p, s, 1, hand, new Vector3(-1f, -0.7f, -0.15f), Vector3.left, Vector3.forward, Vector3.up, MLegs | MTorso);
-            }
-            else
-            {
-                // On the right ankle, which lies on the left knee.
-                Vector3 ankle = BodyBoxes.SolePos(p, 0);
-                Vector3 hand = ankle + new Vector3(-0.02f, 0.127f + 0.07f, -0.05f);
-                bad += PlaceHand(ref p, s, 1, hand, new Vector3(-1f, -0.3f, -0.6f), Vector3.left, Vector3.back, Vector3.up, MLegs | MTorso | MForeR);
-            }
-            return p;
         }
 
         /// <summary>Right thigh turned out to the side, the shin across to the top of the left knee.</summary>
