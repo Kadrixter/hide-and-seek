@@ -518,6 +518,9 @@ namespace HideAndSeek.Characters
             if (overdoseT >= 0f) p = OverdosePose(p, overdoseT);
             if (stunT >= 0f) p = StunPose(p, stunT); // 5e. knocked out by a thrown leg (Stun.cs)
 
+            // 5e. Carrying somebody in the arms / being carried (BodyCarry*.cs).
+            ApplyBodyCarryLayers(ref p, dt);
+
             // 6. Additive flinches.
             ApplyAdditives(ref p, standing);
 

@@ -277,7 +277,7 @@ namespace HideAndSeek.Game.Net
             bool poseWheel = PoseWheel.IsOpen || EmoteWheel.IsOpen; // K wheels: the mouse points at a slice instead of turning the head
             _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel && !collapsed && !_p.EmoteViewActive;
             var cc = _p.GetComponent<CharacterController>();
-            bool ccOn = !dead && _p.Seat.Value < 0;
+            bool ccOn = !dead && _p.Seat.Value < 0 && !_p.BodyCarriedNow;
             if (cc != null && cc.enabled != ccOn) cc.enabled = ccOn;
             if (_p.Flashlight != null)
             {
@@ -312,6 +312,9 @@ namespace HideAndSeek.Game.Net
 
             // ---- fire extinguisher in both hands (LMB spray, Q put down) / foamed seeker: nothing else meanwhile
             if (ExtTick(kb, mouse)) { CancelHold(); return; }
+
+            // ---- body carry: B asks / puts down, Space (carried) asks to be put down; owns the input meanwhile
+            if (CarryTick(kb, phase)) { CancelHold(); return; }
 
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
@@ -384,6 +387,7 @@ namespace HideAndSeek.Game.Net
             }
 
             FindPrompt(phase);
+            FilterCarryPrompt(); // body carry: no kneeling rescue / heal on a body lying in somebody's arms
             HandlePromptInput(kb);
         }
 
