@@ -79,10 +79,12 @@ namespace HideAndSeek.Game
                 float y = 0.5f + (float)(r.NextDouble() - 0.5) * (i < 8 ? 0.5f : 0.95f);
                 _blobPos[i] = new Vector2(x, y);
                 _blobSize[i] = (i < 8 ? 0.42f : 0.28f) + (float)r.NextDouble() * 0.2f;
-                // Right half: even strokes (right hand), left half: odd ones; inner patches go first.
+                // Right half: even strokes (right hand), left half: odd ones; the eyes (inner patches) are cleared first,
+                // the edges last, so the view opens up gradually over the whole effect.
                 bool right = x >= 0.5f;
                 float off = Mathf.Abs(x - 0.5f);
-                int stroke = (right ? 0 : 1) + (off > 0.18f ? 2 : 0) + (r.NextDouble() < 0.3 ? 2 : 0);
+                int rank = off < 0.15f ? r.Next(0, 2) : off < 0.3f ? 1 + r.Next(0, 2) : 2 + r.Next(0, 2);
+                int stroke = (right ? 0 : 1) + 2 * rank;
                 _blobGone[i] = ExtTimeline.WipeIn + stroke * ExtTimeline.WipeStroke + ExtTimeline.WipeStroke * 0.45f;
             }
             for (int i = 0; i < Drips; i++)
@@ -103,12 +105,12 @@ namespace HideAndSeek.Game
             float appear = Mathf.Clamp01(e / 0.1f);
             float end = Mathf.Clamp01(left / 0.7f);
 
-            _haze.color = new Color(0.9f, 0.9f, 0.88f, foamed ? appear * Mathf.Lerp(0.15f, 0.82f, Mathf.Clamp01(1f - (e - 0.3f) / 2.6f)) * end : 0f);
+            _haze.color = new Color(0.9f, 0.9f, 0.88f, foamed ? appear * Mathf.Lerp(0.2f, 0.85f, Mathf.Clamp01(1f - (e - 0.4f) / 3.2f)) * end : 0f);
             for (int i = 0; i < Blobs; i++)
             {
                 var b = _blobs[i];
                 float wiped = foamed ? ExtTimeline.S(e, _blobGone[i] - 0.12f, _blobGone[i] + 0.25f) : 1f;
-                float a = foamed ? appear * end * (1f - wiped) : 0f;
+                float a = foamed ? appear * end * (1f - 0.72f * wiped) : 0f;
                 b.enabled = a > 0.01f;
                 if (!b.enabled) continue;
                 Vector2 p = _blobPos[i];
@@ -121,19 +123,25 @@ namespace HideAndSeek.Game
             }
             for (int i = 0; i < Drips; i++)
             {
+                // Each drip runs down from under one of the patches and goes with it when that patch is wiped.
                 var d = _drips[i];
-                float a = foamed ? appear * end * (1f - Mathf.Clamp01((e - 3.2f) / 1.5f)) : 0f;
+                int bi = i % Blobs;
+                float wiped = foamed ? ExtTimeline.S(e, _blobGone[bi] - 0.12f, _blobGone[bi] + 0.1f) : 1f;
+                float a = foamed ? appear * end * (1f - wiped) : 0f;
                 d.enabled = a > 0.01f;
                 if (!d.enabled) continue;
-                float len = Mathf.Min(0.6f, 0.05f + _dripSpeed[i] * e * 2.2f);
-                d.rectTransform.Place(Vector2.zero, Vector2.zero, new Vector2(0.5f, 1f), new Vector2(_dripX[i] * size.x, size.y * (1.02f - 0.02f * i)), new Vector2(size.y * 0.045f, len * size.y));
-                d.color = new Color(1f, 1f, 1f, a * 0.9f);
+                Vector2 bp = _blobPos[bi];
+                float top = bp.y - _blobSize[bi] * 0.28f;
+                float len = Mathf.Min(0.35f, 0.03f + _dripSpeed[i] * Mathf.Max(0f, e - 0.2f) * 1.6f);
+                float x = bp.x + (_dripX[i] - 0.5f) * _blobSize[bi] * 0.5f * size.y / size.x;
+                d.rectTransform.Place(Vector2.zero, Vector2.zero, new Vector2(0.5f, 1f), new Vector2(x * size.x, top * size.y), new Vector2(size.y * 0.024f, len * size.y));
+                d.color = new Color(0.97f, 0.97f, 0.95f, a * 0.85f);
             }
 
             // Powder cloud around the camera (anyone): grey haze, brighter in your own flashlight.
             var cam = Camera.main;
             float dens = cam != null && me != null && me.Life.Value != LifeState.Dead ? ExtinguisherSpray.Density(cam.transform.position) : 0f;
-            _cloudA = Mathf.MoveTowards(_cloudA, Mathf.Clamp01(dens * 1.1f) * 0.78f, Time.deltaTime * 1.5f);
+            _cloudA = Mathf.MoveTowards(_cloudA, Mathf.Clamp01(dens * 1.1f) * 0.6f, Time.deltaTime * 1.5f);
             float lit = me != null && me.Flashlight != null && me.Flashlight.IsOn ? 0.62f : 0.3f;
             _cloud.color = new Color(lit, lit, lit * 0.98f, _cloudA);
 
@@ -153,37 +161,46 @@ namespace HideAndSeek.Game
 
         // ---------------------------------------------------------------- sprites
 
-        /// <summary>Lumpy patch of foam: a union of soft round lumps, lit from the top-left, with tiny bubbles.</summary>
+        /// <summary>
+        /// Patch of foam: metaball lumps (smooth union, so no seams) lit from the top-left with a soft sheen, fine
+        /// bubbly grain, thinner and a bit see-through towards the edge.
+        /// </summary>
         private static Sprite FoamSprite(int seed)
         {
             const int S = 128;
             var r = new System.Random(seed);
-            var lumps = new Vector3[9];
+            var lumps = new Vector3[11];
             for (int i = 0; i < lumps.Length; i++)
             {
-                float a = (float)(r.NextDouble() * Mathf.PI * 2.0), d = i == 0 ? 0f : 0.12f + (float)r.NextDouble() * 0.2f;
-                lumps[i] = new Vector3(0.5f + Mathf.Cos(a) * d, 0.5f + Mathf.Sin(a) * d, (i == 0 ? 0.26f : 0.12f + (float)r.NextDouble() * 0.1f));
+                float a = (float)(r.NextDouble() * Mathf.PI * 2.0), d = i == 0 ? 0f : 0.1f + (float)r.NextDouble() * 0.2f;
+                lumps[i] = new Vector3(0.5f + Mathf.Cos(a) * d, 0.5f + Mathf.Sin(a) * d, i == 0 ? 0.2f : 0.08f + (float)r.NextDouble() * 0.08f);
+            }
+            float F(float u, float v)
+            {
+                float f = 0f;
+                foreach (var l in lumps)
+                {
+                    float dx = (u - l.x) / l.z, dy = (v - l.y) / l.z;
+                    f += Mathf.Exp(-(dx * dx + dy * dy) * 1.6f);
+                }
+                return f;
             }
             var px = new Color32[S * S];
+            Vector3 light = new Vector3(-0.5f, 0.6f, 0.62f).normalized;
             for (int y = 0; y < S; y++)
             for (int x = 0; x < S; x++)
             {
-                float u = (x + 0.5f) / S, v = (y + 0.5f) / S;
-                float h = 0f; Vector2 grad = Vector2.zero;
-                foreach (var l in lumps)
-                {
-                    float dx = u - l.x, dy = v - l.y, rr = l.z;
-                    float q = 1f - (dx * dx + dy * dy) / (rr * rr);
-                    if (q <= 0f) continue;
-                    float hh = Mathf.Sqrt(q) * rr;
-                    if (hh > h) { h = hh; grad = new Vector2(dx, dy) / Mathf.Max(0.001f, hh); }
-                }
-                float a = Mathf.Clamp01(h * 40f);
-                float light = Mathf.Clamp01(0.86f + 0.25f * Vector2.Dot(-grad, new Vector2(-0.6f, 0.8f)) * 0.6f);
-                float bub = Mathf.PerlinNoise(x * 0.35f + seed, y * 0.35f);
-                if (bub > 0.72f) light *= 0.9f;
-                float c = light;
-                px[y * S + x] = new Color(c, c, c * 0.98f, a * 0.97f);
+                float u = (x + 0.5f) / S, v = (y + 0.5f) / S, e = 1f / S;
+                float f = F(u, v);
+                float a = Mathf.Clamp01((f - 0.42f) / 0.22f);
+                if (a <= 0f) { px[y * S + x] = new Color32(255, 255, 255, 0); continue; }
+                float gx = (F(u + e, v) - F(u - e, v)) / (2f * e), gy = (F(u, v + e) - F(u, v - e)) / (2f * e);
+                var n = new Vector3(-gx * 0.012f, -gy * 0.012f, 1f).normalized;
+                float diff = Mathf.Clamp01(Vector3.Dot(n, light));
+                float spec = Mathf.Pow(Mathf.Clamp01(Vector3.Dot(Vector3.Reflect(-light, n), Vector3.forward)), 18f) * 0.25f;
+                float grain = (Mathf.PerlinNoise(x * 0.45f + seed * 3.1f, y * 0.45f) - 0.5f) * 0.06f;
+                float c = Mathf.Clamp01(0.72f + 0.26f * diff + spec + grain);
+                px[y * S + x] = new Color(c, c, c * 0.985f, a * Mathf.Lerp(0.75f, 0.97f, Mathf.Clamp01(f - 0.6f)));
             }
             var tex = new Texture2D(S, S, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, name = "FoamPatch" + seed };
             tex.SetPixels32(px);

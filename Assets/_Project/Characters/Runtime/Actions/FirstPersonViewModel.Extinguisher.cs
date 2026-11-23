@@ -70,9 +70,9 @@ namespace HideAndSeek.Characters
             float aim = vxSprayW;
             float tr = aim * (0.004f + 0.002f * Mathf.Sin(time * 9f));
             Vector3 trem = new Vector3(Mathf.Sin(time * 67f), Mathf.Sin(time * 59f + 1f), Mathf.Sin(time * 43f + 2f)) * tr;
-            Vector3 rHold = Vector3.Lerp(new Vector3(0.25f, -0.42f, 0.6f), new Vector3(0.22f, -0.37f, 0.62f), aim) + trem * 0.5f;
+            Vector3 rHold = Vector3.Lerp(new Vector3(0.27f, -0.31f, 0.78f), new Vector3(0.24f, -0.27f, 0.8f), aim) + trem * 0.5f;
             Quaternion mHold = Quaternion.LookRotation(new Vector3(-0.42f, 0.32f, -1f).normalized, Vector3.up) * Quaternion.Euler(0f, 0f, 4f * aim);
-            Vector3 lHold = Vector3.Lerp(new Vector3(-0.14f, -0.36f, 0.6f), new Vector3(-0.07f, -0.27f, 0.66f), aim) + trem;
+            Vector3 lHold = Vector3.Lerp(new Vector3(-0.15f, -0.3f, 0.8f), new Vector3(-0.08f, -0.22f, 0.86f), aim) + trem;
             Quaternion nHold = Quaternion.Slerp(Quaternion.LookRotation(new Vector3(0.05f, -0.22f, 1f)), Quaternion.LookRotation(AimPoint - lHold), aim);
 
             Vector3 r = rHold, l = lHold;

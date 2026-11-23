@@ -190,7 +190,7 @@ namespace HideAndSeek.Game
 
         private void EmitJet(float dt)
         {
-            int n = Mathf.RoundToInt(260f * _on * dt + Random.value);
+            int n = Mathf.RoundToInt(420f * _on * dt + Random.value);
             var ep = new ParticleSystem.EmitParams();
             for (int i = 0; i < n; i++)
             {
@@ -240,7 +240,7 @@ namespace HideAndSeek.Game
             {
                 float u = (x + 0.5f) / S * 2f - 1f, v = (y + 0.5f) / S * 2f - 1f;
                 float a = Mathf.Atan2(v, u);
-                float r = Mathf.Sqrt(u * u + v * v) / (0.82f + 0.1f * Mathf.Sin(a * 5f) + 0.06f * Mathf.Sin(a * 11f + 1f));
+                float r = Mathf.Sqrt(u * u + v * v) / (0.84f + 0.05f * Mathf.Sin(a * 3f) + 0.03f * Mathf.Sin(a * 7f + 1f));
                 float n = Mathf.PerlinNoise(x * 0.13f, y * 0.13f) * 0.5f + Mathf.PerlinNoise(x * 0.31f + 7f, y * 0.31f) * 0.5f;
                 float al = Mathf.Clamp01(1f - r);
                 al = al * al * (3f - 2f * al) * (0.65f + 0.35f * n);

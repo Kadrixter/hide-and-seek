@@ -44,21 +44,26 @@ namespace HideAndSeek.Game.Net
         {
             yield return WaitSeeking();
             var mm = MatchManager.Instance;
-            _extT0 = mm.Now;
+            // Same clock on both copies: the start of the seek phase.
+            _extT0 = mm.PhaseEnd.Value - mm.Settings.Value.SeekTime;
             var me = NetPlayer.Local;
             bool host = NetworkManager.Singleton.IsServer;
-            string role = me.IsSeeker ? "seeker" : "hider";
+            string role = me.Nick == "Widz" ? "watch" : me.IsSeeker ? "seeker" : "hider";
             string dir = ArgOr("-extshots", "");
-            NetPlayer Other() { foreach (var p in NetPlayer.All) if (p != null && p != me) return p; return null; }
+            NetPlayer Other() { foreach (var p in NetPlayer.All) if (p != null && p != me && p.Nick != "Widz") return p; return null; }
+            NetPlayer ByRole(bool seekerRole) { foreach (var p in NetPlayer.All) if (p != null && p.Nick != "Widz" && p.IsSeeker == seekerRole) return p; return null; }
             Debug.Log($"[ExtTest] {me.Nick} is {role} (host={host}); system={(ExtinguisherSystem.Instance != null)} {ExtState0(mm)}");
 
+            if (role == "watch") { if (frames) StartCoroutine(ExtWatch(dir, ByRole(false), ByRole(true))); yield break; }
             Vector3 hook0;
             ExtinguisherSystem.HookPose(0, out hook0, out _);
             Vector3 front = new Vector3(73.5f, 0.05f, 49.4f), seekerAt = new Vector3(73.5f, 0.05f, 46.3f);
             if (role == "hider")
             {
-                me.TeleportLocal(new Vector3(hook0.x - 1.05f, 0.05f, hook0.z - 0.2f), 90f);
-                me.Motor.SetLook(90f, 24f);
+                var stand = new Vector3(hook0.x - 1.05f, 0.05f, hook0.z - 0.2f);
+                Vector3 look = hook0 + Vector3.up * 0.45f - (stand + Vector3.up * 1.62f);
+                me.TeleportLocal(stand, YawTo(look));
+                me.Motor.SetLook(YawTo(look), PitchTo(look));
                 ItemLitShot(dir, "wall_l0", hook0 + new Vector3(-1.1f, 0.75f, -0.7f), hook0 + Vector3.up * 0.35f);
                 ItemLitShot(dir, "wall_l0_close", hook0 + new Vector3(-0.45f, 0.75f, -0.3f), hook0 + Vector3.up * 0.55f);
             }
@@ -67,7 +72,7 @@ namespace HideAndSeek.Game.Net
             var lpc = LocalPlayerController.Instance;
             Debug.Log($"[ExtTest] {role} prompt: {lpc.Prompt} '{lpc.PromptText}'");
             if (role == "hider") { Shot(dir, "a_prompt"); me.RequestExtRpc(MatchManager.ExtTake, 0); }
-            if (frames && role == "hider") StartCoroutine(ExtFrames(dir, "take", 0.4f, 1.6f, null));
+            if (frames && role == "hider") StartCoroutine(ExtFrames(dir, "take", 1.4f, 3.4f, null));
             yield return ExtAt(2.0f);
             if (role == "hider") Shot(dir, "b_take_fpp");
             yield return ExtAt(3.0f);
@@ -77,17 +82,21 @@ namespace HideAndSeek.Game.Net
             // ---- out in front of the seeker
             if (role == "hider") { me.TeleportLocal(front, 180f); me.Motor.SetLook(180f, -4f); }
             yield return ExtAt(4.0f);
-            if (role == "hider")
+            NetPlayer hiderP = role == "hider" ? me : Other();
+            if (role == "seeker" && hiderP != null)
             {
-                ItemLitShot(dir, "d_hold_tpp", me.transform.position + new Vector3(1.6f, 1.4f, -1.2f), me.transform.position + Vector3.up * 0.95f);
-                LocalPlayerController.TestExtSpray = true;   // first click: the pin
+                Vector3 hp = hiderP.transform.position;
+                ItemLitShot(dir, "d_hold_tpp", hp + new Vector3(-1.4f, 1.4f, -1.5f), hp + Vector3.up * 0.95f);
+                ItemLitShot(dir, "d_hold_tpp_side", hp + new Vector3(-2.0f, 1.2f, 0.2f), hp + Vector3.up * 0.95f);
             }
-            if (frames) StartCoroutine(ExtFrames(dir, role, 0.0f, 9.5f, role == "hider" ? Other() : me));
+            if (role == "hider") LocalPlayerController.TestExtSpray = true;   // first click: the pin
+            if (frames && role != "watch") StartCoroutine(ExtFrames(dir, role, 0.0f, 12f, Other()));
             yield return ExtAt(4.6f);
-            if (role == "hider") { Shot(dir, "e_pin_fpp"); ItemLitShot(dir, "e_pin_tpp", me.transform.position + new Vector3(-1.3f, 1.5f, -1.0f), me.transform.position + Vector3.up * 1.0f); }
+            if (role == "hider") Shot(dir, "e_pin_fpp");
+            if (role == "seeker" && hiderP != null) ItemLitShot(dir, "e_pin_tpp", hiderP.transform.position + new Vector3(-1.2f, 1.6f, -1.3f), hiderP.transform.position + Vector3.up * 1.0f);
             yield return ExtAt(6.2f);
             if (role == "hider") Shot(dir, "f_spray_fpp");
-            if (role == "hider") ItemLitShot(dir, "f_spray_tpp", me.transform.position + new Vector3(2.6f, 1.6f, -1.4f), me.transform.position + new Vector3(0f, 1.0f, -1.6f));
+            if (role == "seeker" && hiderP != null) ItemLitShot(dir, "f_spray_tpp", hiderP.transform.position + new Vector3(-3.0f, 1.5f, -1.2f), hiderP.transform.position + new Vector3(0f, 1.0f, -1.5f));
             yield return ExtAt(6.8f);
             if (role == "hider") LocalPlayerController.TestExtSpray = false;
             Debug.Log($"[ExtTest] {role} after first spray: {ExtState0(mm)}");
@@ -149,6 +158,32 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[ExtTest] {role} after hang back: {ExtState0(mm)}");
             if (role == "hider") ItemLitShot(dir, "j_back_on_wall", hook0 + new Vector3(-1.1f, 0.75f, -0.7f), hook0 + Vector3.up * 0.35f);
             Debug.Log($"[ExtTest] {role} done");
+        }
+
+        /// <summary>Late joiner (-nick Widz): checks the synced state, then films both players from the side at 15 fps.</summary>
+        private IEnumerator ExtWatch(string dir, NetPlayer hider, NetPlayer seeker)
+        {
+            var mm = MatchManager.Instance;
+            Debug.Log($"[ExtTest] watch (late joiner) sees: {ExtState0(mm)} hiderHolds={(hider != null && hider.HoldsExtinguisher)} seekerFoamed={(seeker != null && seeker.Foamed)}");
+            if (string.IsNullOrEmpty(dir) || hider == null || seeker == null) yield break;
+            string fd = System.IO.Path.Combine(dir, "frames_watch");
+            System.IO.Directory.CreateDirectory(fd);
+            int i = 0;
+            float next = 0f;
+            while (mm != null && mm.Now < _extT0 + 14.5f)
+            {
+                if (mm.Now >= _extT0 + 3.0f && Time.unscaledTime >= next)
+                {
+                    next = Time.unscaledTime + 1f / 15f;
+                    Vector3 a = (hider.transform.position + seeker.transform.position) * 0.5f + Vector3.up * 1.0f;
+                    Vector3 side = Vector3.Cross(seeker.transform.position - hider.transform.position, Vector3.up).normalized;
+                    if (side.x > 0f) side = -side;
+                    ItemLitShot(fd, $"w_{i:0000}", a + side * 3.3f + Vector3.up * 0.5f, a);
+                    i++;
+                }
+                yield return null;
+            }
+            Debug.Log($"[ExtTest] watch: {i} frames, state {ExtState0(mm)} seekerFoamed={seeker.Foamed}");
         }
 
         /// <summary>15 fps PNG sequence: the own screen (first person), plus a lit third-person view of <paramref name="watch"/>.</summary>

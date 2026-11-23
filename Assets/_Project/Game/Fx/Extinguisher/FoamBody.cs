@@ -68,16 +68,25 @@ namespace HideAndSeek.Game
             {
                 var (bone, pos, size, face) = list[i];
                 if (bone == null) continue;
-                var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                go.name = "Foam";
-                Destroy(go.GetComponent<Collider>());
+                // A lumpy patch: a few overlapping flattened lumps of different sizes.
+                var go = new GameObject("Foam");
                 go.transform.SetParent(bone, false);
                 go.transform.localPosition = pos;
                 go.transform.localRotation = Quaternion.Euler((float)rnd.NextDouble() * 20f - 10f, (float)rnd.NextDouble() * 20f - 10f, (float)rnd.NextDouble() * 360f);
-                var r = go.GetComponent<MeshRenderer>();
-                r.sharedMaterial = _mat;
-                r.lightProbeUsage = LightProbeUsage.BlendProbes;
-                r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                int lumps = 4 + rnd.Next(3);
+                for (int k = 0; k < lumps; k++)
+                {
+                    var lump = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    Destroy(lump.GetComponent<Collider>());
+                    lump.transform.SetParent(go.transform, false);
+                    float a = (float)rnd.NextDouble() * Mathf.PI * 2f, d = k == 0 ? 0f : 0.22f + (float)rnd.NextDouble() * 0.2f;
+                    lump.transform.localPosition = new Vector3(Mathf.Cos(a) * d, Mathf.Sin(a) * d, (float)rnd.NextDouble() * 0.15f);
+                    lump.transform.localScale = Vector3.one * (k == 0 ? 0.75f : 0.38f + (float)rnd.NextDouble() * 0.25f);
+                    var r = lump.GetComponent<MeshRenderer>();
+                    r.sharedMaterial = _mat;
+                    r.lightProbeUsage = LightProbeUsage.BlendProbes;
+                    r.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                }
                 go.SetActive(false);
                 // When a face patch is wiped: the first stroke on its side (right strokes are the even ones).
                 float gone = 99f;
@@ -118,10 +127,14 @@ namespace HideAndSeek.Game
                 bool on = k > 0.02f;
                 if (b.T.gameObject.activeSelf != on) b.T.gameObject.SetActive(on);
                 if (!on) continue;
-                var r = b.T.GetComponent<MeshRenderer>();
-                b.T.gameObject.layer = b.T.parent.gameObject.layer;
                 var mode = _fp ? ShadowCastingMode.ShadowsOnly : ShadowCastingMode.On;
-                if (r.shadowCastingMode != mode) r.shadowCastingMode = mode;
+                int layer = b.T.parent.gameObject.layer;
+                foreach (Transform lump in b.T)
+                {
+                    lump.gameObject.layer = layer;
+                    var r = lump.GetComponent<MeshRenderer>();
+                    if (r.shadowCastingMode != mode) r.shadowCastingMode = mode;
+                }
                 float wob = 1f + 0.05f * Mathf.Sin(Time.time * 4f + i);
                 b.T.localScale = b.Size * (k * wob);
             }

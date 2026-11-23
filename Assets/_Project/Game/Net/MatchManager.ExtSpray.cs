@@ -19,6 +19,8 @@ namespace HideAndSeek.Game.Net
         private readonly Dictionary<ulong, double> _extImmune = new();
         private readonly RaycastHit[] _extHits = new RaycastHit[16];
         private double _extToastAt;
+        private float _extDebugAt;
+        private static readonly bool ExtDebug = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testextinguisher") >= 0;
 
         private void ServerExtSpray(int i, NetPlayer p)
         {
@@ -55,6 +57,12 @@ namespace HideAndSeek.Game.Net
                 if (s == null || !s.IsSeeker || s.Life.Value != LifeState.Alive) continue;
                 ulong id = s.NetworkObjectId;
                 bool hit = !s.Busy.Value && InJet(origin, dir, s, out Vector3 point);
+                if (ExtDebug && Time.time >= _extDebugAt)
+                {
+                    _extDebugAt = Time.time + 0.5f;
+                    Vector3 to = s.transform.position + Vector3.up * 1.15f - origin;
+                    Debug.Log($"[Ext] jet test {s.Nick}: dist={to.magnitude:0.00} angle={Vector3.Angle(dir, to):0.0} pitch={holder.Motion.Value.PitchDeg:0.0} clear={ExtClearLine(origin, origin + to, s)} hit={hit}");
+                }
                 _extExposure.TryGetValue(id, out float ex);
                 ex = hit ? ex + 0.1f : Mathf.Max(0f, ex - 0.2f);
                 _extExposure[id] = ex;
@@ -90,6 +98,7 @@ namespace HideAndSeek.Game.Net
             {
                 var c = _extHits[i].collider;
                 if (c == null || c.GetComponentInParent<NetPlayer>() != null) continue;
+                if (ExtDebug && Time.time >= _extDebugAt) Debug.Log($"[Ext] jet blocked by {c.name} at {_extHits[i].distance:0.00}");
                 return false;
             }
             return true;
