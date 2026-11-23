@@ -119,7 +119,7 @@ namespace HideAndSeek.Game.Net
             double t = Now - pv.StartAt;
             Vector3 d = other.transform.position - transform.position;
             float far = info != null ? info.PairDistance + (t > 0.8 ? 0.9f : 2.6f) : 3f;
-            if (new Vector2(d.x, d.z).magnitude > far) { ServerEndPair("apart"); return; }
+            if (new Vector2(d.x, d.z).magnitude > far && !Cinematics.OutroDirector.Neighbours(this, other)) { ServerEndPair("apart"); return; }
             if (info == null || (!info.Loops && t >= info.Duration)) ServerEndPair("done");
         }
     }

@@ -241,6 +241,7 @@ namespace HideAndSeek.Game.Voice
         {
             var speaker = NetPlayer.FindByClient(speakerId);
             if (speaker == null) return;
+            Cinematics.RoundStats.Voice(speaker, VoiceCodec.FrameSamples / (float)VoiceCodec.SampleRate); // Gaduła award
             bool shout = level / 255f >= ShoutLevel;
             // Public address: only the current holder of the wall microphone; everybody gets it (own speakers on every level).
             bool paOk = pa && VoiceRules.PaLink(speaker);

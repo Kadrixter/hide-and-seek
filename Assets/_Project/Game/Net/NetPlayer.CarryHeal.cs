@@ -126,6 +126,7 @@ namespace HideAndSeek.Game.Net
                 t.ToastRpc($"{Nick} opatrzył twoje rany.", 4f);
             }
             else return;
+            Cinematics.RoundStats.Healed(this, t); // award "Anioł Stróż"
             t.SfxRpc(GameSfx.MedkitUse, 1f);
             ToastRpc($"Opatrzone: {t.Nick}.", 3f);
             Debug.Log($"[Carry] {Nick} treated {t.Nick} in the arms of {CarriedByNick(t)} (now {t.Life.Value}, wounded {t.Wounded.Value})");

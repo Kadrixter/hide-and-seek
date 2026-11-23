@@ -125,6 +125,7 @@ namespace HideAndSeek.Game.Net
                 Phones[i] = c;
                 seeker.ToastRpc("Rozdeptałeś telefon. Chowający słyszą się przez takie telefony...", 3.5f);
                 Debug.Log($"[Phone] {seeker.Nick} stomped on phone {s.Id}");
+                if (seeker.IsSeeker) Cinematics.RoundStats.ToyBroken(seeker);
             }
             yield return new WaitForSeconds(PhoneTimeline.End - PhoneTimeline.StompHit);
             if (seeker != null && seeker.IsSpawned) seeker.Busy.Value = false;

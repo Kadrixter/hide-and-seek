@@ -235,6 +235,7 @@ namespace HideAndSeek.Game.Net
             if (Vector3.Distance(hitPoint, pos) > 1.2f || Vector3.Distance(origin, pos) > Tuning.GlockRange + 3f) return false;
             SetRc(i, RcMode.Shot, s.Holder, pos, yaw);
             ServerRcDestroyed(i);
+            Cinematics.RoundStats.ToyBroken(shooter);
             var h = NetPlayer.Find(s.Holder);
             if (h != null) h.ToastRpc("Szukający zestrzelił twój samochodzik!", 4f);
             shooter.ToastRpc("Zestrzeliłeś samochodzik. Kierowca jest gdzieś niedaleko...", 3f);
@@ -276,6 +277,7 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(RcTimeline.StompHit);
             SetRc(i, RcMode.Wreck, holder, pos, yaw);
             ServerRcDestroyed(i);
+            Cinematics.RoundStats.ToyBroken(seeker);
             var h = NetPlayer.Find(holder);
             if (h != null) h.ToastRpc("Szukający rozdeptał twój samochodzik!", 4f);
             seeker.ToastRpc("Rozdeptałeś samochodzik. Ktoś się chowa niedaleko...", 3f);

@@ -78,6 +78,7 @@ namespace HideAndSeek.Game.Net
             why = null;
             if (other == null || other == me) { why = "Spójrz na gracza obok."; return false; }
             if (!Free(other, out _)) { why = $"{other.Nick} jest teraz zajęty."; return false; }
+            if (Cinematics.OutroDirector.Neighbours(me, other)) return true; // outro row: figures side by side, bodies anywhere
             Vector3 d = other.transform.position - me.transform.position;
             if (Mathf.Abs(d.y) > 0.8f || new Vector2(d.x, d.z).magnitude > Emotes.AskRange + slack) { why = "Podejdź bliżej."; return false; }
             return true;
@@ -101,6 +102,7 @@ namespace HideAndSeek.Game.Net
         public static NetPlayer LookTarget(NetPlayer me)
         {
             if (me == null || me.Camera == null) return null;
+            if (Cinematics.OutroDirector.PairTargetFor(me) is NetPlayer row) return row; // outro: the neighbour in the row
             Transform cam = me.Camera.transform;
             Vector3 eye = me.EyePosition;
             NetPlayer best = null;

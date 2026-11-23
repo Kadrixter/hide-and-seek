@@ -198,6 +198,7 @@ namespace HideAndSeek.Game.Net
                 stun = true;
                 LegStuns++;
                 sk.ServerStartStun();
+                Cinematics.RoundStats.LegStun(thrower, sk); // award "Nogą w łeb"
             }
             // Bounces off and falls down next to him (on his side of the hit).
             Vector3 side = Vector3.Cross(Vector3.up, dir).normalized;

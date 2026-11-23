@@ -484,7 +484,8 @@ namespace HideAndSeek.Map.Editor
             LevelWall(lv, -HX - WallT, HX + WallT, -HZ - WallT, -HZ);
             LevelWall(lv, -HX - WallT, HX + WallT, HZ, HZ + WallT);
             LevelWall(lv, -HX - WallT, -HX, -HZ, HZ);
-            LevelWall(lv, HX, HX + WallT, -HZ, HZ);
+            // Level 0: street exit opening; the roller shutter itself is built at runtime (Game/Cinematics/ExitGate).
+            LevelWall(lv, HX, HX + WallT, -HZ, HZ, lv == 0 ? new[] { new Opening(-3.5f, 3.5f, 2.75f) } : new Opening[0]);
 
             void Band(Vector3 n, float along0, float along1, float fixedCoord, bool alongX)
             {
@@ -534,11 +535,11 @@ namespace HideAndSeek.Map.Editor
 
             if (lv == 0)
             {
-                // closed street exit (roller shutter) on the east wall
-                b.BoxMinMax(new Vector3(HX - 0.1f, y0, -3.5f), new Vector3(HX, y0 + 2.75f, 3.5f), M("Shutter"));
+                // street exit on the east wall: lintel here, the shutter, rails and the street behind at runtime (ExitGate)
                 b.BoxMinMax(new Vector3(HX - 0.45f, y0 + 2.75f, -3.7f), new Vector3(HX, CeilY(lv), 3.7f), M("PM_Grey"));
-                b.BoxMinMax(new Vector3(HX - 0.16f, y0, -3.7f), new Vector3(HX, y0 + 2.75f, -3.5f), M("Metal_Dark"));
-                b.BoxMinMax(new Vector3(HX - 0.16f, y0, 3.5f), new Vector3(HX, y0 + 2.75f, 3.7f), M("Metal_Dark"));
+                var gate = new GameObject("ExitGateAnchor").transform;
+                gate.SetParent(_root, false);
+                gate.SetPositionAndRotation(new Vector3(HX, y0, 0f), Quaternion.Euler(0f, -90f, 0f));
                 SignPlate(_signs[lv], new Vector3(HX - 0.45f, y0 + 2.62f, 0f), Vector3.left, 1.8f, 0.26f, "EXIT CLOSED", 0.15f, M("Sign_Red"), white);
             }
         }
