@@ -61,7 +61,9 @@ namespace HideAndSeek.Player
             set
             {
                 manageCursor = value;
-                if (!value) SetCursorLocked(false);
+                // Only the reader in use may free the cursor: a remote player's (disabled) reader being set up when
+                // somebody joins used to unlock the cursor of everybody in the session.
+                if (!value && isActiveAndEnabled) SetCursorLocked(false);
             }
         }
 

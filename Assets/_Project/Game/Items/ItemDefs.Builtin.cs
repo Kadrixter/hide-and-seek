@@ -199,9 +199,9 @@ namespace HideAndSeek.Game
             {
                 Hang = true,
                 FpGrip = new Vector3(0f, -0.36f, -0.15f),
-                FpHand = new Vector3(0.34f, -0.38f, 0.6f),
+                FpHand = new Vector3(0.38f, -0.42f, 0.62f), // QA: smaller and lower, it covered the status lines on the right
                 FpRotation = new Vector3(2f, -70f, 0f),
-                FpScale = 0.75f,
+                FpScale = 0.6f,
             };
 
             /// <summary>Ready to use: in the fist at the chest, needle up (the plunger clear of the forearm);
@@ -236,7 +236,8 @@ namespace HideAndSeek.Game
                 Hang = true,
                 Rotation = new Vector3(-70f, 0f, 0f),
                 FpHand = new Vector3(0.3f, -0.34f, 0.55f),
-                FpRotation = HandGrip.Aim(Vector3.down, new Vector3(0.75f, -0.55f, 0.35f), Vector3.forward, Vector3.up),
+                // QA: forward and a little up-left from the fist (pointing down-right only its stub showed under the hotbar)
+                FpRotation = HandGrip.Aim(Vector3.down, new Vector3(-0.3f, 0.25f, 0.92f), Vector3.forward, Vector3.up),
                 FpScale = 0.8f,
             };
 

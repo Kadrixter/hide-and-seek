@@ -192,7 +192,7 @@ namespace HideAndSeek.Game.Net
         public static List<IPAddress> BroadcastTargets()
         {
             var list = new List<IPAddress> { IPAddress.Broadcast, IPAddress.Loopback };
-            foreach (var (ip, mask) in LocalIPv4())
+            foreach (var (ip, mask) in CachedLocalIPv4()) // called from the menu every 1.5 s: never the slow lookup
             {
                 byte[] a = ip.GetAddressBytes(), m = mask.GetAddressBytes();
                 var b = new byte[4];
@@ -203,7 +203,33 @@ namespace HideAndSeek.Game.Net
             return list;
         }
 
-        /// <summary>IPv4 addresses of all active non-loopback interfaces (shown to the host so friends can join by IP).</summary>
+        private static volatile List<(IPAddress ip, IPAddress mask)> _cachedIps;
+        private static float _cachedIpsAt = -999f;
+        private static volatile bool _cachedIpsBusy;
+
+        /// <summary>
+        /// <see cref="LocalIPv4"/> for every-frame callers (the host's lobby HUD): the last list, refreshed on a worker
+        /// thread every 10 s. NetworkInterface.GetAllNetworkInterfaces blocks for 0.1-1.5 s on Windows (more interfaces -
+        /// VPN, WSL, Hyper-V - = slower): called every frame it held a LAN host's lobby at ~1 frame per second.
+        /// </summary>
+        public static List<(IPAddress ip, IPAddress mask)> CachedLocalIPv4()
+        {
+            float now = Time.realtimeSinceStartup;
+            if (!_cachedIpsBusy && (_cachedIps == null || now - _cachedIpsAt > 10f))
+            {
+                _cachedIpsBusy = true;
+                _cachedIpsAt = now;
+                new Thread(() =>
+                {
+                    try { _cachedIps = LocalIPv4(); }
+                    finally { _cachedIpsBusy = false; }
+                }) { IsBackground = true, Name = "HNS local IPs" }.Start();
+            }
+            return _cachedIps ?? new List<(IPAddress, IPAddress)>();
+        }
+
+        /// <summary>IPv4 addresses of all active non-loopback interfaces (shown to the host so friends can join by IP).
+        /// Slow (blocks): never every frame on the main thread - use <see cref="CachedLocalIPv4"/>.</summary>
         public static List<(IPAddress ip, IPAddress mask)> LocalIPv4()
         {
             var result = new List<(IPAddress, IPAddress)>();

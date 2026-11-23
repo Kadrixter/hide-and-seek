@@ -497,6 +497,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>Runs one per-frame part; an exception is logged (at most every 5 s per part) instead of skipping the rest of the frame.</summary>
         private void Step(System.Action part, string name)
         {
+            double t0 = FrameHitchLog.Now;
             try { part(); }
             catch (System.Exception e)
             {
@@ -505,6 +506,8 @@ namespace HideAndSeek.Game.Net
                 Debug.LogWarning($"[Match] {name} failed (phase {Phase.Value}, scene {SceneManager.GetActiveScene().name}): {e.GetType().Name}");
                 Debug.LogException(e);
             }
+            double ms = FrameHitchLog.Now - t0;
+            if (ms > 60) Debug.LogWarning($"[Hitch] MatchManager part '{name}' took {ms:0} ms (phase {Phase.Value})");
         }
 
         private void UpdateSceneProps()
@@ -515,11 +518,20 @@ namespace HideAndSeek.Game.Net
                 RaceSystem.Ensure();
             if ((ph == MatchPhase.Hiding || ph == MatchPhase.Seeking || (ph == MatchPhase.Ended && !RaceMode)) && SceneManager.GetActiveScene().name == NetSession.GameScene)
             {
-                ChainsawShelf.Ensure(ChainsawTaken.Value);
-                CarAlarms.Ensure();
-                SecurityRooms.Ensure();
-                PaSystem.Ensure();
+                TimedEnsure("chainsaw shelf", () => ChainsawShelf.Ensure(ChainsawTaken.Value));
+                TimedEnsure("car alarms", CarAlarms.Ensure);
+                TimedEnsure("security rooms", SecurityRooms.Ensure);
+                TimedEnsure("public address", PaSystem.Ensure);
             }
+        }
+
+        /// <summary>Builds a map prop; a build over 100 ms is logged ([Hitch]: the freeze at the start of a round).</summary>
+        private static void TimedEnsure(string what, System.Action ensure)
+        {
+            double t0 = FrameHitchLog.Now;
+            ensure();
+            double ms = FrameHitchLog.Now - t0;
+            if (ms > 100) Debug.LogWarning($"[Hitch] round start: {what} built in {ms:0} ms");
         }
 
         private void UpdateServerProps()
