@@ -49,19 +49,37 @@ namespace HideAndSeek.Map.Editor
         public void Face(Vector3 c, Vector3 uh, Vector3 vh, Material m, float tileOverride = 0f)
         {
             float tile = tileOverride > 0f ? tileOverride : _lib.Tile(m);
-            Vector3 ud = uh.normalized, vd = vh.normalized;
+            Vector3 ud = Dir(uh), vd = Dir(vh);
+            Vector3 n = Dir(Vector3.Cross(vd, ud));
+            if (n == Vector3.zero) return; // zero-area face
             Vector3 p0 = c - uh - vh, p1 = c - uh + vh, p2 = c + uh + vh, p3 = c + uh - vh;
-            AddQuad(p0, p1, p2, p3, Vector3.Cross(vh, uh).normalized,
+            AddQuad(p0, p1, p2, p3, n,
                 Proj(p0, ud, vd, tile), Proj(p1, ud, vd, tile), Proj(p2, ud, vd, tile), Proj(p3, ud, vd, tile), m);
         }
 
         /// <summary>Quad with an explicit UV rectangle (min at -uh-vh, max at +uh+vh).</summary>
         public void FaceUV(Vector3 c, Vector3 uh, Vector3 vh, Material m, Vector2 uvMin, Vector2 uvMax)
         {
+            Vector3 n = Dir(Vector3.Cross(Dir(vh), Dir(uh)));
+            if (n == Vector3.zero) return; // zero-area face
             Vector3 p0 = c - uh - vh, p1 = c - uh + vh, p2 = c + uh + vh, p3 = c + uh - vh;
-            AddQuad(p0, p1, p2, p3, Vector3.Cross(vh, uh).normalized,
+            AddQuad(p0, p1, p2, p3, n,
                 new Vector2(uvMin.x, uvMin.y), new Vector2(uvMin.x, uvMax.y),
                 new Vector2(uvMax.x, uvMax.y), new Vector2(uvMax.x, uvMin.y), m);
+        }
+
+        /// <summary>
+        /// Unit vector along <paramref name="v"/>, also for tiny vectors: Vector3.normalized returns zero below a length
+        /// of 1e-5, so the normal of a 1 x 10 mm face (cross of the half sizes = 5e-6) came out as (0,0,0); the
+        /// shader normalises it into NaN and with bloom / MSAA / SMAA such a pixel turns into a glowing dot.
+        /// Zero only for a really zero vector.
+        /// </summary>
+        public static Vector3 Dir(Vector3 v)
+        {
+            float m = Mathf.Max(Mathf.Abs(v.x), Mathf.Max(Mathf.Abs(v.y), Mathf.Abs(v.z)));
+            if (!(m > 0f) || float.IsInfinity(m)) return Vector3.zero;
+            v /= m;
+            return v / v.magnitude;
         }
 
         private static Vector2 Proj(Vector3 p, Vector3 ud, Vector3 vd, float tile) =>
@@ -109,7 +127,8 @@ namespace HideAndSeek.Map.Editor
         private void AddV(Vector3 p, Vector3 n, Vector3 fn, float tile)
         {
             _v.Add(p);
-            _n.Add(n.sqrMagnitude > 1e-12f ? n.normalized : Vector3.up);
+            Vector3 d = Dir(n);
+            _n.Add(d != Vector3.zero ? d : Vector3.up);
             float ax = Mathf.Abs(fn.x), ay = Mathf.Abs(fn.y), az = Mathf.Abs(fn.z);
             Vector2 uv = ax >= ay && ax >= az ? new Vector2(p.z, p.y) : ay >= az ? new Vector2(p.x, p.z) : new Vector2(p.x, p.y);
             _uv.Add(uv / tile);
@@ -261,7 +280,8 @@ namespace HideAndSeek.Map.Editor
                 Vector3 m = c0 * n.x + c1 * n.y + c2 * n.z;
                 if (Vector3.Dot(jx, c0) < 0f) m = -m; // mirrored mapping
                 _v[i] = q;
-                if (m.sqrMagnitude > 1e-14f) _n[i] = m.normalized;
+                Vector3 dm = Dir(m);
+                if (dm != Vector3.zero) _n[i] = dm;
             }
         }
 
