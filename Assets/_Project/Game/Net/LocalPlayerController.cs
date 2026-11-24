@@ -28,6 +28,7 @@ namespace HideAndSeek.Game.Net
         ForkOutlet,     // E on a wall socket while holding the fork
         Arcade,         // E on the SNAKE arcade
         RcPickup,       // E on an RC car (shelf / parked on the floor)
+        RcCargo,        // E on an RC car carrying an item: take the item
         RcStomp,        // F on an RC car (seeker)
         Bricks,         // E on the toy brick tub in the lobby
         ExitDoor,       // E on the lobby exit door
@@ -725,6 +726,7 @@ namespace HideAndSeek.Game.Net
 
             // Wire-mesh fences / cages: a piece of wire (hiders); U over the transmitter in the hands (LocalPlayerController.RcWire.cs).
             if (TryWirePrompt(eye, fwd, phase, out var wPos, out string wText, out float wD)) Offer(PromptKind.WirePull, wPos, wText, wD);
+            if (TryRcCargoPrompt(eye, fwd, phase, out var cgPos, out string cgText, out float cgD)) Offer(PromptKind.RcCargo, cgPos, cgText, cgD);
             if (TryAntennaPrompt(out var aPos, out string aText, out float aD)) Offer(PromptKind.AntennaSwap, aPos, aText, aD);
             if (TryDotLinkPrompt(eye, fwd, out var dlPos, out string dlText, out float dlD)) Offer(PromptKind.DotLink, dlPos, dlText, dlD); // exit-gate panel
             if (TryFusePrompt(eye, fwd, phase, out var fbPos2, out string fbText2, out float fbD2, out var fbKind)) Offer(fbKind, fbPos2, fbText2, fbD2); // fuse boxes
@@ -1101,6 +1103,10 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.RcPickup:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestRcPickupRpc((byte)_rcSlotPrompt);
+                    break;
+                case PromptKind.RcCargo:
+                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) _p.RequestRcCargoTakeRpc((byte)_rcCargoPrompt);
+                    TestPressE = false;
                     break;
                 case PromptKind.RcStomp:
                     if (kb.fKey.wasPressedThisFrame) _p.RequestRcStompRpc((byte)_rcSlotPrompt);

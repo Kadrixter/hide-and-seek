@@ -387,6 +387,7 @@ namespace HideAndSeek.Game
             UpdateScale(pxPerM);
             UpdatePoi(pos, pxPerM, floor);
             UpdateItemMarkers(me, pos, pxPerM, size);
+            UpdateFuseMarkers(me, pos, pxPerM, size); // fuse boxes + fuses nearby (Minimap.Fuses)
             UpdateTabs(me, floor);
             UpdateBodyDots(me, pos, pxPerM, size); // dead hiders' bodies (Minimap.Bodies)
             UpdateTeamDots(me, pos, pxPerM, size);
