@@ -15,7 +15,7 @@ namespace HideAndSeek.Game
         private static readonly HotbarItem[] Shown = new HotbarItem[RcCar.Count];
         private static readonly Transform[] Models = new Transform[RcCar.Count];
         private static readonly float[] Born = new float[RcCar.Count];
-        private static readonly float[] Roof = { -1f, -1f };
+        private static readonly float[] Roof = { -1f, -1f, -1f, -1f };
 
         public static void Sync(bool inGame)
         {
