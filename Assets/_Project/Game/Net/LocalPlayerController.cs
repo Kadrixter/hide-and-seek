@@ -47,6 +47,8 @@ namespace HideAndSeek.Game.Net
         MiniGame,       // E at a free seat of the lobby chess / tic-tac-toe table
         LobbyProp,      // E on a lobby mini interaction (switches, fireplace, record player, fish, globe, darts)
         SecurityChair,  // E on a swivel chair in a security room
+        WirePull,       // E hold at a wire-mesh fence / cage: tear a piece of wire off (LocalPlayerController.RcWire.cs)
+        AntennaSwap,    // U with the RC transmitter in the hands and a wire in the inventory
     }
 
     /// <summary>
@@ -105,7 +107,7 @@ namespace HideAndSeek.Game.Net
         public PromptKind HoldKind => _holdKind;
         public NetPlayer HoldTarget => _holdTarget;
         public float HoldDurationNow => _holdKind != PromptKind.None ? HoldDuration(_holdKind) : 0f;
-        public float HoldProgress => _holdKind != PromptKind.None ? _holdTimer / HoldDuration(_holdKind) : 0f;
+        public float HoldProgress => _holdKind != PromptKind.None ? _holdTimer / HoldDuration(_holdKind) : Prompt == PromptKind.WirePull ? WireProgress : 0f;
 
         /// <summary>True while a menu (Esc, settings board) owns the mouse.</summary>
         public static bool MenuOpen { get; set; }
@@ -330,6 +332,9 @@ namespace HideAndSeek.Game.Net
             // ---- toy phone ringing in the pocket: E smashes it (before every other E action)
             if (PhoneControls.TakeE(_p, kb)) { CancelHold(); return; }
 
+            // ---- fence wire torn off / RC antenna swap: the hands are busy; U swaps the antenna (LocalPlayerController.RcWire.cs)
+            if (WireTick(kb)) { CancelHold(); return; }
+
             // ---- RC car: 6 puts it down / parks it / takes control again; WASD drives while the car camera is on.
             if (UpdateRc(kb, phase)) { CancelHold(); return; }
 
@@ -474,7 +479,7 @@ namespace HideAndSeek.Game.Net
             else if (s.Mode == RcMode.Parked)
             {
                 Vector3 d = s.Pos - transform.position;
-                if (d.magnitude > Tuning.RcRange) GameHud.Toast($"Samochodzik jest poza zasięgiem pilota ({Tuning.RcRange:0} m).", 3f);
+                if (d.magnitude > MatchManager.RcRangeOf(slot)) GameHud.Toast($"Samochodzik jest poza zasięgiem pilota ({MatchManager.RcRangeOf(slot):0} m).", 3f);
                 else _p.RequestRcResumeRpc((byte)slot);
             }
             return false;
@@ -709,6 +714,10 @@ namespace HideAndSeek.Game.Net
             // Swivel chairs of the security rooms.
             if ((phase == MatchPhase.Hiding || phase == MatchPhase.Seeking) && TryChairPrompt(eye, fwd, out var chPos, out string chText, out float chD))
                 Offer(PromptKind.SecurityChair, chPos, chText, chD);
+
+            // Wire-mesh fences / cages: a piece of wire (hiders); U over the transmitter in the hands (LocalPlayerController.RcWire.cs).
+            if (TryWirePrompt(eye, fwd, phase, out var wPos, out string wText, out float wD)) Offer(PromptKind.WirePull, wPos, wText, wD);
+            if (TryAntennaPrompt(out var aPos, out string aText, out float aD)) Offer(PromptKind.AntennaSwap, aPos, aText, aD);
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -1106,6 +1115,10 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.SecurityChair:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ChairPromptE();
+                    break;
+                case PromptKind.WirePull:
+                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) WirePromptE();
+                    TestPressE = false;
                     break;
             }
 

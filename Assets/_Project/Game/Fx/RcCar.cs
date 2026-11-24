@@ -288,7 +288,7 @@ namespace HideAndSeek.Game
             Vector3 fwd = Quaternion.Euler(0f, _yaw, 0f) * Vector3.forward;
             Vector3 toCar = transform.position - driverPos;
             toCar.y = 0f;
-            if (toCar.magnitude > Tuning.RcRange && Vector3.Dot(fwd * Mathf.Sign(Mathf.Abs(target) > 0.01f ? target : Speed), toCar) > 0f)
+            if (toCar.magnitude > MatchManager.RcRangeOf(Index) && Vector3.Dot(fwd * Mathf.Sign(Mathf.Abs(target) > 0.01f ? target : Speed), toCar) > 0f)
                 target = 0f;
 
             float rate = Mathf.Abs(target) < 0.01f ? 3.5f : Speed * target < 0f ? 11f : Boost ? 7.5f : 5.5f;
