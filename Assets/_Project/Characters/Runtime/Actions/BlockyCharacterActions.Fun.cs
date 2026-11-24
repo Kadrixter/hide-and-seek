@@ -87,6 +87,23 @@ namespace HideAndSeek.Characters
             return d;
         }
 
+        /// <summary>Standing rigid under current, everything shaking (fork shock, RC car zap).</summary>
+        CharacterPose ElectrocutedPose()
+        {
+            var rigid = CharacterPose.Identity;
+            rigid.PelvisPos = new Vector3(0.02f * J(time, 1f), BlockyCharacter.HipHeight - 0.05f + 0.015f * J(time, 2f), -0.05f);
+            rigid.Pelvis = Quaternion.Euler(4f * J(time, 3f), 3f * J(time, 4f), 3f * J(time, 5f));
+            rigid.Torso = Quaternion.Euler(-12f + 6f * J(time, 6f), 5f * J(time, 7f), 5f * J(time, 8f));
+            rigid.Head = Quaternion.Euler(-28f + 10f * J(time, 9f), 14f * J(time, 10f), 8f * J(time, 11f));
+            rigid.SolveLeg(0, new Vector3(0.16f + 0.02f * J(time, 12f), 0f, 0.02f), new Vector3(0.2f, 0f, 1f));
+            rigid.SolveLeg(1, new Vector3(-0.16f + 0.02f * J(time, 13f), 0f, -0.02f), new Vector3(-0.2f, 0f, 1f));
+            Vector3 jr = new Vector3(J(time, 14f), J(time, 15f), J(time, 16f)) * 0.07f;
+            Vector3 jl = new Vector3(J(time, 17f), J(time, 18f), J(time, 19f)) * 0.07f;
+            rigid.SolveArm(0, rigid.TorsoPoint(new Vector3(0.55f, 0.75f, 0.22f)) + jr, TorsoDir(rigid, 1f, -0.4f, -0.6f));
+            rigid.SolveArm(1, rigid.TorsoPoint(new Vector3(-0.55f, 0.72f, 0.2f)) + jl, TorsoDir(rigid, -1f, -0.4f, -0.6f));
+            return rigid;
+        }
+
         CharacterPose ShockPose(in CharacterPose basePose, float t)
         {
             float S(float a, float b) => HealTimeline.Seg(t, a, b);
@@ -114,18 +131,7 @@ namespace HideAndSeek.Characters
             }
 
             // ---- electrocuted: jolts up rigid, everything shaking
-            float k = 1f;
-            var rigid = CharacterPose.Identity;
-            rigid.PelvisPos = new Vector3(0.02f * J(time, 1f), BlockyCharacter.HipHeight - 0.05f + 0.015f * J(time, 2f), -0.05f);
-            rigid.Pelvis = Quaternion.Euler(4f * J(time, 3f) * k, 3f * J(time, 4f), 3f * J(time, 5f));
-            rigid.Torso = Quaternion.Euler(-12f + 6f * J(time, 6f), 5f * J(time, 7f), 5f * J(time, 8f));
-            rigid.Head = Quaternion.Euler(-28f + 10f * J(time, 9f), 14f * J(time, 10f), 8f * J(time, 11f));
-            rigid.SolveLeg(0, new Vector3(0.16f + 0.02f * J(time, 12f), 0f, 0.02f), new Vector3(0.2f, 0f, 1f));
-            rigid.SolveLeg(1, new Vector3(-0.16f + 0.02f * J(time, 13f), 0f, -0.02f), new Vector3(-0.2f, 0f, 1f));
-            Vector3 jr = new Vector3(J(time, 14f), J(time, 15f), J(time, 16f)) * 0.07f;
-            Vector3 jl = new Vector3(J(time, 17f), J(time, 18f), J(time, 19f)) * 0.07f;
-            rigid.SolveArm(0, rigid.TorsoPoint(new Vector3(0.55f, 0.75f, 0.22f)) + jr, TorsoDir(rigid, 1f, -0.4f, -0.6f));
-            rigid.SolveArm(1, rigid.TorsoPoint(new Vector3(-0.55f, 0.72f, 0.2f)) + jl, TorsoDir(rigid, -1f, -0.4f, -0.6f));
+            var rigid = ElectrocutedPose();
             // Hand still stuck at the socket for the first moment.
             if (t < ShockTimeline.Insert + 0.25f)
             {

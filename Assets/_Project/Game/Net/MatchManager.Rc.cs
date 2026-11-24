@@ -49,6 +49,7 @@ namespace HideAndSeek.Game.Net
             }
             bool inGame = SceneManager.GetActiveScene().name == NetSession.GameScene &&
                           (Phase.Value == MatchPhase.Hiding || Phase.Value == MatchPhase.Seeking || Phase.Value == MatchPhase.Ended);
+            UpdateRcPower(inGame); // energised cars: server hit checks + lightning (MatchManager.RcPower.cs)
             if (!inGame) return;
             RcCarShelf.Ensure();
             RcRemoteFx.Ensure(); // wrecks of smashed transmitters (also for late joiners)

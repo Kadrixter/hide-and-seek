@@ -438,8 +438,9 @@ namespace HideAndSeek.Game.Net
                         GameAudio.Play2D(GameSfx.FlashlightAdjust, 0.5f);
                     }
                     car.Lights = _rcLights;
+                    RcChargeKey(kb, slot); // R = energise the car (LocalPlayerController.RcPower.cs)
                     _p.SetRcInput(new Vector2(steer, throttle));
-                    car.TickLocal(Time.deltaTime, _p.Motor.WalkSpeed, _p.Motor.RunSpeed, transform.position, _p);
+                    car.TickLocal(Time.deltaTime, _p.Motor.WalkSpeed, RcPower.BoostSpeed(_p), transform.position, _p);
                     if (six)
                     {
                         car.Throttle = 0f;

@@ -520,6 +520,7 @@ namespace HideAndSeek.Characters
             // 5d. Collapse after too many cans in the lobby (overrides everything).
             if (overdoseT >= 0f) p = OverdosePose(p, overdoseT);
             if (stunT >= 0f) p = StunPose(p, stunT); // 5e. knocked out by a thrown leg (Stun.cs)
+            if (zapT >= 0f) p = ZapPose(p, zapT); // 5e'. electrocuted by an energised RC car (Zap.cs)
 
             // 5e. Carrying somebody in the arms / being carried (BodyCarry*.cs).
             ApplyBodyCarryLayers(ref p, dt);
