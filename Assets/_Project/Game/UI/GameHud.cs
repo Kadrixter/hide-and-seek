@@ -872,15 +872,26 @@ namespace HideAndSeek.Game
             SeekerCountRow.Build(glockRow, host ? () => s.SeekerCount : () => mm.Settings.Value.SeekerCount,
                 host ? v => { s.Seekers = (byte)v; Push(); } : null);
 
-            string TakeText() => "Szukający zabiera przedmioty (apteczki, strzykawki, pręty): " + (s.SeekerTakesItems ? "tak" : "nie");
+            // One row: the seeker takes the hiders' items + the chainsaw on its shelf (on / off).
+            var takeRow = SeekerCountRow.Row(panel);
+            string TakeText() => "Szukający zabiera przedmioty: " + (s.SeekerTakesItems ? "tak" : "nie");
             Button takeB = null;
-            takeB = UiKit.BoxButton("SeekerTakes", panel, TakeText(), () =>
+            takeB = UiKit.BoxButton("SeekerTakes", takeRow, TakeText(), () =>
             {
                 s.SeekerTakesItems = !s.SeekerTakesItems;
                 takeB.GetComponentInChildren<Text>().text = TakeText();
                 Push();
-            }, 22);
-            takeB.Height(50);
+            }, 21);
+            takeB.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            string SawText() => "Piła łańcuchowa: " + (s.NoSaw ? "wyłączona" : "włączona");
+            Button sawB = null;
+            sawB = UiKit.BoxButton("Saw", takeRow, SawText(), () =>
+            {
+                s.NoSaw = !s.NoSaw;
+                sawB.GetComponentInChildren<Text>().text = SawText();
+                Push();
+            }, 21);
+            sawB.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
 
             var bleedL = Row("");
             var bleed = UiKit.Slider("BleedOut", panel, 20, 180, s.BleedOut > 1f ? s.BleedOut : Tuning.BleedOutTime, true, v =>
@@ -914,6 +925,7 @@ namespace HideAndSeek.Game
             modeB.interactable = host;
             glockB.interactable = host;
             takeB.interactable = host;
+            sawB.interactable = host;
 
             UiKit.Button("Close", panel, "Zamknij", CloseMenus).Height(58);
         }

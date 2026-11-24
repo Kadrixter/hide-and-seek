@@ -232,7 +232,8 @@ namespace HideAndSeek.Game
                 s.HintMode == 0 ? "wyłączone" : "od " + UiKit.FormatTime(s.HintStart) + " szukania", 0f);
             SetChip(_chipSound, _chipSoundT, sound, "DŹWIĘK");
             SetChip(_chipMap, _chipMapT, map, "MAPA");
-            Set(3, s.Glock ? "TAK" : "NIE", s.Glock ? "szukający, ostatnie 2 min" : "tylko nóż i piła", 0f);
+            Set(3, s.Glock ? "TAK" : "NIE", s.Glock ? (s.NoSaw ? "ostatnie 2 min, bez piły" : "szukający, ostatnie 2 min")
+                : s.NoSaw ? "tylko nóż (bez piły)" : "tylko nóż i piła", 0f);
             _value[3].color = s.Glock ? UiKit.Accent : MedRed;
             SetChip(_glockPill, _glockPillT, s.Glock, s.Glock ? "WŁĄCZONY" : "WYŁĄCZONY");
             SetChip(_takePill, _takePillT, s.SeekerTakesItems, s.SeekerTakesItems ? "ZABIERA RZECZY" : "NIE ZABIERA");

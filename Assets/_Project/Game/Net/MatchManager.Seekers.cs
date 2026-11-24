@@ -155,7 +155,7 @@ namespace HideAndSeek.Game.Net
         /// </summary>
         private void ServerChainsawLostCheck()
         {
-            if (!ChainsawTaken.Value) return;
+            if (!ChainsawTaken.Value || Settings.Value.NoSaw) return; // switched off: stays "taken" (empty shelf)
             foreach (var p in NetPlayer.All) if (p != null && p.HasChainsaw.Value) return;
             for (int i = 0; i < Drops.Count; i++) if (Drops[i].Kind == HotbarItem.Chainsaw) return;
             ChainsawTaken.Value = false;
