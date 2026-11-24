@@ -423,6 +423,7 @@ namespace HideAndSeek.Characters
             ApplyBoardGame(ref p, dt); // lobby chess / tic-tac-toe table (BlockyCharacterActions.BoardGame.cs)
             ApplyRodPullLayer(ref p, dt); // pulling a rod out of rubble (whole body)
             ApplyRcWireLayers(ref p, dt, standing, lookPitch); // fence wire torn off / RC antenna swap (BlockyCharacterActions.RcWire.cs)
+            ApplyFuseLayer(ref p, dt, standing); // fuse box: fuse in / out (BlockyCharacterActions.Fuse.cs)
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));

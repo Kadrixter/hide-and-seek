@@ -162,6 +162,7 @@ namespace HideAndSeek.Game
             };
             yield return SeveredLegDef(); // ItemDefs.Leg.cs
             yield return WireDef(); // ItemDefs.Wire.cs
+            foreach (var d in FuseDefs()) yield return d; // ItemDefs.Fuse.cs
         }
 
         private static PromptKind Prompt => LocalPlayerController.Instance != null ? LocalPlayerController.Instance.Prompt : PromptKind.None;
