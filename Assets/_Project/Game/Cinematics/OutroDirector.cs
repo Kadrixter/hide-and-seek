@@ -8,9 +8,9 @@ namespace HideAndSeek.Game.Cinematics
 {
     /// <summary>
     /// Plays the round outro on this client (<see cref="OutroTimeline"/>): a lit stage in front of the closed exit
-    /// gate, the winners as puppets (their skins, the dead ones too, no wounds) walking into a row and turning three
-    /// quarters to the camera, the camera travelling along the row, nicks under the figures, the title, then the award
-    /// cards. The players' own emotes (K wheel, also pair emotes with a row neighbour) play on their figures.
+    /// gate, the winners as puppets (their skins, the dead ones too, no wounds) walking in together into a formation
+    /// that depends on their number, the camera framing them by their number (OutroDirector.Framing), nicks under the
+    /// figures, the title, then the award cards. The players' own emotes (K wheel, also pair emotes with a row neighbour) play on their figures.
     /// </summary>
     public sealed partial class OutroDirector : MonoBehaviour
     {
@@ -18,8 +18,10 @@ namespace HideAndSeek.Game.Cinematics
         /// <summary>The row of the outro being played (also on the server, for the pair emote checks).</summary>
         public static readonly List<ulong> Row = new();
         public static bool Recording;
+        /// <summary>Tests (-outrowinners N): the row is cut or filled up with stand-in copies of the winners to N figures.</summary>
+        public static int TestWinners;
 
-        public const float Spacing = 1.0f, RowZ = 2.35f;
+        public const float RowZ = 2.35f;
 
         OutroPack _pack;
         System.Func<double> _clock;
@@ -66,33 +68,28 @@ namespace HideAndSeek.Game.Cinematics
             Debug.Log($"[Cine] outro start t={_t:0.00} winner={(_pack.SeekersWon ? "seekers" : "hiders")} row={Row.Count} awards={_pack.Awards?.Length ?? 0}");
         }
 
-        /// <summary>Slot <paramref name="i"/> of <paramref name="n"/> in gate-local space.</summary>
-        static Vector3 Slot(int i, int n) => new Vector3((i - (n - 1) * 0.5f) * Spacing, 0f, RowZ);
-
-        /// <summary>Facing of the row: towards the garage, turned a little to the side the camera travels from.</summary>
-        float RowYaw(int i, int n)
-        {
-            Vector3 f = _gate.LocalDir(Quaternion.Euler(0f, -24f + (i - (n - 1) * 0.5f) * 3f, 0f) * Vector3.forward);
-            return Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg;
-        }
-
         void BuildRow()
         {
-            int n = Row.Count;
+            int n;
             int layer = HideAndSeek.Map.LevelLighting.LayerOf(0);
             var rng = new System.Random((int)(_pack.StartAt * 10) & 0x7fffffff);
             EmoteId[] cheer = _pack.SeekersWon
                 ? new[] { EmoteId.Laugh, EmoteId.Point, EmoteId.Salute, EmoteId.Clap }
                 : new[] { EmoteId.Wave, EmoteId.Clap, EmoteId.Salute, EmoteId.Wave };
+            // Only the winners still here (a figure per player; the slots are laid out for this number).
+            var src = new List<NetPlayer>();
+            foreach (var id in Row) if (NetPlayer.Find(id) is var f && f != null) src.Add(f);
+            n = TestWinners > 0 && src.Count > 0 ? TestWinners : src.Count;
             for (int i = 0; i < n; i++)
             {
-                var pl = NetPlayer.Find(Row[i]);
-                if (pl == null) continue;
+                var pl = src[i % src.Count];
                 Vector3 slot = _gate.Local(Slot(i, n));
-                // Enter from the left of the frame, one after another.
-                Vector3 from = _gate.Local(Slot(i, n) + new Vector3(-3.4f - i * 0.25f, 0f, 0.35f));
+                // The group enters from the side together, keeping its shape.
+                Vector3 from = _gate.Local(WalkFrom(i, n));
                 float walkYaw = Mathf.Atan2((slot - from).x, (slot - from).z) * Mathf.Rad2Deg;
-                var p = CinePuppet.Of(pl, transform, from, walkYaw, layer);
+                var p = TestWinners > 0 && i >= src.Count
+                    ? CinePuppet.Create("Puppet_copy" + i, transform, from, walkYaw, pl.SkinVar.Value + i * 3, pl.Nick + " " + (i + 1), null, layer)
+                    : CinePuppet.Of(pl, transform, from, walkYaw, layer);
                 if (pl.IsSeeker) p.Actions.SetHeldItem(i % 3 == 1 && pl.HasChainsaw.Value ? HeldItem.Chainsaw : HeldItem.Knife);
                 p.gameObject.SetActive(false);
                 _puppets.Add(p);
@@ -129,7 +126,7 @@ namespace HideAndSeek.Game.Cinematics
             {
                 var p = _puppets[i];
                 if (p == null) continue;
-                float go = OutroTimeline.WalkIn + i * OutroTimeline.WalkStagger;
+                float go = WalkStart(i, n);
                 if (t >= OutroTimeline.StageIn && !p.gameObject.activeSelf) p.gameObject.SetActive(true);
                 if (t >= go && !_walked.Contains(i))
                 {
