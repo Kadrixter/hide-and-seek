@@ -296,7 +296,8 @@ namespace HideAndSeek.Game
 
             // ---- Esc menu
             var kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape)
+            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape
+                && !HideAndSeek.Game.DotLink.DotLinkLocal.ConsumesEscape) // Esc at the dot link panel = leave it
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
                 else if (_settingsPanel != null || _escMenu != null) CloseMenus();
