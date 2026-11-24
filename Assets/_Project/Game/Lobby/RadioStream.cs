@@ -7,8 +7,10 @@ using Debug = UnityEngine.Debug;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// One track: yt-dlp (audio to stdout) -> ffmpeg (decode, seek, 48 kHz stereo s16le) -> lock-free ring buffer -> the
-    /// boombox's audio filter (<see cref="BoomboxAudio"/>). The decoder thread is the only writer, the audio thread the
+    /// One track: the whole song downloaded in the best quality (<see cref="RadioCache"/>) -> ffmpeg (decode the file,
+    /// seek, stereo 32-bit float at the mixer's rate) -> lock-free ring buffer -> the boombox's audio filter
+    /// (<see cref="BoomboxAudio"/>). No streaming: until the file is there the track is loading
+    /// (<see cref="Downloading"/>, <see cref="DownloadProgress"/>). The decoder thread is the only writer, the audio thread the
     /// only reader, so nothing on the audio path ever waits for a lock (the old ring took a lock per sample, and the main
     /// thread polled the same lock every frame).
     /// <para>Timing: <see cref="DspAtZero"/> is the DSP time at which track position 0 is (or would have been) heard. The
@@ -20,7 +22,8 @@ namespace HideAndSeek.Game
         public const int Ch = 2;
         /// <summary>Decoded at the mixer's own rate (no resampling on the audio thread).</summary>
         private readonly int Rate, RingFrames;
-        private Process _yt, _ff;
+        private Process _ff;
+        private RadioDownload _dl;
         private readonly float[] _ring;
         private long _written, _readFrames; // frames, written by one thread each (Interlocked / Volatile)
         private volatile bool _eof, _disposed;
@@ -52,6 +55,10 @@ namespace HideAndSeek.Game
         /// <summary>True while the reader outputs the track (not waiting / paused / dry).</summary>
         public volatile bool Playing;
         public int Underruns;
+        /// <summary>The song's file is still being downloaded.</summary>
+        public bool Downloading => _dl != null && !_dl.Done && _dl.Error == null;
+        /// <summary>0..1 of the download (1 = in the cache).</summary>
+        public float DownloadProgress => _dl == null ? 0f : _dl.Done ? 1f : _dl.Progress;
 
         private RadioStream(float pos, int rate)
         {
@@ -70,9 +77,9 @@ namespace HideAndSeek.Game
                 return null;
             }
             int rate = AudioSettings.outputSampleRate > 0 ? AudioSettings.outputSampleRate : 48000;
-            var s = new RadioStream(pos, rate);
-            // Starting yt-dlp / ffmpeg can take a second (antivirus scan of the 18 MB yt-dlp.exe): never on the main
-            // thread, which also sends and receives the voice chat.
+            var s = new RadioStream(pos, rate) { _dl = RadioCache.Get(url, true) };
+            // Waiting for the file and starting ffmpeg: never on the main thread, which also sends and receives the
+            // voice chat.
             new Thread(() =>
             {
                 try { s.Launch(url); }
@@ -87,52 +94,36 @@ namespace HideAndSeek.Game
 
         private void Launch(string url)
         {
-            if (_disposed) return;
             var sw = Stopwatch.StartNew();
-            // --limit-rate: the download never floods the player's connection (the voice chat shares it); 400 kB/s is
-            // still 20x faster than the music plays.
-            var yt = RadioTools.Psi(RadioTools.YtDlp, "--no-warnings", "--no-playlist", "--no-part", "-q", "--limit-rate", "400K",
-                "-f", "bestaudio/best", "-o", "-", "--", url);
-            lock (_ring) _yt = Process.Start(yt);
-            var ff = RadioTools.Psi(RadioTools.Ffmpeg, "-loglevel", "error", "-i", "pipe:0", "-ss",
-                _startPos.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), "-vn", "-f", "s16le", "-ac", "2", "-ar", Rate.ToString(), "pipe:1");
-            ff.RedirectStandardInput = true;
+            while (!_disposed && !_dl.Done && _dl.Error == null) Thread.Sleep(30);
+            if (_disposed) return;
+            if (!_dl.Done)
+            {
+                Error = _dl.Error;
+                _eof = true;
+                return;
+            }
+            // -ss before -i: a fast, sample-exact seek in the file. f32le: no 16-bit rounding of the decoded song.
+            var ff = RadioTools.Psi(RadioTools.Ffmpeg, "-loglevel", "error", "-nostdin", "-ss",
+                _startPos.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), "-i", _dl.Path,
+                "-vn", "-f", "f32le", "-ac", "2", "-ar", Rate.ToString(), "pipe:1");
             lock (_ring) _ff = Process.Start(ff);
-            _yt.ErrorDataReceived += (_, e) =>
+            _ff.ErrorDataReceived += (_, e) =>
             {
                 if (string.IsNullOrEmpty(e.Data)) return;
-                Debug.Log("[Radio] yt-dlp: " + e.Data);
-                if (e.Data.Contains("ERROR")) Error = "yt-dlp: " + (e.Data.Length > 90 ? e.Data.Substring(0, 90) + "..." : e.Data);
+                Debug.Log("[Radio] ffmpeg: " + e.Data);
+                if (Interlocked.Read(ref _written) == 0) Error = "ffmpeg: " + (e.Data.Length > 90 ? e.Data.Substring(0, 90) + "..." : e.Data);
             };
-            _ff.ErrorDataReceived += (_, e) => { if (!string.IsNullOrEmpty(e.Data)) Debug.Log("[Radio] ffmpeg: " + e.Data); };
-            _yt.BeginErrorReadLine();
             _ff.BeginErrorReadLine();
-            // ffmpeg only decodes (light) - below normal so it never competes with the game; yt-dlp keeps normal priority,
-            // its page extraction is what the start of a track waits for.
+            // ffmpeg only decodes (light): below normal so it never competes with the game.
             try { _ff.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { /* exited */ }
             _launchWatch = sw;
-            Debug.Log($"[Radio] start {url} at {_startPos:0.0}s (processes up in {sw.ElapsedMilliseconds} ms)");
+            Debug.Log($"[Radio] start {url} at {_startPos:0.0}s from {System.IO.Path.GetFileName(_dl.Path)} (file ready after {sw.ElapsedMilliseconds} ms)");
             if (_disposed) { Kill(); return; }
-            new Thread(Pump) { IsBackground = true, Name = "RadioPump" }.Start();
             Decode();
         }
 
-        /// <summary>yt-dlp stdout -> ffmpeg stdin.</summary>
-        private void Pump()
-        {
-            var buf = new byte[32768];
-            try
-            {
-                var input = _yt.StandardOutput.BaseStream;
-                var output = _ff.StandardInput.BaseStream;
-                int n;
-                while (!_disposed && (n = input.Read(buf, 0, buf.Length)) > 0) output.Write(buf, 0, n);
-                output.Close();
-            }
-            catch (Exception) { /* killed / pipe closed */ }
-        }
-
-        /// <summary>ffmpeg stdout (s16le) -> ring buffer, a block at a time (waits while the ring is full).</summary>
+        /// <summary>ffmpeg stdout (f32le) -> ring buffer, a block at a time (waits while the ring is full).</summary>
         private void Decode()
         {
             var buf = new byte[16384];
@@ -145,7 +136,7 @@ namespace HideAndSeek.Game
                     int n = input.Read(buf, have, buf.Length - have);
                     if (n <= 0) break;
                     have += n;
-                    int frames = have / (2 * Ch);
+                    int frames = have / (4 * Ch);
                     int done = 0;
                     while (done < frames && !_disposed)
                     {
@@ -155,15 +146,18 @@ namespace HideAndSeek.Game
                         int take = Math.Min(free, frames - done);
                         for (int f = 0; f < take; f++)
                         {
-                            int src = (done + f) * 2 * Ch, dst = (int)((w + f) % RingFrames) * Ch;
+                            int src = (done + f) * 4 * Ch, dst = (int)((w + f) % RingFrames) * Ch;
                             for (int c = 0; c < Ch; c++)
-                                _ring[dst + c] = (short)(buf[src + 2 * c] | (buf[src + 2 * c + 1] << 8)) / 32768f;
+                            {
+                                float v = BitConverter.ToSingle(buf, src + 4 * c);
+                                _ring[dst + c] = float.IsNaN(v) ? 0f : v;
+                            }
                         }
                         done += take;
                         if (Interlocked.Add(ref _written, take) == take) // publish after the samples are in place
                             Debug.Log($"[Radio] first audio after {_launchWatch?.ElapsedMilliseconds ?? -1} ms");
                     }
-                    int used = frames * 2 * Ch;
+                    int used = frames * 4 * Ch;
                     have -= used;
                     if (have > 0) Buffer.BlockCopy(buf, used, buf, 0, have);
                 }
@@ -237,13 +231,10 @@ namespace HideAndSeek.Game
 
         private void Kill()
         {
-            Process yt, ff;
-            lock (_ring) { yt = _yt; ff = _ff; _yt = _ff = null; }
-            foreach (var p in new[] { yt, ff })
-            {
-                RadioTools.KillTree(p);
-                try { p?.Dispose(); } catch { /* gone */ }
-            }
+            Process ff;
+            lock (_ring) { ff = _ff; _ff = null; }
+            RadioTools.KillTree(ff);
+            try { ff?.Dispose(); } catch { /* gone */ }
         }
     }
 }

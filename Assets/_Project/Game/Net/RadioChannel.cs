@@ -68,7 +68,7 @@ namespace HideAndSeek.Game.Net
             }
         }
 
-        public float Position(in RadioState r) => r.Playing && !r.Loading ? (float)(Now - r.StartTime) : r.PausedAt;
+        public float Position(in RadioState r) => r.Loading ? r.LoadFrom : r.Playing ? (float)(Now - r.StartTime) : r.PausedAt;
 
         /// <summary>Client: asks the server for <paramref name="op"/> (through the local player).</summary>
         public void Request(NetPlayer me, RadioOp op, FixedString128Bytes url)
@@ -113,6 +113,8 @@ namespace HideAndSeek.Game.Net
                 case RadioOp.Prev:
                 {
                     int to = r.Index + (op == RadioOp.Next ? 1 : -1);
+                    // A loop (queue or one song) goes round: past the end to the first, before the first to the last.
+                    if (r.Loop != RadioLoop.Off && Queue.Count > 0) to = (to % Queue.Count + Queue.Count) % Queue.Count;
                     if (to < 0 || to >= Queue.Count)
                     {
                         if (op == RadioOp.Next) { r.Playing = false; r.Loading = false; r.PausedAt = 0f; r.Index = Queue.Count; r.Seq++; }
@@ -126,26 +128,97 @@ namespace HideAndSeek.Game.Net
                 case RadioOp.VolDown: r.Volume = (byte)Mathf.Max(0, r.Volume - 10); break;
                 case RadioOp.BassUp: r.Bass = (byte)Mathf.Min(100, r.Bass + 10); break;
                 case RadioOp.BassDown: r.Bass = (byte)Mathf.Max(0, r.Bass - 10); break;
+                case RadioOp.Loop:
+                    r.Loop = (byte)((r.Loop + 1) % 3);
+                    break;
+                case RadioOp.SetVolume:
+                    if (TryNumber(url, out int vol)) r.Volume = (byte)Mathf.Clamp(vol, 0, 100);
+                    break;
+                case RadioOp.SetBass:
+                    if (TryNumber(url, out int bass)) r.Bass = (byte)Mathf.Clamp(bass, 0, 100);
+                    break;
+                case RadioOp.Jump:
+                    if (!TryNumber(url, out int jump) || jump < 0 || jump >= Queue.Count) return;
+                    r.Index = jump;
+                    BeginLoad(ref r);
+                    break;
+                case RadioOp.Seek:
+                {
+                    // Everybody jumps to the same moment: a playing track loads again from there on every copy (from
+                    // the downloaded file: a moment) and starts together; a paused one just resumes from there.
+                    if (r.Index < 0 || r.Index >= Queue.Count || !float.TryParse((url ?? "").Trim(), System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out float to) || float.IsNaN(to)) return;
+                    to = Mathf.Clamp(to, 0f, 6f * 3600f);
+                    bool play = r.Playing;
+                    if (play)
+                    {
+                        BeginLoad(ref r);
+                        r.LoadFrom = to;
+                    }
+                    else
+                    {
+                        r.Seq++; // copies drop the stream buffered at the old place
+                        r.Loading = false;
+                        r.PausedAt = to;
+                    }
+                    break;
+                }
+                case RadioOp.Remove:
+                {
+                    if (!TryNumber(url, out int del) || del < 0 || del >= Queue.Count) return;
+                    Queue.RemoveAt(del);
+                    if (del < r.Index) r.Index--; // the same song keeps playing (copies key their stream on Seq + link)
+                    else if (del == r.Index)
+                    {
+                        if (r.Index >= Queue.Count && r.Loop != RadioLoop.Off && Queue.Count > 0) r.Index = 0;
+                        if (r.Index < Queue.Count) BeginLoad(ref r);
+                        else Stop(ref r);
+                    }
+                    break;
+                }
             }
             State.Value = r;
         }
 
-        /// <summary>The host's own player finished (or failed) the track with <paramref name="seq"/>: next one.</summary>
-        public void ServerEnded(int seq)
+        /// <summary>
+        /// The host's own player finished (or <paramref name="failed"/>) the track with <paramref name="seq"/>: the same
+        /// one again (loop one song), the next one, or the first again after the last (loop the queue).
+        /// </summary>
+        public void ServerEnded(int seq, bool failed = false)
         {
             if (_mm == null || !_mm.IsServer) return;
             var r = State.Value;
             if (r.Seq != seq || !r.Playing) return;
-            r.Index++;
-            if (r.Index < Queue.Count) BeginLoad(ref r);
+            if (r.Loop == RadioLoop.One && !failed)
+            {
+                BeginLoad(ref r);
+                Debug.Log($"{Tag} loop: song {r.Index + 1} again");
+            }
             else
             {
-                r.Seq++;
-                r.Playing = r.Loading = false;
-                r.PausedAt = 0f;
+                r.Index++;
+                bool wrap = r.Index >= Queue.Count && r.Loop != RadioLoop.Off && Queue.Count > 0 && !(failed && Queue.Count == 1);
+                if (wrap)
+                {
+                    r.Index = 0;
+                    Debug.Log($"{Tag} loop: back to the first song");
+                }
+                if (r.Index < Queue.Count) BeginLoad(ref r);
+                else Stop(ref r);
             }
             State.Value = r;
         }
+
+        /// <summary>Past the end of the queue: nothing plays (adding a link starts it).</summary>
+        private static void Stop(ref RadioState r)
+        {
+            r.Seq++;
+            r.Playing = r.Loading = false;
+            r.PausedAt = 0f;
+        }
+
+        private static bool TryNumber(string s, out int v) =>
+            int.TryParse((s ?? "").Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out v);
 
         /// <summary>Server: empty queue, default state (a new radio on the map).</summary>
         public void ServerReset()
@@ -179,6 +252,7 @@ namespace HideAndSeek.Game.Net
             r.Playing = _canPlay();
             r.Loading = true;
             r.PausedAt = 0f;
+            r.LoadFrom = 0f;
             r.StartTime = 0d;
             r.Ready = 0;
             r.Peers = (byte)Mathf.Min(255, _mm.NetworkManager.ConnectedClientsIds.Count);
@@ -242,7 +316,7 @@ namespace HideAndSeek.Game.Net
             bool go = hostReady && (ready >= peers || now - _hostReadyAt > MatchManager.RadioWaitAfterHost) || now - _loadSince > MatchManager.RadioWaitMax;
             if (!go) return;
             r.Loading = false;
-            r.StartTime = Now + MatchManager.RadioLead;
+            r.StartTime = Now + MatchManager.RadioLead - r.LoadFrom;
             State.Value = r;
             Debug.Log($"{Tag} start seq {r.Seq} together: {ready}/{peers} ready after {now - _loadSince:0.00}s");
         }

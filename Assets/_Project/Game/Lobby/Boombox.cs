@@ -10,8 +10,9 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// Lobby boombox on the crate by the exit door. E opens its panel (<c>Boombox.Panel.cs</c>): paste YouTube links into
-    /// the queue, play / pause, next / previous, volume, bass boost. Every copy streams the track itself (yt-dlp + ffmpeg,
-    /// <see cref="RadioStream"/>) and plays it through <see cref="BoomboxAudio"/>.
+    /// the queue, play / pause, next / previous, loop (queue / one song), volume, bass boost. Every copy downloads the
+    /// songs itself in the best quality (<see cref="RadioCache"/>; the whole queue ahead, in the background), decodes the
+    /// file (<see cref="RadioStream"/>) and plays it through <see cref="BoomboxAudio"/>.
     /// <para>Start of a track: the server marks it Loading, every copy buffers it from 0:00 and reports ready, then the
     /// server sets a common start a moment ahead and everybody starts from the beginning together
     /// (<c>MatchManager.Radio.cs</c>). A copy that is still loading joins at the current position.</para>
@@ -35,6 +36,7 @@ namespace HideAndSeek.Game
         private bool _endReported;
         private int _retries;
         private string _startError;
+        private float _prefetchAt;
 
         // ---- titles (each copy resolves them itself)
         private static readonly Dictionary<string, (string title, float duration)> Info = new();
@@ -86,15 +88,16 @@ namespace HideAndSeek.Game
             for (int i = 0; i < ch.Count; i++) ResolveInfo(ch.At(i));
 
             // New track: take the prefetched stream when it is this one, else start it. Pause keeps the stream (the
-            // reader just stops), so resuming is instant.
-            int key = url != null ? HashCode.Combine(r.Seq, r.Index) : -1;
+            // reader just stops), so resuming is instant. Keyed on the link, not the index: removing an earlier queue
+            // entry shifts the index of the song that keeps playing.
+            int key = url != null ? HashCode.Combine(r.Seq, url) : -1;
             if (key != _key)
             {
                 _key = key;
                 SetStream(null);
                 _endReported = false;
                 _retries = 0;
-                if (url != null && _next != null && _nextUrl == url && _next.Error == null && (r.Loading || !r.Playing))
+                if (url != null && _next != null && _nextUrl == url && _next.Error == null && (r.Loading || !r.Playing) && r.LoadFrom <= 0f && r.PausedAt <= 0f)
                 {
                     SetStream(_next);
                     _next = null;
@@ -140,14 +143,15 @@ namespace HideAndSeek.Game
                 else if ((_stream.Finished || failed) && !_endReported && r.Playing && !r.Loading && NetworkSessionIsServer())
                 {
                     _endReported = true;
-                    ch.ServerEnded(_streamSeq);
+                    ch.ServerEnded(_streamSeq, failed);
                 }
             }
             _status = StatusText(r, url);
             _src.volume = r.Volume / 100f * 0.9f * VolumeScale; // the level from before 22.11
 
-            // Prefetch the next entry (held at 0:00) so "next" / the end of a track switch at once.
-            string nextUrl = r.Index + 1 >= 0 && r.Index + 1 < ch.Count ? ch.At(r.Index + 1) : null;
+            // Prefetch the next entry (held at 0:00) so "next" / the end of a track switch at once: the same song when
+            // it loops, the first one after the last when the queue loops.
+            string nextUrl = NextUrl(ch, r, url);
             if (nextUrl != _nextUrl || (_next != null && _next.Error != null))
             {
                 _next?.Dispose();
@@ -155,14 +159,29 @@ namespace HideAndSeek.Game
                 _nextUrl = nextUrl;
                 if (nextUrl != null && RadioTools.YtDlp != null) _next = RadioStream.Start(nextUrl, 0f, out _);
             }
+            // The rest of the queue downloads in the background, one song at a time.
+            if (Time.unscaledTime >= _prefetchAt && RadioTools.YtDlp != null)
+            {
+                _prefetchAt = Time.unscaledTime + 1f;
+                for (int i = 0; i < ch.Count; i++) RadioCache.Get(ch.At(i), false);
+            }
             UpdateVisuals(r, url);
+        }
+
+        private static string NextUrl(RadioChannel ch, in RadioState r, string url)
+        {
+            if (url != null && r.Loop == RadioLoop.One) return url;
+            int n = r.Index + 1;
+            if (n >= ch.Count && r.Loop == RadioLoop.Queue) n = 0;
+            return n >= 0 && n < ch.Count ? ch.At(n) : null;
         }
 
         private string StatusText(in RadioState r, string url)
         {
-            if (url == null) return "Kolejka pusta";
+            if (url == null) return Channel != null && Channel.Count > 0 ? "Koniec kolejki - wybierz utwór albo dodaj nowy" : "Kolejka pusta";
             if (_stream == null && _startError != null) return _startError;
             if (_stream != null && _stream.Error != null) return _stream.Error;
+            if (_stream != null && _stream.Downloading && r.Playing) return _stream.DownloadProgress <= 0f ? "Przygotowanie pobierania..." : $"Pobieranie {_stream.DownloadProgress * 100f:0}%...";
             if (r.Loading) return r.Playing ? $"Ładowanie... (gotowi {r.Ready}/{Mathf.Max(1, (int)r.Peers)})" : "Pauza";
             if (!r.Playing) return "Pauza";
             if (_stream == null || !_stream.Playing) return "Ładowanie...";
@@ -191,7 +210,7 @@ namespace HideAndSeek.Game
         private void StartStream(MatchManager mm, RadioState r, string url)
         {
             // Loading: from the start. Already playing (joined late, retry): from where the clock is.
-            float pos = r.Loading ? 0f : Mathf.Max(0f, r.Playing ? (float)(mm.Now - r.StartTime) : r.PausedAt);
+            float pos = r.Loading ? r.LoadFrom : Mathf.Max(0f, r.Playing ? (float)(mm.Now - r.StartTime) : r.PausedAt);
             SetStream(RadioStream.Start(url, pos, out _startError));
             _streamSeq = r.Seq;
         }
@@ -254,7 +273,7 @@ namespace HideAndSeek.Game
                        $"ready={r.Ready}/{r.Peers} pos={pos:0.00} vol={r.Volume} bass={r.Bass} | stream={(_stream != null)} " +
                        $"playhead={(_stream?.Position ?? -1f):0.00} buffered={(_stream?.BufferedSeconds ?? 0f):0.0}s out={(_stream?.Playing ?? false)} " +
                        $"underruns={(_stream?.Underruns ?? 0)} level={(_out != null ? _out.Level : 0f):0.00} kick={(_out != null ? _out.Kick : 0f):0.00} " +
-                       $"err={_stream?.Error ?? "-"} status='{_status}'";
+                       $"loop={r.Loop} dl={(_stream != null ? _stream.DownloadProgress : -1f):0.00} err={_stream?.Error ?? "-"} status='{_status}'";
             }
         }
     }
