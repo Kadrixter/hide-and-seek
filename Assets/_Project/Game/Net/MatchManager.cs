@@ -306,6 +306,7 @@ namespace HideAndSeek.Game.Net
             GlockPhase.Value = false;
             ChainsawTaken.Value = false;
             SecurityCrates.Value = 0;
+            ResetEscape(); // escape objective back to "find the fuses" (MatchManager.Escape.cs)
             ResetRcCars();
             RollYarisEgg(); // easter egg: RC cars as blue Yarises this round (MatchManager.Yaris.cs)
             PrepareIntro();
