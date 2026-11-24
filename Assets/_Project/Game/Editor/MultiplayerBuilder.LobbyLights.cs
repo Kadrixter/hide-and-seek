@@ -175,7 +175,17 @@ namespace HideAndSeek.Game.Editor
         }
 
         private static Mesh LobbyMeshSaved(string key, System.Func<Mesh> make)
-            => AssetDatabase.LoadAssetAtPath<Mesh>($"{MeshDir}/{key}.asset") ?? SaveMesh(make(), key);
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<Mesh>($"{MeshDir}/{key}.asset");
+            return existing != null ? Repaired(existing) : SaveMesh(make(), key);
+        }
+
+        /// <summary>A mesh saved by an older build: zero normals (NaN pixels) repaired in place.</summary>
+        private static Mesh Repaired(Mesh m)
+        {
+            if (HideAndSeek.Core.MeshNormalFix.Repair(m) > 0) EditorUtility.SetDirty(m);
+            return m;
+        }
 
         private static void SideTable(Transform parent, Vector3 pos, Material darkWood)
         {

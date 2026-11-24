@@ -328,6 +328,7 @@ namespace HideAndSeek.Map.Editor
             for (int i = 0; i < _tris.Count; i++)
                 mesh.SetTriangles(_tris[i], i, false);
             mesh.RecalculateBounds();
+            HideAndSeek.Core.MeshNormalFix.Repair(mesh); // any zero normal left (tiny faces of other primitives)
             mesh.RecalculateTangents();
             mesh.UploadMeshData(false);
             return mesh;

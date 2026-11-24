@@ -273,6 +273,7 @@ namespace HideAndSeek.Characters
             m.subMeshCount = T.Length;
             for (int s = 0; s < T.Length; s++) m.SetTriangles(T[s], s);
             m.RecalculateBounds();
+            HideAndSeek.Core.MeshNormalFix.Repair(m); // zero normals of tiny faces (gauge needle, strap, lever) = NaN pixels
             return m;
         }
 
