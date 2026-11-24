@@ -85,11 +85,11 @@ namespace HideAndSeek.Game.UI
                 case MatchPhase.Hiding:
                     return me.IsHider && me.Life.Value == LifeState.Alive ? "hide" : null;
                 case MatchPhase.Seeking:
-                    if (me.Life.Value == LifeState.Dead) return "spectate";
+                    if (me.Life.Value == LifeState.Dead || me.Escaped.Value) return "spectate";
                     if (me.IsSeeker) return me.Held.Value == HeldItem.Glock ? "glock" : "seek";
                     return me.Life.Value == LifeState.Alive ? "dust" : null;
                 case MatchPhase.Ended:
-                    return me.Life.Value == LifeState.Dead ? "spectate" : null;
+                    return me.Life.Value == LifeState.Dead || me.Escaped.Value ? "spectate" : null;
                 default:
                     return null;
             }

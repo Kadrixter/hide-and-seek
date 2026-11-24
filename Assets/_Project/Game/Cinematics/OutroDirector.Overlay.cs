@@ -21,6 +21,18 @@ namespace HideAndSeek.Game.Cinematics
             _preFade.raycastTarget = false;
         }
 
+        /// <summary>Hiders' win with somebody out through the exit gate (Game/Escape): "Chowający uciekli! ..." (null = nobody escaped).</summary>
+        string EscapedSub()
+        {
+            int escaped = 0;
+            foreach (var p in HideAndSeek.Game.Net.NetPlayer.All)
+                if (p != null && p.IsHider && p.Escaped.Value && p.Life.Value != HideAndSeek.Core.LifeState.Dead) escaped++;
+            if (escaped == 0) return null;
+            int stayed = Mathf.Max(0, _pack.Survivors - escaped);
+            return stayed > 0 ? $"Chowający uciekli! Uciekło: {escaped} z {_pack.Hiders}, przetrwało na parkingu: {stayed}"
+                : $"Chowający uciekli! Uciekło: {escaped} z {_pack.Hiders}";
+        }
+
         void AttachOverlay()
         {
             var root = _cam.Overlay;
@@ -34,7 +46,7 @@ namespace HideAndSeek.Game.Cinematics
             _cam.Title.fontSize = 70;
             _cam.Sub.text = seekers
                 ? (_pack.Hiders > 0 ? $"Złapani wszyscy chowający ({_pack.Hiders})" : "Złapani wszyscy")
-                : $"Przetrwali do końca: {_pack.Survivors} z {_pack.Hiders}";
+                : EscapedSub() ?? $"Przetrwali do końca: {_pack.Survivors} z {_pack.Hiders}";
             _cam.Sub.color = seekers ? CineStyle.SeekerAccent : CineStyle.Accent;
 
             _dimmer = UiKit.Image("Dim", root, new Color(0f, 0f, 0f, 0f));
