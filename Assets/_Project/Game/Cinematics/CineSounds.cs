@@ -6,7 +6,7 @@ namespace HideAndSeek.Game.Cinematics
     /// <summary>
     /// Sounds of the round intro / outro. Recorded (ElevenLabs, Audio/Resources/Cinematics): the killer's laugh
     /// (two takes) and the shutter slam with the garage echo. Synthesised once at runtime: the low drone under the
-    /// intro, the lever clack with a spark, the rattle of the falling slats, the lamp buzz and the award card ticks;
+    /// intro, the lever clack with a spark, the handle tearing off (groan, crack, crackle), the rattle of the falling slats, the lamp buzz and the award card ticks;
     /// the outro breaker + tube hum is recorded too (outro_lights_on, synthesised fallback). Cinematic sounds are 2D (everybody watches the same shot).
     /// </summary>
     public static class CineSounds
@@ -14,14 +14,18 @@ namespace HideAndSeek.Game.Cinematics
         public const int Rate = 44100;
         /// <summary>Time of the impact inside intro_gate_slam.wav.</summary>
         public const float SlamHitInClip = 0.30f;
+        /// <summary>Time of the crack (the rod giving) inside the synthesised snap.</summary>
+        public const float SnapCrackInClip = 0.22f;
 
-        static AudioClip _drone, _clack, _rattle, _buzz, _breaker, _tick, _whoosh;
+        static AudioClip _drone, _clack, _snap, _rattle, _buzz, _breaker, _tick, _whoosh;
 
         public static AudioClip Laugh(int variant) =>
             Resources.Load<AudioClip>(variant % 2 == 0 ? "Cinematics/intro_laugh_a" : "Cinematics/intro_laugh_b");
         public static AudioClip Slam => Resources.Load<AudioClip>("Cinematics/intro_gate_slam");
         public static AudioClip Drone => _drone ??= Make("CineDrone", DroneData(9f));
         public static AudioClip Clack => _clack ??= Make("CineClack", ClackData());
+        /// <summary>The lever handle torn off: metal groaning under the yank, a sharp crack, the stub crackling.</summary>
+        public static AudioClip Snap => _snap ??= Make("CineSnap", SnapData());
         public static AudioClip Rattle => _rattle ??= Make("CineRattle", RattleData(1.05f));
         public static AudioClip Buzz => _buzz ??= Make("CineBuzz", BuzzData(0.5f));
         public static AudioClip Breaker => Resources.Load<AudioClip>("Cinematics/outro_lights_on") is AudioClip c ? c : _breaker ??= Make("CineBreaker", BreakerData());
@@ -92,6 +96,49 @@ namespace HideAndSeek.Game.Cinematics
                 bp2 += (bp - bp2) * 0.3f;
                 float crackle = (bp - bp2) * (Rnd() > 0.6f ? 1f : 0.15f) * Mathf.Exp(-(t - 0.02f) * 14f) * (t > 0.015f ? 1.6f : 0f);
                 d[i] = clack + knock + crackle;
+            }
+            return d;
+        }
+
+        static float[] SnapData()
+        {
+            const float crack = SnapCrackInClip;
+            var d = new float[(int)(0.9f * Rate)];
+            // Stick-slip groan of the bending rod (impulses, faster and faster) through two metal resonances.
+            var groan = new float[d.Length];
+            double next = 0.0;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)Rate;
+                if (t < crack && t >= next) { groan[i] = 1f; next = t + 1.0 / (45.0 + 300.0 * t + (Rnd() * 0.5 + 0.5) * 15.0); }
+            }
+            float y1 = 0f, y2 = 0f, z1 = 0f, z2 = 0f;
+            float c1 = 2f * 0.996f * Mathf.Cos(2f * Mathf.PI * 880f / Rate), r1 = 0.996f * 0.996f;
+            float c2 = 2f * 0.994f * Mathf.Cos(2f * Mathf.PI * 2350f / Rate), r2 = 0.994f * 0.994f;
+            float hp = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = i / (float)Rate;
+                float x = groan[i];
+                float a = x + c1 * y1 - r1 * y2; y2 = y1; y1 = a;
+                float b = x + c2 * z1 - r2 * z2; z2 = z1; z1 = b;
+                float swell = Mathf.Clamp01(t / crack) * (t < crack ? 1f : Mathf.Exp(-(t - crack) * 60f));
+                float g = (a * 0.08f + b * 0.06f) * swell;
+                // The crack: broadband burst, a bright inharmonic ring of the snapped rod, a low knock in the box.
+                float lt = t - crack;
+                float hit = 0f;
+                if (lt >= 0f)
+                {
+                    float n = Rnd();
+                    hp += (n - hp) * 0.7f;
+                    hit = (n - hp) * 1.6f * Mathf.Exp(-lt * 80f)
+                          + Mathf.Exp(-lt * 11f) * (Mathf.Sin(lt * 2f * Mathf.PI * 2930f) * 0.32f + Mathf.Sin(lt * 2f * Mathf.PI * 4170f) * 0.2f
+                                                     + Mathf.Sin(lt * 2f * Mathf.PI * 6340f) * 0.1f)
+                          + Mathf.Exp(-lt * 30f) * Mathf.Sin(lt * 2f * Mathf.PI * 175f) * 0.7f
+                          // Electric crackle from the stub, dying away.
+                          + (Rnd() > 0.994f ? Rnd() * 1.1f : 0f) * Mathf.Exp(-lt * 7f) * (lt > 0.03f ? 1f : 0f);
+                }
+                d[i] = g + hit;
             }
             return d;
         }

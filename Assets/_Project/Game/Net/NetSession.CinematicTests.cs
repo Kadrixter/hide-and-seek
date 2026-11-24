@@ -35,7 +35,7 @@ namespace HideAndSeek.Game.Net
             var d = IntroDirector.Current;
             Debug.Log($"[CineTest] intro director up, t={d.T:0.00}, killer={mm.IntroKiller.Value}, phaseEnd in {mm.PhaseEnd.Value - mm.Now:0.0} s");
             if (frames.Length > 0) { yield return Record(frames, "intro", () => IntroDirector.Current != null, true); yield break; }
-            float[] at = { 0.3f, 1.0f, 1.7f, 2.3f, 2.7f, 2.95f, 3.2f, 3.9f, 4.4f, 5.0f, 5.5f, 6.1f, 6.6f, 6.95f, 7.05f, 7.4f, 7.7f, 8.05f };
+            float[] at = { 0.3f, 1.0f, 1.7f, 2.3f, 2.7f, 2.95f, 3.15f, 3.28f, 3.45f, 3.7f, 4.2f, 4.7f, 5.2f, 5.6f, 6.1f, 6.6f, 6.95f, 7.05f, 7.4f, 7.7f, 8.05f };
             int k = 0;
             while (IntroDirector.Current != null && k < at.Length)
             {
