@@ -146,6 +146,7 @@ namespace HideAndSeek.Characters
             m.subMeshCount = _t.Length;
             for (int i = 0; i < _t.Length; i++) m.SetTriangles(_t[i], i, false);
             m.RecalculateBounds();
+            HideAndSeek.Core.MeshNormalFix.Repair(m); // tiny faces (badges, slots) must not keep zero normals
             m.UploadMeshData(false);
             return m;
         }

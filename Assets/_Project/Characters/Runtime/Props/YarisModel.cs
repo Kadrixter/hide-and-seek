@@ -5,10 +5,11 @@ using UnityEngine.Rendering;
 namespace HideAndSeek.Characters
 {
     /// <summary>
-    /// Easter egg body for the RC car: a toy Toyota Yaris 2010 "Luna" (XP90 facelift, 5-door hatchback) in light blue
-    /// metallic - round monoform body, tall roof, swept-back teardrop headlights, upper grille slot with the oval logo,
-    /// wide lower intake, vertical corner tail lamps, black B-pillars, fixed quarter glass at the A-pillar, body-colour
-    /// mirrors and pull handles, roof spoiler with the third brake light, roof antenna, 5-spoke alloys.
+    /// Easter egg body for the RC car: a toy Toyota Yaris 2010 "Luna" (XP90 facelift, 5-door hatchback) in dark blue
+    /// metallic - short "one-box" body (short steep hood, long raked windscreen starting at the front axle, tall arched
+    /// roof, wheels in the corners), big clear teardrop headlights swept up the fender, honeycomb upper grille with the
+    /// oval logo, PL plate, wide lower intake, tall corner tail lamps, black B-pillars, black mirror sail at the
+    /// A-pillar, body-colour mirrors and pull handles, roof spoiler with the third brake light, antenna, 15" wheel covers.
     /// <para>
     /// Same car space and footprint as the rally car (<see cref="BlockyProps.CreateRcCar"/>): origin on the ground
     /// between the axles, +Z forward, wheelbase 0.27 m; physics / collider are the RC car's. Everything but the root
@@ -33,8 +34,8 @@ namespace HideAndSeek.Characters
         internal const int MPaint = 0, MGlass = 1, MTrim = 2, MUnder = 3, MChrome = 4, MHead = 5, MTail = 6, MAmber = 7,
             MClear = 8, MPlate = 9, MInk = 10, MTyre = 11, MRim = 12, MSeam = 13, MEu = 14, Slots = 15;
 
-        /// <summary>Toyota light blue metallic (close to the "Blue" 8T5 / sky blue shade of the Luna ads).</summary>
-        public static readonly Color PaintColor = new Color(0.3f, 0.56f, 0.9f);
+        /// <summary>Toyota dark blue metallic (the navy-blue Luna of the reference ads).</summary>
+        public static readonly Color PaintColor = new Color(0.1f, 0.19f, 0.47f);
 
         static Mesh _body, _wheelR, _wheelL, _antenna;
         static Material[] _mats;
@@ -113,9 +114,8 @@ namespace HideAndSeek.Characters
             if (band == RGB || band == RGM)
             {
                 if (z > ZCowl) return MPaint;                    // hood crown
-                if (z > ZQuarterF) return MPaint;                // A-pillar base / mirror sail
-                if (z > ZQuarterR) return MGlass;                // fixed quarter glass
-                if (z > ZFrontGlassF) return MTrim;              // divider bar
+                if (z > ZSailF) return MPaint;                   // A-pillar base
+                if (z > ZFrontGlassF) return MTrim;              // black mirror sail
                 if (z > ZBpF) return MGlass;                     // front door window
                 if (z > ZBpR) return MTrim;                      // black B-pillar
                 if (z > ZRearGlassR) return MGlass;              // rear door window
@@ -138,12 +138,12 @@ namespace HideAndSeek.Characters
             {
                 if (_mats != null && _mats[0] != null) return _mats;
                 _mats = new Material[Slots];
-                _mats[MPaint] = Mat("YarisPaint", PaintColor, 0.82f, 0.2f);
-                _mats[MGlass] = Mat("YarisGlass", new Color(0.045f, 0.06f, 0.075f), 0.94f, 0.1f);
+                _mats[MPaint] = Mat("YarisPaint", PaintColor, 0.86f, 0.38f);
+                _mats[MGlass] = Mat("YarisGlass", new Color(0.07f, 0.085f, 0.1f), 0.96f, 0.25f);
                 _mats[MTrim] = Mat("YarisTrim", new Color(0.035f, 0.035f, 0.04f), 0.4f, 0f);
                 _mats[MUnder] = Mat("YarisUnder", new Color(0.03f, 0.03f, 0.033f), 0.15f, 0f);
                 _mats[MChrome] = Mat("YarisChrome", new Color(0.86f, 0.88f, 0.9f), 0.88f, 0.55f);
-                _mats[MHead] = Mat("YarisHeadLens", new Color(0.8f, 0.83f, 0.86f), 0.92f, 0.25f, new Color(0.06f, 0.06f, 0.065f));
+                _mats[MHead] = Mat("YarisHeadLens", new Color(0.74f, 0.77f, 0.8f), 0.95f, 0.6f, new Color(0.05f, 0.05f, 0.055f));
                 _mats[MTail] = Mat("YarisTail", new Color(0.72f, 0.04f, 0.035f), 0.9f, 0f, new Color(0.22f, 0.01f, 0.01f));
                 _mats[MAmber] = Mat("YarisAmber", new Color(1f, 0.52f, 0.06f), 0.9f, 0f, new Color(0.12f, 0.05f, 0f));
                 _mats[MClear] = Mat("YarisClear", new Color(0.9f, 0.9f, 0.92f), 0.92f, 0.1f);
