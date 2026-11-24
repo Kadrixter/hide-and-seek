@@ -16,9 +16,9 @@ namespace HideAndSeek.Characters
     public static partial class RallyModel
     {
         // Material slots (sub-mesh index = slot).
-        internal const int MPaint = 0, MBlue = 1, MRed = 2, MGlass = 3, MTrim = 4, MUnder = 5, MChrome = 6, MHead = 7, MTail = 8,
+        public const int MPaint = 0, MBlue = 1, MRed = 2, MGlass = 3, MTrim = 4, MUnder = 5, MChrome = 6, MHead = 7, MTail = 8,
             MTyre = 9, MRim = 10, MInk = 11, MDisc = 12, MCabin = 13, MCage = 14, MSeat = 15, MSuit = 16, MHelmet = 17, MVisor = 18,
-            MGauge = 19, Slots = 20;
+            MGauge = 19, MAmber = 20, MRev = 21, Slots = 22;
 
         public static readonly Color PaintColor = new Color(0.93f, 0.94f, 0.95f);
         public static readonly Color BlueColor = new Color(0.06f, 0.2f, 0.62f);
@@ -40,6 +40,7 @@ namespace HideAndSeek.Characters
             var m = new YarisMesh(Slots);
             loft.Emit(m, BodySlot, MTrim, MTrim);
             AddDetails(m, loft);
+            AddLamps(m, loft); // RallyModel.Lamps.cs
             AddCabin(m, loft);
             _body = m.ToMesh("Rally_Body");
             _wheelR = BuildWheel(1f);
@@ -66,7 +67,7 @@ namespace HideAndSeek.Characters
             }
             if (band == RGT) return MPaint;                      // roof rail, pillars in body colour
             if (z < ZCowlF && z > ZCowl) return MTrim;           // cowl panel
-            if (z <= ZCowl && z >= ZRoofF) return MGlass;        // windscreen
+            if (z <= ZCowl && z >= ZRoofF) return z < ZRoofF + 0.013f ? MBlue : MGlass; // windscreen, blue sun strip on top
             if (z <= ZRoofR - 0.006f && z >= ZHatchB + 0.004f && band >= RRE) return MGlass; // hatch glass
             if (band == RRM) return z > ZF - 0.012f ? MPaint : MBlue; // centre stripe
             return MPaint;
@@ -100,6 +101,8 @@ namespace HideAndSeek.Characters
                 _mats[MHelmet] = Mat("RallyHelmet", new Color(0.95f, 0.95f, 0.95f), 0.8f, 0.05f);
                 _mats[MVisor] = Mat("RallyVisor", new Color(0.05f, 0.06f, 0.1f), 0.95f, 0.4f);
                 _mats[MGauge] = Mat("RallyGauge", new Color(0.05f, 0.14f, 0.1f), 0.7f, 0f, new Color(0.03f, 0.16f, 0.09f));
+                _mats[MAmber] = Mat("RallyAmber", new Color(0.95f, 0.5f, 0.05f), 0.92f, 0f, new Color(0.22f, 0.1f, 0.01f));
+                _mats[MRev] = Mat("RallyReverse", new Color(0.9f, 0.9f, 0.92f), 0.95f, 0.2f, new Color(0.05f, 0.05f, 0.05f));
                 return _mats;
             }
         }
@@ -181,6 +184,9 @@ namespace HideAndSeek.Characters
             }, seg, MRim, Vector3.zero, side);
             m.Lathe(new[] { new Vector2(hw - 0.004f, 0.024f), new Vector2(-hw + 0.002f, 0.024f) }, seg, MRim, Vector3.zero, side, false);
             m.Lathe(new[] { new Vector2(-0.002f, 0.0235f), new Vector2(-0.002f, 0.004f) }, seg, MUnder, Vector3.zero, side, false);
+            // Drilled brake disc behind the spokes (seen between them).
+            m.Lathe(new[] { new Vector2(0.0015f, 0.0205f), new Vector2(0.0015f, 0.008f) }, seg, MChrome, Vector3.zero, side, false);
+            m.Lathe(new[] { new Vector2(-0.0015f, 0.008f), new Vector2(-0.0015f, 0.0205f) }, seg, MChrome, Vector3.zero, side, false);
             for (int k = 0; k < 5; k++)
             {
                 var rot = Quaternion.Euler(k * 72f + 18f, 0f, 0f);
