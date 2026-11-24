@@ -54,7 +54,8 @@ namespace HideAndSeek.Game
         private void Update()
         {
             string text = Compose(out bool arrow, out Vector3 target, out Color color);
-            bool show = !string.IsNullOrEmpty(text) && !HideAndSeek.Game.Cinematics.HudHider.Active;
+            bool show = !string.IsNullOrEmpty(text) && !HideAndSeek.Game.Cinematics.HudHider.Active
+                && !HideAndSeek.Game.DotLink.DotLinkLocal.Active; // solving the panel: the row would cover the puzzle's top row
             if (_row.gameObject.activeSelf != show) _row.gameObject.SetActive(show);
             LineText = show ? text : "";
             if (!show) return;
