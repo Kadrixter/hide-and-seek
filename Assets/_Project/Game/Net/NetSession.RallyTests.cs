@@ -84,6 +84,30 @@ namespace HideAndSeek.Game.Net
             Vector3 body = me.transform.position;
             RallyCheck(Minimap.FollowsCar && Vector3.Distance(car.transform.position, body) > 0.5f, $"minimap follows the car (car {Vector3.Distance(car.transform.position, body):0.0} m from the player)");
 
+            // ---- lights (RcCarLights): the test lamps off, driving (low beams + pod), braking, reversing
+            foreach (var tl in FindObjectsByType<Light>(FindObjectsSortMode.None))
+                if (tl != null && tl.name == "TestLight") tl.enabled = false;
+            Quaternion R() => Quaternion.Euler(0f, car.Yaw, 0f);
+            Vector3 C() => car.transform.position + Vector3.up * 0.08f;
+            LocalPlayerController.TestRcInput = new Vector2(0f, 0.22f);
+            yield return new WaitForSeconds(0.7f);
+            CamShot(dir, "lights_front", C() + R() * new Vector3(0.28f, 0.13f, 0.75f), C() + R() * new Vector3(0f, 0f, 0.1f));
+            CamShot(dir, "lights_beam", C() + R() * new Vector3(0.5f, 0.55f, -0.9f), C() + R() * new Vector3(0f, -0.08f, 1.6f));
+            LocalPlayerController.TestRcInput = new Vector2(0f, -1f);
+            yield return new WaitForSeconds(0.12f);
+            CamShot(dir, "lights_brake", C() + R() * new Vector3(-0.3f, 0.14f, -0.75f), C());
+            yield return new WaitForSeconds(0.9f);
+            CamShot(dir, "lights_reverse", C() + R() * new Vector3(-0.3f, 0.14f, -0.75f), C());
+            LocalPlayerController.TestRcInput = new Vector2(0f, 0.22f);
+            yield return new WaitForSeconds(0.5f);
+            LocalPlayerController.TestRcInput = Vector2.zero;
+            yield return new WaitForSeconds(0.8f);
+            foreach (var tl in FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (tl != null && tl.name == "TestLight") tl.enabled = true;
+            CamShot(dir, "detail_front", C() + R() * new Vector3(0.16f, 0.06f, 0.42f), C() + R() * new Vector3(0f, 0f, 0.15f));
+            CamShot(dir, "detail_rear", C() + R() * new Vector3(-0.16f, 0.07f, -0.42f), C() + R() * new Vector3(0f, 0f, -0.15f));
+            CamShot(dir, "detail_side", C() + R() * new Vector3(0.42f, 0.05f, 0.02f), C());
+
             // ---- a medkit on the roof does not block the view
             Vector3 Fwd() => Quaternion.Euler(0f, car.Yaw, 0f) * Vector3.forward;
             Vector3 at = car.transform.position + Fwd() * 1.3f;

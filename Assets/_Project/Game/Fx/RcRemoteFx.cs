@@ -19,8 +19,8 @@ namespace HideAndSeek.Game
         public static RcRemoteFx Instance { get; private set; }
 
         private readonly GameObject[] _wrecks = new GameObject[RcCar.Count];
-        private readonly float[] _landAt = { -1f, -1f };
-        private readonly float[] _seen = { -1f, -1f };
+        private readonly float[] _landAt = { -1f, -1f, -1f, -1f };
+        private readonly float[] _seen = { -1f, -1f, -1f, -1f };
 
         public static void Ensure()
         {

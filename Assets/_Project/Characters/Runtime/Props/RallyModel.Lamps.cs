@@ -3,7 +3,7 @@ using UnityEngine;
 namespace HideAndSeek.Characters
 {
     /// <summary>
-    /// Rally car lamps and small outside details (2026-11-24): headlamp housings with a chrome projector, amber
+    /// Rally car lamps and small outside details (2026-11-24): headlamp housings, amber
     /// indicators and side repeaters, fog lamps and the number plate in the front bumper, tail lamp housings, reversing
     /// lamps and the rear plate, a third brake light on the roof, wipers, door handles and the fuel cap. The lamp
     /// lenses have their own material slots (<see cref="MHead"/>, <see cref="MTail"/>, <see cref="MRev"/>,
@@ -14,19 +14,18 @@ namespace HideAndSeek.Characters
         /// <summary>Where the light sources sit (car space) - for the runtime lights.</summary>
         public static readonly Vector3 HeadlightPos = new Vector3(0f, 0.088f, 0.25f);
         public static readonly Vector3 PodPos = new Vector3(0f, 0.118f, 0.216f);
-        public static readonly Vector3 TailPos = new Vector3(0f, 0.09f, -0.245f);
+        public static readonly Vector3 TailPos = new Vector3(0f, 0.035f, -0.3f); // low behind the car: lights the floor, not the plate
 
         static void AddLamps(YarisMesh m, YarisLoft loft)
         {
             var I = Quaternion.identity;
 
-            // ---- headlamps: black housing round the lens, chrome projector in the middle
+            // ---- headlamps: a thin black housing round the lens
             for (int s = -1; s <= 1; s += 2)
             {
                 Side(loft, 0.231f, 0.0885f, RLow, RGM, s, out var hp, out var hn);
                 var hr = Quaternion.LookRotation(hn, Vector3.up);
-                m.Ellipsoid(hp + hn * 0.0002f, new Vector3(0.0198f, 0.0098f, 0.0024f), hr, MTrim, 14, 6);
-                m.Ellipsoid(hp + hn * 0.0006f, new Vector3(0.0052f, 0.0052f, 0.0036f), hr, MChrome, 12, 6);
+                m.Ellipsoid(hp + hn * 0.0002f, new Vector3(0.0186f, 0.0088f, 0.0024f), hr, MTrim, 14, 6);
                 // Amber indicator behind the lamp, on the corner.
                 Side(loft, 0.207f, 0.086f, RLow, RGM, s, out var ip, out var inn);
                 m.Ellipsoid(ip + inn * 0.0004f, new Vector3(0.0062f, 0.0036f, 0.0018f), Quaternion.LookRotation(inn, Vector3.up), MAmber, 10, 5);
