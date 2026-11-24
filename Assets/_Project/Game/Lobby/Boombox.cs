@@ -147,7 +147,10 @@ namespace HideAndSeek.Game
                 }
             }
             _status = StatusText(r, url);
-            _src.volume = r.Volume / 100f * 0.9f * VolumeScale; // the level from before 22.11
+            // The level from before 22.11, times the player's own "Muzyka, radio i tło" setting (client side only: 0 = the
+            // radio is muted for this player, the default 70 % = unchanged, more = louder up to the radio's own max).
+            float music = Mathf.Clamp01(HideAndSeek.Audio.GameAudio.MusicVolume / 0.7f);
+            _src.volume = r.Volume / 100f * 0.9f * VolumeScale * music;
 
             // Prefetch the next entry (held at 0:00) so "next" / the end of a track switch at once: the same song when
             // it loops, the first one after the last when the queue loops.

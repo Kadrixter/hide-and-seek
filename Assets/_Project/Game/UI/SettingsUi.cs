@@ -73,7 +73,7 @@ namespace HideAndSeek.Game.UI
             Row(parent, "Broń (nóż, glock)", 0f, 1f, LocalProfile.WeaponVolume, v => LocalProfile.WeaponVolume = v, Pct);
             Row(parent, "Krzyki i oddech", 0f, 1f, LocalProfile.VoiceVolume, v => LocalProfile.VoiceVolume = v, Pct);
             Row(parent, "Otoczenie (wentylacja, kapanie, lampy)", 0f, 1.5f, LocalProfile.AmbientVolume, v => LocalProfile.AmbientVolume = v, Pct);
-            Row(parent, "Muzyka i tło", 0f, 1f, LocalProfile.MusicVolume, v => LocalProfile.MusicVolume = v, Pct);
+            Row(parent, "Muzyka, radio i tło", 0f, 1f, LocalProfile.MusicVolume, v => LocalProfile.MusicVolume = v, Pct);
             Row(parent, "Interfejs", 0f, 1f, LocalProfile.UiVolume, v => LocalProfile.UiVolume = v, Pct);
 
             UiStyle.Switch("Occlusion", parent, "Tłumienie dźwięku za ścianami", () => LocalProfile.Occlusion, v => LocalProfile.Occlusion = v).Height(54);
