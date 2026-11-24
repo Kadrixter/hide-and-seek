@@ -1,3 +1,4 @@
+using HideAndSeek.Core;
 using UnityEngine;
 
 namespace HideAndSeek.Game.Net
