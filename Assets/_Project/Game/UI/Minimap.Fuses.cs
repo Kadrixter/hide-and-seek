@@ -14,7 +14,7 @@ namespace HideAndSeek.Game
     /// </summary>
     public partial class Minimap
     {
-        public const float FuseRange = 10f;
+        public const float FuseRange = 30f;
         private readonly List<Image> _fuseMarks = new();
         private static readonly Dictionary<int, Sprite> BoxSprites = new();
         private static Sprite _fuseSprite;
