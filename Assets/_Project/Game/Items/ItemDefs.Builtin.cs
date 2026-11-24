@@ -161,6 +161,7 @@ namespace HideAndSeek.Game
                 Hand = Grips.Phone,
             };
             yield return SeveredLegDef(); // ItemDefs.Leg.cs
+            yield return WireDef(); // ItemDefs.Wire.cs
         }
 
         private static PromptKind Prompt => LocalPlayerController.Instance != null ? LocalPlayerController.Instance.Prompt : PromptKind.None;

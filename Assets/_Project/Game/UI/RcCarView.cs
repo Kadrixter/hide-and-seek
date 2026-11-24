@@ -114,7 +114,7 @@ namespace HideAndSeek.Game
             if (_me == null || _car == null) return 1f;
             Vector3 d = _car.transform.position - _me.transform.position;
             d.y *= 2f; // floors in between hurt the signal
-            return Mathf.Clamp01(1f - d.magnitude / Tuning.RcRange);
+            return Mathf.Clamp01(1f - d.magnitude / MatchManager.RcRangeOf(_car.Index)); // wire antenna: MatchManager.RcWire
         }
 
         private void OnGUI()
