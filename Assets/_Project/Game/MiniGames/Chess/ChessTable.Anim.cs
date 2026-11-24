@@ -16,6 +16,8 @@ namespace HideAndSeek.Game.MiniGames
         // Castling: after the king the hand moves over to the rook (0.25 s) and carries it (0.5 s).
         const float TRook0 = TSet + 0.05f, TRookGrip = TRook0 + 0.25f, TRook1 = TRookGrip + 0.5f;
         const float FistAbove = 0.05f;
+        /// <summary>Overall tempo of every chess animation (hand carry, captured hop, board turn): 1.2x (2026-11-24).</summary>
+        public const float AnimSpeed = 1.2f;
 
         sealed class MoveAnim
         {
@@ -59,7 +61,7 @@ namespace HideAndSeek.Game.MiniGames
             for (int i = _hops.Count - 1; i >= 0; i--)
             {
                 var h = _hops[i];
-                h.time += dt / 0.45f;
+                h.time += dt * AnimSpeed / 0.45f;
                 if (h.t == null) { _hops.RemoveAt(i); continue; }
                 float k = Mathf.Clamp01(h.time);
                 h.t.localPosition = Vector3.Lerp(h.from, h.to, Mathf.SmoothStep(0f, 1f, k)) + Vector3.up * Mathf.Sin(k * Mathf.PI) * 0.09f;
@@ -73,7 +75,7 @@ namespace HideAndSeek.Game.MiniGames
                 _queue.RemoveAt(0);
                 Begin(_cur);
             }
-            float speed = _queue.Count > 0 ? 2.5f : 1f;
+            float speed = (_queue.Count > 0 ? 2.5f : 1f) * AnimSpeed;
             var a = _cur;
             a.T += dt * speed;
             Vector3 from = Sq(a.Move.From), to = Sq(a.Move.To);
