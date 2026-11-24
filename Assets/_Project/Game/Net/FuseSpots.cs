@@ -12,11 +12,12 @@ namespace HideAndSeek.Game.Net
     ///   rays (all hits at one depth, facing out: no pilaster, door, pipe or opening), the room in front of it is empty
     ///   (no car, rack or pallet within ~1 m, floor under the stand point), not in a ramp / stair opening, not at the
     ///   exit gate; one random good spot per level, the three far apart;
-    /// - a fuse lies on the floor 5-13 m from a random hider spawn of its level (<see cref="ItemPlacement"/>: inside the
+    /// - a fuse lies on a driving lane of its level (<see cref="RoadSpot"/>: aisles between the bays, cross aisles at the
+    ///   ends; hundreds of checked spots per level), else on the floor 5-13 m from a random hider spawn of its level (<see cref="ItemPlacement"/>: inside the
     ///   walls, on the level's floor, free, a player can stand there), preferably next to something (a car, a wall, a
     ///   column - "hidden but findable"), far from the other fuses and the boxes.
     /// </summary>
-    public static class FuseSpots
+    public static partial class FuseSpots
     {
         public struct Wall
         {
@@ -123,6 +124,9 @@ namespace HideAndSeek.Game.Net
         /// <summary>Floor spot of a fuse on <paramref name="level"/>, away from <paramref name="avoid"/> (other fuses) and the boxes.</summary>
         public static Vector3? FuseSpot(int level, System.Random rnd, List<Vector3> avoid, List<Vector3> boxes)
         {
+            // First choice: anywhere on the level's driving lanes (FuseSpots.Road.cs); the old spawn-based search is the fallback.
+            var road = RoadSpot(level, rnd, avoid, boxes);
+            if (road != null) return road;
             var spawns = SpawnPoints.Hider();
             var mine = spawns.FindAll(t => t != null && MapInfo.LevelOf(t.position.y) == level);
             if (mine.Count == 0) mine = spawns;
