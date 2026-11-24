@@ -49,6 +49,7 @@ namespace HideAndSeek.Game.Net
         SecurityChair,  // E on a swivel chair in a security room
         WirePull,       // E hold at a wire-mesh fence / cage: tear a piece of wire off (LocalPlayerController.RcWire.cs)
         AntennaSwap,    // U with the RC transmitter in the hands and a wire in the inventory
+        DotLink,        // E at the dot link panel in the exit-gate box (hiders, escape stage DotLink; LocalPlayerController.DotLink.cs)
     }
 
     /// <summary>
@@ -325,6 +326,9 @@ namespace HideAndSeek.Game.Net
 
             // ---- lobby chess / tic-tac-toe table: seated = the mouse belongs to the board (LocalPlayerController.MiniGames.cs)
             if (MiniGameTick(kb, mouse)) { CancelHold(); return; }
+
+            // ---- dot link panel at the exit gate: the mouse belongs to the screen (LocalPlayerController.DotLink.cs)
+            if (DotLinkTick()) { CancelHold(); return; }
 
             // ---- swivel chair in a security room
             if (ChairTick(kb)) { CancelHold(); return; }
@@ -718,6 +722,7 @@ namespace HideAndSeek.Game.Net
             // Wire-mesh fences / cages: a piece of wire (hiders); U over the transmitter in the hands (LocalPlayerController.RcWire.cs).
             if (TryWirePrompt(eye, fwd, phase, out var wPos, out string wText, out float wD)) Offer(PromptKind.WirePull, wPos, wText, wD);
             if (TryAntennaPrompt(out var aPos, out string aText, out float aD)) Offer(PromptKind.AntennaSwap, aPos, aText, aD);
+            if (TryDotLinkPrompt(eye, fwd, out var dlPos, out string dlText, out float dlD)) Offer(PromptKind.DotLink, dlPos, dlText, dlD); // exit-gate panel
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -1119,6 +1124,9 @@ namespace HideAndSeek.Game.Net
                 case PromptKind.WirePull:
                     if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) WirePromptE();
                     TestPressE = false;
+                    break;
+                case PromptKind.DotLink:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) DotLinkPromptE();
                     break;
             }
 
