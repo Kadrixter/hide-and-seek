@@ -47,7 +47,7 @@ namespace HideAndSeek.Game
         private float _netYaw, _netSpeed, _remoteSince;
         private AudioSource _motor, _hornSrc;
         private float _motorBase = 1f;
-        private Light _headlight;
+        private RcCarLights _lights; // headlights, light pod, tail / brake / reversing glow (RcCarLights.cs)
         private Renderer[] _renderers;
         private bool _crushed;
         private Vector3 _staticPos;
@@ -140,18 +140,7 @@ namespace HideAndSeek.Game
 
         private void BuildHeadlight()
         {
-            var lg = new GameObject("Headlights");
-            lg.transform.SetParent(Parts.Root, false);
-            lg.transform.localPosition = new Vector3(0f, 0.09f, 0.26f);
-            lg.transform.localRotation = Quaternion.Euler(6f, 0f, 0f);
-            _headlight = lg.AddComponent<Light>();
-            _headlight.type = LightType.Spot;
-            _headlight.spotAngle = 78f;
-            _headlight.range = 7f;
-            _headlight.intensity = 1.7f;
-            _headlight.color = new Color(1f, 0.93f, 0.75f);
-            _headlight.shadows = LightShadows.None;
-            _headlight.enabled = false;
+            _lights = RcCarLights.Build(Parts);
         }
 
         private void SetVisible(bool on)
@@ -464,11 +453,7 @@ namespace HideAndSeek.Game
             }
 
             UpdateAudio(moving);
-            if (_headlight != null)
-            {
-                bool lit = moving && Lights;
-                if (_headlight.enabled != lit) _headlight.enabled = lit;
-            }
+            _lights?.Tick(moving, Lights, Speed, Throttle);
         }
 
         private void UpdateAudio(bool moving)
@@ -508,7 +493,7 @@ namespace HideAndSeek.Game
             View = ViewMode.Wreck;
             Speed = 0f;
             StopAudio();
-            if (_headlight != null) _headlight.enabled = false;
+            _lights?.Off();
             Vector3 c = transform.position + Vector3.up * 0.08f;
             GameAudio.PlayAt(GameSfx.RcCrush, c, 1f);
 
@@ -620,7 +605,7 @@ namespace HideAndSeek.Game
             View = ViewMode.Wreck;
             Speed = 0f;
             StopAudio();
-            if (_headlight != null) _headlight.enabled = false;
+            _lights?.Off();
             Vector3 c = transform.position + Vector3.up * 0.1f;
             GameAudio.PlayAt(GameSfx.RcCrush, c, 0.9f);
             GameAudio.PlayAt(GameSfx.BulletImpact, c, 1f);
