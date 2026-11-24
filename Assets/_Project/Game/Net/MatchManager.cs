@@ -234,6 +234,7 @@ namespace HideAndSeek.Game.Net
             if (s.Mode >= GameModes.All.Length) s.Mode = 0;
             s.Laps = (byte)Mathf.Clamp(s.Laps == 0 ? 3 : s.Laps, 1, 10);
             s.Seekers = (byte)Mathf.Clamp(s.SeekerCount, 1, MaxSeekersSetting);
+            s.SawUse = (byte)Mathf.Clamp(s.SawUse < 1 ? 1 : s.SawUse, SawFuel.UseMin, SawFuel.UseMax);
             Settings.Value = s;
         }
 
@@ -480,6 +481,8 @@ namespace HideAndSeek.Game.Net
             foreach (int id in remove) _medkitViews.Remove(id);
         }
 
+        private System.Action _stepSawFuel;
+
         private void Update()
         {
             // The way back to the lobby first: nothing below (a broken effect, a missing scene object) may hold it up.
@@ -500,6 +503,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepPhones ??= UpdatePhones, "phones");
             Step(_stepPa ??= UpdatePa, "public address");
             Step(_stepExt ??= UpdateExtinguishers, "extinguishers");
+            if (IsServer) Step(_stepSawFuel ??= UpdateSawFuel, "saw fuel"); // chainsaw fuel (MatchManager.SawFuel.cs)
             Step(_stepMiniGames ??= UpdateMiniGames, "mini games"); // lobby chess / tic-tac-toe (MatchManager.MiniGames.cs)
             Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
             Step(_stepCinematics ??= UpdateCinematics, "cinematics");
@@ -733,6 +737,7 @@ namespace HideAndSeek.Game.Net
         {
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (!seeker.HasChainsaw.Value || seeker.Held.Value != HeldItem.Chainsaw) return;
+            if (seeker.SawFuel.Value <= 0f) return; // out of fuel (MatchManager.SawFuel.cs)
             if (seeker.Busy.Value || victim.Busy.Value) return;
             if (Now < seeker.AttackReadyAt.Value || seeker.CannotAttack) return; // cooldown; blinded / gooed / knocked out (NetPlayer.AttackBlock)
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.ChainsawServerRange) return;
@@ -808,6 +813,7 @@ namespace HideAndSeek.Game.Net
             if (!Inventory.HasRoomFor(pl, HotbarItem.Chainsaw)) { pl.ToastRpc(Inventory.FullText, 2.5f); return; }
             ChainsawTaken.Value = true;
             pl.HasChainsaw.Value = true;
+            SetSawFuel(pl, SawFuel.Full); // a full saw from the shelf
             pl.Held.Value = HeldItem.Chainsaw;
             pl.SfxRpc(GameSfx.ChainsawStart, 1f);
             pl.ToastRpc("Masz piłę! F (przytrzymaj) - odpal i wejdź w chowającego. 1-5 - zmiana broni, Q - wyrzuć.", 6f);

@@ -77,6 +77,10 @@ namespace HideAndSeek.Game.Net
         public byte VoiceMode;       // voice chat: 0 = classic, 1 = low latency (Voice.VoiceMode)
         public ushort VoiceDelayMs;  // voice jitter buffer: classic = start, low latency = target (0 = mode default)
         public bool NoSaw;           // the chainsaw is not on its shelf this round (host option in the lobby)
+        public byte SawUse;          // chainsaw fuel used per second of holding F (0 = default 1; SawFuel.Full in a saw)
+
+        /// <summary>Fuel units per second of holding F.</summary>
+        public float SawUseRate => SawUse < 1 ? 1f : SawUse;
 
         /// <summary>Wanted number of seekers (at least 1); the lever refuses a start when it leaves no hider.</summary>
         public int SeekerCount => Seekers < 1 ? 1 : Seekers;
@@ -117,13 +121,14 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref VoiceMode);
             s.SerializeValue(ref VoiceDelayMs);
             s.SerializeValue(ref NoSaw);
+            s.SerializeValue(ref SawUse);
         }
 
         public bool Equals(NetSettings o) => HideTime == o.HideTime && SeekTime == o.SeekTime && HintStart == o.HintStart &&
                                              HintInterval == o.HintInterval && HintMode == o.HintMode && Glock == o.Glock &&
                                              Medkits == o.Medkits && BleedOut == o.BleedOut && Syringes == o.Syringes && Mode == o.Mode && Laps == o.Laps &&
                                              SeekerTakesItems == o.SeekerTakesItems && Seekers == o.Seekers &&
-                                             VoiceMode == o.VoiceMode && VoiceDelayMs == o.VoiceDelayMs && NoSaw == o.NoSaw;
+                                             VoiceMode == o.VoiceMode && VoiceDelayMs == o.VoiceDelayMs && NoSaw == o.NoSaw && SawUse == o.SawUse;
     }
 
     public struct MedkitState : INetworkSerializable, IEquatable<MedkitState>

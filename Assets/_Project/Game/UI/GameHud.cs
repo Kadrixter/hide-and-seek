@@ -771,7 +771,7 @@ namespace HideAndSeek.Game
             var mm = MatchManager.Instance;
             if (mm == null) return;
             bool host = NetworkManager.Singleton.IsServer;
-            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 1060 + 58 + 54 + VoiceModeRow.Height));
+            _settingsPanel = MenuPanel("RoundSettings", new Vector2(760, 1060 + 58 + 54 + 58 + VoiceModeRow.Height));
             var panel = _settingsPanel.Find("Panel");
             var s = mm.Settings.Value;
             UiKit.Label("Title", panel, "USTAWIENIA RUNDY", 40, TextAnchor.MiddleCenter, null, FontStyle.Bold).Height(56);
@@ -919,9 +919,20 @@ namespace HideAndSeek.Game
             syr.Height(30);
             syrL.text = $"Strzykawki z adrenaliną: {s.Syringes}";
 
+            var sawUseL = Row("");
+            string SawUseText(float v) => $"Zużycie piły: {v:0} / s  (pełna piła = {SawFuel.Full:0}, czyli {SawFuel.Full / Mathf.Max(1f, v):0.#} s gazu)";
+            var sawUse = UiKit.Slider("SawUse", panel, SawFuel.UseMin, SawFuel.UseMax, s.SawUseRate, true, v =>
+            {
+                s.SawUse = (byte)v;
+                sawUseL.text = SawUseText(v);
+                Push();
+            });
+            sawUse.Height(30);
+            sawUseL.text = SawUseText(s.SawUseRate);
+
             VoiceModeRow.Build(panel, () => s, host ? (m, ms) => { s.VoiceMode = m; s.VoiceDelayMs = ms; Push(); } : null);
 
-            foreach (var sl in new[] { hide, seek, hs, hi, med, bleed, syr }) sl.interactable = host;
+            foreach (var sl in new[] { hide, seek, hs, hi, med, bleed, syr, sawUse }) sl.interactable = host;
             modeB.interactable = host;
             glockB.interactable = host;
             takeB.interactable = host;
