@@ -6,13 +6,15 @@ namespace HideAndSeek.Game.Cinematics
     public sealed partial class IntroDirector
     {
         /// <summary>Where the laugh is filmed from: low, in front of the killer, towards the garage.</summary>
-        Vector3 LaughCamPos => _gate.Local(new Vector3(ExitGate.BoxPos.x + 0.75f, 0.52f, 2.55f));
+        Vector3 LaughCamPos => _gate.Local(new Vector3(ExitGate.BoxPos.x + 0.75f, 0.7f, 3.15f));
+
+        /// <summary>The killer's right fist (world), where the torn handle is.</summary>
+        Vector3 FistWorld => _killer.Body.ElbowRight.TransformPoint(HideAndSeek.Characters.CharacterPose.HandLocal);
 
         void UpdateCamera(float t)
         {
             Vector3 pos, look;
             float fov;
-            float kx = ExitGate.BoxPos.x;
             if (t < IntroTimeline.ShotB)
             {
                 // A: wide, from the garage: the open gate with the street light, the killer by the box. Slow push in.
@@ -23,23 +25,29 @@ namespace HideAndSeek.Game.Cinematics
             }
             else if (t < IntroTimeline.ShotC)
             {
-                // B: close on the hand and the small lever, from the killer's left, a slow creep in.
-                float k = Mathf.Clamp01((t - IntroTimeline.ShotB) / (IntroTimeline.ShotC - IntroTimeline.ShotB));
-                // Low, from the side of the lever, looking up a little: the hand comes into the frame from above.
-                // From the killer's left, between him and the wall: the lever in profile, his hand coming in.
-                pos = _gate.Local(Vector3.Lerp(new Vector3(kx + 1.08f, 1.2f, 0.44f), new Vector3(kx + 0.92f, 1.18f, 0.42f), k));
-                Vector3 knob = _gate.KnobWorld;
-                look = Vector3.Lerp(_gate.Local(new Vector3(kx - 0.05f, 1.18f, 0.12f)), knob, 0.55f);
-                fov = 42f;
+                // B: along the wall from beyond the box (the side away from the killer): the lever and his arm in
+                // profile (elbow dropped, not towards the lens), the grip, the yank down, forced past the stop - the
+                // handle tears off (sparks from the stub) - then a step back and up to hold the fist with the handle
+                // and his face turned to it.
+                float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - IntroTimeline.ShotB) / (IntroTimeline.Snap - IntroTimeline.ShotB)));
+                float after = CineKit.S(t, IntroTimeline.Snap + 0.02f, IntroTimeline.ShotC);
+                float lx = ExitGate.BoxPos.x + ExitGate.LeverPivotInBox.x;
+                Vector3 head = _killer.Body.Head.position;
+                Vector3 pivot = _gate.Local(new Vector3(lx, ExitGate.BoxPos.y + ExitGate.LeverPivotInBox.y, ExitGate.LeverPivotInBox.z));
+                pos = _gate.Local(Vector3.Lerp(new Vector3(lx - 1.3f, 1.42f, 0.52f), new Vector3(lx - 1.15f, 1.4f, 0.5f), k));
+                pos = Vector3.Lerp(pos, _gate.Local(new Vector3(lx - 1.5f, 1.55f, 0.8f)), after);
+                look = Vector3.Lerp(pivot, head, 0.3f);
+                look = Vector3.Lerp(look, Vector3.Lerp(FistWorld, head, 0.45f), after);
+                fov = Mathf.Lerp(42f, 44f, after);
             }
             else if (t < IntroTimeline.ShotD)
             {
-                // C: low angle on the laugh, pushing in a little.
+                // C: low angle on the laugh, the torn handle raised in his fist in the frame, pushing in a little.
                 float k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - IntroTimeline.ShotC) / (IntroTimeline.ShotD - IntroTimeline.ShotC)));
                 Vector3 head = _killer.Body.Head.position + Vector3.up * 0.05f;
-                pos = Vector3.Lerp(LaughCamPos, Vector3.Lerp(LaughCamPos, head, 0.22f), k);
-                look = head + Vector3.down * 0.12f;
-                fov = Mathf.Lerp(42f, 38f, k);
+                pos = Vector3.Lerp(LaughCamPos, Vector3.Lerp(LaughCamPos, head, 0.12f), k);
+                look = Vector3.Lerp(head + Vector3.down * 0.2f, FistWorld, 0.3f);
+                fov = Mathf.Lerp(46f, 42f, k);
             }
             else
             {
@@ -71,7 +79,14 @@ namespace HideAndSeek.Game.Cinematics
             // Key follows the shot (from the camera side, aimed at the killer); dark after the cut to the gate.
             Vector3 chest = _killer.transform.position + Vector3.up * 1.3f;
             Vector3 keyFrom = t < IntroTimeline.ShotC ? _gate.Local(new Vector3(ExitGate.BoxPos.x + 1.6f, 2.4f, 2.6f)) : LaughCamPos + Vector3.up * 1.6f;
-            _key.transform.SetPositionAndRotation(keyFrom, Quaternion.LookRotation(chest - keyFrom));
+            Vector3 keyAt = chest;
+            if (t >= IntroTimeline.ShotB && t < IntroTimeline.ShotC)
+            {
+                // Shot B is filmed from beyond the box: light the lever, the fist and the face from that side.
+                keyFrom = _gate.Local(new Vector3(ExitGate.BoxPos.x - 0.9f, 2.3f, 1.5f));
+                keyAt = Vector3.Lerp(_gate.KnobWorld, chest, 0.5f);
+            }
+            _key.transform.SetPositionAndRotation(keyFrom, Quaternion.LookRotation(keyAt - keyFrom));
             _key.intensity = t < IntroTimeline.ShotD ? (t < IntroTimeline.ShotC ? 1.4f : 1.8f) : 0.5f;
             _fill.transform.position = chest + _gate.LocalDir(new Vector3(-0.8f, 0.4f, 1.4f));
             // The overhead flickers after the slam.
@@ -88,11 +103,10 @@ namespace HideAndSeek.Game.Cinematics
         {
             bool At(float x) => from < x && to >= x && to - x < 0.5f;
             if (At(0f)) Snd(CineSounds.Drone, 0.5f, 0f);
-            if (At(IntroTimeline.PullEnd))
-            {
-                Snd(CineSounds.Clack, 0.95f, IntroTimeline.PullEnd);
-                LeverSparks.Burst(_gate.KnobWorld + _gate.LocalDir(Vector3.down) * 0.1f, _gate.LocalDir(Vector3.forward));
-            }
+            if (At(IntroTimeline.PullEnd)) Snd(CineSounds.Clack, 0.95f, IntroTimeline.PullEnd);
+            // The handle tears off: groan, crack, the stub spits sparks.
+            if (At(IntroTimeline.Snap - CineSounds.SnapCrackInClip)) Snd(CineSounds.Snap, 1f, IntroTimeline.Snap - CineSounds.SnapCrackInClip);
+            if (At(IntroTimeline.Snap)) StubSnapFx.Play(_gate.StubWorld, _gate.LocalDir(new Vector3(-0.55f, 0.35f, 0.75f)));
             if (At(IntroTimeline.LaughStart)) Snd(CineSounds.Laugh(_laughVariant), 1f, IntroTimeline.LaughStart);
             if (At(IntroTimeline.DropStart)) Snd(CineSounds.Rattle, 0.7f, IntroTimeline.DropStart);
             if (At(IntroTimeline.Impact - CineSounds.SlamHitInClip)) Snd(CineSounds.Slam, 1f, IntroTimeline.Impact - CineSounds.SlamHitInClip);

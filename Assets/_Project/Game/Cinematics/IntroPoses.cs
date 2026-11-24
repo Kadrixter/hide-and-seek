@@ -4,9 +4,10 @@ using UnityEngine;
 namespace HideAndSeek.Game.Cinematics
 {
     /// <summary>
-    /// Hand-made full-body poses of the intro killer, blended over the idle + knife-hold pose of the puppet:
-    /// the left hand reaching for the small lever, gripping and yanking it down (IK on the knob, which moves with the
-    /// lever), and the laugh (chuckle, head thrown back, shoulders shaking in time with the "ha"s, knife hand up).
+    /// Hand-made full-body poses of the intro killer, blended over the idle pose of the puppet: the right hand
+    /// reaching for the small lever, gripping and yanking it down (IK on the knob, which moves with the lever), the
+    /// harder yank that tears the handle off (recoil, he looks at it in his fist), and the laugh (chuckle, head thrown
+    /// back, shoulders shaking in time with the "ha"s, the torn handle raised and shaken in the right hand).
     /// All positions in character-root space (+Z forward, +X right, feet at 0).
     /// </summary>
     public static class IntroPoses
@@ -14,38 +15,56 @@ namespace HideAndSeek.Game.Cinematics
         static float S(float t, float a, float b) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, t));
 
         /// <summary>
-        /// Lever pull. <paramref name="t"/> = intro time, <paramref name="knob"/> = knob centre (root space, live),
-        /// <paramref name="rest"/> = where the left hand was before the reach.
+        /// Lever pull with the right hand and the handle torn off. <paramref name="t"/> = intro time,
+        /// <paramref name="knob"/> = knob centre (root space, live, moves with the lever until the snap),
+        /// <paramref name="snapKnob"/> = where the knob was when it tore off (root space).
         /// </summary>
-        public static CharacterPose Lever(in CharacterPose cur, float t, Vector3 knob)
+        public static CharacterPose Lever(in CharacterPose cur, float t, Vector3 knob, Vector3 snapKnob)
         {
             var p = cur;
             float reach = S(t, IntroTimeline.Reach, IntroTimeline.Grip);
-            float release = S(t, IntroTimeline.Release, IntroTimeline.Release + 0.35f);
             float pull = S(t, IntroTimeline.PullStart, IntroTimeline.PullEnd);
-            float jolt = t > IntroTimeline.PullEnd ? Mathf.Exp(-(t - IntroTimeline.PullEnd) * 9f) : 0f;
-            float engage = reach * (1f - release);
+            float force = S(t, IntroTimeline.PullEnd + 0.04f, IntroTimeline.Snap);
+            bool torn = t >= IntroTimeline.Snap;
+            float jolt = torn ? Mathf.Exp(-(t - IntroTimeline.Snap) * 9f) : 0f;
+            // After the snap the fist comes up in front of the right shoulder: he looks at what is in it.
+            float show = S(t, IntroTimeline.Snap + 0.04f, IntroTimeline.Snap + 0.38f);
+            float down = (pull + 0.6f * force) * (1f - show);
+            float shake = (Mathf.Sin(t * 47f) * 0.6f + Mathf.Sin(t * 31f) * 0.4f) * force * (1f - show);
 
-            // Lean in towards the box, a little twist to the left, the left shoulder drops on the pull.
-            p.Torso = cur.Torso * Quaternion.Euler(8f * engage + 6f * pull * (1f - release) + 3f * jolt, 10f * engage, -5f * pull * (1f - release));
-            p.Pelvis = cur.Pelvis * Quaternion.Euler(2f * engage, 4f * engage, 0f);
-            p.PelvisPos = cur.PelvisPos + new Vector3(-0.02f, -0.025f * pull * (1f - release) - 0.012f * jolt, 0.02f) * Mathf.Max(engage, 0.0001f);
+            // Lean in towards the box, a little twist to the right, the right shoulder drops on the pull; the body
+            // jerks back on the snap.
+            p.Torso = cur.Torso * Quaternion.Euler(8f * reach + 6f * down + 1.2f * shake - 12f * jolt, -10f * reach * (1f - show), 5f * down);
+            p.Pelvis = cur.Pelvis * Quaternion.Euler(2f * reach, -4f * reach * (1f - show), 0f);
+            p.PelvisPos = cur.PelvisPos + new Vector3(0.02f * reach, -0.025f * down - 0.012f * jolt, 0.02f * reach - 0.05f * jolt);
 
             // Fist on the knob (slightly behind it, the knob sits in the curled fingers).
-            Vector3 rest = cur.HandPos(1);
-            Vector3 grip = knob + new Vector3(-0.012f, 0.012f, -0.035f);
-            Vector3 hand = Vector3.Lerp(rest, grip, reach);
-            // Wind-up before the grip: the hand comes from a little higher (a deliberate, theatrical reach).
-            hand += new Vector3(0f, 0.06f, -0.02f) * Mathf.Sin(reach * Mathf.PI) * (1f - pull);
-            hand = Vector3.Lerp(hand, rest, release);
-            p.SolveArm(1, hand, new Vector3(-0.9f, -0.5f, -0.35f));
+            Vector3 rest = cur.HandPos(0);
+            Vector3 hand;
+            if (!torn)
+            {
+                Vector3 grip = knob + new Vector3(0.012f, 0.012f, -0.035f);
+                hand = Vector3.Lerp(rest, grip, reach);
+                // Wind-up before the grip: the hand comes from a little higher (a deliberate, theatrical reach).
+                hand += new Vector3(0f, 0.06f, -0.02f) * Mathf.Sin(reach * Mathf.PI) * (1f - pull);
+                hand += new Vector3(0f, 0.006f, 0f) * shake;
+            }
+            else
+            {
+                Vector3 from = snapKnob + new Vector3(0.012f, 0.012f, -0.035f);
+                Vector3 held = p.TorsoPoint(new Vector3(0.3f, 0.7f, 0.28f)) + new Vector3(0f, 0.012f * Mathf.Sin(t * 6.5f), 0.008f * Mathf.Sin(t * 4.1f)) * show;
+                // Recoil (the arm flies back and out when the rod gives), then up in front of the face.
+                hand = Vector3.Lerp(from, held, show) + new Vector3(0.12f, 0.06f, -0.14f) * Mathf.Sin(Mathf.Clamp01((t - IntroTimeline.Snap) / 0.3f) * Mathf.PI);
+            }
+            p.SolveArm(0, hand, new Vector3(0.12f, -1f, -0.15f)); // elbow straight down (pulls downwards), the arm in profile
 
-            // Head looks at the knob, then up at the gate on the jolt.
+            // Head looks at the knob, then at the torn handle in the fist.
             Vector3 neck = p.TorsoPoint(BlockyCharacter.NeckRest) + Vector3.up * 0.2f;
-            Vector3 look = Vector3.Lerp(neck + Vector3.forward, knob, engage) - neck;
-            float down = -Mathf.Atan2(look.y, Mathf.Max(0.05f, new Vector2(look.x, look.z).magnitude)) * Mathf.Rad2Deg;
+            Vector3 target = torn ? Vector3.Lerp(knob, hand, show) : knob;
+            Vector3 look = Vector3.Lerp(neck + Vector3.forward, target, reach) - neck;
+            float pitch = -Mathf.Atan2(look.y, Mathf.Max(0.05f, new Vector2(look.x, look.z).magnitude)) * Mathf.Rad2Deg;
             float side = Mathf.Atan2(look.x, Mathf.Max(0.05f, look.z)) * Mathf.Rad2Deg;
-            p.Head = Quaternion.Euler(Mathf.Clamp(down * engage - 8f * jolt, -40f, 50f), Mathf.Clamp(side * engage, -60f, 60f), 0f);
+            p.Head = Quaternion.Euler(Mathf.Clamp(pitch * reach - 10f * jolt, -40f, 50f), Mathf.Clamp(side * reach, -60f, 60f), 6f * show);
             return p;
         }
 
@@ -75,12 +94,14 @@ namespace HideAndSeek.Game.Cinematics
             float headPitch = Mathf.Lerp(14f, -32f, big) * body - 7f * bounce;
             p.Head = Quaternion.Euler(headPitch, 6f * Mathf.Sin(t * 2.1f) * body, 4f * Mathf.Sin(t * 3.3f) * big);
 
-            // Left hand on the belly (rising with each "ha"), right (knife) hand lifted out to the side.
+            // Left hand on the belly (rising with each "ha"), the right hand with the torn handle lifted out to the
+            // side like a trophy and shaken on the "ha"s.
             Vector3 belly = p.TorsoPoint(new Vector3(-0.02f, 0.2f, 0.17f)) + Vector3.up * 0.02f * bounce;
             p.SolveArm(1, Vector3.Lerp(cur.HandPos(1), belly, S(t, IntroTimeline.LaughStart, IntroTimeline.LaughStart + 0.4f) * body),
                 new Vector3(-1f, -0.4f, 0.2f));
-            Vector3 knifeUp = p.TorsoPoint(new Vector3(0.52f, 0.5f + 0.1f * big, 0.3f)) + Vector3.up * 0.03f * bounce;
-            Vector3 rhand = Vector3.Lerp(cur.HandPos(0), knifeUp, body * Mathf.Lerp(0.55f, 1f, big));
+            Vector3 trophy = p.TorsoPoint(new Vector3(0.42f, 0.56f + 0.1f * big, 0.3f)) + Vector3.up * 0.06f * bounce
+                + new Vector3(0.035f * Mathf.Sin(t * 19f), 0f, 0.02f * Mathf.Sin(t * 13f)) * big;
+            Vector3 rhand = Vector3.Lerp(cur.HandPos(0), trophy, body * Mathf.Lerp(0.7f, 1f, big));
             p.SolveArm(0, rhand, new Vector3(1f, -0.5f, -0.4f));
             return p;
         }

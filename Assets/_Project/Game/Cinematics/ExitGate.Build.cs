@@ -104,18 +104,37 @@ namespace HideAndSeek.Game.Cinematics
             for (float y = 0.55f; y < 1.7f; y += 0.55f)
                 CineKit.Box("Clip", t, new Vector3(0.06f, h * 0.5f + y, 0.03f), new Vector3(0.05f, 0.02f, 0.05f), _dark, 0.004f);
 
-            // The small lever on the left edge of the front (the killer's left hand): a bracket, the pivot, a chrome
-            // rod and a red ball, thrown from up-and-out to down-and-out.
-            Vector3 pv = new Vector3(w * 0.5f - 0.035f, -0.05f, d + 0.03f);
+            // The small lever on the left edge of the front (the killer stands to its left, right hand on it): a
+            // bracket, the pivot, a chrome rod and a red ball, thrown from up-and-out to down-and-out (and torn off).
+            Vector3 pv = LeverPivotInBox;
             CineKit.Box("LeverPlate", t, new Vector3(pv.x, pv.y, d + 0.006f), new Vector3(0.05f, 0.16f, 0.012f), _dark, 0.004f);
             CineKit.Box("LeverBracket", t, new Vector3(pv.x, pv.y, d + 0.02f), new Vector3(0.036f, 0.04f, 0.026f), _steel, 0.004f);
             _leverPivot = CineKit.Node("LeverPivot", t, pv);
             CineKit.Cyl("Axle", _leverPivot, Vector3.zero, 0.02f, 0.05f, 0, _chrome);
-            CineKit.Cyl("Rod", _leverPivot, new Vector3(0f, 0.065f, 0f), 0.012f, 0.13f, 1, _chrome);
+            _rod = CineKit.Cyl("Rod", _leverPivot, new Vector3(0f, 0.065f, 0f), 0.012f, 0.13f, 1, _chrome);
             _knob = CineKit.Sphere("Knob", _leverPivot, new Vector3(0f, 0.135f, 0f), 0.034f, _knobRed);
+            // What is left after the killer tears the handle off in the intro: a short stub with a bent, torn end.
+            _stub = CineKit.Node("Stub", _leverPivot, Vector3.zero);
+            CineKit.Cyl("StubRod", _stub, new Vector3(0f, 0.017f, 0f), 0.012f, 0.034f, 1, _chrome);
+            CineKit.Box("StubTear", _stub, new Vector3(0.002f, 0.036f, 0.001f), new Vector3(0.014f, 0.01f, 0.012f), _dark, 0.002f,
+                Quaternion.Euler(24f, 0f, -18f));
             // Up / down marks next to the lever.
             CineKit.Box("MarkUp", t, new Vector3(pv.x + 0.032f, pv.y + 0.07f, d + 0.0085f), new Vector3(0.012f, 0.012f, 0.002f), _lampMat, 0.001f);
             CineKit.Box("MarkDown", t, new Vector3(pv.x + 0.032f, pv.y - 0.07f, d + 0.0085f), new Vector3(0.012f, 0.012f, 0.002f), _knobRed, 0.001f);
+        }
+
+        /// <summary>
+        /// The torn-off handle (rod with the red ball, ragged end) as a loose prop under <paramref name="parent"/>:
+        /// the ball at the origin, the rod along local +Z.
+        /// </summary>
+        public Transform MakeLooseHandle(Transform parent)
+        {
+            var h = CineKit.Node("TornHandle", parent, Vector3.zero);
+            CineKit.Sphere("Knob", h, Vector3.zero, 0.034f, _knobRed);
+            CineKit.Cyl("Rod", h, new Vector3(0f, 0f, 0.065f), 0.012f, 0.13f, 2, _chrome);
+            CineKit.Box("Tear", h, new Vector3(0.001f, -0.001f, 0.132f), new Vector3(0.015f, 0.012f, 0.012f), _dark, 0.002f,
+                Quaternion.Euler(-20f, 30f, 0f));
+            return h;
         }
 
         void BuildStreet()
