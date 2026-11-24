@@ -20,8 +20,17 @@ namespace HideAndSeek.Game
         /// <summary>Tempo of the squash when no music file is present or its tempo cannot be detected.</summary>
         public const float Bpm = 120f;
 
-        /// <summary>Detect the tempo (and the first beat) from the music file's loudness envelope.</summary>
-        public const bool DetectBpm = true;
+        /// <summary>
+        /// Detect the tempo (and the first beat) from the music file's loudness envelope. Off: the clip is compressed in
+        /// memory (Vorbis, no PCM to analyse) and its grid is known - see <see cref="MusicBpm"/>.
+        /// </summary>
+        public const bool DetectBpm = false;
+
+        /// <summary>
+        /// Grid of YarisDealer.mp3 (Niko B - "Why's this dealer", 129.6 s): 135 BPM, first kick at 0.12 s (measured
+        /// offline: kick on every beat, snare on 2 and 4; the in-game detector gives 134.9 / 0.11).
+        /// </summary>
+        public const float MusicBpm = 135f, MusicFirstBeat = 0.12f;
 
         /// <summary>Music file: Assets/_Project/Game/Resources/Audio/YarisDealer.(mp3|ogg|wav).</summary>
         public const string MusicResource = "Audio/YarisDealer";

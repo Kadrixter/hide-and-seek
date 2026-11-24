@@ -11,45 +11,51 @@ namespace HideAndSeek.Characters
     /// </summary>
     public static partial class YarisModel
     {
-        // ---- key stations (z)
-        internal const float ZF = 0.2235f, ZR = -0.1935f;
-        internal const float ZCowlF = 0.112f, ZCowl = 0.104f, ZRoofF = 0.012f, ZRoofR = -0.150f, ZHatchB = -0.180f;
-        internal const float ZQuarterF = 0.092f, ZQuarterR = 0.072f;           // small fixed glass at the A-pillar base
-        internal const float ZFrontGlassF = 0.068f, ZBpF = -0.004f, ZBpR = -0.016f, ZRearGlassR = -0.098f, ZCGlassF = -0.106f, ZCGlassR = -0.128f;
+        // ---- key stations (z). Real XP90: 3.75 m long, 2.46 m wheelbase, front overhang ~0.78 m, rear ~0.51 m;
+        // short sloping hood, windscreen base right above the front axle, tall arched roof, near-vertical tailgate.
+        internal const float ZF = 0.2235f, ZR = -0.1885f;
+        internal const float ZCowlF = 0.142f, ZCowl = 0.135f, ZRoofF = 0.022f, ZRoofR = -0.154f, ZHatchB = -0.179f;
+        internal const float ZSailF = 0.127f;                                   // black mirror sail at the A-pillar base
+        internal const float ZFrontGlassF = 0.104f, ZBpF = -0.008f, ZBpR = -0.021f, ZRearGlassR = -0.104f, ZCGlassF = -0.110f, ZCGlassR = -0.137f;
 
         // ---- wheels / arches
         internal const float WheelR = 0.036f, WheelW = 0.026f, TrackX = 0.0785f;
-        internal const float AxleF = 0.14f, AxleR = -0.13f, ArchR = 0.042f;
+        internal const float AxleF = 0.14f, AxleR = -0.13f, ArchR = 0.0425f;
 
         // ---- ring indices of a half section
         internal const int RBC = 0, RWI = 1, RWT = 2, RLip = 3, RRk = 4, RLow = 5, RMax = 6, RSh = 7, RGB = 8, RGM = 9, RGT = 10, RRE = 11, RRM = 12, RC = 13;
 
         static readonly Vector2[] KW =
         {
-            new(ZR, 0.074f), new(-0.191f, 0.0835f), new(-0.186f, 0.0885f), new(-0.175f, 0.0918f), new(-0.12f, 0.0932f),
-            new(0.0f, 0.094f), new(0.1f, 0.0935f), new(0.16f, 0.0915f), new(0.19f, 0.0878f), new(0.2f, 0.0842f),
-            new(0.21f, 0.0775f), new(0.217f, 0.0688f), new(ZF, 0.055f),
+            new(ZR, 0.075f), new(-0.1865f, 0.0835f), new(-0.182f, 0.0888f), new(-0.172f, 0.0922f), new(-0.12f, 0.0935f),
+            new(0.0f, 0.094f), new(0.1f, 0.0937f), new(0.16f, 0.092f), new(0.188f, 0.0885f), new(0.2f, 0.0848f),
+            new(0.21f, 0.0782f), new(0.2175f, 0.0692f), new(0.2215f, 0.0612f), new(ZF, 0.0545f),
         };
         static readonly Vector2[] KBot =
         {
-            new(ZR, 0.029f), new(-0.188f, 0.0245f), new(-0.17f, 0.0215f), new(0.17f, 0.021f), new(0.212f, 0.0235f), new(ZF, 0.0275f),
+            new(ZR, 0.034f), new(-0.185f, 0.0265f), new(-0.168f, 0.0218f), new(0.17f, 0.0215f), new(0.208f, 0.0232f),
+            new(0.219f, 0.0252f), new(ZF, 0.0275f),
         };
         static readonly Vector2[] KBelt =
         {
-            new(ZR, 0.103f), new(-0.186f, 0.1105f), new(-0.14f, 0.1115f), new(-0.06f, 0.1095f), new(0.03f, 0.1065f),
-            new(ZCowl, 0.1025f), new(0.15f, 0.0945f), new(0.19f, 0.0855f), new(0.205f, 0.0785f), new(0.215f, 0.0715f), new(ZF, 0.063f),
+            new(ZR, 0.0965f), new(-0.1865f, 0.1015f), new(-0.179f, 0.1055f), new(-0.17f, 0.1085f), new(-0.155f, 0.111f),
+            new(-0.135f, 0.1122f), new(-0.108f, 0.1115f), new(-0.05f, 0.1098f), new(0.02f, 0.1078f), new(0.09f, 0.1066f), new(ZCowl, 0.1054f),
+            new(0.15f, 0.1038f), new(0.17f, 0.1018f), new(0.19f, 0.0988f), new(0.205f, 0.0955f), new(0.214f, 0.0925f),
+            new(0.22f, 0.0897f), new(ZF, 0.0875f),
         };
         static readonly Vector2[] KRoof =
         {
-            new(ZR, 0.1075f), new(-0.191f, 0.1115f), new(ZHatchB, 0.1185f), new(-0.168f, 0.1385f), new(-0.158f, 0.1525f),
-            new(ZRoofR, 0.1595f), new(-0.13f, 0.1655f), new(-0.07f, 0.1685f), new(-0.02f, 0.1675f), new(ZRoofF, 0.1635f),
-            new(0.04f, 0.151f), new(0.075f, 0.1325f), new(ZCowl, 0.1155f), new(ZCowlF, 0.1105f), new(0.14f, 0.1035f),
-            new(0.18f, 0.0965f), new(0.2f, 0.0905f), new(0.212f, 0.0815f), new(ZF, 0.0665f),
+            new(ZR, 0.0985f), new(-0.1875f, 0.1025f), new(-0.1835f, 0.1062f), new(ZHatchB, 0.1095f), new(-0.1715f, 0.1245f),
+            new(-0.163f, 0.1405f), new(-0.158f, 0.1502f), new(ZRoofR, 0.1572f), new(-0.14f, 0.1643f), new(-0.11f, 0.1672f), new(-0.07f, 0.1688f),
+            new(-0.035f, 0.1689f), new(-0.005f, 0.1675f), new(ZRoofF, 0.163f), new(0.045f, 0.1555f), new(0.075f, 0.1445f),
+            new(0.105f, 0.1328f), new(ZCowl, 0.1198f), new(ZCowlF, 0.1172f), new(0.16f, 0.1145f), new(0.18f, 0.1105f),
+            new(0.195f, 0.1068f), new(0.205f, 0.1035f), new(0.212f, 0.1005f), new(0.217f, 0.0975f), new(0.2205f, 0.0945f), new(ZF, 0.091f),
         };
         static readonly Vector2[] KRoofW =
         {
-            new(ZR, 0.052f), new(ZHatchB, 0.0705f), new(ZRoofR, 0.0645f), new(-0.07f, 0.0655f), new(ZRoofF, 0.0665f),
-            new(0.06f, 0.0745f), new(ZCowl, 0.0815f), new(0.125f, 0.0655f), new(0.16f, 0.0565f), new(0.2f, 0.046f), new(ZF, 0.032f),
+            new(ZR, 0.054f), new(-0.183f, 0.063f), new(ZHatchB, 0.066f), new(ZRoofR, 0.061f), new(-0.07f, 0.0615f),
+            new(ZRoofF, 0.059f), new(0.075f, 0.0655f), new(ZCowl, 0.0725f), new(0.15f, 0.07f), new(0.175f, 0.061f),
+            new(0.205f, 0.05f), new(ZF, 0.04f),
         };
         static readonly float[] Arches = { AxleF, AxleR };
 
@@ -79,7 +85,7 @@ namespace HideAndSeek.Characters
             for (int i = 0; i <= n; i++) zs.Add(Mathf.Lerp(ZR, ZF, i / (float)n));
             var breaks = new List<float>
             {
-                ZCowlF, ZCowl, ZRoofF, ZRoofR, ZHatchB, ZQuarterF, ZQuarterR, ZFrontGlassF, ZBpF, ZBpR, ZRearGlassR, ZCGlassF, ZCGlassR,
+                ZCowlF, ZCowl, ZRoofF, ZRoofR, ZHatchB, ZSailF, ZFrontGlassF, ZBpF, ZBpR, ZRearGlassR, ZCGlassF, ZCGlassR,
                 ZR + 0.0012f, ZF - 0.0012f, ZR + 0.003f, ZF - 0.003f,
             };
             foreach (float a in Arches)
@@ -138,10 +144,10 @@ namespace HideAndSeek.Characters
             float f = Mathf.Clamp01(h / 0.045f);
             float wb = w - 0.0072f - 0.0025f * (1f - f);
             p[RGB] = new Vector2(wb, yBelt + 0.0016f * f + 0.0004f);
-            var gt = new Vector2(wr + 0.0034f * f, yRoof - h * 0.27f);
+            var gt = new Vector2(wr + 0.0034f * f, yRoof - h * 0.2f);
             p[RGM] = new Vector2(Mathf.Lerp(p[RGB].x, gt.x, 0.5f) + 0.0028f * f, Mathf.Lerp(p[RGB].y, gt.y, 0.5f));
             p[RGT] = gt;
-            p[RRE] = new Vector2(wr - 0.0045f * f, yRoof - h * 0.085f);
+            p[RRE] = new Vector2(wr - 0.0045f * f, yRoof - h * 0.065f);
             p[RRM] = new Vector2(wr * 0.5f, yRoof - h * 0.012f);
             p[RC] = new Vector2(0f, yRoof);
             for (int i = RGB; i <= RC; i++) p[i].y = Mathf.Max(p[i].y, p[i - 1].y + 0.0002f * (i <= RGT ? 1f : 0f));

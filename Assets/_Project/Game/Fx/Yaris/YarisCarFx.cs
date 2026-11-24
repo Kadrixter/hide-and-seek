@@ -6,11 +6,13 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// "Why this dealer": the Yaris on the floor (parked or driven) squashes flat and wide on every beat, springs
-    /// back taller and narrower with a little hop and a lean, wobbles out and hits the next beat - exaggerated, rubbery.
-    /// Its music plays in 3D from the car (loop) while it is on the floor; the squash follows the music's own clock
-    /// (or local time without music), so every peer sees it in time with what it hears. In the hand / on the shelf it
-    /// stands still. Crushed: the music winds down like a stopped tape.
+    /// "Why this dealer": the Yaris squashes flat and wide on every beat while somebody drives it (driver: Local, the
+    /// others: Remote), springs back taller and narrower with a little hop and a lean, wobbles out and hits the next
+    /// beat - exaggerated, rubbery. Its music plays in 3D from the car (loop) only while it is driven; when the driver
+    /// gets out (parked, shelf, hand, frozen) the dance and the music fade out in ~0.4 s and the song pauses, so the
+    /// next ride carries on where it stopped (every peer pauses on the same event, so they stay roughly in step). The
+    /// squash follows the music's own clock (or local time without music), so every peer sees it in time with what it
+    /// hears. Crushed: the music winds down like a stopped tape.
     /// </summary>
     [DefaultExecutionOrder(200)] // after RcCar.Update
     public class YarisCarFx : MonoBehaviour
@@ -42,14 +44,14 @@ namespace HideAndSeek.Game
             float dt = Time.deltaTime;
             var v = _car.View;
             bool yaris = _skin.IsYaris;
-            bool ground = yaris && (v == RcCar.ViewMode.Parked || v == RcCar.ViewMode.Local || v == RcCar.ViewMode.Remote);
-            bool musicOn = yaris && (ground || v == RcCar.ViewMode.Frozen);
+            bool ground = yaris && (v == RcCar.ViewMode.Local || v == RcCar.ViewMode.Remote); // driven
+            bool musicOn = ground;
 
             if (ground && !_wasGround) _danceStart = Time.time;
             _wasGround = ground;
             UpdateMusic(musicOn, v == RcCar.ViewMode.Wreck, dt);
 
-            _w = Mathf.MoveTowards(_w, ground ? 1f : 0f, dt / (ground ? 0.4f : 0.18f));
+            _w = Mathf.MoveTowards(_w, ground ? 1f : 0f, dt / 0.4f);
             if (v == RcCar.ViewMode.Wreck || !yaris)
             {
                 y.Squash.localScale = Vector3.one;
@@ -64,7 +66,7 @@ namespace HideAndSeek.Game
             // Beat clock: the music's own playhead when it plays, otherwise local time since the car went down.
             float bpm = YarisMusic.Bpm;
             float beatLen = 60f / Mathf.Max(30f, bpm);
-            if (_music != null && _music.isPlaying && _music.clip != null)
+            if (_music != null && _music.clip != null && (_music.isPlaying || _musicFade > 0f))
                 _phaseClock = (_music.timeSamples / (float)_music.clip.frequency - YarisMusic.Offset) / beatLen;
             else
                 _phaseClock = (Time.time - _danceStart) / beatLen;
@@ -128,12 +130,22 @@ namespace HideAndSeek.Game
 
         private void UpdateMusic(bool on, bool wrecked, float dt)
         {
-            if (on && _music == null && _tapeStop < 0f)
+            if (on && _tapeStop < 0f)
             {
-                var clip = YarisMusic.Clip;
-                if (clip != null) StartMusic(clip);
+                if (_music == null)
+                {
+                    var clip = YarisMusic.Clip;
+                    if (clip != null) StartMusic(clip);
+                }
+                else if (!_music.isPlaying)
+                {
+                    _music.UnPause(); // next ride: the song carries on where it stopped
+                    Debug.Log($"[Yaris] music resumed at {_music.time:0.0} s");
+                }
             }
             if (_music == null) return;
+            if (!_music.isPlaying && _tapeStop < 0f && (wrecked || !_skin.IsYaris)) { StopMusic(); return; }
+            if (!_music.isPlaying && !on && _tapeStop < 0f) return; // paused between rides
 
             if (!on && _tapeStop < 0f && wrecked) _tapeStop = 0f;
             if (_tapeStop >= 0f)
@@ -145,8 +157,16 @@ namespace HideAndSeek.Game
                 _musicFade = 1f - k * k;
                 if (k >= 1f) { StopMusic(); return; }
             }
-            else _musicFade = Mathf.MoveTowards(_musicFade, on ? 1f : 0f, dt / (on ? 0.25f : 0.35f));
-            if (!on && _tapeStop < 0f && _musicFade <= 0f) { StopMusic(); return; }
+            else _musicFade = Mathf.MoveTowards(_musicFade, on ? 1f : 0f, dt / (on ? 0.25f : 0.4f));
+            if (!on && _tapeStop < 0f && _musicFade <= 0f)
+            {
+                // driver got out: pause (not stop) once faded out
+                if (!_skin.IsYaris) { StopMusic(); return; }
+                _music.volume = 0f;
+                _music.Pause();
+                Debug.Log($"[Yaris] music paused at {_music.time:0.0} s (view {_car.View})");
+                return;
+            }
 
             var l = ActiveListener.Find();
             if (l != null && Time.time >= _nextAcoustics)
@@ -187,6 +207,7 @@ namespace HideAndSeek.Game
             _musicFade = 0f;
             _music.time = 0f;
             _music.Play();
+            Debug.Log("[Yaris] music started (car driven)");
         }
 
         private void StopMusic()
