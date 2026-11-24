@@ -14,6 +14,8 @@ namespace HideAndSeek.Game.Cinematics
     public sealed partial class ExitGate : MonoBehaviour
     {
         public const float HalfW = 3.5f, OpenH = 2.75f, CurtainZ = -0.2f;
+        /// <summary>Gap under the curtain from which its collider leaves room (a crouching player fits), top of the collider.</summary>
+        const float BlockFrom = 1.2f, BlockTop = 3.2f;
         /// <summary>World position of the inner wall face at the opening centre (fallback when the scene has no anchor).</summary>
         public static readonly Vector3 DefaultPos = new Vector3(90f, 0f, 0f);
         /// <summary>Electrical box on the wall, local (left of the gate seen from inside).</summary>
@@ -97,7 +99,15 @@ namespace HideAndSeek.Game.Cinematics
                     if (s.gameObject.activeSelf != on) s.gameObject.SetActive(on);
                     s.localPosition = new Vector3(0f, y + _slatH * 0.5f, CurtainZ);
                 }
-            if (_block != null) _block.enabled = f < 0.35f;
+            if (_block != null)
+            {
+                // The collider follows the curtain once a crouching player fits under it (escape: Game/Escape);
+                // below that the whole opening stays blocked (no crawling under a knee-high gap).
+                float from = bottom >= BlockFrom ? bottom : 0f;
+                _block.enabled = bottom < OpenH - 0.02f;
+                _block.center = new Vector3(0f, (from + BlockTop) * 0.5f - _block.transform.localPosition.y, 0f);
+                _block.size = new Vector3(HalfW * 2f, BlockTop - from, 0.3f);
+            }
             float lit = Mathf.Clamp01(f * 1.6f) * (StreetVisible ? 1f : 0f);
             if (_street != null) _street.intensity = StreetLight * lit;
             if (_streetFill != null) _streetFill.intensity = 0.8f * lit;

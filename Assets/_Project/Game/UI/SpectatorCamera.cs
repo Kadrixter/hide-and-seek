@@ -71,7 +71,7 @@ namespace HideAndSeek.Game
             {
                 int idx = ((start + step * i) % n + n) % n;
                 var p = list[idx];
-                if (p != null && p != _me && p.Life.Value != LifeState.Dead)
+                if (p != null && p != _me && p.Life.Value != LifeState.Dead && !p.Escaped.Value)
                 {
                     _index = idx;
                     Target = p;
@@ -85,7 +85,7 @@ namespace HideAndSeek.Game
         private void LateUpdate()
         {
             var mouse = Mouse.current;
-            if (Target == null || !Target.IsSpawned || Target.Life.Value == LifeState.Dead) Cycle(1);
+            if (Target == null || !Target.IsSpawned || Target.Life.Value == LifeState.Dead || Target.Escaped.Value) Cycle(1);
             if (mouse != null && !LocalPlayerController.MenuOpen)
             {
                 if (mouse.leftButton.wasPressedThisFrame) Cycle(1);

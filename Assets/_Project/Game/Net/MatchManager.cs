@@ -167,7 +167,7 @@ namespace HideAndSeek.Game.Net
 
         /// <summary>Sent after Winner is set, so every client sees the right result (variable order is not guaranteed).</summary>
         [Rpc(SendTo.Everyone)]
-        private void MatchEndedRpc(MatchWinner winner)
+        private void MatchEndedRpc(MatchWinner winner, bool escaped)
         {
             if (winner == MatchWinner.Racer) { RaceEndedLocal(); return; }
             var local = NetPlayer.Local;
@@ -176,7 +176,7 @@ namespace HideAndSeek.Game.Net
             GameAudio.Play2D(iWon ? GameSfx.WinSting : GameSfx.LoseSting);
             GameAudio.SetBed(AmbientId.None);
             GameHud.Banner(seekerWon ? (SeekersNow() > 1 ? "WYGRYWAJĄ SZUKAJĄCY" : "WYGRYWA SZUKAJĄCY") : "WYGRYWAJĄ UKRYCI",
-                iWon ? "Wygrana :D" : "Przegrana :/", Tuning.EndScreenTime - 1f, iWon ? UI.UiKit.Accent : UI.UiKit.Danger);
+                (escaped ? "Chowający uciekli! " : "") + (iWon ? "Wygrana :D" : "Przegrana :/"), Tuning.EndScreenTime - 1f, iWon ? UI.UiKit.Accent : UI.UiKit.Danger);
         }
 
         [Rpc(SendTo.Everyone)]
@@ -336,6 +336,7 @@ namespace HideAndSeek.Game.Net
             pl.DownedUntil.Value = 0;
             pl.NextHintAt.Value = 0;
             pl.Ready.Value = false;
+            pl.Escaped.Value = false; // escape run (NetPlayer.Escape.cs)
             // Sober at the start of every round (and back in the lobby), so drinks never affect the game.
             pl.ServerSoberUp();
         }
@@ -616,7 +617,7 @@ namespace HideAndSeek.Game.Net
             float interval = Mathf.Max(5f, CurrentHintInterval);
             foreach (var pl in NetPlayer.All)
             {
-                if (pl == null || !pl.IsHider || pl.Life.Value == LifeState.Dead) continue;
+                if (pl == null || !pl.IsHider || pl.Life.Value == LifeState.Dead || pl.Escaped.Value) continue;
                 if (pl.NextHintAt.Value <= 0 || now < pl.NextHintAt.Value) continue;
                 HintRpc(pl.ChestPosition, pl.NetworkObjectId, Random.Range(0, 1000), sound, pin);
                 pl.NextHintAt.Value = now + interval * Random.Range(0.7f, 1.3f);
@@ -649,7 +650,7 @@ namespace HideAndSeek.Game.Net
         private bool CheckWin(out MatchWinner winner)
         {
             winner = MatchWinner.None;
-            bool anySeeker = false, anyHider = false, anyAliveHider = false;
+            bool anySeeker = false, anyHider = false, anyAliveHider = false, anyEscaped = false;
             foreach (var pl in NetPlayer.All)
             {
                 if (pl == null) continue;
@@ -657,11 +658,14 @@ namespace HideAndSeek.Game.Net
                 if (pl.IsHider)
                 {
                     anyHider = true;
-                    if (pl.Life.Value == LifeState.Alive) anyAliveHider = true;
+                    // Escaped hiders (MatchManager.EscapeGate.cs) are not on the map any more, but they count for the hiders.
+                    if (pl.Escaped.Value) { if (pl.Life.Value != LifeState.Dead) anyEscaped = true; }
+                    else if (pl.Life.Value == LifeState.Alive) anyAliveHider = true;
                 }
             }
             if (!anySeeker) { winner = MatchWinner.Hiders; return true; }
-            if (!anyHider || !anyAliveHider) { winner = MatchWinner.Seeker; return true; }
+            // Nobody left standing on the map: somebody got out = the hiders win, otherwise the seekers.
+            if (!anyHider || !anyAliveHider) { winner = anyEscaped ? MatchWinner.Hiders : MatchWinner.Seeker; return true; }
             return false;
         }
 
@@ -671,7 +675,9 @@ namespace HideAndSeek.Game.Net
             Winner.Value = w;
             Phase.Value = MatchPhase.Ended;
             PhaseEnd.Value = Now + BeginOutro(w); // round outro + awards (MatchManager.Cinematics.cs)
-            MatchEndedRpc(w);
+            bool escaped = w == MatchWinner.Hiders && AnyEscaped();
+            if (escaped) Debug.Log("[Escape] server: round over - the hiders escaped");
+            MatchEndedRpc(w, escaped);
         }
 
         // BackToLobby: MatchManager.LobbyReturn.cs (load first, phase Lobby only once NGO accepted the load).

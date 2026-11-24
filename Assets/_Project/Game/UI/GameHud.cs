@@ -628,7 +628,7 @@ namespace HideAndSeek.Game
 
         private void UpdateSpectator(NetPlayer me, MatchPhase phase)
         {
-            bool spectate = me.Life.Value == LifeState.Dead && (phase == MatchPhase.Seeking || phase == MatchPhase.Ended);
+            bool spectate = (me.Life.Value == LifeState.Dead || me.Escaped.Value) && (phase == MatchPhase.Seeking || phase == MatchPhase.Ended); // escaped hiders watch too
             // Destroyed from outside (scene change): its OnDestroy gave the camera back, forget it.
             if (!ReferenceEquals(_spectator, null) && _spectator == null) _spectator = null;
             if (spectate && _spectator == null)
