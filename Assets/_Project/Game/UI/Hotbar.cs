@@ -9,7 +9,8 @@ using UnityEngine.SceneManagement;
 namespace HideAndSeek.Game
 {
     /// <summary>Kinds of inventory items (definitions in <see cref="ItemDefs"/>). New kinds go at the END (synced as a byte).</summary>
-    public enum HotbarItem : byte { None, Medkit, Syringe, RcCar, Rod, Knife, Chainsaw, Glock, ToyGun, Phone, RcRemote, SeveredLeg, Wire }
+    public enum HotbarItem : byte { None, Medkit, Syringe, RcCar, Rod, Knife, Chainsaw, Glock, ToyGun, Phone, RcRemote, SeveredLeg, Wire,
+        Fuse0, Fuse1, Fuse2, Fuse3, Fuse4, Fuse5, Fuse6, Fuse7 } // fuses: one kind per mark (FuseSymbols, ItemDefs.Fuse.cs)
 
     /// <summary>
     /// Requests from the hotbar to <see cref="LocalPlayerController"/> for this frame (left mouse button on the

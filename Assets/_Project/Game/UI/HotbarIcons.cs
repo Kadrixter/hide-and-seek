@@ -19,6 +19,7 @@ namespace HideAndSeek.Game
             if (item == HotbarItem.RcRemote) return RcRemote(); // HotbarIcons.RcRemote.cs
             if (item == HotbarItem.SeveredLeg) return Leg(); // HotbarIcons.Leg.cs
             if (item == HotbarItem.Wire) return Wire(); // HotbarIcons.Wire.cs
+            if (Net.FuseItems.Is(item)) return Fuse(Net.FuseItems.SymbolOf(item)); // HotbarIcons.Fuse.cs
             if (Cache.TryGetValue(item, out var s) && s != null) return s;
             var px = new Color32[N * N];
             switch (item)

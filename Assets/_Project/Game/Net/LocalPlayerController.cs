@@ -50,6 +50,9 @@ namespace HideAndSeek.Game.Net
         WirePull,       // E hold at a wire-mesh fence / cage: tear a piece of wire off (LocalPlayerController.RcWire.cs)
         AntennaSwap,    // U with the RC transmitter in the hands and a wire in the inventory
         DotLink,        // E at the dot link panel in the exit-gate box (hiders, escape stage DotLink; LocalPlayerController.DotLink.cs)
+        FuseInsert,     // E at a fuse box socket with a fuse of its mark (LocalPlayerController.Fuses.cs)
+        FuseRemove,     // E hold at a filled fuse box socket: pull the fuse out
+        FuseInfo,       // looking at a fuse box with nothing to do there (text only)
     }
 
     /// <summary>
@@ -108,7 +111,7 @@ namespace HideAndSeek.Game.Net
         public PromptKind HoldKind => _holdKind;
         public NetPlayer HoldTarget => _holdTarget;
         public float HoldDurationNow => _holdKind != PromptKind.None ? HoldDuration(_holdKind) : 0f;
-        public float HoldProgress => _holdKind != PromptKind.None ? _holdTimer / HoldDuration(_holdKind) : Prompt == PromptKind.WirePull ? WireProgress : 0f;
+        public float HoldProgress => _holdKind != PromptKind.None ? _holdTimer / HoldDuration(_holdKind) : Prompt == PromptKind.WirePull ? WireProgress : Prompt == PromptKind.FuseRemove ? FuseProgress : 0f;
 
         /// <summary>True while a menu (Esc, settings board) owns the mouse.</summary>
         public static bool MenuOpen { get; set; }
@@ -338,6 +341,7 @@ namespace HideAndSeek.Game.Net
 
             // ---- fence wire torn off / RC antenna swap: the hands are busy; U swaps the antenna (LocalPlayerController.RcWire.cs)
             if (WireTick(kb)) { CancelHold(); return; }
+            if (FuseTick()) { CancelHold(); return; } // working on a fuse box (LocalPlayerController.Fuses.cs)
 
             // ---- RC car: 6 puts it down / parks it / takes control again; WASD drives while the car camera is on.
             if (UpdateRc(kb, phase)) { CancelHold(); return; }
@@ -723,6 +727,7 @@ namespace HideAndSeek.Game.Net
             if (TryWirePrompt(eye, fwd, phase, out var wPos, out string wText, out float wD)) Offer(PromptKind.WirePull, wPos, wText, wD);
             if (TryAntennaPrompt(out var aPos, out string aText, out float aD)) Offer(PromptKind.AntennaSwap, aPos, aText, aD);
             if (TryDotLinkPrompt(eye, fwd, out var dlPos, out string dlText, out float dlD)) Offer(PromptKind.DotLink, dlPos, dlText, dlD); // exit-gate panel
+            if (TryFusePrompt(eye, fwd, phase, out var fbPos2, out string fbText2, out float fbD2, out var fbKind)) Offer(fbKind, fbPos2, fbText2, fbD2); // fuse boxes
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -1127,6 +1132,11 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.DotLink:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) DotLinkPromptE();
+                    break;
+                case PromptKind.FuseInsert:
+                case PromptKind.FuseRemove:
+                    FusePromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE);
+                    TestPressE = false;
                     break;
             }
 
