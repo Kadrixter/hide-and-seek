@@ -47,6 +47,10 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<HeldItem> Held = new();
         public readonly NetworkVariable<bool> HasGlock = new();
         public readonly NetworkVariable<bool> HasChainsaw = new();
+        /// <summary>Fuel left in this player's chainsaw (server writes, 0.1 steps; MatchManager.SawFuel.cs).</summary>
+        public readonly NetworkVariable<float> SawFuel = new(HideAndSeek.Game.Net.SawFuel.Full);
+        /// <summary>Server: the exact fuel (the network variable follows in 0.1 steps).</summary>
+        public float ServerSawFuel = HideAndSeek.Game.Net.SawFuel.Full;
         public readonly NetworkVariable<byte> Ammo = new();
         public readonly NetworkVariable<byte> SpareMags = new();
         public readonly NetworkVariable<double> DownedUntil = new();

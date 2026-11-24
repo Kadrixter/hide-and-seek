@@ -383,7 +383,8 @@ namespace HideAndSeek.Game.Net
 
             // ---- seeker: chainsaw (hold F = full throttle, walk into a hider = kill)
             bool sawRev = _p.IsSeeker && phase == MatchPhase.Seeking && _p.Held.Value == HeldItem.Chainsaw &&
-                          _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev);
+                          _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev) &&
+                          _p.SawFuel.Value > 0f; // an empty saw does not start (MatchManager.SawFuel.cs)
             if (_p.SawRev.Value != sawRev) _p.SawRev.Value = sawRev;
             if (sawRev && Time.time >= _nextSawTry)
             {

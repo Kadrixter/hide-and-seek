@@ -27,16 +27,19 @@ namespace HideAndSeek.Game
                 Item = HotbarItem.Chainsaw, Name = "Piła łańcuchowa", Users = ItemUsers.Seeker, Weapon = HeldItem.Chainsaw,
                 DropSfx = GameSfx.BodyFall, DropVolume = 0.55f, Glow = new Color(1f, 0.6f, 0.25f, 0.5f), SeekerMapMarker = true,
                 Count = p => p.HasChainsaw.Value ? 1 : 0,
-                Give = (p, _) => { p.HasChainsaw.Value = true; return true; },
+                Give = (p, extra) => { p.HasChainsaw.Value = true; MatchManager.SetSawFuel(p, SawFuel.Unpack(extra)); return true; },
                 Take = (NetPlayer p, out byte extra) =>
                 {
                     extra = 0;
                     if (!p.HasChainsaw.Value) return false;
+                    extra = SawFuel.Pack(p.ServerSawFuel); // the dropped saw keeps its fuel
                     p.HasChainsaw.Value = false;
                     if (p.Held.Value == HeldItem.Chainsaw) p.Held.Value = HeldItem.None;
                     return true;
                 },
-                Hint = _ => "F przytrzymaj - gaz",
+                Hint = p => p.SawFuel.Value > 0f
+                    ? $"F przytrzymaj - gaz   paliwo {Mathf.CeilToInt(p.SawFuel.Value)}/{SawFuel.Full:0}"
+                    : "Piła bez paliwa - nie odpali (Q - wyrzuć)",
                 Model = r => Prop(r, HeldItem.Chainsaw),
             };
             yield return new ItemDef
