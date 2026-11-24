@@ -10,9 +10,10 @@ namespace HideAndSeek.Game.Net
     /// <summary>
     /// Yaris easter egg tests. Host: -testyaris (100 % Yarises) with -forcehider -autostart -hidetime N and a seeker
     /// client; -yarisshots &lt;dir&gt; = PNGs: the cars on the shelf, the car in the hand (first person + side camera),
-    /// put down and driven, then parked and squashing (a burst through two beats) and frames for a short clip
-    /// (dir/frames). Client: -yariswatch logs the synced state, the dance and the squash scale once a second and
-    /// photographs the dancing car from its side. Logs: [YarisTest] / [YarisWatch].
+    /// put down and driven, squashing while driven (a burst through two beats) and frames for a short clip
+    /// (dir/frames), then parked (must go still and silent), driven again (music resumes) and parked again.
+    /// Client: -yariswatch logs the synced state, the dance and the squash scale once a second and photographs the
+    /// dancing (remotely driven) car from its side. Logs: [YarisTest] / [YarisWatch].
     /// </summary>
     public class YarisTests : MonoBehaviour
     {
@@ -91,12 +92,9 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[YarisTest] driving: cam={me.RcCameraOn} | {State(mm, 0)}");
             Shot(dir, "06_drive_carcam");
             yield return new WaitForSeconds(0.5f);
-            LocalPlayerController.TestRcActive = false;
-            LocalPlayerController.TestSix = true; // park, stand up
-            yield return new WaitForSeconds(2.2f);
-            Debug.Log($"[YarisTest] parked: {State(mm, 0)}");
+            Check("driving", mm, true);
 
-            // 4. Squash burst (two beats) from the side and from the front three-quarter.
+            // 4. Squash burst while driven (the car stands, the driver holds the remote) from the front three-quarter.
             var car = RcCar.Peek(0);
             Vector3 cp = car.transform.position + Vector3.up * 0.09f;
             Quaternion cr = car.transform.rotation;
@@ -126,6 +124,23 @@ namespace HideAndSeek.Game.Net
                 }
                 Debug.Log($"[YarisTest] {f} clip frames in {Time.time - t0:0.0} s");
             }
+
+            // 5b. The driver gets out: dance and music fade out (~0.4 s), the song pauses. Then a second ride resumes it.
+            LocalPlayerController.TestRcActive = false;
+            LocalPlayerController.TestSix = true; // park, stand up
+            yield return new WaitForSeconds(0.2f);
+            Debug.Log($"[YarisTest] getting out (fading): {State(mm, 0)}");
+            yield return new WaitForSeconds(1.8f);
+            Check("parked", mm, false);
+            Cam(dir, "09b_parked_still", cp + cr * new Vector3(0.55f, 0.16f, 0.55f), cp, 42f);
+            LocalPlayerController.TestSix = true; // sit down and drive again
+            LocalPlayerController.TestRcActive = true;
+            yield return new WaitForSeconds(1.6f);
+            Check("driving again", mm, true);
+            LocalPlayerController.TestRcActive = false;
+            LocalPlayerController.TestSix = true;
+            yield return new WaitForSeconds(2f);
+            Check("parked again", mm, false);
             // 6. The seeker stomps on it: dance stops, the music winds down, the wreck keeps the Yaris body.
             NetPlayer seeker = null;
             foreach (var p in NetPlayer.All) if (p != null && p.IsSeeker) seeker = p;
@@ -143,6 +158,16 @@ namespace HideAndSeek.Game.Net
                 Cam(dir, "10_wreck", cp + cr * new Vector3(0.5f, 0.25f, 0.5f), cp - Vector3.up * 0.04f, 42f);
             }
             Debug.Log($"[YarisTest] done | {State(mm, 0)} | {State(mm, 1)}");
+        }
+
+        /// <summary>Logs whether car 0 dances / plays music as expected (driven = on, otherwise off).</summary>
+        private static void Check(string what, MatchManager mm, bool want)
+        {
+            var car = RcCar.Peek(0);
+            var fx = car != null ? car.GetComponent<YarisCarFx>() : null;
+            bool dance = fx != null && fx.Dance > 0.5f, music = fx != null && fx.MusicPlaying;
+            bool ok = dance == want && (music == want || YarisMusic.Clip == null);
+            Debug.Log($"[YarisTest] check {what}: want {(want ? "dance+music" : "still+silent")} -> {(ok ? "OK" : "FAIL")} | {State(mm, 0)}");
         }
 
         private IEnumerator Watch(string dir)
@@ -178,10 +203,10 @@ namespace HideAndSeek.Game.Net
                     Cam(dir, "watch_hand_close", focus + new Vector3(-0.6f, 0.15f, 0.35f), focus, 40f);
                 }
                 var car = RcCar.Peek(0);
-                if (!shot && car != null && car.View == RcCar.ViewMode.Parked)
+                if (!shot && car != null && car.View == RcCar.ViewMode.Remote)
                 {
                     shot = true;
-                    yield return new WaitForSeconds(0.6f);
+                    yield return new WaitForSeconds(1.2f);
                     Vector3 cp = car.transform.position + Vector3.up * 0.09f;
                     for (int k = 0; k < 6; k++)
                     {

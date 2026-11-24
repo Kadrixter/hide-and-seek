@@ -5,9 +5,10 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// Music of the Yaris egg: <c>Resources/Audio/YarisDealer</c> (mp3 / ogg / wav), loaded on first use. No file = a
-    /// silent dance at <see cref="YarisEgg.Bpm"/> (one info line in the log, nothing else). With a file the tempo and the
-    /// first beat are estimated once from its loudness envelope (onset strength autocorrelation over the first 40 s,
-    /// in a worker thread); a weak result keeps the constant.
+    /// silent dance at <see cref="YarisEgg.Bpm"/> (one info line in the log, nothing else). With a file the grid is
+    /// <see cref="YarisEgg.MusicBpm"/> / <see cref="YarisEgg.MusicFirstBeat"/>, or (<see cref="YarisEgg.DetectBpm"/>,
+    /// Decompress On Load clips only) estimated once from its loudness envelope (onset strength autocorrelation over
+    /// the first 40 s, in a worker thread); a weak result keeps the constant.
     /// </summary>
     public static class YarisMusic
     {
@@ -31,6 +32,12 @@ namespace HideAndSeek.Game
                 }
                 Debug.Log($"[Yaris] music '{_clip.name}' {_clip.length:0.0} s, {_clip.frequency} Hz, {_clip.channels} ch, load={_clip.loadType}");
                 if (YarisEgg.DetectBpm) StartDetect();
+                else
+                {
+                    _bpm = YarisEgg.MusicBpm;
+                    _offset = YarisEgg.MusicFirstBeat;
+                    Debug.Log($"[Yaris] music grid {_bpm:0.0} BPM, first beat {_offset:0.000} s (fixed for this file)");
+                }
                 return _clip;
             }
         }
