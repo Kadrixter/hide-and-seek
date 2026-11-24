@@ -14,7 +14,7 @@ namespace HideAndSeek.Game.Cinematics
 
         readonly List<Fixture> _fixtures = new();
         Light _key, _rim, _dim;
-        Vector3 _camPos, _camLook;
+        Vector3 _camPos;
         float _camFov = 48f;
         bool _camInit;
 
@@ -80,49 +80,6 @@ namespace HideAndSeek.Game.Cinematics
             _key.intensity = 1.5f * lit;
             _rim.intensity = 1.3f * lit;
             _dim.intensity = 0.12f + 0.25f * lit;
-        }
-
-        void UpdateCamera(float t)
-        {
-            if (_cam == null) return;
-            int n = Mathf.Max(1, _puppets.Count);
-            float halfRow = (n - 1) * 0.5f * Spacing;
-            Vector3 pos, look;
-            float fov;
-            Vector3 widePos = new Vector3(0.6f, 1.55f, RowZ + 5.4f), wideLook = new Vector3(-0.4f, 1.05f, RowZ);
-            if (t < OutroTimeline.Travel)
-            {
-                float k = CineKit.S(t, OutroTimeline.StageIn, OutroTimeline.Travel);
-                pos = Vector3.Lerp(widePos, widePos + new Vector3(-0.3f, -0.08f, -0.6f), k);
-                look = wideLook;
-                fov = 48f;
-            }
-            else if (t < OutroTimeline.Awards)
-            {
-                // Slow travel along the row, chest height, a little ahead of the camera.
-                float k = Mathf.Clamp01((t - OutroTimeline.Travel) / (OutroTimeline.Awards - OutroTimeline.Travel));
-                k = k * k * (3f - 2f * k);
-                float x = Mathf.Lerp(-halfRow - 0.9f, halfRow + 0.9f, k);
-                pos = new Vector3(x * 0.8f, 1.45f, RowZ + 4.1f);
-                look = new Vector3(x + 0.45f, 1.3f, RowZ); // heads below the title
-                fov = n <= 2 ? 44f : 40f;
-            }
-            else
-            {
-                pos = new Vector3(0f, 1.55f, RowZ + 5.6f + Mathf.Max(0f, halfRow - 1.6f) * 1.6f);
-                look = new Vector3(0f, 1.2f, RowZ);
-                fov = 46f;
-            }
-            Vector3 wp = _gate.Local(pos), wl = _gate.Local(look);
-            if (!_camInit) { _camPos = wp; _camLook = wl; _camFov = fov; _camInit = true; }
-            // Soft moves between the shots (no cuts).
-            float s = 1f - Mathf.Exp(-Time.deltaTime * 2.6f);
-            _camPos = Vector3.Lerp(_camPos, wp, s);
-            _camLook = Vector3.Lerp(_camLook, wl, s);
-            _camFov = Mathf.Lerp(_camFov, fov, s);
-            _cam.LookAt(_camPos, _camLook, _camFov);
-            _cam.Bars = CineKit.S(t, OutroTimeline.StageIn, OutroTimeline.StageIn + 0.6f) * (1f - CineKit.S(t, OutroTimeline.Awards - 0.3f, OutroTimeline.Awards + 0.4f));
-            _cam.Fade = 1f - CineKit.S(t, OutroTimeline.StageIn, OutroTimeline.StageIn + 0.65f);
         }
 
         void Events(float from, float to)

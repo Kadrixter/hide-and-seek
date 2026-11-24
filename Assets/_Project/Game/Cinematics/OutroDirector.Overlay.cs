@@ -72,11 +72,15 @@ namespace HideAndSeek.Game.Cinematics
             if (_dimmer != null) _dimmer.color = new Color(0f, 0f, 0f, 0.5f * awards);
             float nicks = CineKit.S(t, OutroTimeline.Travel - 0.8f, OutroTimeline.Travel) * (1f - awards);
             var root = _cam.Overlay;
+            // Feet out of the frame (close shots): the nick stays just above the bottom bar.
+            float ch = root.rect.height, floorY = -ch * 0.5f + ch * 0.105f * _cam.Bars + 46f;
             for (int i = 0; i < _nicks.Count; i++)
             {
                 var p = _puppets[i];
                 if (p == null) continue;
-                Place(_nicks[i].rectTransform, p.transform.position + Vector3.down * 0.02f, new Vector2(0, -16), out bool vis);
+                var nrt = _nicks[i].rectTransform;
+                Place(nrt, p.transform.position + Vector3.down * 0.02f, new Vector2(0, -16), out bool vis);
+                if (nrt.anchoredPosition.y < floorY) nrt.anchoredPosition = new Vector2(nrt.anchoredPosition.x, floorY);
                 _nicks[i].color = new Color(1f, 1f, 1f, vis ? nicks : 0f);
             }
             foreach (var (rt, pi) in _badges)
