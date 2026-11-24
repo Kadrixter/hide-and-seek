@@ -35,7 +35,7 @@ namespace HideAndSeek.Game.DotLink
             _status.rectTransform.Stretch(6f);
             _hints = UiKit.Label("Hints", root, "LPM - rysuj (przeciągnij od kropki)     PPM - wyczyść kolor     Kółko - przybliż     Esc - wyjdź",
                 22, TextAnchor.LowerCenter, new Color(0.85f, 0.86f, 0.84f, 0.92f));
-            _hints.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 22), new Vector2(1500, 34));
+            _hints.rectTransform.Place(new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 132), new Vector2(1500, 34)); // above the hotbar and the voice meter (in a round, unlike the lobby boards)
             _hints.AddOutline(2f, 0.8f);
             _flash = UiKit.Label("Flash", root, "", 52, TextAnchor.MiddleCenter, new Color(0.7f, 0.92f, 0.72f, 1f), FontStyle.Bold);
             _flash.rectTransform.Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, 0), new Vector2(1400, 80));
