@@ -48,9 +48,12 @@ namespace HideAndSeek.Game.Escape
 
         void TickGate()
         {
-            var gate = ExitGate.Instance;
-            if (gate == null || _mm.RaceMode || SceneManager.GetActiveScene().name != NetSession.GameScene) return;
-            EscapeGateDriver.Attach(gate).Tick(_mm);
+            if (_mm.RaceMode || SceneManager.GetActiveScene().name != NetSession.GameScene) return;
+            for (int i = 0; i < ExitGate.Count; i++)
+            {
+                var gate = ExitGate.Get(i);
+                if (gate != null) EscapeGateDriver.Attach(gate).Tick(_mm); // both gates open together
+            }
         }
 
         void Guard(int k, string what, System.Action a)

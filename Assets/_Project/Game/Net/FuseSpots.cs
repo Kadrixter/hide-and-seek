@@ -100,7 +100,8 @@ namespace HideAndSeek.Game.Net
             if (fh.normal.y < 0.95f || Mathf.Abs(fh.point.y - floor) > 0.12f) return;
             if (MapInfo.InSlabOpening(stand, 1.5f) || !MapInfo.InsideGarage(stand, 0.3f)) return;
             // Not at the street exit gate (escape objective's last part happens there).
-            if (level == 0 && Flat(stand - HideAndSeek.Game.Cinematics.ExitGate.DefaultPos).magnitude < 12f) return;
+            if (level == 0 && (Flat(stand - HideAndSeek.Game.Cinematics.ExitGate.DefaultPosOf(0)).magnitude < 12f ||
+                               Flat(stand - HideAndSeek.Game.Cinematics.ExitGate.DefaultPosOf(1)).magnitude < 12f)) return;
             list.Add(new Wall { Pos = wall, Yaw = Quaternion.LookRotation(n).eulerAngles.y, Name = $"{side}{level}@{wall.x:0},{wall.z:0}" });
         }
 

@@ -24,7 +24,18 @@ namespace HideAndSeek.Game.Cinematics
         /// <summary>Lever pivot relative to <see cref="BoxPos"/> (right edge of the box front, seen from the garage).</summary>
         public static readonly Vector3 LeverPivotInBox = new Vector3(0.135f, -0.05f, 0.17f);
 
+        /// <summary>The east gate (gate 0: the intro, the outro and the dot link use this one).</summary>
         public static ExitGate Instance { get; private set; }
+        /// <summary>The same gate on the west wall of level 0 (gate 1, 2026-11-24): opens together with the east one.</summary>
+        public static ExitGate West { get; private set; }
+        public const int Count = 2;
+        public static ExitGate Get(int i) => i == 0 ? Instance : i == 1 ? West : null;
+        /// <summary>0 = east, 1 = west.</summary>
+        public int Index { get; private set; }
+
+        public static Vector3 DefaultPosOf(int i) => i == 0 ? DefaultPos : new Vector3(-DefaultPos.x, DefaultPos.y, DefaultPos.z);
+        public static Quaternion DefaultRotOf(int i) => Quaternion.Euler(0f, i == 0 ? -90f : 90f, 0f);
+        public static string AnchorName(int i) => i == 0 ? "ExitGateAnchor" : "ExitGateAnchorW";
 
         public Transform Root => transform;
         float _open = -1f, _lever = -1f;
@@ -36,32 +47,39 @@ namespace HideAndSeek.Game.Cinematics
         Material _lampMat;
         bool _lampRed = true;
 
-        /// <summary>Creates the gate in the game scene if it is not there yet.</summary>
+        /// <summary>Creates both gates in the game scene if they are not there yet; returns the east one.</summary>
         public static ExitGate Ensure()
         {
-            if (Instance != null) return Instance;
-            var anchor = GameObject.Find("ExitGateAnchor");
-            Vector3 pos = anchor != null ? anchor.transform.position : DefaultPos;
-            var go = new GameObject("ExitGate");
-            go.transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, -90f, 0f));
+            if (Instance == null) Instance = Create(0);
+            if (West == null) West = Create(1);
+            return Instance;
+        }
+
+        static ExitGate Create(int i)
+        {
+            var anchor = GameObject.Find(AnchorName(i));
+            Vector3 pos = anchor != null ? anchor.transform.position : DefaultPosOf(i);
+            var go = new GameObject(i == 0 ? "ExitGate" : "ExitGateWest");
+            go.transform.SetPositionAndRotation(pos, DefaultRotOf(i));
             int layer = HideAndSeek.Map.LevelLighting.LayerOf(0);
             go.layer = layer;
             var g = go.AddComponent<ExitGate>();
-            g.StreetVisible = anchor != null || HasOpening();
+            g.Index = i;
+            g.StreetVisible = anchor != null || HasOpening(i);
             g.Build();
-            Instance = g;
             g.SetOpen(0f);
             g.SetLever(1f);
             g.SetBroken(true);
-            Debug.Log($"[Cine] exit gate built at {pos}, street {(g.StreetVisible ? "open" : "behind the old painted shutter")}");
+            Debug.Log($"[Cine] exit gate {i} built at {pos}, street {(g.StreetVisible ? "open" : "behind the old painted shutter")}");
             return g;
         }
 
         /// <summary>The map has the cut opening (a ray from the garage through the gate leaves the building).</summary>
-        static bool HasOpening()
+        static bool HasOpening(int i)
         {
-            var from = DefaultPos + new Vector3(-1f, 1.2f, 0f);
-            return !Physics.Raycast(from, Vector3.right, 3f, ~0, QueryTriggerInteraction.Ignore);
+            Vector3 inward = DefaultRotOf(i) * Vector3.forward;
+            var from = DefaultPosOf(i) + inward + Vector3.up * 1.2f;
+            return !Physics.Raycast(from, -inward, 3f, ~0, QueryTriggerInteraction.Ignore);
         }
 
         public bool StreetVisible { get; private set; }
@@ -69,6 +87,7 @@ namespace HideAndSeek.Game.Cinematics
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            if (West == this) West = null;
         }
 
         /// <summary>World point of the lever knob (for the hand IK).</summary>

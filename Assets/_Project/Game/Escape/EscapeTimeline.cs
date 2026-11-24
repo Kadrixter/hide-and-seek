@@ -72,34 +72,55 @@ namespace HideAndSeek.Game.Escape
         /// <summary>When the siren stops.</summary>
         public static float SirenEnd => FullAt + SirenAfterOpen;
 
-        /// <summary>Gate frame (world) even before the gate object exists (server without the scene object yet).</summary>
-        public static void Frame(out Vector3 pos, out Quaternion rot)
+        /// <summary>Gate frame (world) even before the gate object exists (server without the scene object yet).
+        /// <paramref name="gate"/>: 0 = east, 1 = west (<see cref="ExitGate.Count"/>).</summary>
+        public static void Frame(out Vector3 pos, out Quaternion rot, int gate = 0)
         {
-            var g = ExitGate.Instance;
+            var g = ExitGate.Get(gate);
             if (g != null) { pos = g.transform.position; rot = g.transform.rotation; return; }
-            var anchor = GameObject.Find("ExitGateAnchor");
-            pos = anchor != null ? anchor.transform.position : ExitGate.DefaultPos;
-            rot = Quaternion.Euler(0f, -90f, 0f);
+            var anchor = GameObject.Find(ExitGate.AnchorName(gate));
+            pos = anchor != null ? anchor.transform.position : ExitGate.DefaultPosOf(gate);
+            rot = ExitGate.DefaultRotOf(gate);
         }
 
         /// <summary>World point -> gate-local point.</summary>
-        public static Vector3 ToLocal(Vector3 world)
+        public static Vector3 ToLocal(Vector3 world, int gate = 0)
         {
-            Frame(out var pos, out var rot);
+            Frame(out var pos, out var rot, gate);
             return Quaternion.Inverse(rot) * (world - pos);
         }
 
-        public static Vector3 ToWorld(Vector3 local)
+        public static Vector3 ToWorld(Vector3 local, int gate = 0)
         {
-            Frame(out var pos, out var rot);
+            Frame(out var pos, out var rot, gate);
             return pos + rot * local;
         }
 
-        /// <summary>Feet past the boundary line, inside the driveway (not some point elsewhere with the same z).</summary>
-        public static bool PastLine(Vector3 world)
+        /// <summary>Feet past the boundary line of either gate, inside its driveway (not some point elsewhere with the same z).</summary>
+        public static bool PastLine(Vector3 world) => PastLine(world, out _);
+
+        public static bool PastLine(Vector3 world, out int gate)
         {
-            var l = ToLocal(world);
-            return l.z < LineZ && l.z > DriveEndZ - 3f && Mathf.Abs(l.x) < DriveHalfW + 0.5f && l.y > -1.5f && l.y < 3f;
+            for (gate = 0; gate < ExitGate.Count; gate++)
+            {
+                var l = ToLocal(world, gate);
+                if (l.z < LineZ && l.z > DriveEndZ - 3f && Mathf.Abs(l.x) < DriveHalfW + 0.5f && l.y > -1.5f && l.y < 3f) return true;
+            }
+            gate = -1;
+            return false;
+        }
+
+        /// <summary>The gate whose sill is nearest to <paramref name="world"/>.</summary>
+        public static int Nearest(Vector3 world)
+        {
+            int best = 0;
+            float bd = float.MaxValue;
+            for (int i = 0; i < ExitGate.Count; i++)
+            {
+                float d = (ToWorld(Vector3.zero, i) - world).sqrMagnitude;
+                if (d < bd) { bd = d; best = i; }
+            }
+            return best;
         }
 
         /// <summary>Where an escaped player waits out the round (under the street, out of every view, own floor).</summary>

@@ -483,7 +483,8 @@ namespace HideAndSeek.Map.Editor
             float y0 = FloorY(lv);
             LevelWall(lv, -HX - WallT, HX + WallT, -HZ - WallT, -HZ);
             LevelWall(lv, -HX - WallT, HX + WallT, HZ, HZ + WallT);
-            LevelWall(lv, -HX - WallT, -HX, -HZ, HZ);
+            // Level 0: a second street exit on the west wall, the same as the east one (no camping one gate).
+            LevelWall(lv, -HX - WallT, -HX, -HZ, HZ, lv == 0 ? new[] { new Opening(-3.5f, 3.5f, 2.75f) } : new Opening[0]);
             // Level 0: street exit opening; the roller shutter itself is built at runtime (Game/Cinematics/ExitGate).
             LevelWall(lv, HX, HX + WallT, -HZ, HZ, lv == 0 ? new[] { new Opening(-3.5f, 3.5f, 2.75f) } : new Opening[0]);
 
@@ -498,13 +499,18 @@ namespace HideAndSeek.Map.Editor
             }
             Band(Vector3.forward, -HX, HX, -HZ, true);
             Band(Vector3.back, -HX, HX, HZ, true);
-            Band(Vector3.right, -HZ, HZ, -HX, false);
             if (lv == 0)
             {
+                Band(Vector3.right, -HZ, -4.2f, -HX, false);
+                Band(Vector3.right, 4.2f, HZ, -HX, false);
                 Band(Vector3.left, -HZ, -4.2f, HX, false);
                 Band(Vector3.left, 4.2f, HZ, HX, false);
             }
-            else Band(Vector3.left, -HZ, HZ, HX, false);
+            else
+            {
+                Band(Vector3.right, -HZ, HZ, -HX, false);
+                Band(Vector3.left, -HZ, HZ, HX, false);
+            }
 
             // pilasters (not inside the tunnel, stairs, lobby, corridor or dock)
             foreach (float x in ColX)
@@ -541,6 +547,13 @@ namespace HideAndSeek.Map.Editor
                 gate.SetParent(_root, false);
                 gate.SetPositionAndRotation(new Vector3(HX, y0, 0f), Quaternion.Euler(0f, -90f, 0f));
                 SignPlate(_signs[lv], new Vector3(HX - 0.45f, y0 + 2.62f, 0f), Vector3.left, 1.8f, 0.26f, "EXIT CLOSED", 0.15f, M("Sign_Red"), white);
+
+                // the same exit on the west wall (Game/Cinematics/ExitGate.West)
+                b.BoxMinMax(new Vector3(-HX, y0 + 2.75f, -3.7f), new Vector3(-HX + 0.45f, CeilY(lv), 3.7f), M("PM_Grey"));
+                var west = new GameObject("ExitGateAnchorW").transform;
+                west.SetParent(_root, false);
+                west.SetPositionAndRotation(new Vector3(-HX, y0, 0f), Quaternion.Euler(0f, 90f, 0f));
+                SignPlate(_signs[lv], new Vector3(-HX + 0.45f, y0 + 2.62f, 0f), Vector3.right, 1.8f, 0.26f, "EXIT CLOSED", 0.15f, M("Sign_Red"), white);
             }
         }
 
