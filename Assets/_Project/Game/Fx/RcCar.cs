@@ -8,14 +8,14 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// One of the two RC rally cars in the game scene. Shown on the shelf, hidden while carried, driven by its holder
+    /// One of the four RC rally cars in the game scene. Shown on the shelf, hidden while carried, driven by its holder
     /// (local kinematic physics on the driver's client, interpolated everywhere else), parked on the floor, or crushed.
     /// Wheels spin and steer, the antenna whips with the acceleration, the body squats and rolls; electric motor
     /// whine follows the speed, H = loud horn, T = headlights.
     /// </summary>
     public class RcCar : MonoBehaviour
     {
-        public const int Count = 2;
+        public const int Count = 4;
         public const float Wheelbase = 0.27f;
         public const float ReverseSpeed = 1.8f;
         /// <summary>The car is on layer "Ignore Raycast" so level probes (and its own) never hit it.</summary>

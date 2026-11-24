@@ -3,7 +3,7 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// Second metal shelf in the generator room (level -1, east wall), with two RC rally cars on the middle board
+    /// Second metal shelf in the generator room (level -1, east wall), with four RC rally cars (two on the middle board, two on the top one)
     /// (their models are the <see cref="RcCar"/> objects themselves). Built at runtime on every client in the game scene.
     /// </summary>
     public class RcCarShelf : MonoBehaviour
@@ -16,8 +16,11 @@ namespace HideAndSeek.Game
         public static RcCarShelf Instance { get; private set; }
 
         /// <summary>Where car <paramref name="slot"/> stands on the board and the way it faces (slightly angled to the front).</summary>
-        public static Vector3 CarPos(int slot) => Position + Quaternion.Euler(0f, Yaw, 0f) * new Vector3(slot == 0 ? -0.3f : 0.3f, BoardY + 0.002f, -0.04f);
-        public static float CarYaw(int slot) => Yaw + 180f + (slot == 0 ? -18f : 22f);
+        public const float TopBoardY = 1.55f;
+
+        public static Vector3 CarPos(int slot) => Position + Quaternion.Euler(0f, Yaw, 0f) *
+            new Vector3(slot % 2 == 0 ? -0.3f : 0.3f, (slot < 2 ? BoardY : TopBoardY) + 0.002f, -0.04f);
+        public static float CarYaw(int slot) => Yaw + 180f + (slot % 2 == 0 ? (slot < 2 ? -18f : 20f) : (slot < 2 ? 22f : -16f));
 
         public static void Ensure()
         {
@@ -41,7 +44,7 @@ namespace HideAndSeek.Game
             foreach (var x in new[] { -w / 2f + 0.025f, w / 2f - 0.025f })
             foreach (var z in new[] { -d / 2f + 0.025f, d / 2f - 0.025f })
                 Cube("Post", new Vector3(x, h / 2f, z), new Vector3(0.05f, h, 0.05f), steel);
-            foreach (var y in new[] { 0.15f, 0.62f, BoardY, 1.55f })
+            foreach (var y in new[] { 0.15f, 0.62f, BoardY, TopBoardY })
                 Cube("Board", new Vector3(0f, y - 0.015f, 0f), new Vector3(w, 0.03f, d), board);
             // Toy-shop clutter: the cars' boxes, a battery pack charger, spare tyres, paint tins.
             Cube("CarBox", new Vector3(-0.25f, 0.62f + 0.11f, 0.03f), new Vector3(0.5f, 0.22f, 0.3f), new Color(0.12f, 0.32f, 0.78f));
@@ -49,7 +52,7 @@ namespace HideAndSeek.Game
             Cube("Charger", new Vector3(0.32f, 0.62f + 0.04f, 0f), new Vector3(0.16f, 0.08f, 0.11f), new Color(0.12f, 0.12f, 0.13f));
             Cube("ChargerLed", new Vector3(0.32f, 0.62f + 0.081f, -0.03f), new Vector3(0.025f, 0.004f, 0.025f), new Color(0.2f, 1f, 0.3f));
             Cube("Battery", new Vector3(0.12f, 0.62f + 0.025f, -0.02f), new Vector3(0.14f, 0.05f, 0.05f), new Color(0.85f, 0.15f, 0.1f));
-            Cube("Tyres", new Vector3(0.38f, 1.55f + 0.05f, 0.04f), new Vector3(0.2f, 0.1f, 0.1f), new Color(0.06f, 0.06f, 0.07f));
+            Cube("Tyres", new Vector3(0.36f, 0.15f + 0.05f, 0.04f), new Vector3(0.2f, 0.1f, 0.1f), new Color(0.06f, 0.06f, 0.07f));
             Cube("Tin", new Vector3(-0.35f, 0.15f + 0.08f, 0.05f), new Vector3(0.14f, 0.16f, 0.14f), new Color(0.55f, 0.56f, 0.6f));
             Cube("Tin2", new Vector3(-0.15f, 0.15f + 0.07f, 0.06f), new Vector3(0.12f, 0.14f, 0.12f), new Color(0.75f, 0.2f, 0.12f));
 

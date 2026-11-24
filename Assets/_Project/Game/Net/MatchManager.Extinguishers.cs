@@ -37,13 +37,13 @@ namespace HideAndSeek.Game.Net
     /// <summary>Tuning of the extinguishers and the foam.</summary>
     public static class ExtTuning
     {
-        public const float SprayTime = 11f;        // seconds of continuous spraying from full to empty
+        public const float SprayTime = 16.5f;      // seconds of continuous spraying from full to empty
         public const float Range = 4.6f;           // jet reach (m)
         public const float ConeDeg = 13f;          // half angle of the jet that counts as a hit
-        public const float ExposureToHit = 0.2f;   // seconds in the jet before the foam takes effect
-        public const float FoamTime = 5f;          // seeker: no attacks, slowed, wiping the face
-        public const float FoamMax = 6f;           // more spray during the effect extends it up to this in total
-        public const float Immunity = 8f;          // after the effect: a fresh hit does nothing for this long
+        public const float ExposureToHit = 0f;     // the foam takes effect on the first hit, no delay
+        public const float FoamTime = 10f;         // seeker: no attacks, slowed, wiping the face
+        public const float FoamMax = 11f;          // more spray during the effect extends it up to this in total
+        public const float Immunity = 0f;          // after the effect: no cooldown, a fresh hit foams again at once
         public const float FoamSpeed = 0.45f;      // speed multiplier while foamed (recovers in the last 1.2 s)
         public const float TakeRange = 1.9f, PromptRange = 2.6f, HangBackRange = 1.7f;
     }

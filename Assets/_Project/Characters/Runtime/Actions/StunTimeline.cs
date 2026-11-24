@@ -9,6 +9,9 @@ namespace HideAndSeek.Characters
     /// </summary>
     public static class StunTimeline
     {
+        /// <summary>Extra seconds lying out cold (on top of the original 6 s knock-out).</summary>
+        public const float Out = 8f;
+
         public const float Snap = 0.16f;      // head snapped back by the hit
         public const float Reel = 0.62f;      // stumbles back a step
         public const float Sway = 1.0f;       // wobbles to the side, the eyes roll
@@ -16,20 +19,20 @@ namespace HideAndSeek.Characters
         public const float Topple = 1.7f;     // onto the side
         public const float Thud = 1.62f;      // the body hits the floor (sound)
         public const float Flat = 2.05f;      // rolled onto the back, out cold
-        public const float Stir = 3.55f;      // comes round: the head rolls, a groan
-        public const float RollSide = 4.05f;  // onto the side, a hand on the floor
-        public const float AllFours = 4.6f;
-        public const float HalfKneel = 5.1f;
-        public const float Bent = 5.5f;       // hands on the knees
-        public const float ShakeStart = 5.42f;
-        public const float Duration = 6.0f;   // back on the feet: may move and attack again
+        public const float Stir = Out + 3.55f;      // comes round: the head rolls, a groan
+        public const float RollSide = Out + 4.05f;  // onto the side, a hand on the floor
+        public const float AllFours = Out + 4.6f;
+        public const float HalfKneel = Out + 5.1f;
+        public const float Bent = Out + 5.5f;       // hands on the knees
+        public const float ShakeStart = Out + 5.42f;
+        public const float Duration = Out + 6.0f;   // back on the feet: may move and attack again
 
         // Screen of the stunned player.
         public const float DarkStart = 0.3f;  // the view starts to go
         public const float DarkFull = 1.25f;  // black
-        public const float LightStart = 3.7f; // slowly back, blurred
-        public const float LightFull = 5.35f;
-        public const float BlurEnd = 6.4f;    // last of the blur (after the controls are back)
+        public const float LightStart = Out + 3.7f; // slowly back, blurred
+        public const float LightFull = Out + 5.35f;
+        public const float BlurEnd = Out + 6.4f;    // last of the blur (after the controls are back)
 
         /// <summary>Immune to the next knock-out this long after one ends (seconds).</summary>
         public const float Immunity = 22f;

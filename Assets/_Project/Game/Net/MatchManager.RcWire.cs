@@ -13,7 +13,7 @@ namespace HideAndSeek.Game.Net
     public static class WireTuning
     {
         /// <summary>Range of an RC car with the wire antenna (x <see cref="Tuning.RcRange"/>).</summary>
-        public const float RangeMul = 1.5f;
+        public const float RangeMul = 3f; // was 1.5 (doubled 2026-11-24)
         /// <summary>Pieces of wire one player can carry (one slot).</summary>
         public const int MaxCarried = 2;
         /// <summary>Server: how far (m, flat) the player may be from the stand point of the pull.</summary>

@@ -138,13 +138,33 @@ namespace HideAndSeek.Game.Net
                 var sp = mine[rnd.Next(mine.Count)].position;
                 Vector3 p = ItemPlacement.Scatter(sp, pf, avoid, "fuse");
                 if (Flat(p - sp).magnitude < 1f) continue; // fell back on the spawn point itself
-                if (MapInfo.LevelOf(p.y) != level) continue;
+                if (MapInfo.LevelOf(p.y) != level || !OnMap(p)) continue;
                 float score = Cover(p) + (float)rnd.NextDouble() * 1.5f;
                 foreach (var a in avoid) if (Flat(a - p).magnitude < FuseTuning.FuseSpacing) score -= 6f;
                 foreach (var b in boxes) if (Flat(b - p).magnitude < FuseTuning.BoxClearance && Mathf.Abs(b.y - p.y) < 1.5f) score -= 10f;
                 if (score > bestScore) { bestScore = score; best = p; }
             }
-            return best;
+            if (best != null) return best;
+            // Nothing good: right next to a hider spawn of the level (always on the map), never no fuse at all.
+            foreach (var t in mine)
+            {
+                if (t == null) continue;
+                Vector3 p = ItemPlacement.Scatter(t.position, ItemPlacement.Small, avoid, "fuse (fallback)");
+                if (OnMap(p)) return p;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// A fuse may lie here: inside the outer walls with room to spare, not in a ramp / stair opening, on solid
+        /// flat floor of a level (not on a car, not in the air, not under the map).
+        /// </summary>
+        public static bool OnMap(Vector3 p)
+        {
+            if (!MapInfo.HasGarage) return true;
+            if (!MapInfo.InsideGarage(p, 0.6f) || MapInfo.InSlabOpening(p, 0.6f)) return false;
+            if (Mathf.Abs(p.y - MapInfo.FloorUnder(p.y)) > 0.3f) return false;
+            return ItemPlacement.FirstHit(p + Vector3.up * 0.4f, Vector3.down, 0.7f, 0f, out var h) && h.normal.y > 0.9f;
         }
 
         /// <summary>How tucked away a floor spot is: rays at ankle height that hit something within 1.6 m (0..4).</summary>
