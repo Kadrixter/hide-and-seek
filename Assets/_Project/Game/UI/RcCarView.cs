@@ -5,13 +5,17 @@ using UnityEngine.InputSystem;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// Local driver's view from the RC car: a roof-mounted camera (mouse looks around, springs back while driving),
+    /// Local driver's view from the RC car: from the driver's seat inside the cockpit (RallyModel.DriverEye - through
+    /// the windscreen over the dashboard, steering wheel in front; a load on the roof never blocks it; mouse looks
+    /// around, springs back while driving),
     /// speed / bump shake, and an FPV-style overlay (REC dot, radio signal bars, static when the signal gets weak,
     /// controls). Takes the camera and the audio listener from the player and gives them back on <see cref="End"/>.
     /// </summary>
     public class RcCarView : MonoBehaviour
     {
         public static RcCarView Active { get; private set; }
+        /// <summary>The car this view rides in.</summary>
+        public RcCar Car => _car;
 
         private NetPlayer _me;
         private RcCar _car;
@@ -38,7 +42,7 @@ namespace HideAndSeek.Game
                 if (l != null) l.enabled = false;
             }
             v._cam.fieldOfView = 80f;
-            v._cam.nearClipPlane = 0.02f;
+            v._cam.nearClipPlane = 0.004f; // the cockpit is a few centimetres round the eye
             v._cam.cullingMask = ~0; // the own (first-person hidden) body is visible from the car
             go.AddComponent<AudioListener>();
             go.tag = "MainCamera";
@@ -99,11 +103,13 @@ namespace HideAndSeek.Game
         {
             var root = _car.Parts.Root;
             float sp = Mathf.Abs(_car.Speed) / 5.8f;
-            float shake = 0.25f * sp + 2.5f * _car.Bump;
+            float shake = 0.18f * sp + 1.8f * _car.Bump;
             float t = Time.time;
             var jitter = Quaternion.Euler(shake * Mathf.Sin(t * 53f), shake * 0.6f * Mathf.Sin(t * 41f + 1f), shake * 0.8f * Mathf.Sin(t * 37f + 2f));
-            transform.position = root.TransformPoint(new Vector3(0f, 0.205f, -0.075f));
-            transform.rotation = root.rotation * Quaternion.Euler(6f + _lookPitch, _lookYaw, 0f) * jitter;
+            // Driver's seat; the Yaris easter egg has no cockpit model (no steering wheel part): about the same place.
+            Vector3 eye = _car.Parts.SteeringWheel != null ? HideAndSeek.Characters.RallyModel.DriverEye : new Vector3(-0.022f, 0.137f, -0.03f);
+            transform.position = root.TransformPoint(eye);
+            transform.rotation = root.rotation * Quaternion.Euler(3f + _lookPitch, _lookYaw, 0f) * jitter;
             if (_cam != null) _cam.fieldOfView = Mathf.Lerp(_cam.fieldOfView, 80f + 8f * sp * (_car.Boost ? 1f : 0.5f), 1f - Mathf.Exp(-4f * Time.deltaTime));
         }
 

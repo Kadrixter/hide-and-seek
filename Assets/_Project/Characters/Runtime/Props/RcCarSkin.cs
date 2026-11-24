@@ -40,7 +40,7 @@ namespace HideAndSeek.Characters
             skin._rallyGo = rally.gameObject;
             skin._rally = new RcCarParts
             {
-                Root = parts.Root, Body = parts.Body, Antenna = parts.Antenna,
+                Root = parts.Root, Body = parts.Body, Antenna = parts.Antenna, SteeringWheel = parts.SteeringWheel,
                 Wheels = (Transform[])parts.Wheels.Clone(), Steer = (Transform[])parts.Steer.Clone(),
             };
             skin.Yaris = YarisModel.Create(root, layer);
@@ -76,6 +76,7 @@ namespace HideAndSeek.Characters
             _rallyGo.SetActive(!yaris);
             Yaris.Root.gameObject.SetActive(yaris);
             Shared.Body = yaris ? Yaris.Body : _rally.Body;
+            Shared.SteeringWheel = yaris ? null : _rally.SteeringWheel;
             Shared.Antenna = yaris ? Yaris.Antenna : _rally.Antenna;
             for (int i = 0; i < 4; i++) Shared.Wheels[i] = yaris ? Yaris.Wheels[i] : _rally.Wheels[i];
             for (int i = 0; i < 2; i++) Shared.Steer[i] = yaris ? Yaris.Steer[i] : _rally.Steer[i];

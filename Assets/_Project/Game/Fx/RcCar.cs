@@ -90,7 +90,12 @@ namespace HideAndSeek.Game
             car.Parts = BlockyProps.CreateRcCar(go.transform, CarLayer);
             car._renderers = go.GetComponentsInChildren<Renderer>(true);
             var mat = BlockyProps.RcPaintMaterial(paint);
-            foreach (var r in car._renderers) r.sharedMaterial = mat;
+            var rally = RallyModel.MaterialsWithPaint(paint);
+            foreach (var r in car._renderers)
+            {
+                if (RallyModel.IsRallyRenderer(r)) r.sharedMaterials = rally; // the rally body: its white paint
+                else if (r.sharedMaterials.Length == 1) r.sharedMaterial = mat; // blocky parts (antenna)
+            }
             car.BuildHeadlight();
             car.SetVisible(false);
             return car;
@@ -444,6 +449,8 @@ namespace HideAndSeek.Game
                     if (Parts.Wheels[i] != null) Parts.Wheels[i].localRotation = Quaternion.Euler(_spin, 0f, 0f);
                 for (int i = 0; i < 2; i++)
                     if (Parts.Steer[i] != null) Parts.Steer[i].localRotation = Quaternion.Euler(0f, moving ? SteerAngle : 0f, 0f);
+                // Cockpit steering wheel: ~3 turns of the front wheels' angle (seen from the car camera).
+                if (Parts.SteeringWheel != null) Parts.SteeringWheel.localRotation = RallyModel.SteeringTilt * Quaternion.Euler(0f, 0f, -SteerAngle * 3f);
 
                 // Whip antenna: spring driven by acceleration and cornering, buzzing with speed.
                 float tx = Mathf.Clamp(-_accel * 4f, -35f, 35f) - Mathf.Abs(Speed) * 2.2f;
