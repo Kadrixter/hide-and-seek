@@ -145,6 +145,7 @@ namespace HideAndSeek.Game.Net
             StartEmoteTests(Has);
             StartCinematicTests(Has);
             StartSeekerTests(Has);
+            StartEscapeTests(Has); // escape run: gate, boundary, win (NetSession.EscapeTests.cs)
             StartLobbyReturnTests(Arg);
             StartMapVizTests();
             StartGfxTests();

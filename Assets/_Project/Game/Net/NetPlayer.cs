@@ -81,7 +81,7 @@ namespace HideAndSeek.Game.Net
         public string Nick => NickVar.Value.ToString();
         public bool IsHider => Role.Value == PlayerRole.Hider;
         public bool IsSeeker => Role.Value == PlayerRole.Seeker;
-        public bool IsAliveHider => IsHider && Life.Value == LifeState.Alive;
+        public bool IsAliveHider => IsHider && Life.Value == LifeState.Alive && !Escaped.Value; // escaped = out of the round (NetPlayer.Escape.cs)
 
         // ---- components
         public PlayerMotor Motor { get; private set; }

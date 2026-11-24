@@ -226,7 +226,7 @@ namespace HideAndSeek.Game.Net
             // ---- ready in the lobby = flashlight taken from the box (FlashlightBox, E); R no longer toggles it
 
             // ---- input locks
-            bool dead = _p.Life.Value == LifeState.Dead;
+            bool dead = _p.Life.Value == LifeState.Dead || _p.Escaped.Value; // escaped: out of the round, watching (NetPlayer.Escape.cs)
             bool blind = _p.IsSeeker && (phase == MatchPhase.Hiding || phase == MatchPhase.Loading);
             bool locked = MenuOpen || _p.Busy.Value || blind || dead || phase == MatchPhase.Loading || phase == MatchPhase.Race || KillCam.Active
                           || (phase == MatchPhase.Hiding && mm != null && mm.IntroHoldsStart); // round intro (Cinematics)

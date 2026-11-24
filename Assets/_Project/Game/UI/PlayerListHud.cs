@@ -117,7 +117,8 @@ namespace HideAndSeek.Game.UI
 
         private static readonly Color CHost = new Color(1f, 0.84f, 0.37f), CReady = new Color(0.43f, 1f, 0.48f),
             CWait = new Color(0.6f, 0.62f, 0.64f), CHider = new Color(0.47f, 0.8f, 1f), CHurt = new Color(1f, 0.82f, 0.5f),
-            CWounded = new Color(1f, 0.62f, 0.35f), CDowned = new Color(1f, 0.42f, 0.4f), CDead = new Color(0.5f, 0.5f, 0.52f);
+            CWounded = new Color(1f, 0.62f, 0.35f), CDowned = new Color(1f, 0.42f, 0.4f), CDead = new Color(0.5f, 0.5f, 0.52f),
+            CEscaped = new Color(0.45f, 1f, 0.55f);
 
         /// <summary>State column text and colours of one player.</summary>
         private static PlayerListRow.Data Describe(NetPlayer p, MatchPhase phase, bool round, MatchManager mm)
@@ -144,6 +145,12 @@ namespace HideAndSeek.Game.UI
                 d.Seeker = true;
                 d.State = "SZUKA";
                 d.StateColor = UiKit.SeekerColor;
+                return d;
+            }
+            if (p.Escaped.Value && p.Life.Value != LifeState.Dead)
+            {
+                d.State = "uciekł"; // ran out through the exit gate (NetPlayer.Escape.cs)
+                d.StateColor = CEscaped;
                 return d;
             }
             switch (p.Life.Value)
