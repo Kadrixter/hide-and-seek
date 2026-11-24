@@ -4,6 +4,7 @@ Shader "Hidden/HnsMenuBlur"
     Properties { _MainTex ("", 2D) = "white" {} }
     CGINCLUDE
     #include "UnityCG.cginc"
+    #include "HnsSafe.cginc"
     sampler2D _MainTex; float4 _MainTex_TexelSize;
     sampler2D _BlurTex;
     float2 _Dir;
@@ -15,10 +16,11 @@ Shader "Hidden/HnsMenuBlur"
     half4 fragDown (v2f i) : SV_Target
     {
         float2 t = _MainTex_TexelSize.xy;
-        half4 c = tex2D(_MainTex, i.uv + t * float2(-0.5, -0.5));
-        c += tex2D(_MainTex, i.uv + t * float2( 0.5, -0.5));
-        c += tex2D(_MainTex, i.uv + t * float2(-0.5,  0.5));
-        c += tex2D(_MainTex, i.uv + t * float2( 0.5,  0.5));
+        // a NaN pixel copied by the blur = a black square behind the menu: drop it at the first tap
+        half4 c = HnsSafe4(tex2D(_MainTex, i.uv + t * float2(-0.5, -0.5)));
+        c += HnsSafe4(tex2D(_MainTex, i.uv + t * float2( 0.5, -0.5)));
+        c += HnsSafe4(tex2D(_MainTex, i.uv + t * float2(-0.5,  0.5)));
+        c += HnsSafe4(tex2D(_MainTex, i.uv + t * float2( 0.5,  0.5)));
         return c * 0.25;
     }
 
@@ -33,7 +35,7 @@ Shader "Hidden/HnsMenuBlur"
 
     half4 fragComp (v2f i) : SV_Target
     {
-        half4 s = tex2D(_MainTex, i.uv);
+        half4 s = HnsSafe4(tex2D(_MainTex, i.uv));
         half4 b = tex2D(_BlurTex, i.uv);
         // slightly darker and less saturated behind the menu
         half l = dot(b.rgb, half3(0.299, 0.587, 0.114));

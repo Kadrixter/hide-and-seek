@@ -23,6 +23,7 @@ namespace HideAndSeek.Game.Net
             if (ArgOr("-testoffice", null) is string o) StartCoroutine(OfficeTest(o));
             if (ArgOr("-officewatch", null) is string w) StartCoroutine(OfficeWatch(w));
             if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-testzfight") >= 0) StartCoroutine(RoomZFightTest());
+            StartNanTests();
         }
 
         private static IEnumerator MeasureFrames(float seconds, System.Action<float, float> done)

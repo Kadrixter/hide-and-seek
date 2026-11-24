@@ -18,6 +18,7 @@ Shader "Hidden/HnsFxaa"
             #pragma fragment frag
             #pragma target 3.0
             #include "UnityCG.cginc"
+            #include "HnsSafe.cginc"
 
             sampler2D _MainTex;
             float4 _MainTex_TexelSize;
@@ -48,7 +49,7 @@ Shader "Hidden/HnsFxaa"
                 float maxL = max(max(lumaN, lumaW), max(max(lumaE, lumaS), lumaM));
                 float minL = min(min(lumaN, lumaW), min(min(lumaE, lumaS), lumaM));
                 float range = maxL - minL;
-                if (range < max(EDGE_THRESHOLD_MIN, maxL * EDGE_THRESHOLD)) return rgbM;
+                if (range < max(EDGE_THRESHOLD_MIN, maxL * EDGE_THRESHOLD)) return float4(HnsSafe3(rgbM.rgb), rgbM.a);
 
                 float lumaNW = Luma(pos + float2(-rcp.x, -rcp.y));
                 float lumaSE = Luma(pos + float2(rcp.x, rcp.y));
@@ -133,7 +134,7 @@ Shader "Hidden/HnsFxaa"
                 float pixelOffsetGood = goodSpan ? pixelOffset : 0.0;
                 float pixelOffsetSubpix = max(pixelOffsetGood, subpixH);
                 if (horzSpan) pos.y += pixelOffsetSubpix * lengthSign; else pos.x += pixelOffsetSubpix * lengthSign;
-                return float4(tex2Dlod(_MainTex, float4(pos, 0, 0)).rgb, rgbM.a);
+                return float4(HnsSafe3(tex2Dlod(_MainTex, float4(pos, 0, 0)).rgb), rgbM.a);
             }
             ENDCG
         }

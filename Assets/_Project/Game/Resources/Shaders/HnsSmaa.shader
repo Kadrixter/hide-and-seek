@@ -10,6 +10,7 @@ Shader "Hidden/HnsSmaa"
 
     CGINCLUDE
     #include "UnityCG.cginc"
+    #include "HnsSafe.cginc"
 
     sampler2D _MainTex;
     float4 _MainTex_TexelSize;
@@ -21,7 +22,7 @@ Shader "Hidden/HnsSmaa"
     #define SMAA_CUSTOM_SL 1
     #define SMAATexture2D(tex) sampler2D tex
     #define SMAATexturePass2D(tex) tex
-    #define SMAASampleLevelZero(tex, coord) tex2Dlod(tex, float4(coord, 0.0, 0.0))
+    #define SMAASampleLevelZero(tex, coord) HnsSafe4(tex2Dlod(tex, float4(coord, 0.0, 0.0)))
     #define SMAASampleLevelZeroPoint(tex, coord) tex2Dlod(tex, float4(coord, 0.0, 0.0))
     #define SMAASampleLevelZeroOffset(tex, coord, offset) tex2Dlod(tex, float4(coord + offset * SMAA_RT_METRICS.xy, 0.0, 0.0))
     #define SMAASample(tex, coord) tex2D(tex, coord)

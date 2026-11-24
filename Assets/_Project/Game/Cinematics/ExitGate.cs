@@ -6,7 +6,8 @@ namespace HideAndSeek.Game.Cinematics
     /// The street exit on level 0 (east wall, x = 90, z -3.5..3.5): a heavy roller shutter that the round intro slams
     /// shut, a small electrical box with a hand-sized lever next to it, and the night street behind (only seen while
     /// the shutter is up). Built at runtime in the game scene (<see cref="Ensure"/>); outside the intro the shutter is
-    /// down and the lever thrown, with a collider in the opening.
+    /// down and the lever thrown and torn off (the killer rips the handle off in the intro, only a stub is left), with
+    /// a collider in the opening.
     /// Local space of <see cref="Root"/>: +Z into the garage, +X = world +Z, origin on the floor at the inner wall face.
     /// The map builder cuts the opening (older scenes still have the painted shutter: then the street stays hidden).
     /// </summary>
@@ -18,6 +19,8 @@ namespace HideAndSeek.Game.Cinematics
         /// <summary>Electrical box on the wall, local (left of the gate seen from inside).</summary>
         public static readonly Vector3 BoxPos = new Vector3(-4.75f, 1.22f, 0f);
         public const float LeverUp = 32f, LeverDown = 148f;
+        /// <summary>Lever pivot relative to <see cref="BoxPos"/> (right edge of the box front, seen from the garage).</summary>
+        public static readonly Vector3 LeverPivotInBox = new Vector3(0.135f, -0.05f, 0.17f);
 
         public static ExitGate Instance { get; private set; }
 
@@ -25,7 +28,7 @@ namespace HideAndSeek.Game.Cinematics
         float _open = -1f, _lever = -1f;
         float _slatH;
         Transform[] _slats;
-        Transform _bottomBar, _leverPivot, _knob;
+        Transform _bottomBar, _leverPivot, _knob, _rod, _stub;
         BoxCollider _block;
         Light _street, _boxLamp;
         Material _lampMat;
@@ -47,6 +50,7 @@ namespace HideAndSeek.Game.Cinematics
             Instance = g;
             g.SetOpen(0f);
             g.SetLever(1f);
+            g.SetBroken(true);
             Debug.Log($"[Cine] exit gate built at {pos}, street {(g.StreetVisible ? "open" : "behind the old painted shutter")}");
             return g;
         }
@@ -67,6 +71,8 @@ namespace HideAndSeek.Game.Cinematics
 
         /// <summary>World point of the lever knob (for the hand IK).</summary>
         public Vector3 KnobWorld => _knob != null ? _knob.position : transform.TransformPoint(BoxPos);
+        /// <summary>World point at the torn end of the stub (sparks).</summary>
+        public Vector3 StubWorld => _leverPivot != null ? _leverPivot.TransformPoint(new Vector3(0f, 0.04f, 0f)) : KnobWorld;
         /// <summary>World point of the box front.</summary>
         public Vector3 BoxWorld => transform.TransformPoint(BoxPos + new Vector3(0f, 0f, 0.09f));
         public Vector3 Local(Vector3 p) => transform.TransformPoint(p);
@@ -97,12 +103,20 @@ namespace HideAndSeek.Game.Cinematics
             if (_streetFill != null) _streetFill.intensity = 0.8f * lit;
         }
 
-        /// <summary>Lever throw 0 = up (armed), 1 = down (pulled).</summary>
+        /// <summary>Lever throw 0 = up (armed), 1 = down (pulled), a little over 1 = forced past the stop.</summary>
         public void SetLever(float k)
         {
             if (Mathf.Approximately(k, _lever)) return;
             _lever = k;
-            if (_leverPivot != null) _leverPivot.localRotation = Quaternion.Euler(Mathf.Lerp(LeverUp, LeverDown, k), 0f, 0f);
+            if (_leverPivot != null) _leverPivot.localRotation = Quaternion.Euler(Mathf.LerpUnclamped(LeverUp, LeverDown, k), 0f, 0f);
+        }
+
+        /// <summary>The handle is torn off (only the stub on the pivot) or whole.</summary>
+        public void SetBroken(bool broken)
+        {
+            if (_rod != null) _rod.gameObject.SetActive(!broken);
+            if (_knob != null) _knob.gameObject.SetActive(!broken);
+            if (_stub != null) _stub.gameObject.SetActive(broken);
         }
 
         /// <summary>Status lamp on the box: green (gate open) or red (locked).</summary>

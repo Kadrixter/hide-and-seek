@@ -62,11 +62,13 @@ namespace HideAndSeek.Game.Gfx
             int filter = GfxSettings.PostFilter(GfxSettings.EffectiveAa);
             bool bloom = GfxSettings.EffectiveBloom && _bloom != null;
             RenderTexture cur = src, withBloom = null;
+            NanScan.Inspect(src, "frame");
             if (bloom)
             {
                 withBloom = RenderTexture.GetTemporary(src.width, src.height, 0, src.format, RenderTextureReadWrite.Linear);
                 Bloom(src, withBloom);
                 cur = withBloom;
+                NanScan.Inspect(withBloom, "bloomed");
             }
             if (filter == 2 && _smaa != null && _area != null) Smaa(cur, dst);
             else if (filter == 1 && _fxaa != null) Graphics.Blit(cur, dst, _fxaa, 0);
@@ -119,6 +121,7 @@ namespace HideAndSeek.Game.Gfx
             for (int i = n - 1; i > 0; i--) Graphics.Blit(_pyramid[i], _pyramid[i - 1], _bloom, 2);
             if (n > 0)
             {
+                NanScan.Inspect(_pyramid[0], "pyramid");
                 _bloom.SetTexture(BloomTexId, _pyramid[0]);
                 Graphics.Blit(src, dst, _bloom, 3);
             }

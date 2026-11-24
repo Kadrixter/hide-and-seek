@@ -16,7 +16,8 @@ namespace HideAndSeek.Game.Net
     ///      (default hiders), fake statistics for every award, -outrodead N hiders die first (dead winners stand too);
     ///      any copy: -outroshots dir / -outroframes dir as above (outro.wav), -outroemote Wave = own emote at 4.2 s,
     ///      -outropair HighFive = ask the row neighbour at 4.0 s (the other copy with -autoconsent), -outrohold S = the
-    ///      host keeps the Ended phase S s longer (frame recording).
+    ///      host keeps the Ended phase S s longer (frame recording), -outrowinners N = this copy shows N winners (the
+    ///      real ones cut or filled up with stand-in copies, only the picture: emotes of copies are the auto cheers).
     /// </summary>
     public partial class NetSession
     {
@@ -34,7 +35,7 @@ namespace HideAndSeek.Game.Net
             var d = IntroDirector.Current;
             Debug.Log($"[CineTest] intro director up, t={d.T:0.00}, killer={mm.IntroKiller.Value}, phaseEnd in {mm.PhaseEnd.Value - mm.Now:0.0} s");
             if (frames.Length > 0) { yield return Record(frames, "intro", () => IntroDirector.Current != null, true); yield break; }
-            float[] at = { 0.3f, 1.0f, 1.7f, 2.3f, 2.7f, 2.95f, 3.2f, 3.9f, 4.4f, 5.0f, 5.5f, 6.1f, 6.6f, 6.95f, 7.05f, 7.4f, 7.7f, 8.05f };
+            float[] at = { 0.3f, 1.0f, 1.7f, 2.3f, 2.7f, 2.95f, 3.15f, 3.28f, 3.45f, 3.7f, 4.2f, 4.7f, 5.2f, 5.6f, 6.1f, 6.6f, 6.95f, 7.05f, 7.4f, 7.7f, 8.05f };
             int k = 0;
             while (IntroDirector.Current != null && k < at.Length)
             {
@@ -58,10 +59,12 @@ namespace HideAndSeek.Game.Net
             MatchManager mm = null;
             while ((mm = MatchManager.Instance) == null || NetPlayer.Local == null) yield return null;
             if (mm.IsServer) StartCoroutine(OutroHost(mm));
+            OutroDirector.TestWinners = int.TryParse(ArgOr("-outrowinners", "0"), out int forced) ? forced : 0;
             string shots = ArgOr("-outroshots", ""), frames = ArgOr("-outroframes", "");
             while (OutroDirector.Current == null) yield return null;
             Debug.Log($"[CineTest] outro director up, row={OutroDirector.Row.Count}");
             StartCoroutine(OutroActions());
+            StartCoroutine(OutroFrameLog());
             if (frames.Length > 0) { yield return Record(frames, "outro", () => OutroDirector.Current != null && OutroDirector.Current.T < OutroTimeline.End, false); yield break; }
             float[] at = { 0.3f, 0.8f, 1.1f, 1.6f, 2.4f, 3.4f, 4.4f, 5.4f, 6.4f, 7.4f, 8.3f, 9.4f, 10.6f, 12.0f, 13.5f, 14.3f };
             int k = 0;
@@ -75,6 +78,17 @@ namespace HideAndSeek.Game.Net
                 yield return null;
             }
             Debug.Log("[CineTest] outro done");
+        }
+
+        /// <summary>Where the figures are on the screen (cut by the frame, hidden behind something, standing in a wall).</summary>
+        private IEnumerator OutroFrameLog()
+        {
+            foreach (float at in new[] { 2.6f, 3.6f, 5.0f, 6.5f, 8.2f, 10.5f, 13.6f })
+            {
+                while (OutroDirector.Current != null && OutroDirector.Current.T < at) yield return null;
+                if (OutroDirector.Current == null) yield break;
+                Debug.Log("[CineTest] frame " + OutroDirector.Current.FrameReport());
+            }
         }
 
         private IEnumerator OutroActions()
