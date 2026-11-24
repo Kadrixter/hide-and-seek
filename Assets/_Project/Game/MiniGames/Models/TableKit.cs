@@ -81,15 +81,19 @@ namespace HideAndSeek.Game.MiniGames
         // ================================================================ table
 
         /// <summary>
-        /// Square game table (top <paramref name="top"/> x <paramref name="top"/>, surface at <paramref name="height"/>)
+        /// Game table with a rounded top (<paramref name="top"/> x <paramref name="top"/>, corner radius <see cref="CornerRadius"/>, surface at <paramref name="height"/>)
         /// on four turned legs with an apron and corner blocks. Collider: the top and the legs as one box.
         /// </summary>
+        /// <summary>Corner radius of the game table's top, seen from above.</summary>
+        public const float CornerRadius = 0.14f;
+
         public void Table(Transform root, float top, float height)
         {
             const float thick = 0.045f;
-            Part("Top", root, BoardMeshes.RoundedBox(new Vector3(top, thick, top), 0.014f, 5), TableWood, new Vector3(0f, height - thick * 0.5f, 0f));
-            // Moulded edge under the top.
-            Part("TopLip", root, BoardMeshes.RoundedBox(new Vector3(top - 0.03f, 0.02f, top - 0.03f), 0.008f, 3), LegWood, new Vector3(0f, height - thick - 0.008f, 0f));
+            // Rounded top: big corner radius in plan and a bullnose edge (more rounded than a plain box, 2026-11-24).
+            Part("Top", root, BoardMeshes.RoundedTop(top, top, CornerRadius, thick, 0.016f), TableWood, new Vector3(0f, height, 0f));
+            // Moulded edge under the top, following the same rounded outline.
+            Part("TopLip", root, BoardMeshes.RoundedTop(top - 0.03f, top - 0.03f, CornerRadius - 0.015f, 0.02f, 0.008f), LegWood, new Vector3(0f, height - thick + 0.002f, 0f));
             float inset = top * 0.5f - 0.075f;
             float apronH = 0.085f, apronY = height - thick - 0.018f - apronH * 0.5f;
             // Aprons only on the two sides without a seat (the seated players' knees go under the top).
