@@ -3,19 +3,27 @@ using UnityEngine;
 
 namespace HideAndSeek.Game
 {
-    /// <summary>Boombox panel (E): now playing, progress, loading state, transport, volume, bass, queue, adding links.</summary>
+    /// <summary>
+    /// Boombox panel (E), IMGUI drawn with <see cref="RadioUi"/>: the frame, header and the link row here; now playing
+    /// (art, seek bar, transport, loop, volume / bass sliders) in <c>Boombox.PanelNow.cs</c>; the queue (thumbnails,
+    /// download state, jump, remove) in <c>Boombox.PanelQueue.cs</c>.
+    /// </summary>
     public partial class Boombox
     {
         /// <summary>Some boombox panel is open (the lobby one or a map radio's).</summary>
         public static bool PanelOpen => _panelOwner != null;
         private static Boombox _panelOwner;
+
+        /// <summary>Line under the panel title.</summary>
+        public string PanelSubtitle = "Wspólna kolejka - słyszą wszyscy w pobliżu";
+
         private string _urlField = "";
         private string _note;
         private float _noteUntil;
-        private GUIStyle _box, _btn, _label, _big, _field, _small;
-        private Texture2D _bg, _bar, _barFill;
+        private float _stylesFor = -1f;
+        private GUIStyle _title, _sub, _song, _small, _tiny, _tinyRight, _qTitle, _num, _btnText, _btnDark, _field, _badge;
 
-        // ================================================================ panel
+        // ================================================================ open / close
 
         /// <summary>Opens the lobby boombox's panel.</summary>
         public static void OpenPanel() => OpenPanel(Instance);
@@ -28,40 +36,54 @@ namespace HideAndSeek.Game
             var me = NetPlayer.Local;
             if (me != null && me.InputReader != null) me.InputReader.SetCursorLocked(false);
             box._urlField = "";
+            box._drag = Drag.None;
+            box._scrollToCurrent = true;
         }
 
         public static void ClosePanel()
         {
+            if (_panelOwner != null) _panelOwner._drag = Drag.None;
             _panelOwner = null;
             LocalPlayerController.MenuOpen = false;
             var me = NetPlayer.Local;
             if (me != null && me.InputReader != null) me.InputReader.SetCursorLocked(true);
         }
 
-        private static Texture2D Tex(Color c)
+        private void Note(string text)
         {
-            var t = new Texture2D(1, 1);
-            t.SetPixel(0, 0, c);
-            t.Apply();
-            return t;
+            _note = text;
+            _noteUntil = Time.unscaledTime + 3.5f;
         }
 
-        private void Styles()
+        // ================================================================ styles
+
+        private static float UiScale => Mathf.Min(Screen.height / 1080f, Screen.width / 1340f);
+
+        private void Styles(float s)
         {
-            if (_box != null) return;
-            float s = Screen.height / 1080f;
-            _bg = Tex(new Color(0.06f, 0.07f, 0.09f, 0.94f));
-            _bar = Tex(new Color(1f, 1f, 1f, 0.15f));
-            _barFill = Tex(new Color(0.35f, 0.95f, 0.5f, 1f));
-            _box = new GUIStyle(GUI.skin.box) { normal = { background = _bg } };
-            _btn = new GUIStyle(GUI.skin.button) { fontSize = Mathf.RoundToInt(24 * s), fontStyle = FontStyle.Bold };
-            _label = new GUIStyle(GUI.skin.label) { fontSize = Mathf.RoundToInt(22 * s), wordWrap = false, clipping = TextClipping.Clip };
-            _small = new GUIStyle(_label) { fontSize = Mathf.RoundToInt(19 * s) };
-            _big = new GUIStyle(_label) { fontSize = Mathf.RoundToInt(34 * s), fontStyle = FontStyle.Bold };
-            _field = new GUIStyle(GUI.skin.textField) { fontSize = Mathf.RoundToInt(22 * s), alignment = TextAnchor.MiddleLeft };
+            if (Mathf.Approximately(s, _stylesFor) && _title != null) return;
+            _stylesFor = s;
+            int F(float v) => Mathf.Max(8, Mathf.RoundToInt(v * s));
+            _title = RadioUi.Label(F(31), RadioUi.Text, FontStyle.Bold);
+            _sub = RadioUi.Label(F(17), RadioUi.Dim);
+            _song = RadioUi.Label(F(25), RadioUi.Text, FontStyle.Bold);
+            _small = RadioUi.Label(F(18), RadioUi.Dim);
+            _tiny = RadioUi.Label(F(15), RadioUi.Dim);
+            _tinyRight = RadioUi.Label(F(15), RadioUi.Dim, FontStyle.Normal, TextAnchor.MiddleRight);
+            _qTitle = RadioUi.Label(F(19), RadioUi.Text);
+            _num = RadioUi.Label(F(17), RadioUi.Dim, FontStyle.Normal, TextAnchor.MiddleCenter);
+            _btnText = RadioUi.Label(F(19), RadioUi.Text, FontStyle.Bold, TextAnchor.MiddleCenter);
+            _btnDark = RadioUi.Label(F(19), new Color(0.04f, 0.08f, 0.05f), FontStyle.Bold, TextAnchor.MiddleCenter);
+            _badge = RadioUi.Label(F(14), new Color(0.04f, 0.08f, 0.05f), FontStyle.Bold, TextAnchor.MiddleCenter);
+            _field = new GUIStyle(GUI.skin.textField)
+            {
+                fontSize = F(20), alignment = TextAnchor.MiddleLeft, padding = new RectOffset(F(16), F(16), 0, 0), border = new RectOffset(0, 0, 0, 0),
+                normal = { background = null, textColor = RadioUi.Text }, hover = { background = null, textColor = RadioUi.Text },
+                focused = { background = null, textColor = RadioUi.Text }, active = { background = null, textColor = RadioUi.Text },
+            };
         }
 
-        private static string Fmt(float t) => t < 0 ? "--:--" : $"{(int)t / 60}:{(int)t % 60:00}";
+        // ================================================================ panel
 
         private void OnGUI()
         {
@@ -70,88 +92,95 @@ namespace HideAndSeek.Game
             var me = NetPlayer.Local;
             var ch = Channel;
             if (mm == null || me == null || ch == null || (PanelAllowed != null && !PanelAllowed())) { ClosePanel(); return; }
-            Styles();
-            float s = Screen.height / 1080f;
-            float w = 900 * s, h = 640 * s, x = (Screen.width - w) * 0.5f, y = (Screen.height - h) * 0.5f, p = 24 * s, row = 46 * s;
-            GUI.Box(new Rect(x, y, w, h), GUIContent.none, _box);
-            float cy = y + p;
-            GUI.Label(new Rect(x + p, cy, w, 44 * s), PanelTitle, _big);
-            cy += 54 * s;
+            float s = UiScale;
+            Styles(s);
+            GUI.depth = -50;
+            float w = 1180f * s, h = 820f * s, x = Mathf.Round((Screen.width - w) * 0.5f), y = Mathf.Round((Screen.height - h) * 0.5f), p = 30f * s;
+            var panel = new Rect(x, y, w, h);
 
-            var r = ch.State.Value;
-            string url = ch.Current;
-            (string title, float dur) inf = default;
-            bool known = url != null && TryInfo(url, out inf);
-            float pos = r.Loading ? 0f : r.Playing ? Mathf.Max(0f, (float)(mm.Now - r.StartTime)) : r.PausedAt;
-            string state = !r.Playing ? "Pauza" : IsLoading ? "Ładowanie" : "Gra";
-            GUI.Label(new Rect(x + p, cy, w - 2 * p, row), url == null ? "Nic nie gra - wklej link z YouTube poniżej." : $"{state}: {(known ? inf.title : url)}", _label);
-            cy += row * 0.8f;
-            if (url != null)
-            {
-                float bw = w - 2 * p - 160 * s;
-                GUI.DrawTexture(new Rect(x + p, cy + 10 * s, bw, 10 * s), _bar);
-                if (known && inf.dur > 0f) GUI.DrawTexture(new Rect(x + p, cy + 10 * s, bw * Mathf.Clamp01(pos / inf.dur), 10 * s), _barFill);
-                GUI.Label(new Rect(x + p + bw + 12 * s, cy, 160 * s, row), $"{Fmt(pos)} / {(known && inf.dur > 0 ? Fmt(inf.dur) : "--:--")}", _small);
-            }
-            cy += row * 0.8f;
-            string note = Time.unscaledTime < _noteUntil ? _note : _status;
-            if (!string.IsNullOrEmpty(note))
-            {
-                GUI.color = IsLoading ? new Color(1f, 0.85f, 0.35f) : Color.white;
-                GUI.Label(new Rect(x + p, cy, w - 2 * p, row), note, _small);
-                GUI.color = Color.white;
-            }
-            cy += row * 0.8f;
+            RadioUi.Draw(new Rect(0, 0, Screen.width, Screen.height), RadioUi.White, new Color(0f, 0f, 0f, 0.42f));
+            RadioUi.Fill(new Rect(x - 4 * s, y + 6 * s, w + 8 * s, h + 8 * s), new Color(0f, 0f, 0f, 0.4f), 28 * s);
+            RadioUi.Fill(panel, new Color(1f, 1f, 1f, 0.08f), 24 * s);
+            RadioUi.Fill(new Rect(x + 1, y + 1, w - 2, h - 2), RadioUi.PanelBg, 23 * s);
+            // Accent strip on the top edge.
+            RadioUi.Fill(new Rect(x + 24 * s, y + 1, w - 48 * s, 3 * s), new Color(RadioUi.Accent.r, RadioUi.Accent.g, RadioUi.Accent.b, 0.55f), 2 * s);
 
-            // Transport + volume + bass.
-            float bx = x + p, bwid = 150 * s, gap = 10 * s;
-            if (GUI.Button(new Rect(bx, cy, bwid, row), "<< Poprz.", _btn)) ch.Request(me, RadioOp.Prev, default);
-            if (GUI.Button(new Rect(bx + (bwid + gap), cy, bwid * 1.2f, row), r.Playing ? "|| Pauza" : "> Wznów", _btn)) ch.Request(me, RadioOp.Toggle, default);
-            if (GUI.Button(new Rect(bx + (bwid + gap) * 2.2f, cy, bwid, row), "Nast. >>", _btn)) ch.Request(me, RadioOp.Next, default);
-            cy += row + gap;
-            GUI.Label(new Rect(bx, cy + 6 * s, 170 * s, row), $"Głośność {r.Volume}%", _label);
-            if (GUI.Button(new Rect(bx + 190 * s, cy, 60 * s, row), "-", _btn)) ch.Request(me, RadioOp.VolDown, default);
-            if (GUI.Button(new Rect(bx + 260 * s, cy, 60 * s, row), "+", _btn)) ch.Request(me, RadioOp.VolUp, default);
-            GUI.Label(new Rect(bx + 380 * s, cy + 6 * s, 170 * s, row), $"Bas {r.Bass}%", _label);
-            if (GUI.Button(new Rect(bx + 540 * s, cy, 60 * s, row), "-", _btn)) ch.Request(me, RadioOp.BassDown, default);
-            if (GUI.Button(new Rect(bx + 610 * s, cy, 60 * s, row), "+", _btn)) ch.Request(me, RadioOp.BassUp, default);
-            cy += row + gap * 2f;
+            // ---- header
+            RadioUi.Draw(new Rect(x + p, y + p - 2 * s, 44 * s, 44 * s), RadioUi.Vinyl(), Color.white);
+            GUI.Label(new Rect(x + p + 58 * s, y + p - 6 * s, 700 * s, 38 * s), PanelTitle, _title);
+            string sub = PanelSubtitle;
+            Color subC = RadioUi.Dim;
+            if (RadioTools.YtDlp == null || RadioTools.Ffmpeg == null) { sub = "Brak yt-dlp / ffmpeg (folder Tools obok gry) - radio nie zagra"; subC = RadioUi.Bad; }
+            else if (Time.unscaledTime < _noteUntil && !string.IsNullOrEmpty(_note)) { sub = _note; subC = RadioUi.Warn; }
+            _sub.normal.textColor = subC;
+            GUI.Label(new Rect(x + p + 58 * s, y + p + 30 * s, 760 * s, 22 * s), sub, _sub);
+            _sub.normal.textColor = RadioUi.Dim;
+            GUI.Label(new Rect(x + w - p - 300 * s, y + p + 4 * s, 244 * s, 30 * s), "Esc - zamknij", _tinyRight);
+            if (IconButton(new Rect(x + w - p - 40 * s, y + p - 2 * s, 40 * s, 40 * s), "close", RadioUi.Dim)) { ClosePanel(); return; }
+            RadioUi.Draw(new Rect(x + p, y + 92 * s, w - 2 * p, Mathf.Max(1f, s)), RadioUi.White, new Color(1f, 1f, 1f, 0.06f));
 
-            // Queue.
-            GUI.Label(new Rect(bx, cy, w, row * 0.7f), $"Kolejka ({ch.Count}/{MatchManager.RadioMaxQueue}):", _small);
-            cy += row * 0.7f;
-            int first = Mathf.Clamp(r.Index - 1, 0, Mathf.Max(0, ch.Count - 5));
-            for (int i = first; i < Mathf.Min(ch.Count, first + 5); i++)
-            {
-                string u = ch.At(i);
-                string t = TryInfo(u, out var qi) ? qi.title : u;
-                GUI.color = i == r.Index ? new Color(0.5f, 1f, 0.6f) : i < r.Index ? new Color(1f, 1f, 1f, 0.45f) : Color.white;
-                GUI.Label(new Rect(bx, cy, w - 2 * p, row * 0.62f), $"{i + 1}. {t}", _small);
-                GUI.color = Color.white;
-                cy += row * 0.62f;
-            }
-            cy = y + h - p - row * 2f - gap;
+            // ---- columns
+            float top = y + 116 * s, bottom = y + h - p - 56 * s - 22 * s, colL = 500f * s;
+            NowPlaying(mm, me, ch, new Rect(x + p, top, colL, bottom - top), s);
+            float qx = x + p + colL + 34 * s;
+            RadioUi.Draw(new Rect(qx - 17 * s, top, Mathf.Max(1f, s), bottom - top), RadioUi.White, new Color(1f, 1f, 1f, 0.05f));
+            QueueList(me, ch, new Rect(qx, top, x + w - p - qx, bottom - top), s);
 
-            // Paste a link.
-            GUI.Label(new Rect(bx, cy - row * 0.7f, w, row * 0.7f), "Link z YouTube (Ctrl+V):", _small);
-            GUI.SetNextControlName("RadioUrl");
-            _urlField = GUI.TextField(new Rect(bx, cy, w - 2 * p - 2 * (130 * s + gap), row), _urlField ?? "", 200, _field);
-            if (GUI.Button(new Rect(x + w - p - 2 * 130 * s - gap, cy, 130 * s, row), "Wklej", _btn)) _urlField = GUIUtility.systemCopyBuffer?.Trim() ?? "";
+            // ---- add a link
+            LinkRow(me, ch, new Rect(x + p, y + h - p - 56 * s, w - 2 * p, 56 * s), s);
+        }
+
+        private void LinkRow(NetPlayer me, RadioChannel ch, Rect r, float s)
+        {
+            float bw = 130 * s, gap = 12 * s;
+            var field = new Rect(r.x, r.y, r.width - 2 * (bw + gap), r.height);
+            bool focused = GUI.GetNameOfFocusedControl() == "RadioUrl";
+            RadioUi.Fill(field, focused ? new Color(RadioUi.Accent.r, RadioUi.Accent.g, RadioUi.Accent.b, 0.7f) : new Color(1f, 1f, 1f, 0.1f), 14 * s);
+            RadioUi.Fill(new Rect(field.x + 1.5f * s, field.y + 1.5f * s, field.width - 3 * s, field.height - 3 * s), RadioUi.Card, 13 * s);
             bool enter = Event.current.type == EventType.KeyDown && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
+            GUI.SetNextControlName("RadioUrl");
+            _urlField = GUI.TextField(field, _urlField ?? "", 200, _field);
+            if (string.IsNullOrEmpty(_urlField) && !focused)
+                GUI.Label(new Rect(field.x + 16 * s, field.y, field.width - 32 * s, field.height), "Wklej link z YouTube (Ctrl+V) i naciśnij Enter", _small);
+            if (TextButton(new Rect(field.xMax + gap, r.y, bw, r.height), "Wklej", false, s)) _urlField = GUIUtility.systemCopyBuffer?.Trim() ?? "";
             if (TestUrl != null) { _urlField = TestUrl; TestUrl = null; enter = true; }
-            if (GUI.Button(new Rect(x + w - p - 130 * s, cy, 130 * s, row), "Dodaj", _btn) || enter)
+            if (TextButton(new Rect(field.xMax + 2 * gap + bw, r.y, bw, r.height), "Dodaj", true, s) || enter)
             {
                 string u = (_urlField ?? "").Trim();
                 if (MatchManager.IsYoutubeUrl(u))
                 {
-                    ch.Request(me, RadioOp.Add, new Unity.Collections.FixedString128Bytes(u));
-                    _urlField = "";
+                    if (ch.Count >= MatchManager.RadioMaxQueue) Note($"Kolejka jest pełna ({MatchManager.RadioMaxQueue}).");
+                    else
+                    {
+                        ch.Request(me, RadioOp.Add, new Unity.Collections.FixedString128Bytes(u));
+                        _urlField = "";
+                        _scrollToEnd = true;
+                    }
                 }
-                else { _note = "To nie jest link z YouTube."; _noteUntil = Time.unscaledTime + 3f; }
+                else if (u.Length > 0) Note("To nie jest link z YouTube.");
+                if (enter && Event.current.type == EventType.KeyDown) Event.current.Use();
             }
-            cy += row + gap;
-            if (GUI.Button(new Rect(x + w - p - 200 * s, cy, 200 * s, row), "Zamknij (Esc)", _btn)) ClosePanel();
-            GUI.Label(new Rect(bx, cy + 6 * s, w - 260 * s, row), RadioTools.YtDlp == null || RadioTools.Ffmpeg == null ? "Brak yt-dlp / ffmpeg (folder Tools obok gry)" : "", _small);
+        }
+
+        // ================================================================ controls
+
+        /// <summary>Round icon button: a soft circle under the mouse.</summary>
+        private static bool IconButton(Rect r, string icon, Color tint, float iconScale = 0.62f)
+        {
+            bool hover = r.Contains(Event.current.mousePosition);
+            if (hover) RadioUi.Fill(r, new Color(1f, 1f, 1f, 0.08f), r.width * 0.5f);
+            float iw = r.width * iconScale;
+            RadioUi.Draw(new Rect(r.center.x - iw * 0.5f, r.center.y - iw * 0.5f, iw, iw), RadioUi.Icon(icon), hover ? Color.Lerp(tint, Color.white, 0.35f) : tint);
+            return GUI.Button(r, GUIContent.none, GUIStyle.none);
+        }
+
+        private bool TextButton(Rect r, string text, bool accent, float s)
+        {
+            bool hover = r.Contains(Event.current.mousePosition);
+            Color bg = accent ? (hover ? Color.Lerp(RadioUi.Accent, Color.white, 0.18f) : RadioUi.Accent) : hover ? RadioUi.CardHover : RadioUi.Card;
+            RadioUi.Fill(r, bg, 14 * s);
+            GUI.Label(r, text, accent ? _btnDark : _btnText);
+            return GUI.Button(r, GUIContent.none, GUIStyle.none);
         }
     }
 }

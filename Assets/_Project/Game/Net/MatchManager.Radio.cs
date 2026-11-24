@@ -20,6 +20,8 @@ namespace HideAndSeek.Game.Net
         public byte Volume;      // 0..100
         public byte Bass;        // 0..100
         public byte Ready, Peers; // loading: copies that reported ready / copies waited for
+        public byte Loop;        // RadioLoop: off / the whole queue / one song
+        public float LoadFrom;   // loading: the track position every copy buffers from (0 = a new track, > 0 = a seek)
 
         public static RadioState Default => new RadioState { Index = -1, Volume = 60, Bass = 30 };
 
@@ -35,14 +37,30 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Bass);
             s.SerializeValue(ref Ready);
             s.SerializeValue(ref Peers);
+            s.SerializeValue(ref Loop);
+            s.SerializeValue(ref LoadFrom);
         }
 
         public bool Equals(RadioState o) => Index == o.Index && Seq == o.Seq && Playing == o.Playing && Loading == o.Loading &&
                                            StartTime == o.StartTime && PausedAt == o.PausedAt && Volume == o.Volume && Bass == o.Bass &&
-                                           Ready == o.Ready && Peers == o.Peers;
+                                           Ready == o.Ready && Peers == o.Peers && Loop == o.Loop && LoadFrom == o.LoadFrom;
     }
 
-    public enum RadioOp : byte { Add = 0, Toggle = 1, Next = 2, VolUp = 3, VolDown = 4, BassUp = 5, BassDown = 6, Prev = 7 }
+    /// <summary>
+    /// Ops of a boombox panel. Loop cycles off -> queue -> one song -> off. SetVolume / SetBass / Jump / Remove / Seek
+    /// carry their number (0..100, a queue index, seconds) as the text argument.
+    /// </summary>
+    public enum RadioOp : byte
+    {
+        Add = 0, Toggle = 1, Next = 2, VolUp = 3, VolDown = 4, BassUp = 5, BassDown = 6, Prev = 7,
+        Loop = 8, SetVolume = 9, SetBass = 10, Jump = 11, Remove = 12, Seek = 13,
+    }
+
+    /// <summary>Loop mode of a boombox (<see cref="RadioState.Loop"/>).</summary>
+    public static class RadioLoop
+    {
+        public const byte Off = 0, Queue = 1, One = 2;
+    }
 
     /// <summary>
     /// Lobby boombox: a shared queue of YouTube links. Every copy streams the current track itself (yt-dlp + ffmpeg).
@@ -80,7 +98,7 @@ namespace HideAndSeek.Game.Net
         public void ServerRadio(NetPlayer pl, RadioOp op, string url) => LobbyRadio.ServerOp(pl, op, url);
 
         /// <summary>The host's own player finished (or failed) the track with <paramref name="seq"/>: next one.</summary>
-        public void ServerRadioEnded(int seq) => LobbyRadio.ServerEnded(seq);
+        public void ServerRadioEnded(int seq, bool failed = false) => LobbyRadio.ServerEnded(seq, failed);
 
         /// <summary>Music only in the lobby: pause when a round starts; start a loaded track together. Also the map radios.</summary>
         private void UpdateRadioServer()

@@ -12,7 +12,7 @@ namespace HideAndSeek.Game.Net
     public partial class MatchManager
     {
         public const string RadioReadyMessage = "hns.radio.ready";
-        public const float RadioLead = 0.45f, RadioWaitAfterHost = 6f, RadioWaitMax = 25f;
+        public const float RadioLead = 0.45f, RadioWaitAfterHost = 8f, RadioWaitMax = 60f; // songs are downloaded whole first
 
         /// <summary>This copy has buffered the start of lobby track <paramref name="seq"/> (any copy, main thread).</summary>
         public void ReportRadioReady(int seq) => LobbyRadio.ReportReady(seq);
