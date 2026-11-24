@@ -10,6 +10,7 @@ Shader "Hidden/HideAndSeek/Drunk"
             #pragma vertex vert_img
             #pragma fragment frag
             #include "UnityCG.cginc"
+            #include "HnsSafe.cginc"
             sampler2D _MainTex;
             float4 _Ghost;     // xy: uv offset of the second image
             float _GhostMix;   // 0..0.5 weight of the second image
@@ -20,11 +21,12 @@ Shader "Hidden/HideAndSeek/Drunk"
             fixed3 Soft(float2 uv, float2 r)
             {
                 // Five taps: centre plus a rotated cross, cheap and smooth enough for a slight blur.
-                fixed3 c = tex2D(_MainTex, uv).rgb * 0.36;
-                c += tex2D(_MainTex, uv + float2( r.x,  0.38 * r.y)).rgb * 0.16;
-                c += tex2D(_MainTex, uv + float2(-r.x, -0.38 * r.y)).rgb * 0.16;
-                c += tex2D(_MainTex, uv + float2(-0.38 * r.x,  r.y)).rgb * 0.16;
-                c += tex2D(_MainTex, uv + float2( 0.38 * r.x, -r.y)).rgb * 0.16;
+                // each tap guarded: a NaN pixel would be copied ten times (taps + ghost) into a cluster of black dots
+                fixed3 c = HnsSafe3(tex2D(_MainTex, uv).rgb) * 0.36;
+                c += HnsSafe3(tex2D(_MainTex, uv + float2( r.x,  0.38 * r.y)).rgb) * 0.16;
+                c += HnsSafe3(tex2D(_MainTex, uv + float2(-r.x, -0.38 * r.y)).rgb) * 0.16;
+                c += HnsSafe3(tex2D(_MainTex, uv + float2(-0.38 * r.x,  r.y)).rgb) * 0.16;
+                c += HnsSafe3(tex2D(_MainTex, uv + float2( 0.38 * r.x, -r.y)).rgb) * 0.16;
                 return c;
             }
 

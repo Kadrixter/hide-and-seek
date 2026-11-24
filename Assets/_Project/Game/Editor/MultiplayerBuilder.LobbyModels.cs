@@ -85,6 +85,7 @@ namespace HideAndSeek.Game.Editor
 
         private static Mesh SaveMesh(Mesh m, string key)
         {
+            HideAndSeek.Core.MeshNormalFix.Repair(m);
             string path = $"{MeshDir}/{key}.asset";
             var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
             if (existing != null)
@@ -223,7 +224,7 @@ namespace HideAndSeek.Game.Editor
         {
             string key = $"Leaf_{length:0.00}_{width:0.000}_{elevation:0}_{droop:0}".Replace(',', '.');
             var existing = AssetDatabase.LoadAssetAtPath<Mesh>($"{MeshDir}/{key}.asset");
-            if (existing != null) return existing;
+            if (existing != null) return Repaired(existing);
             const int seg = 10;
             var front = new List<Vector3>();
             var uvs = new List<Vector2>();

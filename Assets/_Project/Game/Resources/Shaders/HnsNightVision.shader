@@ -10,12 +10,13 @@ Shader "Hidden/HideAndSeek/NightVision"
             #pragma vertex vert_img
             #pragma fragment frag
             #include "UnityCG.cginc"
+            #include "HnsSafe.cginc"
             sampler2D _MainTex;
             float _Gain;
             float _Noise;
             fixed4 frag(v2f_img i) : SV_Target
             {
-                fixed3 c = tex2D(_MainTex, i.uv).rgb;
+                fixed3 c = HnsSafe3(tex2D(_MainTex, i.uv).rgb);
                 float l = dot(c, float3(0.299, 0.587, 0.114));
                 // Lift the shadows (gamma) and amplify, keep it grey.
                 l = saturate(pow(max(l, 0.0), 0.62) * _Gain);
