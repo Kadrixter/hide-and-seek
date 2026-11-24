@@ -76,6 +76,7 @@ namespace HideAndSeek.Game.Net
         public byte Seekers;         // killers (seekers) per round, 1..players-1 (0 = old default = 1)
         public byte VoiceMode;       // voice chat: 0 = classic, 1 = low latency (Voice.VoiceMode)
         public ushort VoiceDelayMs;  // voice jitter buffer: classic = start, low latency = target (0 = mode default)
+        public bool NoSaw;           // the chainsaw is not on its shelf this round (host option in the lobby)
 
         /// <summary>Wanted number of seekers (at least 1); the lever refuses a start when it leaves no hider.</summary>
         public int SeekerCount => Seekers < 1 ? 1 : Seekers;
@@ -115,13 +116,14 @@ namespace HideAndSeek.Game.Net
             s.SerializeValue(ref Seekers);
             s.SerializeValue(ref VoiceMode);
             s.SerializeValue(ref VoiceDelayMs);
+            s.SerializeValue(ref NoSaw);
         }
 
         public bool Equals(NetSettings o) => HideTime == o.HideTime && SeekTime == o.SeekTime && HintStart == o.HintStart &&
                                              HintInterval == o.HintInterval && HintMode == o.HintMode && Glock == o.Glock &&
                                              Medkits == o.Medkits && BleedOut == o.BleedOut && Syringes == o.Syringes && Mode == o.Mode && Laps == o.Laps &&
                                              SeekerTakesItems == o.SeekerTakesItems && Seekers == o.Seekers &&
-                                             VoiceMode == o.VoiceMode && VoiceDelayMs == o.VoiceDelayMs;
+                                             VoiceMode == o.VoiceMode && VoiceDelayMs == o.VoiceDelayMs && NoSaw == o.NoSaw;
     }
 
     public struct MedkitState : INetworkSerializable, IEquatable<MedkitState>

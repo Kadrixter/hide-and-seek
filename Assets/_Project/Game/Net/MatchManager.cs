@@ -304,7 +304,7 @@ namespace HideAndSeek.Game.Net
             }
             Winner.Value = MatchWinner.None;
             GlockPhase.Value = false;
-            ChainsawTaken.Value = false;
+            ChainsawTaken.Value = Settings.Value.NoSaw; // saw switched off in the lobby: the shelf stays empty, nobody can take it
             SecurityCrates.Value = 0;
             ResetEscape(); // escape objective back to "find the fuses" (MatchManager.Escape.cs)
             ResetRcCars();
@@ -803,7 +803,7 @@ namespace HideAndSeek.Game.Net
 
         public void ServerPickupChainsaw(NetPlayer pl)
         {
-            if (!Seeking || pl == null || !pl.IsSeeker || pl.Busy.Value || ChainsawTaken.Value) return;
+            if (!Seeking || pl == null || !pl.IsSeeker || pl.Busy.Value || ChainsawTaken.Value || Settings.Value.NoSaw) return;
             if (Vector3.Distance(pl.transform.position, ChainsawShelf.Position) > 3.2f) return;
             if (!Inventory.HasRoomFor(pl, HotbarItem.Chainsaw)) { pl.ToastRpc(Inventory.FullText, 2.5f); return; }
             ChainsawTaken.Value = true;
