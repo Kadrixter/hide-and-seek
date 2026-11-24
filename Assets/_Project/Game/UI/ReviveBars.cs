@@ -155,6 +155,14 @@ namespace HideAndSeek.Game.UI
                 _centerSecs.text = $"{left:0.0}";
                 show = true;
             }
+            else if (lpc != null && lpc.WirePulling)
+            {
+                // tearing a piece of wire off a fence (LocalPlayerController.RcWire.cs)
+                float p = lpc.WireProgress;
+                SetBar(_center, _centerFill, _centerText, p, "Urywasz kawałek drutu", true);
+                _centerSecs.text = $"{Mathf.Max(0f, HideAndSeek.Characters.WirePullTimeline.Duration * (1f - p)):0.0}";
+                show = true;
+            }
             else if (me != null && me.Life.Value == LifeState.Downed)
             {
                 var helper = HelperOf(me, out float p);

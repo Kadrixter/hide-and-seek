@@ -69,7 +69,7 @@ namespace HideAndSeek.Game.Net
             var car = RcCar.Peek(i);
             Vector3 at = car != null && car.View != RcCar.ViewMode.Hidden ? car.transform.position : s.Pos;
             float d = Vector3.Distance(p.transform.position, at);
-            if (d > Tuning.RcRange) return $"samochodzik poza zasięgiem ({d:0} / {Tuning.RcRange:0} m)";
+            if (d > RcRangeOf(i)) return $"samochodzik poza zasięgiem ({d:0} / {RcRangeOf(i):0} m)";
             return $"LPM / 6 - steruj samochodzikiem ({d:0} m)";
         }
 

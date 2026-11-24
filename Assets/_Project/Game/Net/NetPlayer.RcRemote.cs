@@ -38,7 +38,7 @@ namespace HideAndSeek.Game.Net
             if (IsOwner)
             {
                 // Selected (also while sitting down to steer / getting up: the RC pose keeps it in the hands then).
-                bool want = Hotbar.Active(this) && IsAliveHider && !Busy.Value && Seat.Value < 0 &&
+                bool want = Hotbar.Active(this) && IsAliveHider && !Busy.Value && Seat.Value < 0 && !WireHandsBusy &&
                             Hotbar.ItemAt(this, Hotbar.Selected(this)) == HotbarItem.RcRemote;
                 if (RcRemoteOut.Value != want) RcRemoteOut.Value = want;
             }

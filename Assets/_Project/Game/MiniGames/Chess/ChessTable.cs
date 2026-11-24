@@ -68,7 +68,7 @@ namespace HideAndSeek.Game.MiniGames
             float dt = Time.deltaTime;
             TickAnim(dt);
             float wantYaw = State.WhiteIsA ? 0f : 180f;
-            _pivotYaw = Mathf.MoveTowardsAngle(_pivotYaw, wantYaw, dt * 240f);
+            _pivotYaw = Mathf.MoveTowardsAngle(_pivotYaw, wantYaw, dt * 240f * AnimSpeed);
             Model.BoardPivot.localRotation = Quaternion.Euler(0f, _pivotYaw, 0f);
             UpdateClock(mm);
             DrivePoses();

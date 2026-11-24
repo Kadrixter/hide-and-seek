@@ -49,6 +49,7 @@ namespace HideAndSeek.Game.Net
             }
             bool inGame = SceneManager.GetActiveScene().name == NetSession.GameScene &&
                           (Phase.Value == MatchPhase.Hiding || Phase.Value == MatchPhase.Seeking || Phase.Value == MatchPhase.Ended);
+            UpdateRcPower(inGame); // energised cars: server hit checks + lightning (MatchManager.RcPower.cs)
             if (!inGame) return;
             RcCarShelf.Ensure();
             RcRemoteFx.Ensure(); // wrecks of smashed transmitters (also for late joiners)
@@ -119,7 +120,7 @@ namespace HideAndSeek.Game.Net
             var d = NetPlayer.Find(s.Holder);
             if (d == null) return;
             var pk = d.RcDrive.Value;
-            if (pk.Pos != Vector3.zero && (pk.Pos - s.Pos).sqrMagnitude < Tuning.RcRange * Tuning.RcRange * 4f)
+            if (pk.Pos != Vector3.zero && (pk.Pos - s.Pos).sqrMagnitude < RcRangeOf(i) * RcRangeOf(i) * 4f)
             {
                 pos = pk.Pos;
                 yaw = pk.YawDeg;
@@ -208,7 +209,7 @@ namespace HideAndSeek.Game.Net
             if (pl == null || i < 0 || i >= RcCar.Count || !RcPhase || !pl.IsAliveHider || pl.Busy.Value || pl.Seat.Value >= 0) return;
             var s = RcSlot(i);
             if (s.Holder != pl.NetworkObjectId || s.Mode != RcMode.Parked) return;
-            if (Vector3.Distance(pl.transform.position, s.Pos) > Tuning.RcRange) return;
+            if (Vector3.Distance(pl.transform.position, s.Pos) > RcRangeOf(i)) return;
             SetRc(i, RcMode.Driving, pl.NetworkObjectId, s.Pos, s.Yaw);
         }
 
@@ -217,7 +218,7 @@ namespace HideAndSeek.Game.Net
             if (pl == null || i < 0 || i >= RcCar.Count) return;
             var s = RcSlot(i);
             if (s.Holder != pl.NetworkObjectId || s.Mode != RcMode.Driving) return;
-            if (Vector3.Distance(pl.transform.position, pos) > Tuning.RcRange + 5f) RcWhere(i, out pos, out yaw);
+            if (Vector3.Distance(pl.transform.position, pos) > RcRangeOf(i) + 5f) RcWhere(i, out pos, out yaw);
             SetRc(i, RcMode.Parked, pl.NetworkObjectId, pos, yaw);
             pl.ToastRpc("Pilot został w ekwipunku. LPM z pilotem albo 6 - wróć do sterowania.", 3.5f);
         }

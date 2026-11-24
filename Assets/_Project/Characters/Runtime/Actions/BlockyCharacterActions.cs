@@ -422,6 +422,7 @@ namespace HideAndSeek.Characters
             ApplyExtLayers(ref p, dt, standing, lookPitch); // fire extinguisher in the hands / foam wiped off the face
             ApplyBoardGame(ref p, dt); // lobby chess / tic-tac-toe table (BlockyCharacterActions.BoardGame.cs)
             ApplyRodPullLayer(ref p, dt); // pulling a rod out of rubble (whole body)
+            ApplyRcWireLayers(ref p, dt, standing, lookPitch); // fence wire torn off / RC antenna swap (BlockyCharacterActions.RcWire.cs)
 
             // 3. Revive loop (full body).
             if (reviveW > 0.001f) p = CharacterPose.Lerp(p, RevivePose(), ActionTimeline.SmoothStep01(reviveW));
@@ -520,6 +521,7 @@ namespace HideAndSeek.Characters
             // 5d. Collapse after too many cans in the lobby (overrides everything).
             if (overdoseT >= 0f) p = OverdosePose(p, overdoseT);
             if (stunT >= 0f) p = StunPose(p, stunT); // 5e. knocked out by a thrown leg (Stun.cs)
+            if (zapT >= 0f) p = ZapPose(p, zapT); // 5e'. electrocuted by an energised RC car (Zap.cs)
 
             // 5e. Carrying somebody in the arms / being carried (BodyCarry*.cs).
             ApplyBodyCarryLayers(ref p, dt);

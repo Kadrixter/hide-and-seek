@@ -6,9 +6,9 @@ namespace HideAndSeek.Characters
     {
         // ================================================================ rear
 
-        static float TailLow(float s) => Mathf.Lerp(6.0f, 6.55f, s);
-        static float TailHigh(float s) => Mathf.Lerp(8.45f, 9.15f, Mathf.Sqrt(s));
-        const float TailZ0 = ZR, TailZ1 = -0.1715f;
+        static float TailLow(float s) => Mathf.Lerp(6.05f, 6.5f, s);
+        static float TailHigh(float s) => Mathf.Lerp(8.35f, 8.95f, Mathf.Sqrt(s));
+        const float TailZ0 = ZR, TailZ1 = -0.1705f;
 
         static void TailLamps(YarisMesh m, YarisLoft L)
         {
@@ -26,47 +26,49 @@ namespace HideAndSeek.Characters
             // clear reverse lamp band across the middle of the corner part
             L.Sheet(m, (s, t) =>
             {
-                float z = Mathf.Lerp(TailZ0, -0.1845f, s);
+                float z = Mathf.Lerp(TailZ0, -0.1825f, s);
                 float k = S(z);
-                return new Vector2(z, Mathf.Lerp(Mathf.Lerp(TailLow(k), TailHigh(k), 0.36f), Mathf.Lerp(TailLow(k), TailHigh(k), 0.54f), t));
+                return new Vector2(z, Mathf.Lerp(Mathf.Lerp(TailLow(k), TailHigh(k), 0.08f), Mathf.Lerp(TailLow(k), TailHigh(k), 0.2f), t));
             }, 6, 4, 0.0012f, MClear);
             // inner part of the cluster on the tailgate face (follows the body outline at the corner)
-            EndPoly(m, -1f, new[] { new Vector2(0.0495f, 0.0745f), new Vector2(0.0738f, 0.0745f), new Vector2(0.0722f, 0.1015f), new Vector2(0.0505f, 0.1015f) }, 0.0002f, MTrim);
-            EndPoly(m, -1f, new[] { new Vector2(0.0508f, 0.0757f), new Vector2(0.0738f, 0.0757f), new Vector2(0.0722f, 0.1003f), new Vector2(0.0518f, 0.1003f) }, 0.0004f, MTail);
-            EndPoly(m, -1f, new[] { new Vector2(0.0508f, 0.0858f), new Vector2(0.0738f, 0.0858f), new Vector2(0.0734f, 0.0905f), new Vector2(0.0508f, 0.0905f) }, 0.0006f, MClear);
-            Oval(m, -1f, 0.0585f, 0.0945f, 0.0042f, 0.0042f, 0.0006f, MTrim);
-            Oval(m, -1f, 0.0585f, 0.0945f, 0.0032f, 0.0032f, 0.0007f, MTail);
-            Oval(m, -1f, -0.0585f, 0.0945f, 0.0042f, 0.0042f, 0.0006f, MTrim);
-            Oval(m, -1f, -0.0585f, 0.0945f, 0.0032f, 0.0032f, 0.0007f, MTail);
-        }
-
-        /// <summary>Convex polygon (right side, x &gt; 0, counter-clockwise seen from the viewer) on an end cap, mirrored.</summary>
-        static void EndPoly(YarisMesh m, float dir, Vector2[] pts, float lift, int slot)
-        {
-            float z = (dir > 0f ? ZF : ZR) + dir * lift;
-            var n = new Vector3(0f, 0f, dir);
-            foreach (float sx in new[] { 1f, -1f })
-                for (int i = 1; i < pts.Length - 1; i++)
-                {
-                    Vector3 a = new Vector3(pts[0].x * sx, pts[0].y, z), b = new Vector3(pts[i].x * sx, pts[i].y, z), c = new Vector3(pts[i + 1].x * sx, pts[i + 1].y, z);
-                    // orientation from the actual winding so it works for both sides and both ends
-                    if (Vector3.Dot(Vector3.Cross(b - a, c - a), n) > 0f) m.Tri(a, b, c, n, n, n, slot);
-                    else m.Tri(a, c, b, n, n, n, slot);
-                }
+            EndPoly(m, -1f, new[] { new Vector2(0.0568f, 0.0712f), new Vector2(0.0742f, 0.0712f), new Vector2(0.0716f, 0.0928f), new Vector2(0.0598f, 0.0928f) }, 0.0002f, MTrim);
+            EndPoly(m, -1f, new[] { new Vector2(0.058f, 0.0724f), new Vector2(0.0741f, 0.0724f), new Vector2(0.0712f, 0.0916f), new Vector2(0.0608f, 0.0916f) }, 0.0004f, MTail);
+            EndPoly(m, -1f, new[] { new Vector2(0.0582f, 0.0738f), new Vector2(0.0741f, 0.0738f), new Vector2(0.0741f, 0.0772f), new Vector2(0.0584f, 0.0772f) }, 0.0006f, MClear);
+            Oval(m, -1f, 0.0662f, 0.0848f, 0.0034f, 0.0036f, 0.0006f, MTrim);
+            Oval(m, -1f, 0.0662f, 0.0848f, 0.0025f, 0.0027f, 0.0007f, MTail);
+            Oval(m, -1f, -0.0662f, 0.0848f, 0.0034f, 0.0036f, 0.0006f, MTrim);
+            Oval(m, -1f, -0.0662f, 0.0848f, 0.0025f, 0.0027f, 0.0007f, MTail);
         }
 
         static void RearEnd(YarisMesh m)
         {
-            // Plate recess on the tailgate, emblem above it, bumper split line, reflectors, exhaust.
-            EndQuad(m, -1f, -0.033f, 0.033f, 0.0695f, 0.0865f, 0.0002f, MSeam);
-            Plate(m, -1f, 0.0715f);
-            EndQuad(m, -1f, -0.022f, 0.022f, 0.0872f, 0.0886f, 0.0003f, MChrome); // plate light bar / garnish
-            Emblem(m, -1f, 0.0945f, 0.0062f, 0.0045f, 0.0004f);
-            EndQuad(m, -1f, -0.0735f, 0.0735f, 0.0638f, 0.0648f, 0.0003f, MSeam);
-            EndQuad(m, -1f, 0.054f, 0.0645f, 0.0435f, 0.047f, 0.0004f, MTail, true);
-            EndQuad(m, -1f, -0.046f, 0.046f, 0.0292f, 0.0335f, 0.0003f, MTrim); // diffuser lip
-            m.Box(new Vector3(-0.047f, 0.0262f, ZR + 0.004f), new Vector3(0.0068f, 0.0052f, 0.016f), Quaternion.identity, MRim, 0.7f);
-            m.Box(new Vector3(-0.047f, 0.0262f, ZR - 0.0041f), new Vector3(0.0046f, 0.0032f, 0.0006f), Quaternion.identity, MUnder, 0.2f);
+            // Plate recess on the tailgate with the plate lamp garnish, emblem above, TOYOTA / YARIS badges.
+            EndQuad(m, -1f, -0.0335f, 0.0335f, 0.0448f, 0.0612f, 0.0002f, MSeam);
+            Plate(m, -1f, 0.0468f);
+            EndQuad(m, -1f, -0.013f, 0.013f, 0.0712f, 0.0722f, 0.0003f, MChrome);   // tailgate handle garnish
+            Emblem(m, -1f, 0.0868f, 0.0066f, 0.0048f, 0.0004f);
+            Badge(m, -0.0435f, 0.0848f, 6);  // TOYOTA (viewer's left)
+            Badge(m, 0.0425f, 0.0848f, 5);   // YARIS
+            // Bumper split line, black lower bumper with the red reflectors, exhaust on the left.
+            EndQuad(m, -1f, -0.0745f, 0.0745f, 0.0632f, 0.0642f, 0.0003f, MSeam);
+            EndQuad(m, -1f, -0.066f, 0.066f, 0.0345f, 0.0418f, 0.0003f, MTrim);
+            EndQuad(m, -1f, -0.064f, 0.064f, 0.0415f, 0.0425f, 0.0004f, MSeam);
+            EndQuad(m, -1f, 0.05f, 0.0605f, 0.0478f, 0.0505f, 0.0004f, MTail, true);
+            m.Box(new Vector3(-0.047f, 0.0292f, ZR + 0.004f), new Vector3(0.0068f, 0.0052f, 0.016f), Quaternion.identity, MRim, 0.7f);
+            m.Box(new Vector3(-0.047f, 0.0292f, ZR - 0.0041f), new Vector3(0.0046f, 0.0032f, 0.0006f), Quaternion.identity, MUnder, 0.2f);
+        }
+
+        /// <summary>Small chrome lettering: <paramref name="n"/> letter blocks centred on (cx, cy) on the tailgate.</summary>
+        static void Badge(YarisMesh m, float cx, float cy, int n)
+        {
+            const float lw = 0.0024f, gap = 0.0009f, lh = 0.0026f;
+            float x0 = cx - (n * lw + (n - 1) * gap) * 0.5f;
+            for (int i = 0; i < n; i++)
+            {
+                float x = x0 + i * (lw + gap);
+                EndQuad(m, -1f, x, x + lw, cy - lh * 0.5f, cy + lh * 0.5f, 0.0004f, MChrome);
+                EndQuad(m, -1f, x + lw * 0.3f, x + lw * 0.7f, cy - lh * 0.25f, cy + lh * 0.25f, 0.0005f, MPaint);
+            }
         }
 
         static void Spoiler(YarisMesh m)

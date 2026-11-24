@@ -363,6 +363,7 @@ namespace HideAndSeek.Game.Net
             UpdateHandItem();
             UpdateLegThrow(); // NetPlayer.LegThrow.cs
             UpdateStun(); // NetPlayer.Stun.cs
+            UpdateRcZap(); // electrocuted by an energised RC car (NetPlayer.RcPower.cs)
             UpdateEmote();
             UpdateBodyCarry();
 

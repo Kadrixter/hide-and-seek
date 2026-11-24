@@ -274,7 +274,8 @@ namespace HideAndSeek.Game
 
         /// <summary>
         /// Driver's client: arcade car physics on a CharacterController (slopes, ramps, small steps, walls).
-        /// Top speed = the character's walk speed, Shift = run speed. Returns the pose to send.
+        /// Top speed = <paramref name="walkSpeed"/>, Shift = <paramref name="runSpeed"/> (shelf cars: the character's walk
+        /// speed and <see cref="Net.RcPower.BoostSpeed"/> = 1.08 x the seeker's sprint). Steering: <see cref="SteerFor"/>.
         /// </summary>
         public void TickLocal(float dt, float walkSpeed, float runSpeed, Vector3 driverPos, NetPlayer driver)
         {
@@ -287,13 +288,14 @@ namespace HideAndSeek.Game
             Vector3 fwd = Quaternion.Euler(0f, _yaw, 0f) * Vector3.forward;
             Vector3 toCar = transform.position - driverPos;
             toCar.y = 0f;
-            if (toCar.magnitude > Tuning.RcRange && Vector3.Dot(fwd * Mathf.Sign(Mathf.Abs(target) > 0.01f ? target : Speed), toCar) > 0f)
+            if (toCar.magnitude > MatchManager.RcRangeOf(Index) && Vector3.Dot(fwd * Mathf.Sign(Mathf.Abs(target) > 0.01f ? target : Speed), toCar) > 0f)
                 target = 0f;
 
             float rate = Mathf.Abs(target) < 0.01f ? 3.5f : Speed * target < 0f ? 11f : Boost ? 7.5f : 5.5f;
             Speed = Mathf.MoveTowards(Speed, target, rate * dt);
-            _steer = Mathf.MoveTowards(_steer, Mathf.Clamp(SteerInput, -1f, 1f), dt * 5f);
-            SteerAngle = _steer * 32f * Mathf.Lerp(1f, 0.5f, Mathf.Abs(Speed) / Mathf.Max(1f, runSpeed));
+            float fast = Mathf.Clamp01(Mathf.Abs(Speed) / Mathf.Max(1f, runSpeed));
+            _steer = Mathf.MoveTowards(_steer, Mathf.Clamp(SteerInput, -1f, 1f), dt * Mathf.Lerp(5f, 3f, fast));
+            SteerAngle = SteerFor(_steer, Speed, runSpeed);
             _yawRate = Speed / Wheelbase * Mathf.Tan(SteerAngle * Mathf.Deg2Rad) * Mathf.Rad2Deg;
             _yaw += _yawRate * dt;
             fwd = Quaternion.Euler(0f, _yaw, 0f) * Vector3.forward;
@@ -330,6 +332,25 @@ namespace HideAndSeek.Game
             _vy = _cc.isGrounded ? -1.5f : Mathf.Max(_vy - 9.81f * dt, -12f);
             _cc.Move(move + Vector3.up * (_vy * dt));
             transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
+        }
+
+        public const float MaxSteerAngle = 30f;
+        public const float YawRateSlow = 170f;   // deg/s cap at walking pace (full lock still turns on the spot)
+        public const float YawRateFast = 100f;   // deg/s cap at top (boost) speed: wide, stable arcs
+
+        /// <summary>
+        /// Speed-dependent steering: the front wheels' angle is capped so the turn rate falls from
+        /// <see cref="YawRateSlow"/> to <see cref="YawRateFast"/> as the car speeds up (at the old 32 deg lock it spun
+        /// at ~350 deg/s in boost); at a crawl the full <see cref="MaxSteerAngle"/> still turns it round in half a metre.
+        /// </summary>
+        public static float SteerFor(float steer, float speed, float topSpeed)
+        {
+            float v = Mathf.Abs(speed);
+            float k = Mathf.InverseLerp(1f, Mathf.Max(2f, topSpeed), v);
+            float maxRate = Mathf.Lerp(YawRateSlow, YawRateFast, k) * Mathf.Deg2Rad;
+            float lim = MaxSteerAngle;
+            if (v > 0.05f) lim = Mathf.Min(lim, Mathf.Atan(maxRate * Wheelbase / v) * Mathf.Rad2Deg);
+            return Mathf.Clamp(steer, -1f, 1f) * lim;
         }
 
         private void HitSomething(float speed)
@@ -395,7 +416,7 @@ namespace HideAndSeek.Game
                 Speed = Mathf.Lerp(Speed, newSpeed, 1f - Mathf.Exp(-10f * dt));
                 _yawRate = Mathf.DeltaAngle(prevYaw, _yaw) / dt;
                 _steer = Mathf.MoveTowards(_steer, SteerInput, dt * 5f);
-                SteerAngle = _steer * 32f * Mathf.Lerp(1f, 0.5f, Mathf.Abs(Speed) / 5.8f);
+                SteerAngle = SteerFor(_steer, Speed, 6.3f);
             }
 
             bool moving = View == ViewMode.Local || View == ViewMode.Remote;

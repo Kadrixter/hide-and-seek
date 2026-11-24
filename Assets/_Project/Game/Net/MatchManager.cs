@@ -492,6 +492,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepLegs ??= UpdateLegs, "legs");
             Step(_stepFlashBox ??= UpdateFlashBox, "flash box");
             Step(_stepToyGuns ??= UpdateToyGuns, "toy guns");
+            Step(_stepRcWire ??= UpdateRcWire, "rc wire"); // fence wire / RC antenna upgrade (MatchManager.RcWire.cs)
             Step(_stepPhones ??= UpdatePhones, "phones");
             Step(_stepPa ??= UpdatePa, "public address");
             Step(_stepExt ??= UpdateExtinguishers, "extinguishers");

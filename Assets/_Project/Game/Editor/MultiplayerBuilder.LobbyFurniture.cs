@@ -8,7 +8,7 @@ namespace HideAndSeek.Game.Editor
 {
     /// <summary>
     /// New lobby furniture with mini interactions: electric fireplace (on / off), aquarium (feed the fish), sideboard
-    /// with a record player (play / stop); the rest in LobbyFurniture2 (globe, coat rack, darts, bookshelf, crates,
+    /// with a record player (play / stop); the rest in LobbyFurniture2 (globe, coat rack, bookshelf, crates,
     /// mini-game spots). Every piece is built in its own frame (local +Z = front) and turned to face the room.
     /// </summary>
     public static partial class MultiplayerBuilder
@@ -22,7 +22,7 @@ namespace HideAndSeek.Game.Editor
             RecordCabinet(f, LobbyLayout.RecordPlayer, darkWood);
             FloorGlobe(f, LobbyLayout.Globe, darkWood);
             CoatRack(f, LobbyLayout.CoatRack, darkWood);
-            Dartboard(f, darkWood);
+            // Dartboard(f, darkWood); - shelved 2026-11-24, see Editor/Shelved/MultiplayerBuilder.Darts.cs
             Bookshelf(f, LobbyLayout.Bookshelf, darkWood);
             Crates(f);
             MiniGameSpots(f);

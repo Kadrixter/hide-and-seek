@@ -114,7 +114,7 @@ namespace HideAndSeek.Game
             if (_me == null || _car == null) return 1f;
             Vector3 d = _car.transform.position - _me.transform.position;
             d.y *= 2f; // floors in between hurt the signal
-            return Mathf.Clamp01(1f - d.magnitude / Tuning.RcRange);
+            return Mathf.Clamp01(1f - d.magnitude / MatchManager.RcRangeOf(_car.Index)); // wire antenna: MatchManager.RcWire
         }
 
         private void OnGUI()
@@ -180,10 +180,56 @@ namespace HideAndSeek.Game
                 GUI.color = new Color(1f, 0.4f, 0.3f, blink ? 1f : 0.5f);
                 GUI.Label(new Rect(w * 0.5f - h * 0.3f, h * 0.2f, h * 0.6f, h * 0.06f), "SŁABY SYGNAŁ", _style);
             }
+            DrawCharge(w, h, m, blink);
             GUI.color = new Color(1f, 1f, 1f, 0.85f);
             GUI.Label(new Rect(0, h - m - h * 0.06f, w, h * 0.05f),
-                "W A S D - jazda    Shift - turbo    H - klakson    T - światła    mysz - rozglądanie    6 - wróć do postaci", _small);
+                "W A S D - jazda    Shift - turbo    R - prąd    H - klakson    T - światła    mysz - rozglądanie    6 - wróć do postaci", _small);
             GUI.color = Color.white;
+        }
+
+        /// <summary>Energising (R): charge bar with the seconds left, then the cooldown; blue flicker on the edges while charged.</summary>
+        private void DrawCharge(float w, float h, float m, bool blink)
+        {
+            var mm = MatchManager.Instance;
+            if (mm == null || _car.Index < 0) return;
+            int i = _car.Index;
+            float left = mm.RcChargeLeft(i), cd = mm.RcChargeCooldown(i);
+            // Bottom right, above the speed (bottom left is the minimap).
+            float bw = h * 0.3f, bh = h * 0.018f, x = w - m - bw, y = h - m - h * 0.2f;
+            string label;
+            float fill;
+            Color col;
+            if (left > 0f)
+            {
+                label = $"PRĄD  {left:0.0} s";
+                fill = left / RcPower.ChargeTime;
+                col = new Color(0.55f, 0.8f, 1f, 0.95f);
+                // Blue flicker on the screen edges (the camera sits in the arcs).
+                float e = 0.12f + 0.18f * Random.value;
+                GUI.color = new Color(0.45f, 0.7f, 1f, e);
+                float th = h * 0.012f;
+                GUI.DrawTexture(new Rect(0, 0, w, th), _white);
+                GUI.DrawTexture(new Rect(0, h - th, w, th), _white);
+                GUI.DrawTexture(new Rect(0, 0, th, h), _white);
+                GUI.DrawTexture(new Rect(w - th, 0, th, h), _white);
+            }
+            else if (cd > 0f)
+            {
+                label = $"PRĄD za {Mathf.CeilToInt(cd)} s";
+                fill = 1f - cd / RcPower.Cooldown;
+                col = new Color(1f, 1f, 1f, 0.55f);
+            }
+            else
+            {
+                label = "R - PRĄD gotowy";
+                fill = 1f;
+                col = new Color(0.55f, 0.8f, 1f, blink ? 0.95f : 0.7f);
+            }
+            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.DrawTexture(new Rect(x, y, bw, bh), _white);
+            GUI.color = col;
+            GUI.DrawTexture(new Rect(x, y, bw * Mathf.Clamp01(fill), bh), _white);
+            GUI.Label(new Rect(x, y - h * 0.055f, bw + m, h * 0.05f), label, _style);
         }
     }
 }

@@ -20,6 +20,7 @@ namespace HideAndSeek.Game.Net
         {
             if (has("-testremote")) StartCoroutine(RemoteTest());
             if (has("-remotewatch")) StartCoroutine(RemoteWatch());
+            StartRcPowerTests(has); // energised car, boost, steering, hand-over (NetSession.RcPowerTests.cs)
             if (ArgOr("-remotewav", "") is string wav && wav.Length > 0)
             {
                 System.IO.Directory.CreateDirectory(wav);

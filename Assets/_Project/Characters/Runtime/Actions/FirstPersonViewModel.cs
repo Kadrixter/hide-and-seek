@@ -221,6 +221,7 @@ namespace HideAndSeek.Characters
                 return true;
             }
             if (MedkitHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
+            if (AntennaSwapHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true; // FirstPersonViewModel.RcWire.cs
             if (RemoteHoldHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft)) return true;
             return ToyGunHands(ref show, out rightT, out propRot, ref leftT, ref wantLeft);
         }

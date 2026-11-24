@@ -27,8 +27,9 @@ namespace HideAndSeek.Game.MiniGames
         public static Vector3 CapturedLocal(int seat, int n)
         {
             int col = n / 8, row = n % 8;
-            float z = (0.07f + row * 0.05f) * (seat == 0 ? -1f : 1f);
-            return new Vector3(-0.405f - col * 0.05f, TopY, z);
+            // Rows a bit tighter than the piece pitch, so a full column stays clear of the table's rounded corner.
+            float z = (0.07f + row * 0.042f) * (seat == 0 ? -1f : 1f);
+            return new Vector3(-0.405f - col * 0.045f, TopY, z);
         }
 
         public static ChessTableModel Build(Transform root, Material template, int style)
