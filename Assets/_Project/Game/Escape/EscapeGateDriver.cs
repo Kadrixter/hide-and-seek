@@ -154,7 +154,8 @@ namespace HideAndSeek.Game.Escape
         void FarSiren(float vol)
         {
             var lis = GameAudio.Listener;
-            if (lis == null || vol <= 0.001f) { Play(_sirenFar, 0f, 1f); return; }
+            // One far copy for the whole map (the east gate's), not one per gate.
+            if (lis == null || vol <= 0.001f || _gate.Index != 0) { Play(_sirenFar, 0f, 1f); return; }
             Vector3 lp = lis.position;
             Vector3 gp = _siren3D.transform.position;
             int floors = Mathf.Abs(FloorAcoustics.FloorOf(lp.y) - FloorAcoustics.FloorOf(gp.y));

@@ -118,6 +118,12 @@ namespace HideAndSeek.Game
         private static Vector3 GateTarget(bool opening)
         {
             var g = ExitGate.Instance;
+            if (opening && NetPlayer.Local != null)
+            {
+                // Running out: the nearer of the two gates.
+                var near = ExitGate.Get(HideAndSeek.Game.Escape.EscapeTimeline.Nearest(NetPlayer.Local.transform.position));
+                if (near != null) g = near;
+            }
             if (g == null) return ExitGate.DefaultPos + ExitGate.BoxPos;
             return opening ? g.SillWorld : g.BoxWorld;
         }

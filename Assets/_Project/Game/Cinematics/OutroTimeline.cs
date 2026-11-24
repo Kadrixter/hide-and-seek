@@ -13,7 +13,7 @@ namespace HideAndSeek.Game.Cinematics
         public const float FadeOut = 0.5f, StageIn = 0.55f, Lights = 0.95f, LightStep = 0.16f;
         public const float WalkIn = 0.75f, WalkStagger = 0.17f;
         public const float TitleIn = 1.5f, Travel = 3.4f, Awards = 8.6f, CardStep = 0.22f;
-        public const float End = 14.6f;
+        public const float End = 19.6f; // +5 s on the awards (2026-11-24)
         /// <summary>The server keeps the Ended phase this long (a little after the end, then the lobby loads).</summary>
         public const float Phase = End + 0.3f;
     }

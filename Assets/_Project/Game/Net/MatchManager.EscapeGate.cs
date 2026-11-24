@@ -1,4 +1,5 @@
 using HideAndSeek.Core;
+using HideAndSeek.Game.Cinematics;
 using HideAndSeek.Game.Escape;
 using Unity.Netcode;
 using UnityEngine;
@@ -41,7 +42,7 @@ namespace HideAndSeek.Game.Net
             double t = Now - EscapeGateAt.Value;
             if (t < 0d || t > EscapeTimeline.SirenEnd || Now < _escPinAt) return;
             _escPinAt = Now + 10d;
-            AlarmPinged?.Invoke(EscapeTimeline.ToWorld(new Vector3(0f, 0f, 1f)));
+            for (int g = 0; g < ExitGate.Count; g++) AlarmPinged?.Invoke(EscapeTimeline.ToWorld(new Vector3(0f, 0f, 1f), g));
         }
 
         /// <summary>Server, every frame.</summary>
@@ -81,20 +82,20 @@ namespace HideAndSeek.Game.Net
             {
                 var p = i < NetPlayer.All.Count ? NetPlayer.All[i] : null;
                 if (p == null || !p.IsSpawned || p.Escaped.Value) continue;
-                if (!EscapeTimeline.PastLine(p.transform.position)) continue;
-                if (p.IsSeeker) { SeekerOverLine(p); continue; }
+                if (!EscapeTimeline.PastLine(p.transform.position, out int gate)) continue;
+                if (p.IsSeeker) { SeekerOverLine(p, gate); continue; }
                 if (!p.IsHider || p.Life.Value != LifeState.Alive || p.BodyCarriedNow || p.Busy.Value) continue;
                 ServerEscape(p, null);
             }
         }
 
-        void SeekerOverLine(NetPlayer p)
+        void SeekerOverLine(NetPlayer p, int gate)
         {
             if (Now < _escSeekerBackAt) return;
             _escSeekerBackAt = Now + 1d;
-            Vector3 back = EscapeTimeline.ToWorld(new Vector3(0f, 0.05f, EscapeTimeline.SeekerWallZ + 1.2f));
+            Vector3 back = EscapeTimeline.ToWorld(new Vector3(0f, 0.05f, EscapeTimeline.SeekerWallZ + 1.2f), gate);
             Debug.Log($"[Escape] server: seeker {p.Nick} past the boundary - put back");
-            EscapeTimeline.Frame(out _, out var rot);
+            EscapeTimeline.Frame(out _, out var rot, gate);
             p.TeleportRpc(back, Quaternion.LookRotation(rot * Vector3.forward).eulerAngles.y); // facing into the garage
         }
 
