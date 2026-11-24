@@ -359,6 +359,14 @@ namespace HideAndSeek.Game
             Transform view = viewPlayer.transform;
             Vector3 pos = view.position;
             float yaw = viewPlayer == me ? me.Motor.LookYaw : view.eulerAngles.y;
+            // Driving the RC car: the map (floor, markers, arrow) follows the car and the car camera's heading.
+            var rcView = RcCarView.Active;
+            if (watched == null && rcView != null && rcView.Car != null)
+            {
+                pos = rcView.Car.transform.position;
+                yaw = rcView.transform.eulerAngles.y;
+            }
+            FollowsCar = watched == null && rcView != null && rcView.Car != null;
 
             int floor = 0;
             float bestD = float.MaxValue;

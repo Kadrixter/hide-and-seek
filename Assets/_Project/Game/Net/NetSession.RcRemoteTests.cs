@@ -21,6 +21,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testremote")) StartCoroutine(RemoteTest());
             if (has("-remotewatch")) StartCoroutine(RemoteWatch());
             StartRcPowerTests(has); // energised car, boost, steering, hand-over (NetSession.RcPowerTests.cs)
+            StartRallyTests(has); // rally body, cockpit camera, minimap following the car (NetSession.RallyTests.cs)
             StartRcCargoTests(has); // the car picking items up + fuse minimap markers (NetSession.RcCargoTests.cs)
             if (ArgOr("-remotewav", "") is string wav && wav.Length > 0)
             {

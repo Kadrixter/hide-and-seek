@@ -69,7 +69,7 @@ namespace HideAndSeek.Characters
             new Vector3(0.105f, RcWheelRadius, 0.14f), new Vector3(-0.105f, RcWheelRadius, 0.14f),
             new Vector3(0.105f, RcWheelRadius, -0.13f), new Vector3(-0.105f, RcWheelRadius, -0.13f),
         };
-        public static readonly Vector3 RcAntennaBase = new Vector3(0.07f, 0.12f, -0.17f);
+        public static readonly Vector3 RcAntennaBase = new Vector3(0.088f, 0.122f, -0.172f); // on the rally car's rear shoulder
         public const float RcAntennaLength = 0.27f;
         /// <summary>Held car: the fist grips the cabin roof (prop origin = fist).</summary>
         public static readonly Vector3 RcCarInHand = new Vector3(0f, -0.185f, 0f);
@@ -254,7 +254,11 @@ namespace HideAndSeek.Characters
             root.gameObject.layer = layer;
             if (parent != null) root.SetParent(parent, false);
             var parts = new RcCarParts { Root = root };
-            parts.Body = AddPart(root, "Body", GetMesh("RcBody"), layer);
+            // Rally body (smooth, with a cockpit; RallyModel) - the old blocky "RcBody" mesh is no longer used.
+            parts.Body = RallyModel.Renderer("Body", root, RallyModel.Body, layer);
+            parts.SteeringWheel = RallyModel.Renderer("SteeringWheel", parts.Body, RallyModel.SteeringWheel, layer);
+            parts.SteeringWheel.localPosition = RallyModel.SteeringPos;
+            parts.SteeringWheel.localRotation = RallyModel.SteeringTilt;
             parts.Wheels = new Transform[4];
             parts.Steer = new Transform[2];
             for (int i = 0; i < 4; i++)
@@ -269,7 +273,7 @@ namespace HideAndSeek.Characters
                     parts.Steer[i] = pivot;
                     mount = pivot;
                 }
-                var w = AddPart(mount, "Wheel" + i, GetMesh(RcWheelPos[i].x > 0f ? "RcWheelR" : "RcWheelL"), layer);
+                var w = RallyModel.Renderer("Wheel" + i, mount, RallyModel.Wheel(RcWheelPos[i].x), layer);
                 w.localPosition = i < 2 ? Vector3.zero : RcWheelPos[i];
                 parts.Wheels[i] = w;
             }
@@ -831,6 +835,8 @@ namespace HideAndSeek.Characters
     public class RcCarParts
     {
         public Transform Root, Body, Antenna;
+        /// <summary>Cockpit steering wheel (rally body; null on the Yaris) - turns with the steering.</summary>
+        public Transform SteeringWheel;
         /// <summary>FR, FL, RR, RL.</summary>
         public Transform[] Wheels;
         /// <summary>Front steering pivots (R, L).</summary>

@@ -22,6 +22,8 @@ namespace HideAndSeek.Game
         /// <summary>Tests: box / fuse markers shown in the last frame.</summary>
         public static int BoxMarks { get; private set; }
         public static int FuseMarks { get; private set; }
+        /// <summary>Tests: the map followed the local RC car in the last frame.</summary>
+        public static bool FollowsCar { get; private set; }
 
         private Image FuseMark(int i)
         {
