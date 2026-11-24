@@ -34,17 +34,26 @@ namespace HideAndSeek.Game.Net
     /// <summary>Server time each car was energised (0 = not this round).</summary>
     public struct RcPowerState : INetworkSerializable, IEquatable<RcPowerState>
     {
-        public double At0, At1;
+        public double At0, At1, At2, At3;
 
-        public double At(int i) => i == 0 ? At0 : At1;
+        public double At(int i) => i switch { 0 => At0, 1 => At1, 2 => At2, 3 => At3, _ => 0d };
+
+        public void Set(int i, double t)
+        {
+            switch (i) { case 0: At0 = t; break; case 1: At1 = t; break; case 2: At2 = t; break; case 3: At3 = t; break; }
+        }
+
+        public bool Any => At0 != 0d || At1 != 0d || At2 != 0d || At3 != 0d;
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
             s.SerializeValue(ref At0);
             s.SerializeValue(ref At1);
+            s.SerializeValue(ref At2);
+            s.SerializeValue(ref At3);
         }
 
-        public bool Equals(RcPowerState o) => At0 == o.At0 && At1 == o.At1;
+        public bool Equals(RcPowerState o) => At0 == o.At0 && At1 == o.At1 && At2 == o.At2 && At3 == o.At3;
     }
 
     /// <summary>
@@ -57,7 +66,7 @@ namespace HideAndSeek.Game.Net
     {
         public readonly NetworkVariable<RcPowerState> RcPowerVar = new();
 
-        private readonly HashSet<ulong>[] _rcZapped = { new HashSet<ulong>(), new HashSet<ulong>() };
+        private readonly HashSet<ulong>[] _rcZapped = { new HashSet<ulong>(), new HashSet<ulong>(), new HashSet<ulong>(), new HashSet<ulong>() };
 
         /// <summary>Seconds since car <paramref name="i"/> was energised (&lt; 0 = never this round).</summary>
         public float RcChargeElapsed(int i)
@@ -98,7 +107,7 @@ namespace HideAndSeek.Game.Net
                 return;
             }
             var st = RcPowerVar.Value;
-            if (i == 0) st.At0 = Now; else st.At1 = Now;
+            st.Set(i, Now);
             RcPowerVar.Value = st;
             _rcZapped[i].Clear();
             Debug.Log($"[RcPower] {pl.Nick} energised car {i} at {Now:0.00}");
@@ -110,11 +119,10 @@ namespace HideAndSeek.Game.Net
             if (IsServer)
             {
                 var st = RcPowerVar.Value;
-                if (!RcPhase && (st.At0 != 0d || st.At1 != 0d))
+                if (!RcPhase && st.Any)
                 {
                     RcPowerVar.Value = default;
-                    _rcZapped[0].Clear();
-                    _rcZapped[1].Clear();
+                    foreach (var z in _rcZapped) z.Clear();
                 }
                 else if (RcPhase) ServerRcZapCheck();
             }

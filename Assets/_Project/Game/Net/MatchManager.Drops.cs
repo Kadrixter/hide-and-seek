@@ -46,7 +46,8 @@ namespace HideAndSeek.Game.Net
                 if (d.Settled || !_dropViews.TryGetValue(d.Id, out var v) || v == null || !v.Resting(out var pos, out var rot)) continue;
                 // Through a wall, through the floor, out of the garage, stuck in something or still in the air: it
                 // lies next to the player who dropped it instead.
-                if (_dropAnchor.TryGetValue(d.Id, out var feet))
+                // No anchor (spawned by the server itself): checked against its own start point.
+                var feet = _dropAnchor.TryGetValue(d.Id, out var anchor) ? anchor : d.Pos;
                 {
                     var why = ItemPlacement.CheckRest(pos, feet, v.transform, v.MinHalfExtent * 0.5f);
                     if (why != ItemPlacement.Reject.None)

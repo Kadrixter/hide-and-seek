@@ -9,26 +9,29 @@ namespace HideAndSeek.Game.Net
     /// <summary>What each RC car carries on its roof (one item per car; None = empty). Written by the server.</summary>
     public struct RcCargoState : INetworkSerializable, IEquatable<RcCargoState>
     {
-        public byte Item0, Extra0, Item1, Extra1;
+        /// <summary>Car i: item in byte i*2, its extra in byte i*2+1 (4 cars, packed in one ulong).</summary>
+        public ulong Packed;
 
-        public HotbarItem Item(int i) => (HotbarItem)(i == 0 ? Item0 : Item1);
-        public byte Extra(int i) => i == 0 ? Extra0 : Extra1;
+        public HotbarItem Item(int i) => (HotbarItem)Byte(i * 2);
+        public byte Extra(int i) => Byte(i * 2 + 1);
+
+        private byte Byte(int k) => k >= 0 && k < 8 ? (byte)(Packed >> (k * 8)) : (byte)0;
+
+        private void SetByte(int k, byte v)
+        {
+            if (k < 0 || k >= 8) return;
+            Packed = (Packed & ~(0xFFUL << (k * 8))) | ((ulong)v << (k * 8));
+        }
 
         public void Set(int i, HotbarItem item, byte extra)
         {
-            if (i == 0) { Item0 = (byte)item; Extra0 = extra; }
-            else { Item1 = (byte)item; Extra1 = extra; }
+            SetByte(i * 2, (byte)item);
+            SetByte(i * 2 + 1, extra);
         }
 
-        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
-        {
-            s.SerializeValue(ref Item0);
-            s.SerializeValue(ref Extra0);
-            s.SerializeValue(ref Item1);
-            s.SerializeValue(ref Extra1);
-        }
+        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter => s.SerializeValue(ref Packed);
 
-        public bool Equals(RcCargoState o) => Item0 == o.Item0 && Extra0 == o.Extra0 && Item1 == o.Item1 && Extra1 == o.Extra1;
+        public bool Equals(RcCargoState o) => Packed == o.Packed;
     }
 
     /// <summary>Tuning of the RC car picking items up.</summary>

@@ -32,7 +32,7 @@ namespace HideAndSeek.Game
         private Light _glow;
         private ItemDef _def;
         private float _born, _calmSince = -1f, _lastHit = -10f, _glowBase, _phase;
-        private Vector3 _start;
+        private Vector3 _start, _v0, _lastPos;
         private Vector3 _fromP, _toP;
         private Quaternion _fromR, _toR;
         private float _ease = 1f;
@@ -49,6 +49,8 @@ namespace HideAndSeek.Game
             view._def = def;
             view._born = Time.time;
             view._start = d.Pos;
+            view._lastPos = d.Pos;
+            view._v0 = d.Vel;
             view._phase = d.Id * 0.73f;
 
             // Model centred on the root, collider round its bounds.
@@ -80,6 +82,9 @@ namespace HideAndSeek.Game
             view._rb.angularDamping = 0.4f;
             view._rb.interpolation = RigidbodyInterpolation.Interpolate;
             view._rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            // Started touching something (a wall, a car, an RC car driving into it): pushed out gently, never shot away.
+            view._rb.maxDepenetrationVelocity = 1.5f;
+            view._rb.maxAngularVelocity = 25f;
 
             if (def != null && def.Glow.a > 0.01f)
             {
@@ -119,7 +124,7 @@ namespace HideAndSeek.Game
             // Fell through a gap in the map, or left the garage: the server checks the spot and moves it back
             // next to the player (MatchManager.Drops / ItemPlacement.CheckRest).
             if (HideAndSeek.Map.MapInfo.HasGarage && !HideAndSeek.Map.MapInfo.InsideGarage(transform.position, -0.5f)) return true;
-            if (transform.position.y < _start.y - 8f)
+            if (transform.position.y < _start.y - 8f || (HideAndSeek.Map.MapInfo.HasGarage && transform.position.y < HideAndSeek.Map.MapInfo.FloorY(HideAndSeek.Map.MapInfo.Levels - 1) - 0.6f))
             {
                 // Fell through a gap in the map: put it on the floor under the start point.
                 pos = Physics.Raycast(_start + Vector3.up * 0.5f, Vector3.down, out var hit, 6f, ~HideAndSeek.Core.GameLayers.RagdollMask, QueryTriggerInteraction.Ignore)
@@ -162,6 +167,30 @@ namespace HideAndSeek.Game
                 return;
             }
             if (Time.time >= _nextIgnore) IgnorePlayers();
+        }
+
+        /// <summary>
+        /// While flying: never faster than it was thrown (a push out of a wall or a hit by a car cannot shoot it across
+        /// the garage) and never through a floor / wall in one step (put back on the surface it went through).
+        /// </summary>
+        private void FixedUpdate()
+        {
+            if (Settled || _rb == null || _rb.isKinematic) return;
+            Vector3 p = _rb.position, d = p - _lastPos;
+            float len = d.magnitude;
+            if (len > 0.02f && ItemPlacement.FirstHit(_lastPos, d / len, len, 0f, out var hit, transform))
+            {
+                _rb.position = hit.point + hit.normal * Mathf.Max(0.03f, HalfHeight);
+                _rb.linearVelocity = Vector3.ProjectOnPlane(_rb.linearVelocity, hit.normal) * 0.3f;
+                p = _rb.position;
+            }
+            Vector3 v = _rb.linearVelocity;
+            Vector3 h = new Vector3(v.x, 0f, v.z);
+            float maxH = Mathf.Max(new Vector2(_v0.x, _v0.z).magnitude * 1.1f, 3f);
+            if (h.magnitude > maxH) h = h.normalized * maxH;
+            float vy = Mathf.Clamp(v.y, -18f, Mathf.Max(_v0.y, 0f) + 1.5f);
+            _rb.linearVelocity = new Vector3(h.x, vy, h.z);
+            _lastPos = p;
         }
 
         /// <summary>Players walk through dropped items (and never kick them around).</summary>

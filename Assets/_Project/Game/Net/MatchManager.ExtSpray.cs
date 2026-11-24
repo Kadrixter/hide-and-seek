@@ -115,7 +115,7 @@ namespace HideAndSeek.Game.Net
                 _extImmune[id] = seeker.FoamUntil.Value + ExtTuning.Immunity;
                 return;
             }
-            if (_extImmune.TryGetValue(id, out double imm) && now < imm)
+            if (ExtTuning.Immunity > 0f && _extImmune.TryGetValue(id, out double imm) && now < imm)
             {
                 if (now >= _extToastAt)
                 {
@@ -129,7 +129,7 @@ namespace HideAndSeek.Game.Net
             _extImmune[id] = seeker.FoamUntil.Value + ExtTuning.Immunity;
             _extExposure[id] = 0f;
             seeker.FoamHitRpc(holder.NetworkObjectId);
-            holder.ToastRpc($"Trafiony! {seeker.Nick} nic nie widzi i nie zaatakuje przez 5 s - uciekaj!", 3f);
+            holder.ToastRpc($"Trafiony! {seeker.Nick} nic nie widzi i nie zaatakuje przez {ExtTuning.FoamTime:0} s - uciekaj!", 3f);
             Debug.Log($"[Ext] {holder.Nick} foamed seeker {seeker.Nick} for {ExtTuning.FoamTime} s");
         }
     }

@@ -9,7 +9,7 @@ using UnityEngine.SceneManagement;
 namespace HideAndSeek.Game.Net
 {
     /// <summary>
-    /// The two RC rally cars on the shelf in the generator room. A hider picks one up (E), key 6 puts it on the
+    /// The four RC rally cars on the shelf in the generator room. A hider picks one up (E), key 6 puts it on the
     /// floor and switches to the car camera while the character sits and steers; 6 again parks it. The seeker
     /// stomps on a car with F: it is crushed for the rest of the round and its driver drops out of the car view.
     /// </summary>
@@ -17,8 +17,10 @@ namespace HideAndSeek.Game.Net
     {
         public readonly NetworkVariable<RcSlotState> Rc0 = new(RcSlotState.OnShelf);
         public readonly NetworkVariable<RcSlotState> Rc1 = new(RcSlotState.OnShelf);
+        public readonly NetworkVariable<RcSlotState> Rc2 = new(RcSlotState.OnShelf);
+        public readonly NetworkVariable<RcSlotState> Rc3 = new(RcSlotState.OnShelf);
 
-        public NetworkVariable<RcSlotState> RcVar(int i) => i == 0 ? Rc0 : Rc1;
+        public NetworkVariable<RcSlotState> RcVar(int i) => i switch { 0 => Rc0, 1 => Rc1, 2 => Rc2, _ => Rc3 };
         public RcSlotState RcSlot(int i) => RcVar(i).Value;
 
         private bool _rcHooked;
@@ -46,6 +48,8 @@ namespace HideAndSeek.Game.Net
                 _rcHooked = true;
                 Rc0.OnValueChanged += (o, n) => OnRcChanged(0, o, n);
                 Rc1.OnValueChanged += (o, n) => OnRcChanged(1, o, n);
+                Rc2.OnValueChanged += (o, n) => OnRcChanged(2, o, n);
+                Rc3.OnValueChanged += (o, n) => OnRcChanged(3, o, n);
             }
             bool inGame = SceneManager.GetActiveScene().name == NetSession.GameScene &&
                           (Phase.Value == MatchPhase.Hiding || Phase.Value == MatchPhase.Seeking || Phase.Value == MatchPhase.Ended);
@@ -104,8 +108,7 @@ namespace HideAndSeek.Game.Net
 
         private void ResetRcCars()
         {
-            Rc0.Value = RcSlotState.OnShelf;
-            Rc1.Value = RcSlotState.OnShelf;
+            for (int i = 0; i < RcCar.Count; i++) RcVar(i).Value = RcSlotState.OnShelf;
         }
 
         private void SetRc(int i, RcMode mode, ulong holder, Vector3 pos, float yaw)
