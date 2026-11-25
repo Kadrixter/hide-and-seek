@@ -48,7 +48,7 @@ namespace HideAndSeek.Game.Editor
             }
         }
 
-        /// <summary>Placeholder balls (plain spheres): a racked triangle on the foot spot, the cue ball on the head spot, one in a jaw, one in a net.</summary>
+        /// <summary>Placeholder balls (plain spheres): a racked triangle on the foot spot, the cue ball on the head spot, one in a jaw, one in the return's tray.</summary>
         static void Balls(Ctx s, Transform root)
         {
             Color[] cols =
@@ -67,8 +67,8 @@ namespace HideAndSeek.Game.Editor
             Ball(s, root, PoolDims.BallOnCloth(PoolDims.HeadSpot.x, 0f), new Color(0.95f, 0.94f, 0.9f));
             Ball(s, root, PoolDims.BallOnCloth(0.93f, -0.455f), cols[2]);
             Ball(s, root, PoolDims.BallOnCloth(0.02f, -0.47f), cols[0]);
-            var c = PoolTableModel.PocketCentre(2);
-            Ball(s, root, new Vector3(c.x, PoolDims.ClothY - 0.172f, c.z), cols[5]);
+            var tray = PoolReturnTrack.Gully(0);
+            Ball(s, root, PoolReturnTrack.At(tray, tray.Length), cols[5]);
         }
 
         static void Ball(Ctx s, Transform root, Vector3 pos, Color c)

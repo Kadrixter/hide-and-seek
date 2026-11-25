@@ -221,12 +221,14 @@ namespace HideAndSeek.Game.MiniGames
             }
         }
 
-        /// <summary>Close-ups of the pocket baskets (balls under the pockets).</summary>
+        /// <summary>The ball return: the tray under the foot rail, a gully from low down at both sides, the pockets.</summary>
         void PoolPocketShots(PoolTable pool, string tag)
         {
             RenderTable(pool, $"{tag}_pocket_corner", new Vector3(1.55f, 0.95f, 1.05f), 40f);
-            Render($"{tag}_pocket_under", pool.transform.TransformPoint(new Vector3(0.6f, 0.45f, 1.3f)), pool.transform.TransformPoint(new Vector3(0f, 0.62f, PHalfW + 0.06f)), 50f);
-            Render($"{tag}_pockets_low", pool.transform.TransformPoint(new Vector3(-0.3f, 0.5f, -2.0f)), pool.transform.TransformPoint(new Vector3(0f, 0.6f, -PHalfW)), 70f);
+            Render($"{tag}_return_tray", pool.transform.TransformPoint(new Vector3(1.68f, 0.7f, -0.45f)), pool.transform.TransformPoint(new Vector3(1.19f, 0.465f, -0.05f)), 38f);
+            Render($"{tag}_return_foot", pool.transform.TransformPoint(new Vector3(2.3f, 0.85f, 0.5f)), pool.transform.TransformPoint(new Vector3(1.12f, 0.5f, 0f)), 42f);
+            Render($"{tag}_return_low_a", pool.transform.TransformPoint(new Vector3(0.3f, 0.4f, -2.1f)), pool.transform.TransformPoint(new Vector3(0.2f, 0.5f, -0.4f)), 60f);
+            Render($"{tag}_return_low_b", pool.transform.TransformPoint(new Vector3(0.3f, 0.4f, 2.1f)), pool.transform.TransformPoint(new Vector3(0.2f, 0.5f, 0.4f)), 60f);
         }
     }
 }

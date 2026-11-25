@@ -108,6 +108,11 @@ namespace HideAndSeek.Game
 
         private static void Select(NetPlayer p, int slot)
         {
+            if (p.SawInHands && ItemAt(p, slot) != HotbarItem.Chainsaw)
+            {
+                GameHud.Toast("Piły nie schowasz - Q, żeby ją wyrzucić.", 2f);
+                return;
+            }
             if (_sel != slot) GameAudio.Play2D(GameSfx.UiClick, 0.35f);
             _sel = slot;
             _nextEquip = 0f;

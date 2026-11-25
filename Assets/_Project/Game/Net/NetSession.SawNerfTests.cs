@@ -62,9 +62,36 @@ namespace HideAndSeek.Game.Net
             me.TeleportLocal(stand, 0f);
             me.Motor.SetLook(0f, 10f);
             yield return new WaitForSeconds(1.2f);
+            int[] rolls = new int[5];
+            for (int i = 0; i < 20000; i++) rolls[MatchManager.RollSawTries(Random.value)]++;
+            SnLog($"pull-start rolls of 20000: 1 try {rolls[1] / 200f:0.0}%, 2 tries {rolls[2] / 200f:0.0}%, 4 tries {rolls[4] / 200f:0.0}% -> " +
+                  $"{Pf(Mathf.Abs(rolls[2] / 200f - 25f) < 1.5f && Mathf.Abs(rolls[4] / 200f - 10f) < 1.2f && rolls[3] == 0)}");
+            MatchManager.ForcedSawTries = 4;
+            LocalPlayerController.TestSawRev = true; // F held the whole time: nothing until the engine catches
             mm.ServerPickupChainsaw(me);
-            yield return new WaitForSeconds(1f);
-            SnLog($"shelf saw: fuel={me.SawFuel.Value:0.0} full={SawFuel.Full} -> {Pf(me.HasChainsaw.Value && Mathf.Abs(me.SawFuel.Value - 12f) < 0.01f)}");
+            float tp = Time.time;
+            bool revEarly = false, shotPull = false;
+            while (!me.SawReady && Time.time - tp < 5f)
+            {
+                if (me.SawRev.Value) revEarly = true;
+                if (!shotPull && Time.time - tp > 1.25f) { shotPull = true; Shot(dir, "h_a2_pull_start"); }
+                yield return null;
+            }
+            float took = Time.time - tp;
+            yield return new WaitForSeconds(0.4f);
+            SnLog($"4-try pull-start: tries={me.SawAttempts.Value} ready after {took:0.00} s (expected ~{HideAndSeek.Characters.BlockyProps.ChainsawFireAt(4) + SawTuning.PullDelay:0.00}), rev before ready={revEarly}, rev after={me.SawRev.Value} -> " +
+                  $"{Pf(me.SawAttempts.Value == 4 && took > 2.2f && took < 3.1f && !revEarly && me.SawRev.Value)}");
+            LocalPlayerController.TestSawRev = false;
+            MatchManager.ForcedSawTries = 0;
+            yield return new WaitForSeconds(0.5f);
+            SnLog($"shelf saw: fuel={me.SawFuel.Value:0.0} full={SawFuel.Full} -> {Pf(me.HasChainsaw.Value && me.SawFuel.Value > 10f)}");
+            SnLog($"saw in hands, idle: sawScale={me.SawSpeedScale:0.00} motor={me.Motor.SpeedScale:0.00} -> {Pf(Mathf.Abs(me.SawSpeedScale - 0.85f) < 0.01f && me.Motor.SpeedScale < 0.86f)}");
+            int knifeSlot = Inventory.SlotOf(me, HotbarItem.Knife);
+            if (knifeSlot >= 0) Hotbar.TestSelect = knifeSlot;
+            yield return new WaitForSeconds(0.8f);
+            mm.ServerEquip(me, HeldItem.Knife);
+            yield return new WaitForSeconds(0.5f);
+            SnLog($"put the saw away (key {knifeSlot + 1} + server equip): held={me.Held.Value} -> {Pf(me.Held.Value == HeldItem.Chainsaw)}");
 
             // Hider on the same level, 6 m away: rev 2.5 s (client counts the red saw on its minimap).
             h.TeleportRpc(stand + Vector3.back * 6f, 0f);
@@ -72,11 +99,11 @@ namespace HideAndSeek.Game.Net
             SnLog($"PHASE same-level rev (hider dy={h.transform.position.y - me.transform.position.y:0.0})");
             LocalPlayerController.TestSawRev = true;
             yield return new WaitForSeconds(1.2f);
-            SnLog($"rev: running={me.SawRunning} sawScale={me.SawSpeedScale:0.00} combat={me.CombatSpeedScale:0.00} motor={me.Motor.SpeedScale:0.00} -> {Pf(me.SawRunning && Mathf.Abs(me.SawSpeedScale - 0.7f) < 0.01f && me.Motor.SpeedScale < 0.72f)}");
+            SnLog($"rev: running={me.SawRunning} sawScale={me.SawSpeedScale:0.00} combat={me.CombatSpeedScale:0.00} motor={me.Motor.SpeedScale:0.00} -> {Pf(me.SawRunning && Mathf.Abs(me.SawSpeedScale - 0.85f) < 0.01f && me.Motor.SpeedScale < 0.86f)}");
             yield return new WaitForSeconds(1.3f);
             LocalPlayerController.TestSawRev = false;
             yield return new WaitForSeconds(0.5f);
-            SnLog($"idle: sawScale={me.SawSpeedScale:0.00} motor={me.Motor.SpeedScale:0.00} -> {Pf(me.SawSpeedScale > 0.99f)}");
+            SnLog($"idle again: sawScale={me.SawSpeedScale:0.00} motor={me.Motor.SpeedScale:0.00} -> {Pf(Mathf.Abs(me.SawSpeedScale - 0.85f) < 0.01f)}");
             yield return new WaitForSeconds(1.5f);
 
             // Hider on another level: rev again (nothing on its minimap).
@@ -100,8 +127,11 @@ namespace HideAndSeek.Game.Net
             LocalPlayerController.TestSawRev = true;
             yield return new WaitForSeconds(0.6f);
             SnLog($"blinded + F: stalled={me.SawStalled} sawRev={me.SawRev.Value} -> {Pf(me.SawStalled && !me.SawRev.Value)}");
-            yield return new WaitForSeconds(2.2f);
-            SnLog($"dust gone + F: stalled={me.SawStalled} sawRev={me.SawRev.Value} -> {Pf(!me.SawStalled && me.SawRev.Value)}");
+            yield return new WaitForSeconds(1.6f);
+            float tb = Time.time;
+            while (!me.SawReady && Time.time - tb < 4f) yield return null;
+            yield return new WaitForSeconds(0.4f);
+            SnLog($"dust gone + F: stalled={me.SawStalled} new pull-start {me.SawAttempts.Value} tries, ready after {Time.time - tb - 0.4f:0.0} s, sawRev={me.SawRev.Value} -> {Pf(!me.SawStalled && me.SawRev.Value)}");
             LocalPlayerController.TestSawRev = false;
             yield return new WaitForSeconds(0.5f);
 
@@ -181,15 +211,14 @@ namespace HideAndSeek.Game.Net
             mm.ServerPickupDrop(me, canId);
             yield return new WaitForSeconds(0.8f);
             int slot = Inventory.SlotOf(me, HotbarItem.FuelCan);
-            if (slot >= 0) Hotbar.TestSelect = slot;
             yield return new WaitForSeconds(1.2f);
             me.Motor.SetLook(0f, 0f);
             float before = me.SawFuel.Value;
-            hint = Hotbar.Hint(me, HotbarItem.FuelCan);
-            SnLog($"seeker canister: cans={me.FuelCans.Value} slot={slot} hint '{hint}' fuel={before:0.0} -> {Pf(me.FuelCans.Value == 1 && hint.Contains("zatankuj"))}");
-            Shot(dir, "h_d_canister_hand");
+            hint = Hotbar.Hint(me, HotbarItem.Chainsaw);
+            SnLog($"seeker canister: cans={me.FuelCans.Value} slot={slot} held={me.Held.Value} saw hint '{hint}' fuel={before:0.0} -> {Pf(me.FuelCans.Value == 1 && me.Held.Value == HeldItem.Chainsaw && hint.Contains("R - zatankuj"))}");
+            Shot(dir, "h_d_saw_hint_refuel");
             yield return new WaitForSeconds(0.3f);
-            Hotbar.TestClick = true;
+            mm.ServerRefuelFromHands(me); // = R with the saw in the hands
             yield return new WaitForSeconds(1.2f);
             SnLog($"refuelled: fuel {before:0.0} -> {me.SawFuel.Value:0.0}, cans={me.FuelCans.Value} -> {Pf(Mathf.Abs(me.SawFuel.Value - SawFuel.Full) < 0.01f && me.FuelCans.Value == 0)}");
             Shot(dir, "h_e_refuelled");

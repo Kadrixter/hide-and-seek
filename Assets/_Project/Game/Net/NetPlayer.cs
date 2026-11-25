@@ -1187,8 +1187,8 @@ namespace HideAndSeek.Game.Net
         }
 
         /// <summary>Chainsaw engine: idle loop while held, loud throttle loop while F is held; drives the animations.</summary>
-        private float _sawOutAt = -99f, _sawBlood, _sawSlashUntil = -99f;
-        private bool _wasSawOut, _wasStalled;
+        private float _sawBlood, _sawSlashUntil = -99f;
+        private bool _wasSawOut;
 
         /// <summary>Called when the saw cut somebody: the chain is soaked, it wipes clean over ~40 s of running.</summary>
         public void BloodySaw() => _sawBlood = 1f;
@@ -1197,20 +1197,14 @@ namespace HideAndSeek.Game.Net
         {
             bool sawOut = Held.Value == HeldItem.Chainsaw && Life.Value == LifeState.Alive;
             bool killing = Busy.Value && sawOut && IsSeeker && !Stunned;
-            // Stalled (blinded / foamed / knocked out, NetPlayer.SawNerf.cs): the engine dies, it is pulled again after.
+            // Stalled (blinded / foamed / knocked out, NetPlayer.SawNerf.cs): the engine dies, a new pull-start after.
             bool stalled = sawOut && SawStalled && !killing;
-            bool rev = sawOut && !stalled && (SawRev.Value || killing || Time.time < _sawSlashUntil);
-            if (sawOut && !_wasSawOut && !rev) _sawOutAt = Time.time;
-            if (sawOut && _wasStalled && !stalled)
-            {
-                _sawOutAt = Time.time; // pull-start again
-                GameAudio.PlayAttached(GameSfx.ChainsawStart, transform, IsOwner ? 0.6f : 0.85f);
-            }
+            // The engine runs once the synced pull-start has caught (NetPlayer.SawStart.cs; tries rolled by the server).
+            bool fired = killing || (sawOut && IsSeeker && !stalled && SawStartElapsed >= BlockyProps.ChainsawFireAt(SawAttempts.Value));
+            bool rev = sawOut && fired && (SawRev.Value || killing || Time.time < _sawSlashUntil);
+            UpdateSawStartView(sawOut, stalled, killing);
             _wasSawOut = sawOut;
-            _wasStalled = stalled;
-            // The engine only runs after the pull-start (the start sound plays with the switch).
-            bool fired = rev || Time.time - _sawOutAt >= BlockyProps.ChainsawFireTime;
-            bool idle = sawOut && !rev && fired && !stalled;
+            bool idle = sawOut && !rev && fired;
             if (sawOut) _sawBlood = Mathf.Max(0f, _sawBlood - Time.deltaTime * (rev ? 0.06f : 0.012f));
             (Actions as BlockyCharacterActions)?.SetSawBlood(_sawBlood);
             if (IsOwner) (ViewModel as FirstPersonViewModel)?.SetSawBlood(_sawBlood);

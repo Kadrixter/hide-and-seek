@@ -107,15 +107,31 @@ namespace HideAndSeek.Characters
         public const float ChainsawStartTime = 1.3f;
         public const float ChainsawFireTime = 0.95f;
 
+        /// <summary>Time between two yanks of the starter cord (s).</summary>
+        public const float ChainsawYankGap = 0.44f;
+
+        /// <summary>When the engine fires for a start that needs <paramref name="attempts"/> tries (1 = the old two-yank start).</summary>
+        public static float ChainsawFireAt(int attempts) => ChainsawFireTime + (Mathf.Max(1, attempts) - 1) * ChainsawYankGap;
+        /// <summary>End of the whole pull-start sequence for <paramref name="attempts"/> tries.</summary>
+        public static float ChainsawStartEnd(int attempts) => ChainsawStartTime + (Mathf.Max(1, attempts) - 1) * ChainsawYankGap;
+        /// <summary>Start of yank <paramref name="i"/> (0 = the priming yank, attempts = the one that starts the engine).</summary>
+        public static float ChainsawYankAt(int i) => 0.16f + i * ChainsawYankGap;
+
         /// <summary>Pull-start: (reach 0..1 of the left hand to the starter grip, cord out 0..1) at time <paramref name="t"/>.</summary>
-        public static Vector2 ChainsawStarter(float t)
+        public static Vector2 ChainsawStarter(float t) => ChainsawStarter(t, 1);
+
+        /// <summary>
+        /// Pull-start of a start that needs <paramref name="attempts"/> tries: a priming yank and then one yank per try
+        /// (fast out, slower back while the cord rewinds); the last one starts the engine.
+        /// </summary>
+        public static Vector2 ChainsawStarter(float t, int attempts)
         {
-            if (t < 0f || t >= ChainsawStartTime) return Vector2.zero;
-            float reach = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.16f)) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - 1.08f) / 0.2f)));
-            float pull = 0f;
-            // Two yanks: fast out, slower back (the cord rewinds); the second one starts the engine.
-            if (t < 0.62f) pull = Yank(t, 0.16f);
-            else pull = Yank(t, 0.6f) * 1.08f;
+            attempts = Mathf.Max(1, attempts);
+            float end = ChainsawStartEnd(attempts);
+            if (t < 0f || t >= end) return Vector2.zero;
+            float reach = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.16f)) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - (end - 0.22f)) / 0.2f)));
+            int i = Mathf.Clamp(Mathf.FloorToInt((t - 0.16f + 0.02f) / ChainsawYankGap), 0, attempts);
+            float pull = Yank(t, ChainsawYankAt(i)) * (i == attempts ? 1.08f : 1f);
             return new Vector2(reach, Mathf.Clamp01(pull));
         }
 

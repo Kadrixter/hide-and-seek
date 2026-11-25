@@ -1,5 +1,7 @@
 // Dust motes for the flashlight: additive soft dots that are only visible inside the flashlight cone.
 // _FlashPos / _FlashDir / _FlashCone (x = cos outer, y = cos inner, z = range) are set per renderer by Flashlight.cs.
+// _FlashSlab (x = lowest y, y = highest y) keeps the motes between the floor and the ceiling of the light's garage level
+// (set by FlashlightLevelCulling): the cone goes on through the concrete, the motes beyond it must not light up.
 Shader "HideAndSeek/FlashlightDust"
 {
     Properties
@@ -12,6 +14,7 @@ Shader "HideAndSeek/FlashlightDust"
         _FlashPos ("Flash Position", Vector) = (0, 0, 0, 0)
         _FlashDir ("Flash Direction", Vector) = (0, 0, 1, 0)
         _FlashCone ("Cone (cosOuter, cosInner, range)", Vector) = (0.88, 0.98, 30, 0)
+        _FlashSlab ("Height band (min y, max y)", Vector) = (-100000, 100000, 0, 0)
     }
 
     SubShader
@@ -39,6 +42,7 @@ Shader "HideAndSeek/FlashlightDust"
             float4 _FlashPos;
             float4 _FlashDir;
             float4 _FlashCone;
+            float4 _FlashSlab;
 
             struct appdata
             {
@@ -80,7 +84,9 @@ Shader "HideAndSeek/FlashlightDust"
                 float camDist = distance(_WorldSpaceCameraPos, i.worldPos);
                 half near = saturate((camDist - 0.08) / max(_NearFade, 1e-3));
 
-                half a = _Strength * _Intensity * i.color.a * dotMask * cone * atten * near;
+                half band = saturate((i.worldPos.y - _FlashSlab.x) * 8.0) * saturate((_FlashSlab.y - i.worldPos.y) * 8.0);
+
+                half a = _Strength * _Intensity * i.color.a * dotMask * cone * atten * near * band;
                 return half4(_Color.rgb * i.color.rgb * a, 0);
             }
             ENDCG

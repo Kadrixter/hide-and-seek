@@ -34,7 +34,7 @@ namespace HideAndSeek.Game.MiniGames
         public PoolLampModel Lamp { get; private set; }
         /// <summary>Balls as shown right now (table space 2D) - during a replay the current replay frame, else the state.</summary>
         public readonly Vector2[] ShownPos = new Vector2[16];
-        /// <summary>Bit i = ball i is shown pocketed (falling into or lying in a pocket's basket).</summary>
+        /// <summary>Bit i = ball i is shown pocketed (dropping, rolling down the ball return or lying in its tray).</summary>
         public ushort ShownDown;
         /// <summary>A shot is being replayed (balls rolling) or its result has not arrived yet: no aiming.</summary>
         public bool Rolling { get; private set; }
@@ -124,6 +124,7 @@ namespace HideAndSeek.Game.MiniGames
                 }
             }
             BuildNextBall();
+            _retClock += dt;
             TickReplay(dt);
             if (!Rolling) SyncToState(dt, _snapNext);
             _snapNext = false;

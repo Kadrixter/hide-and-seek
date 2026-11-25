@@ -9,7 +9,12 @@ namespace HideAndSeek.Game.Net
     /// <summary>Tuning of the toy phones (+ test overrides from the command line).</summary>
     public static class PhoneTuning
     {
-        public const float RingGapMin = 60f, RingGapMax = 150f;
+        /// <summary>Seconds between the songs of one phone (2026-11-25: rarer, 180-360 s, was 60-150 - there are 4-6 phones now).</summary>
+        public const float RingGapMin = 180f, RingGapMax = 360f;
+        /// <summary>Phones per round, random (2026-11-25: 4-6 whatever the player count).</summary>
+        public const int MinPhones = 4, MaxPhones = 6;
+        /// <summary>Volume of the ringtone song (2026-11-25: 20% of the old full volume).</summary>
+        public const float RingVolume = 0.2f;
         /// <summary>Ringtone audible range (m) - "around", walls / floors muffle it like every 3D sound.</summary>
         public const float RingRange = 26f;
         public const float StompPromptRange = 1.8f, StompServerRange = 2.6f, StompStandOff = 0.55f;
@@ -30,7 +35,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>Length of the ringtone (the whole song plays unless the phone is smashed).</summary>
         public static float RingLength => RingClip != null ? RingClip.length : 15.12f;
 
-        /// <summary>-phonering a,b: ring gap in seconds (tests), else 60-150 s.</summary>
+        /// <summary>-phonering a,b: ring gap in seconds (tests), else <see cref="RingGapMin"/>-<see cref="RingGapMax"/> s.</summary>
         public static float NextGap()
         {
             var g = Gap;

@@ -20,7 +20,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public TableKit Kit;
         public int Style;
 
-        Material _wood, _legWood, _cloth, _cushion, _slate, _metal, _leather, _net, _fringe, _pearl, _steel, _rubber, _raw, _plate;
+        Material _wood, _legWood, _cloth, _cushion, _slate, _metal, _leather, _pearl, _steel, _rubber, _raw, _plate;
 
         /// <summary>Centre of pocket i's hole at cloth height: 0 (-X,-Z), 1 (0,-Z), 2 (+X,-Z), 3 (-X,+Z), 4 (0,+Z), 5 (+X,+Z).</summary>
         public static Vector3 PocketCentre(int i)
@@ -40,7 +40,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
             m.BuildCushions();
             m.BuildRails();
             m.BuildPockets();
-            m.BuildBags();
+            m.BuildReturn();
             m.BuildFrame();
             m.BuildLegs();
             TableKit.Collider(root, "PoolTableCollider", new Vector3(0f, PoolDims.RailTopY * 0.5f, 0f), new Vector3(OuterL, PoolDims.RailTopY, OuterW));
@@ -59,8 +59,6 @@ namespace HideAndSeek.Game.MiniGames.Pool
             _slate = k.Mat(new Color(0.17f, 0.18f, 0.19f), 0f, 0.25f);
             _metal = chrome ? k.Mat(new Color(0.82f, 0.83f, 0.86f), 0.75f, 0.86f) : k.Mat(new Color(0.80f, 0.63f, 0.36f), 0.7f, 0.8f);
             _leather = k.Mat(dark ? new Color(0.07f, 0.06f, 0.06f) : new Color(0.25f, 0.13f, 0.065f), 0f, 0.48f, BoardArt.Leather);
-            _net = k.Mat(dark ? new Color(0.09f, 0.085f, 0.08f) : new Color(0.22f, 0.16f, 0.09f), 0f, 0.15f);
-            _fringe = k.Mat(dark ? new Color(0.12f, 0.1f, 0.09f) : new Color(0.33f, 0.2f, 0.1f), 0f, 0.3f);
             _pearl = k.Mat(Color.white, 0.1f, 0.92f, PoolTableArt.Pearl);
             _steel = k.Mat(new Color(0.72f, 0.72f, 0.74f), 0.8f, 0.7f);
             _rubber = k.Mat(new Color(0.03f, 0.03f, 0.03f), 0f, 0.25f);

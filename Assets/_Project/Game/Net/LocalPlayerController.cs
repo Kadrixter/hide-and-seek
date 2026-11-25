@@ -386,7 +386,12 @@ namespace HideAndSeek.Game.Net
             bool sawRev = _p.IsSeeker && phase == MatchPhase.Seeking && _p.Held.Value == HeldItem.Chainsaw &&
                           _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev) &&
                           _p.SawFuel.Value > 0f && // an empty saw does not start (MatchManager.SawFuel.cs)
-                          !_p.SawStalled;          // dust / goo / foam in the eyes, knocked out: the engine is dead (NetPlayer.SawNerf.cs)
+                          _p.SawReady;             // pulled and caught; not stalled by dust / goo / foam / a knock-out (NetPlayer.SawNerf.cs)
+            if (_p.SawInHands && phase == MatchPhase.Seeking && kb.rKey.wasPressedThisFrame && _p.FuelCans.Value > 0 && Time.time >= _nextSawTry)
+            {
+                _nextSawTry = Time.time + 0.6f;
+                _p.RequestRefuelHandsRpc(); // R: fill the saw from the canister in the inventory
+            }
             if (_p.SawRev.Value != sawRev) _p.SawRev.Value = sawRev;
             if (sawRev && Time.time >= _nextSawTry)
             {

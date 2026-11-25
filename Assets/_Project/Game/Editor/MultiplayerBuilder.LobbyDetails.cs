@@ -38,10 +38,7 @@ namespace HideAndSeek.Game.Editor
             Deco("KeyPlate", hinge, new Vector3(dx + 0.36f, 0.88f, dz + 0.02f), new Vector3(0.05f, 0.1f, 0.01f), metalSilver.Value);
             Deco("HandleLeverOut", hinge, new Vector3(dx + 0.3f, 1.0f, dz - 0.05f), new Vector3(0.14f, 0.025f, 0.025f), metalSilver.Value);
             hinge.gameObject.AddComponent<LobbyExitDoor>();
-            var exitMat = Emissive("LobbyExitSign", new Color(0.1f, 0.75f, 0.25f), new Color(0.1f, 0.9f, 0.3f) * 1.6f);
-            Deco("ExitSign", d, new Vector3(dx, 2.45f, dz + 0.035f), new Vector3(0.46f, 0.16f, 0.06f), exitMat);
-            Label3D("ExitText", d, new Vector3(dx, 2.45f, dz + 0.07f), Quaternion.Euler(0, 180, 0), "WYJŚCIE", Color.white, 0.012f, new Vector2(0.4f, 0.12f));
-            PointLight("ExitGlow", d, new Vector3(dx, 2.3f, dz + 0.3f), new Color(0.2f, 1f, 0.4f), 0.25f, 1.5f);
+            // No "WYJŚCIE" sign over the door any more (2026-11-25, the user asked to remove it).
 
             // ---- light switch, outlets, smoke detector, wall vent
 

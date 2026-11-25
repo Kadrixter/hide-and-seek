@@ -179,7 +179,7 @@ namespace HideAndSeek.Game
             float at = (float)(now - s.RingAt);
             var clip = PhoneTuning.RingClip;
             if (clip == null || at >= clip.length - 0.1f) return;
-            src = GameAudio.PlayClipAttached(clip, anchor, 1f, PhoneTuning.RingRange, GameSfx.None, 0.5f);
+            src = GameAudio.PlayClipAttached(clip, anchor, PhoneTuning.RingVolume, PhoneTuning.RingRange, GameSfx.None, 0.5f);
             if (src == null) return;
             if (at > 0.05f) src.time = at;
             _ring[s.Id] = src;

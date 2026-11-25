@@ -251,6 +251,19 @@ namespace HideAndSeek.Characters
         /// <summary>Chainsaw throttle (F held): bar raised, everything shakes.</summary>
         public void SetRevving(bool value) => revving = value;
 
+        private float extSawT = float.NaN;
+        private int sawAttempts = 1;
+
+        /// <summary>
+        /// Drives the chainsaw pull-start from the synced clock (seconds since the start began, tries needed; NaN = the
+        /// old local clock from the moment the saw came out).
+        /// </summary>
+        public void SetSawStart(float t, int attempts)
+        {
+            extSawT = t;
+            sawAttempts = Mathf.Max(1, attempts);
+        }
+
         float sawStartT = 99f;
         float sawBlood;
 
@@ -379,6 +392,8 @@ namespace HideAndSeek.Characters
             if (show == HeldItem.Chainsaw && prevShown != HeldItem.Chainsaw && !revving && action != ActionKind.Kill) sawStartT = 0f;
             if (revving || action == ActionKind.Kill) sawStartT = Mathf.Max(sawStartT, BlockyProps.ChainsawStartTime);
             sawStartT += dt;
+            if (!float.IsNaN(extSawT))
+                sawStartT = revving || action == ActionKind.Kill ? Mathf.Max(extSawT, BlockyProps.ChainsawStartEnd(sawAttempts)) : extSawT;
             basePose.PropR = DefaultPropLocal(show);
             var p = basePose;
             LifeState visual = VisualLifeState;
@@ -740,9 +755,9 @@ namespace HideAndSeek.Characters
             var saw = props[(int)HeldItem.Chainsaw];
             if (saw != null && show == HeldItem.Chainsaw)
             {
-                bool engine = sawStartT >= BlockyProps.ChainsawFireTime;
+                bool engine = sawStartT >= BlockyProps.ChainsawFireAt(sawAttempts);
                 saw.SetChainRun(revving || action == ActionKind.Kill ? 1f : engine ? 0.3f : 0f, time);
-                saw.SetStarterPull(BlockyProps.ChainsawStarter(sawStartT).y);
+                saw.SetStarterPull(BlockyProps.ChainsawStarter(sawStartT, sawAttempts).y);
                 saw.SetSawBlood(sawBlood);
             }
 

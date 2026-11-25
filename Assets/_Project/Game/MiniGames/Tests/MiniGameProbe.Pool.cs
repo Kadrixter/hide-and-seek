@@ -25,6 +25,7 @@ namespace HideAndSeek.Game.MiniGames
             int seat = _host ? 0 : 1;
             StartCoroutine(PoolSyncWatch(pool));
             StartCoroutine(PoolWatchOpponent(pool, seat));
+            StartCoroutine(PoolReturnWatch(pool));
             if (_host)
             {
                 Log($"table at {pool.transform.position} yaw {pool.transform.eulerAngles.y:0}");
@@ -125,6 +126,7 @@ namespace HideAndSeek.Game.MiniGames
             bool eightSetup = false;
             if (s.BallInHand)
             {
+                if (!s.Break) Log($"{tag}: ball in hand, cue ball in the return before picking it up: {pool.ShownInPocket(0)} ({pool.TestReturnInfo()})");
                 Vector2 spot;
                 if (s.Break) spot = new Vector2(PoolState.KitchenX, 0.11f);
                 else if (_poolGame == 1 && k >= 6 && PoolEightSpot(s, out spot)) eightSetup = true;
@@ -227,11 +229,13 @@ namespace HideAndSeek.Game.MiniGames
             }
             pool.TestHold(spot, false);
             yield return new WaitForSeconds(0.5f);
+            Log($"{tag}: carried cue ball shown in the hand (left the return): {(!pool.ShownInPocket(0) ? "OK" : "FAIL")}");
             Shot($"{Prefix()}{tag}_0_in_hand");
             pool.TestHold(spot, true);
             yield return new WaitForSeconds(0.3f);
             pool.TestHold(null, false);
             Vector2 at = PoolAimCue(pool);
+            Log($"{tag}: cue ball out of the return once picked up: {(!pool.ShownInPocket(0) ? "OK" : "FAIL")}");
             Log($"{tag}: cue ball put down at {at} (wanted {spot}) holding={pool.LocalHolding} => {(!pool.LocalHolding && (at - spot).magnitude < 0.06f ? "OK" : "FAIL")}");
         }
 
