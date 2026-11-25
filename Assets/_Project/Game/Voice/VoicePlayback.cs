@@ -154,7 +154,7 @@ namespace HideAndSeek.Game.Voice
                 if (listener != null && speaking)
                 {
                     Vector3 d = transform.position - lp;
-                    if (Physics.Raycast(lp, d.normalized, out var hit, d.magnitude, ~((1 << 8) | (1 << 9) | GameLayers.RagdollMask), QueryTriggerInteraction.Ignore)
+                    if (Physics.Raycast(lp, d.normalized, out var hit, d.magnitude, ~((1 << 2) | (1 << 8) | (1 << 9) | GameLayers.RagdollMask), QueryTriggerInteraction.Ignore)
                         && !hit.transform.IsChildOf(transform.parent) && !hit.transform.IsChildOf(listener.transform.root))
                         target = 1f;
                 }
