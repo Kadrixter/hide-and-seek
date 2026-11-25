@@ -3,7 +3,7 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// Night lighting of the drift track: six 14 m floodlight towers on the pad edge (lattice-ish pole, a lamp bank of
+    /// Night lighting of the drift track: sixteen 18 m floodlight towers round the pad edge (lattice-ish pole, a lamp bank of
     /// glowing panels aimed at the course, one wide spot light each; two of them cast soft shadows), a warm lamp over
     /// the gate and the kart row, and the sky: a dark blue dome with stars and a faint glow on the horizon (unlit).
     /// </summary>
@@ -15,17 +15,25 @@ namespace HideAndSeek.Game
             root.SetParent(parent, false);
             float w = DriftTrackLayout.PadWest + 0.6f, e = DriftTrackLayout.PadEast - 2.2f, s = DriftTrackLayout.PadSouth + 0.6f, n = DriftTrackLayout.PadNorth - 0.6f;
             float mx = DriftTrackCourse.Center.x;
-            var towers = new[] { new Vector3(w, 0f, n), new Vector3(w, 0f, s), new Vector3(mx, 0f, n), new Vector3(mx, 0f, s), new Vector3(e, 0f, n), new Vector3(e, 0f, s) };
+            var towers = new System.Collections.Generic.List<Vector3>();
+            for (int k = 0; k < 7; k++)
+            {
+                float x = Mathf.Lerp(e - 18f, w + 18f, k / 6f);
+                towers.Add(new Vector3(x, 0f, n));
+                towers.Add(new Vector3(x, 0f, s));
+            }
+            towers.Add(new Vector3(w, 0f, DriftTrackCourse.Center.z));
+            towers.Add(new Vector3(e, 0f, DriftTrackLayout.ArchZ - 34f));
             var pole = new ProcMesh();
             var head = new ProcMesh();
             var glow = new ProcMesh();
-            for (int i = 0; i < towers.Length; i++)
+            for (int i = 0; i < towers.Count; i++)
             {
                 var t = towers[i];
-                const float H = 14f;
+                const float H = 18f;
                 pole.At(t).Lathe(new[] { new Vector2(0.32f, 0f), new Vector2(0.32f, 0.4f), new Vector2(0.17f, 0.45f), new Vector2(0.12f, H), new Vector2(0f, H + 0.05f) }, 10);
                 for (float y = 1.5f; y < H - 1f; y += 0.6f) pole.At(t + new Vector3(0f, y, 0f)).Box(new Vector3(0.18f, 0f, 0f), new Vector3(0.24f, 0.03f, 0.03f)); // ladder rungs
-                Vector3 target = Vector3.Lerp(t, DriftTrackCourse.Center, 0.5f);
+                Vector3 target = t + (DriftTrackCourse.Center - t).normalized * 48f;
                 Vector3 top = t + Vector3.up * (H + 0.6f);
                 var aim = Quaternion.LookRotation(target - top);
                 head.At(top, aim).Box(Vector3.zero, new Vector3(2.6f, 1.2f, 0.25f));
@@ -39,12 +47,12 @@ namespace HideAndSeek.Game
                 l.transform.SetParent(root, false);
                 l.transform.SetPositionAndRotation(top + aim * new Vector3(0f, 0f, 0.4f), aim);
                 l.type = LightType.Spot;
-                l.spotAngle = 92f;
-                l.innerSpotAngle = 50f;
-                l.range = 80f;
-                l.intensity = 3.2f;
+                l.spotAngle = 112f;
+                l.innerSpotAngle = 60f;
+                l.range = 160f;
+                l.intensity = 5.5f;
                 l.color = new Color(1f, 0.96f, 0.88f);
-                l.shadows = i == 0 || i == 3 ? LightShadows.Soft : LightShadows.None;
+                l.shadows = i == 6 || i == 7 ? LightShadows.Soft : LightShadows.None; // two shadow casters (mid north / south)
                 l.shadowStrength = 0.8f;
                 l.renderMode = LightRenderMode.ForcePixel;
                 TrackMats.Wall(root, "TowerCol", t + Vector3.up * 2f, new Vector3(0.6f, 4f, 0.6f));
@@ -68,11 +76,11 @@ namespace HideAndSeek.Game
             Sky(root);
         }
 
-        /// <summary>Unlit dome (radius 170 m) round the pad: night blue, stars, a glow on the horizon.</summary>
+        /// <summary>Unlit dome (radius 450 m) round the pad: night blue, stars, a glow on the horizon.</summary>
         private static void Sky(Transform root)
         {
             const int segs = 48, rings = 16;
-            const float R = 170f;
+            const float R = 450f;
             var c = DriftTrackLayout.PadCenter;
             var v = new System.Collections.Generic.List<Vector3>();
             var uv = new System.Collections.Generic.List<Vector2>();

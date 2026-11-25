@@ -104,6 +104,8 @@ namespace HideAndSeek.Game
             _leftYaw = Phys.Yaw;
             MatchManager.Instance?.KartRequestRpc((byte)Index, false, Phys.Pos, Phys.Yaw);
             View = Mode.Parked;
+            Phys.SetDriven(false);
+            transform.rotation = Quaternion.Euler(0f, _yaw, 0f);
             EndLocalDrive(true);
             Debug.Log($"[Kart] exit requested at {Phys.Pos} yaw {Phys.Yaw:0}");
         }
@@ -128,7 +130,7 @@ namespace HideAndSeek.Game
             Phys.SteerIn = fresh ? _inSteer : 0f;
             Phys.Handbrake = fresh && _inHandbrake;
             Phys.Collide.Driver = me;
-            Phys.Step(dt, transform);
+            Phys.Step(dt);
 
             if (!OnPad(Phys.Pos))
             {
@@ -146,8 +148,7 @@ namespace HideAndSeek.Game
                 _stuckFrom = Phys.Pos;
             }
 
-            _yaw = Phys.Yaw;
-            transform.SetPositionAndRotation(Phys.Pos, Quaternion.Euler(0f, _yaw, 0f));
+            _yaw = Phys.Yaw; // the Rigidbody moves the kart (ArcadeCar, FixedUpdate)
             ShownSpeed = Phys.ForwardSpeed;
             ShownVelocity = Phys.Vel;
             ShownSteer = Phys.Steer;

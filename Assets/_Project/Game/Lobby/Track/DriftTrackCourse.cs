@@ -4,7 +4,7 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// The drift course painted on the pad: a 10 m wide loop (rounded rectangle, white edge lines, dashed centre line),
+    /// The drift course painted on the pad: a 22 m wide loop (two 170 m straights for ~100 km/h, wide 42 m corners) (rounded rectangle, white edge lines, dashed centre line),
     /// a checkered start line, red / white kerbs round the four inner corners with tyre stacks and cones at the
     /// apexes, a yellow donut circle with "DRIFT" in the infield, a cone slalom, five numbered parking boxes for the
     /// karts by the gate, and dark rubber left by earlier drifts in the corners (soft decals). Paint lies 4 mm over
@@ -13,8 +13,8 @@ namespace HideAndSeek.Game
     public static class DriftTrackCourse
     {
         public static readonly Vector3 Center = DriftTrackLayout.PadCenter + new Vector3(-3f, 0f, 0f);
-        public static readonly Vector2 OuterHalf = new(33f, 24f), InnerHalf = new(23f, 14f);
-        public const float OuterR = 12f, InnerR = 5f, Paint = 0.004f;
+        public static readonly Vector2 OuterHalf = new(128f, 82f), InnerHalf = new(106f, 60f);
+        public const float OuterR = 42f, InnerR = 22f, Paint = 0.004f;
 
         public static void Build(Transform parent)
         {
@@ -24,9 +24,9 @@ namespace HideAndSeek.Game
             var yellow = new ProcMesh();
             var black = new ProcMesh();
 
-            Ribbon(white, Loop(OuterHalf, OuterR), 0.18f, 0f);
-            Ribbon(white, Loop(InnerHalf, InnerR), 0.18f, 0f);
-            Ribbon(white, Loop((OuterHalf + InnerHalf) * 0.5f, (OuterR + InnerR) * 0.5f), 0.12f, 2.2f); // dashed centre line
+            Ribbon(white, Loop(OuterHalf, OuterR), 0.25f, 0f);
+            Ribbon(white, Loop(InnerHalf, InnerR), 0.25f, 0f);
+            Ribbon(white, Loop((OuterHalf + InnerHalf) * 0.5f, (OuterR + InnerR) * 0.5f), 0.15f, 4f); // dashed centre line
 
             // Checkered start line across the south straight.
             float z0 = Center.z - OuterHalf.y, z1 = Center.z - InnerHalf.y;
@@ -38,11 +38,11 @@ namespace HideAndSeek.Game
                 }
 
             // Donut circle and slalom cones in the infield.
-            var donut = Center + new Vector3(-8f, 0f, 0f);
-            Ribbon(yellow, Circle(donut, 5f), 0.2f, 0f);
-            Ribbon(yellow, Circle(donut, 1.2f), 0.15f, 0f);
-            DriftTrackProps.Letters(root, "DRIFT", donut + new Vector3(0f, Paint + 0.002f, -3.2f), Quaternion.Euler(90f, 0f, 0f), 0.16f, new Color(0.95f, 0.72f, 0.08f), new Vector2(5f, 1.4f));
-            for (int i = 0; i < 6; i++) DriftTrackProps.Cone(root, Center + new Vector3(4f + i * 3.2f, 0f, 0f));
+            var donut = Center + new Vector3(-40f, 0f, 0f);
+            Ribbon(yellow, Circle(donut, 14f), 0.3f, 0f);
+            Ribbon(yellow, Circle(donut, 3f), 0.2f, 0f);
+            DriftTrackProps.Letters(root, "DRIFT", donut + new Vector3(0f, Paint + 0.002f, -8.5f), Quaternion.Euler(90f, 0f, 0f), 0.45f, new Color(0.95f, 0.72f, 0.08f), new Vector2(14f, 4f));
+            for (int i = 0; i < 9; i++) DriftTrackProps.Cone(root, Center + new Vector3(10f + i * 8f, 0f, 0f));
 
             // Kerbs, tyre stacks and apex cones round the inner corners.
             var red = new ProcMesh();
@@ -53,7 +53,7 @@ namespace HideAndSeek.Game
                 var c = Center + new Vector3(sx * (InnerHalf.x - InnerR), 0f, sz * (InnerHalf.y - InnerR));
                 float a0 = Mathf.Atan2(0f, sx);
                 float a1 = a0 + Mathf.DeltaAngle(a0 * Mathf.Rad2Deg, Mathf.Atan2(sz, 0f) * Mathf.Rad2Deg) * Mathf.Deg2Rad; // the quarter towards the corner
-                int n = 14;
+                int n = Mathf.CeilToInt(InnerR * Mathf.PI * 0.5f / 0.9f);
                 for (int i = 0; i < n; i++)
                 {
                     float a = Mathf.Lerp(a0, a1, (i + 0.5f) / n);
@@ -98,16 +98,16 @@ namespace HideAndSeek.Game
             foreach (var (sx, sz) in new[] { (1f, 1f), (-1f, 1f), (-1f, -1f), (1f, -1f) })
             {
                 var c = Center + new Vector3(sx * (InnerHalf.x - InnerR), 0f, sz * (InnerHalf.y - InnerR));
-                for (int i = 0; i < 9; i++)
+                for (int i = 0; i < 16; i++)
                 {
                     float a = Mathf.Atan2(sz, sx) + (float)(rng.NextDouble() - 0.5) * 1.6f;
-                    spots.Add((c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (InnerR + 2f + (float)rng.NextDouble() * 5f), 1.5f + (float)rng.NextDouble() * 2.5f));
+                    spots.Add((c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (InnerR + 3f + (float)rng.NextDouble() * 14f), 3f + (float)rng.NextDouble() * 5f));
                 }
             }
-            for (int i = 0; i < 12; i++)
+            for (int i = 0; i < 20; i++)
             {
-                float a = i / 12f * Mathf.PI * 2f;
-                spots.Add((donut + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 4.6f, 1.6f + (float)rng.NextDouble()));
+                float a = i / 20f * Mathf.PI * 2f;
+                spots.Add((donut + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 13f, 3f + (float)rng.NextDouble() * 2f));
             }
             foreach (var (p, r) in spots)
                 m.At(p + Vector3.up * 0.005f, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f)).Box(Vector3.zero, new Vector3(r * 2f, 0f, r * (1.2f + (float)rng.NextDouble())));

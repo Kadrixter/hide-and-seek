@@ -85,9 +85,11 @@ namespace HideAndSeek.Game
             _col = gameObject.AddComponent<BoxCollider>();
             _col.center = KartCollide.Center;
             _col.size = KartCollide.Half * 2f;
-            var rb = gameObject.AddComponent<Rigidbody>(); // kinematic: a moving collider players bump into
+            _col.sharedMaterial = KartCollide.Slick;
+            var rb = gameObject.AddComponent<Rigidbody>(); // kinematic unless driven here: a moving collider players bump into
             rb.isKinematic = true;
             rb.useGravity = false;
+            Phys.Attach(gameObject, rb);
             _fx = gameObject.AddComponent<KartFx>();
             _fx.Init(this);
             _audio = gameObject.AddComponent<KartAudio>();
@@ -133,10 +135,16 @@ namespace HideAndSeek.Game
         {
             var was = View;
             View = want;
-            if (was == Mode.Local) EndLocalDrive(true);
+            if (was == Mode.Local)
+            {
+                Phys.SetDriven(false);
+                transform.rotation = Quaternion.Euler(0f, _yaw, 0f); // parked / remote karts stand level
+                EndLocalDrive(true);
+            }
             if (want == Mode.Local)
             {
                 Phys.Reset(transform.position, _yaw);
+                Phys.SetDriven(true);
                 BeginLocalDrive(driver);
             }
             if (want == Mode.Remote) _remoteSince = Time.time;

@@ -80,7 +80,7 @@ namespace HideAndSeek.Game
                 int posts = Mathf.RoundToInt(len / 4f);
                 for (int i = 0; i <= posts; i++) m.At(a + d * (i / (float)posts) + Vector3.up * H * 0.5f).Box(Vector3.zero, new Vector3(0.09f, H, 0.09f));
                 foreach (float y in new[] { 0.15f, 1.4f, 2.7f, H - 0.05f }) m.At((a + b) * 0.5f + Vector3.up * y, rot).Box(Vector3.zero, new Vector3(0.05f, 0.05f, len));
-                int wires = Mathf.RoundToInt(len / 0.3f);
+                int wires = Mathf.RoundToInt(len / 0.5f);
                 for (int i = 0; i < wires; i++) m.At(a + d * ((i + 0.5f) / wires) + Vector3.up * H * 0.5f, rot).Box(Vector3.zero, new Vector3(0.012f, H - 0.1f, 0.012f));
                 TrackMats.Wall(root, "FenceCol", (a + b) * 0.5f + Vector3.up * 3f, new Vector3(Mathf.Abs(d.x) + 0.3f, 6f, Mathf.Abs(d.z) + 0.3f));
             }

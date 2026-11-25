@@ -5,7 +5,7 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// Go-kart sound on every client: the engine loop (<see cref="KartSounds.Engine"/>) runs while somebody drives,
-    /// its pitch following the revs (idle ~2900 rpm, limiter ~9500) and its volume the throttle; the tyre squeal loop
+    /// its pitch following the revs (idle ~2700 rpm, ~10 000 rpm flat out at ~108 km/h) and its volume the throttle; the tyre squeal loop
     /// fades in with the slide strength (pitch a little higher the faster it slides); bumps play a thud. 3D sources on
     /// the kart, scaled by the game's effects volume.
     /// </summary>
@@ -58,7 +58,7 @@ namespace HideAndSeek.Game
             if (_run > 0f && !_engine.isPlaying) { _engine.time = Random.Range(0f, 0.9f); _engine.Play(); }
             if (_run <= 0f && _engine.isPlaying) _engine.Stop();
             float rpm = _kart.Rpm01, thr = Mathf.Abs(_kart.Throttle);
-            _engine.pitch = Mathf.Lerp(_engine.pitch, 0.8f + 1.85f * rpm, 1f - Mathf.Exp(-12f * dt));
+            _engine.pitch = Mathf.Lerp(_engine.pitch, 0.75f + 2.1f * rpm, 1f - Mathf.Exp(-12f * dt));
             _engine.volume = sfx * _run * (0.22f + 0.28f * thr + 0.25f * rpm);
 
             float slip = _kart.Slip01;

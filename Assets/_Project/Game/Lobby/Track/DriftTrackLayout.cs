@@ -7,7 +7,7 @@ namespace HideAndSeek.Game
     /// passage, the shutter: MultiplayerBuilder.LobbyArch.cs) and the runtime track (<see cref="DriftTrack"/>) and karts
     /// (<see cref="LobbyKart"/>). The arch is in the lobby's west wall at z = <see cref="ArchZ"/> (between the moon
     /// painting's sconce and the sofa); a 4 m passage runs west to the track's east wall at <see cref="PadEast"/>; the
-    /// asphalt pad (84 x 64 m, night, floodlights) lies west of it, centred on the passage line. North = +Z.
+    /// asphalt pad (300 x 200 m for ~100 km/h karts, night, floodlights) lies west of it, centred on the passage line. North = +Z.
     /// </summary>
     public static class DriftTrackLayout
     {
@@ -22,7 +22,7 @@ namespace HideAndSeek.Game
         public static float PassageMid => (PassageStart + PadEast) * 0.5f;
 
         // ---- the asphalt pad
-        public const float PadLength = 84f, PadDepth = 64f;
+        public const float PadLength = 300f, PadDepth = 200f;
         public static float PadWest => PadEast - PadLength;
         public static Vector3 PadCenter => new(PadEast - PadLength * 0.5f, 0f, ArchZ);
         public static float PadNorth => ArchZ + PadDepth * 0.5f;

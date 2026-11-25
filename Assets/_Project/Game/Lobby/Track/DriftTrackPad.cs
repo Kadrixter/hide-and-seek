@@ -4,14 +4,14 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// The asphalt pad of the drift track: 6 x 4 tiles (14 x 16 m, each a 14 x 14 grid so the floodlights also light it
+    /// The asphalt pad of the drift track: 12 x 8 tiles (25 x 25 m, each a 10 x 10 grid so the floodlights also light it
     /// well per vertex on the low profiles), texture coordinates in world metres (one asphalt tile per
     /// <see cref="AsphaltMaps.TileMetres"/>, seamless with the passage floor), one box collider; and the dark ground
     /// beyond the fence out to the night horizon.
     /// </summary>
     public static class DriftTrackPad
     {
-        private const int TilesX = 6, TilesZ = 4, Grid = 14;
+        private const int TilesX = 12, TilesZ = 8, Grid = 10;
 
         public static void Build(Transform parent, Material asphalt)
         {
@@ -32,7 +32,7 @@ namespace HideAndSeek.Game
 
             // Dark ground out to the horizon (no collider: the fence keeps everybody on the pad).
             var g = new ProcMesh();
-            g.At(Vector3.zero).Box(new Vector3(c.x, -0.08f, c.z), new Vector3(360f, 0.1f, 360f));
+            g.At(Vector3.zero).Box(new Vector3(c.x, -0.08f, c.z), new Vector3(1200f, 0.1f, 1200f));
             TrackMats.Piece(parent, "Ground", g.ToMesh("TrackGround"), TrackMats.Get("TrackGround", new Color(0.035f, 0.04f, 0.035f), 0.05f), false);
         }
 

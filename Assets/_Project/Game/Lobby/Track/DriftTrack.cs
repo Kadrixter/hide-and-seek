@@ -84,12 +84,32 @@ namespace HideAndSeek.Game
         private void LateUpdate()
         {
             AsphaltMaps.Tick();
+            FarClip();
             var cam = Camera.main;
             bool show = ForceVisible || cam == null || SeenFrom(cam);
             if (show == Shown) return;
             Shown = show;
             foreach (var r in _renderers) if (r != null) r.enabled = show;
             foreach (var l in _lights) if (l != null) l.enabled = show;
+        }
+
+        private float _farWas = -1f;
+
+        /// <summary>The player's eyes see the whole 300 m pad and the sky from the track side (back to normal in the lobby).</summary>
+        private void FarClip()
+        {
+            var me = Net.NetPlayer.Local;
+            if (me == null || me.Camera == null) return;
+            bool far = DriftTrackLayout.OnTrackSide(me.transform.position);
+            if (far && _farWas < 0f) { _farWas = me.Camera.farClipPlane; me.Camera.farClipPlane = Mathf.Max(_farWas, 1000f); }
+            else if (!far && _farWas > 0f) { me.Camera.farClipPlane = _farWas; _farWas = -1f; }
+        }
+
+        private void OnDisable()
+        {
+            var me = Net.NetPlayer.Local;
+            if (_farWas > 0f && me != null && me.Camera != null) me.Camera.farClipPlane = _farWas;
+            _farWas = -1f;
         }
 
         /// <summary>On the track side of the lobby wall, or the arch is in view from the room.</summary>

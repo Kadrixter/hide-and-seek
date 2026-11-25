@@ -43,6 +43,7 @@ namespace HideAndSeek.Game
             v._cam.depth = (me.Camera != null ? me.Camera.depth : 0f) + 1f; // on top even if something switches the eyes back on
             v._cam.fieldOfView = 68f;
             v._cam.nearClipPlane = 0.05f;
+            v._cam.farClipPlane = 1000f; // the 300 m track and its sky
             v._cam.cullingMask = ~(1 << 9); // everything but the first-person view model (the own body is drawn)
             go.AddComponent<AudioListener>();
             go.tag = "MainCamera";
@@ -74,6 +75,7 @@ namespace HideAndSeek.Game
         private void OnDestroy()
         {
             if (!_ended) Restore();
+            if (_white != null) Destroy(_white);
         }
 
         private void LateUpdate()
@@ -146,6 +148,30 @@ namespace HideAndSeek.Game
             }
         }
 
+        private Texture2D _white;
+        private GUIStyle _speed, _unit;
+
+        /// <summary>Speedometer in the bottom-right corner: big km/h number, a bar that turns orange near the top speed.</summary>
+        private void Speedometer(float kmh, float s)
+        {
+            if (_white == null) { _white = new Texture2D(1, 1); _white.SetPixel(0, 0, Color.white); _white.Apply(); }
+            _speed ??= new GUIStyle(GUI.skin.label) { alignment = TextAnchor.LowerRight, fontStyle = FontStyle.Bold };
+            _unit ??= new GUIStyle(GUI.skin.label) { alignment = TextAnchor.LowerLeft, fontStyle = FontStyle.Bold };
+            _speed.fontSize = Mathf.RoundToInt(64 * s);
+            _unit.fontSize = Mathf.RoundToInt(24 * s);
+            float w = 260f * s, h = 110f * s, x = Screen.width - w - 30f * s, y = Screen.height - h - 70f * s;
+            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.DrawTexture(new Rect(x, y, w, h), _white);
+            float k = Mathf.Clamp01(kmh / KartTuning.TopSpeedKmh);
+            GUI.color = new Color(0.25f, 0.25f, 0.25f, 0.9f);
+            GUI.DrawTexture(new Rect(x + 12f * s, y + h - 18f * s, w - 24f * s, 8f * s), _white);
+            GUI.color = k > 0.85f ? new Color(1f, 0.55f, 0.1f) : new Color(0.35f, 0.85f, 1f);
+            GUI.DrawTexture(new Rect(x + 12f * s, y + h - 18f * s, (w - 24f * s) * k, 8f * s), _white);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(x, y, w - 92f * s, h - 22f * s), $"{kmh:0}", _speed);
+            GUI.Label(new Rect(x + w - 88f * s, y, 80f * s, h - 30f * s), "km/h", _unit);
+        }
+
         private void OnGUI()
         {
             if (_kart == null || LocalPlayerController.MenuOpen) return;
@@ -155,12 +181,13 @@ namespace HideAndSeek.Game
             _hint.fontSize = Mathf.RoundToInt(22 * s);
             _big.fontSize = Mathf.RoundToInt(44 * s);
             float kmh = Mathf.Abs(_kart.Phys.Speed) * 3.6f;
-            string line = $"<b>{kmh:0} km/h</b>     W / S - gaz, hamulec     A / D - skręt     Spacja - ręczny     R - na start     E - wysiądź";
-            var r = new Rect(0f, Screen.height - 70f * s, Screen.width, 50f * s);
+            string line = "W / S - gaz, hamulec     A / D - skręt     Spacja - ręczny     R - na start     E - wysiądź";
+            var r = new Rect(0f, Screen.height - 50f * s, Screen.width, 40f * s);
             GUI.color = new Color(0f, 0f, 0f, 0.7f);
             GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), line, _hint);
             GUI.color = Color.white;
             GUI.Label(r, line, _hint);
+            Speedometer(kmh, s);
 
             string drift = _driftT > 0.25f ? $"DRIFT  {Mathf.Abs(_kart.SlipAngleShown):0}°  {_driftT:0.0} s"
                 : Time.time < _lastDriftShow ? $"Drift: {_lastDrift:0.0} s" : null;
