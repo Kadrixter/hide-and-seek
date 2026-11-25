@@ -6,7 +6,7 @@ namespace HideAndSeek.Map.Editor
     /// <summary>
     /// Mazda RX-7 (FD3S): very low smooth nose with an oval mouth, front wings standing above the bonnet, closed
     /// pop-up lamps (lid shut lines), double-bubble roof, curved glass hatch, full-width smoked tail panel with
-    /// three round lamps a side, hoop spoiler. 4.29 x 1.76 x 1.23 m, wheelbase 2.43 m.
+    /// three round lamps a side, a tall GT wing on risers (tuned). 4.29 x 1.76 x 1.23 m, wheelbase 2.43 m.
     /// </summary>
     internal sealed class MazdaRx7 : SportCar
     {
@@ -222,11 +222,8 @@ namespace HideAndSeek.Map.Editor
             CarKit.Plate(Mb, pc + pn * 0.006f, pn, "KR RX7FD", 0.95f);
             foreach (float s in new[] { -1f, 1f })
                 CarKit.Exhaust(Mb, new Vector3(s * 0.4f, 0.27f, ZR + 0.08f), 0.042f, 0.16f);
-            // hoop spoiler on the boot lid
-            float wy = 0.99f, wz = -2.0f;
-            CarBlob.Blob(Mb, new Vector3(0, wy, wz), Quaternion.Euler(-4f, 0, 0), new Vector3(0.71f, 0.014f, 0.08f), 0.3f, Paint, 0.6f, 1f, 16, 8);
-            foreach (float s in new[] { -1f, 1f })
-                CarBlob.Bar(Mb, new Vector3(s * 0.66f, 0.88f, wz + 0.02f), new Vector3(s * 0.7f, wy, wz), Vector3.forward, 0.05f, 0.15f, Paint, 0.4f, 1.3f);
+            // tuned: tall gloss black GT wing on riser plates bolted to the boot deck (replaces the factory hoop)
+            CarWings.RiserWing(Mb, new Vector3(0f, 1.14f, -1.97f), 0.84f, 0.27f, 9f, 0.56f, 0.875f, Lib["Car_WingBlack"], Lib["Car_WingBlack"]);
             SeamAcross(-1.66f, 0.62f);
             SeamTop(-2.08f, -1.66f, t => 0.62f);
         }

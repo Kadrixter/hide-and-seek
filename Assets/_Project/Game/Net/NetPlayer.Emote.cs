@@ -208,7 +208,7 @@ namespace HideAndSeek.Game.Net
         private void OnEmoteBeat(EmoteId id, EmoteBeat kind, int index)
         {
             // Contact sounds of a pair once (the side that asked plays them).
-            if (Emotes.IsPair(id) && PairVar.Value.Role != 0 && kind != EmoteBeat.Pat) return;
+            if (Emotes.IsPair(id) && PairVar.Value.Role != 0) return;
             EmoteSounds.Play(kind, ChestPosition + transform.forward * 0.25f, IsOwner);
         }
     }

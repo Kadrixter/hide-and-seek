@@ -38,7 +38,7 @@ namespace HideAndSeek.Game.MiniGames
         MoveAnim _cur;
 
         /// <summary>True while a move is being shown (the HUD waits with "Szach!" until the piece lands).</summary>
-        public bool Animating => _cur != null || _queue.Count > 0;
+        public bool Animating => _cur != null || _queue.Count > 0 || CheckersAnimating || Appearing;
 
         void QueueMove(ChessMove move, int mover)
         {
@@ -178,11 +178,12 @@ namespace HideAndSeek.Game.MiniGames
 
         protected override void PoseInputs(int seat, out Vector3 reach, out float reachW, out float think, out Vector3 look, out float lean)
         {
+            if (State.IsCheckers) { CheckersPose(seat, out reach, out reachW, out think, out look, out lean); return; }
             reach = HandRest(seat);
             reachW = 0f;
             int colour = State.ColourOfSeat(seat);
             bool myTurn = State.Phase == ChessState.Playing && Target.Side == colour && !Animating;
-            think = myTurn ? 1f : 0.15f;
+            think = myTurn ? 1f : State.Phase == ChessState.Waiting ? 0f : 0.15f;
             lean = myTurn ? 2f : 0f;
             look = Centre;
             var a = _cur;

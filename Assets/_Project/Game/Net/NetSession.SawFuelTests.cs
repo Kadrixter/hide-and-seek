@@ -25,6 +25,12 @@ namespace HideAndSeek.Game.Net
             if (has("-testdropsafe")) StartCoroutine(DropSafeTest(ArgOr("-testdropsafe", ""))); // NetSession.DropSafeTests.cs
             if (has("-testrc4")) StartCoroutine(Rc4Test(ArgOr("-testrc4", ""))); // NetSession.Rc4Tests.cs
             StartSawNerfTests(has); // -testsawnerf (NetSession.SawNerfTests.cs)
+            if (has("-testspecinv")) StartCoroutine(SpecInvTest(ArgOr("-testspecinv", ""))); // NetSession.SpecInvTests.cs
+            if (has("-testflashlevel")) StartCoroutine(FlashLevelTest(ArgOr("-testflashlevel", ""))); // NetSession.FlashLevelTests.cs
+            StartLegRoomTests(has); // -testlegs (NetSession.LegRoomTests.cs)
+            if (has("-testdeadlobby")) StartCoroutine(DeadLobbyTest(ArgOr("-testdeadlobby", ""))); // NetSession.DeadLobbyTests.cs
+            StartKartTests(has); // -testkart / -testkartwatch / -testkartlate (NetSession.KartTests.cs)
+            StartGt86Tests(has); // -testgt86 (NetSession.Gt86Tests.cs)
         }
 
         private static NetPlayer SfHider()

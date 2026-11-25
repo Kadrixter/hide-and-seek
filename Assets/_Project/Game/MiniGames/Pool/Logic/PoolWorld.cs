@@ -6,7 +6,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
     /// Working state of one simulated shot (used by <see cref="PoolSim.Run"/>). Fixed step of 1/960 s (16 per frame);
     /// inside a step the balls fly straight and every contact is found by its exact time (ball-ball, cushion, jaw),
     /// so nothing can tunnel. Cloth friction between the steps: sliding (mu 0.2) until the ball rolls, then rolling
-    /// resistance (mu 0.0125 + a small speed drag). Spin: w = "rolling velocity" of the contact point (w == v means
+    /// resistance (mu 0.011 + a small speed drag). Spin: w = "rolling velocity" of the contact point (w == v means
     /// pure rolling, so follow / draw come out of the sliding phase), wz = side spin (rad/s, + = counter-clockwise from
     /// above = right english), used at the cushions. No randomness, no frame time: every peer gets the same shot.
     /// </summary>
@@ -15,7 +15,11 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public const int N = 16, StepsPerFrame = 16;
         public const float Dt = PoolSimResult.FrameDt / StepsPerFrame;
         const float R = PoolDims.BallR, D = PoolDims.BallD, G = 9.81f;
-        const float MuSlide = 0.2f, MuRoll = 0.0125f, Drag = 0.12f, SpinDecay = 40f;
+        /// <summary>
+        /// Cloth: sliding friction 0.2, rolling resistance 0.011 plus a small speed-proportional loss (nap, air) - a ball
+        /// rolling at 1 m/s runs about 3.5 m (2026-11-25: longer, livelier rolls than the first tuning).
+        /// </summary>
+        const float MuSlide = 0.2f, MuRoll = 0.011f, Drag = 0.035f, SpinDecay = 40f;
         /// <summary>Ball speed below which a rolling ball stops (m/s).</summary>
         const float StopV = 0.005f;
         /// <summary>Spin per unit tip offset: a tip at half the radius gives 1.25 x the rolling spin (0.8 = natural roll).</summary>

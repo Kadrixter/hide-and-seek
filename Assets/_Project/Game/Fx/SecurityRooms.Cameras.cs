@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace HideAndSeek.Game
 {
-    /// <summary>Garage CCTV cameras: where they hang (24 per level), their models with a red LED, and motion detection.</summary>
+    /// <summary>Garage CCTV cameras: where they hang (27 per level: aisles, ends, stairs, both doors of each elevator, ramps, inside the security room), their models with a red LED, and motion detection.</summary>
     public partial class SecurityRooms
     {
         private const float MotionRange = 36f, MotionHalfAngle = 33f, MotionMinSpeed = 0.5f;
@@ -154,10 +154,16 @@ namespace HideAndSeek.Game
                 foreach (var kv in elevX)
                 {
                     if (e >= 2) break;
+                    ++e;
+                    // Both door sides of every car (z -1.4 south, z +1.4 north), on every level.
                     var pos = new Vector3(kv.Value + 2.5f, y0 + 2.4f, -7.5f);
-                    var look = new Vector3(kv.Value, y0 + 1.1f, -1.4f) - pos;
-                    AddCam(lv, "WINDA " + (++e), pos, look);
+                    AddCam(lv, "WINDA " + e + "A", pos, new Vector3(kv.Value, y0 + 1.1f, -1.4f) - pos);
+                    pos = new Vector3(kv.Value - 2.5f, y0 + 2.4f, 7.5f);
+                    AddCam(lv, "WINDA " + e + "B", pos, new Vector3(kv.Value, y0 + 1.1f, 1.4f) - pos);
                 }
+                // Inside the security room: north-west corner under its ceiling, looking at the desk and the door.
+                var roomCam = new Vector3(X0 + 0.45f, y0 + Height - 0.3f, Z1 - 0.45f);
+                AddCam(lv, "OCHRONA", roomCam, new Vector3((DoorA + DoorB) * 0.5f, y0 + 0.9f, Z0 + 0.6f) - roomCam);
                 AddExtraCams(lv, y0, y, aisleZ);
             }
         }

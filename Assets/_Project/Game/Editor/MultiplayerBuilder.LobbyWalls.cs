@@ -117,7 +117,9 @@ namespace HideAndSeek.Game.Editor
                     SkirtGaps = new[] { (hw - ex - 0.57f, hw - ex + 0.57f) } },
                 new WallSpan { Name = "E", Origin = new Vector3(hw, 0f, hd), Yaw = 90f, Length = LobbyLayout.D, SkirtInset = 0.03f,
                     Gaps = new[] { (hd - lz - 0.64f, hd - lz + 0.64f) } },
-                new WallSpan { Name = "W", Origin = new Vector3(-hw, 0f, -hd), Yaw = -90f, Length = LobbyLayout.D, SkirtInset = 0.03f, Gaps = Array.Empty<(float, float)>() },
+                new WallSpan { Name = "W", Origin = new Vector3(-hw, 0f, -hd), Yaw = -90f, Length = LobbyLayout.D, SkirtInset = 0.03f, // arch to the drift track
+                    Gaps = new[] { (DriftTrackLayout.ArchZ + hd - DriftTrackLayout.ArchRadius - 0.12f, DriftTrackLayout.ArchZ + hd + DriftTrackLayout.ArchRadius + 0.12f) },
+                    SkirtGaps = new[] { (DriftTrackLayout.ArchZ + hd - DriftTrackLayout.ArchRadius - 0.11f, DriftTrackLayout.ArchZ + hd + DriftTrackLayout.ArchRadius + 0.11f) } },
             };
             var skirtProf = LobbyMesh.MouldingProfile(0.022f, 0.14f, 0.008f);
             var railProf = RailProfile();

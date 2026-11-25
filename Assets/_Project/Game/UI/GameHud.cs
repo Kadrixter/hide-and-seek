@@ -116,7 +116,7 @@ namespace HideAndSeek.Game
             _status.AddOutline();
 
             _spectate = UiKit.Label("Spectate", root, "", 30, TextAnchor.LowerCenter);
-            _spectate.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(900, 50));
+            _spectate.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 172), new Vector2(900, 50));
             _spectate.AddOutline();
 
             // Prompt (world anchored)
@@ -481,7 +481,7 @@ namespace HideAndSeek.Game
             UpdateNameTags(me, phase);
 
             // ---- crosshair
-            _crosshair.enabled = inGame && me.Life.Value == LifeState.Alive && !blind;
+            _crosshair.enabled = inGame && me.Life.Value == LifeState.Alive && !blind && !DeadLobby.InWorld;
 
             // ---- banner / toast
             float bl = _bannerUntil - Time.unscaledTime;
@@ -489,7 +489,7 @@ namespace HideAndSeek.Game
             _toast.enabled = Time.unscaledTime < _toastUntil;
 
             // ---- minimap
-            _minimap.SetVisible(inGame && SceneManager.GetActiveScene().name == NetSession.GameScene && !blind);
+            _minimap.SetVisible(inGame && SceneManager.GetActiveScene().name == NetSession.GameScene && !blind && !DeadLobby.InLobby);
         }
 
         // ================================================================ name tags
@@ -616,8 +616,8 @@ namespace HideAndSeek.Game
         /// </summary>
         public static bool RestoreOwnView(NetPlayer me, string why)
         {
-            if (me == null || me.Camera == null || me.Life.Value == LifeState.Dead) return false;
-            if (KillCam.Active || RcCarView.Active != null || RaceSystem.Instance != null) return false;
+            if (me == null || me.Camera == null || me.Life.Value == LifeState.Dead || DeadLobby.InLobby) return false;
+            if (KillCam.Active || RcCarView.Active != null || RaceSystem.Instance != null || KartCamera.Active != null) return false; // KartCamera: lobby go-kart
             if (_instance != null && _instance._spectator != null) return false;
             bool fixedIt = false;
             if (!me.Camera.enabled) { me.Camera.enabled = true; fixedIt = true; }
@@ -629,7 +629,8 @@ namespace HideAndSeek.Game
 
         private void UpdateSpectator(NetPlayer me, MatchPhase phase)
         {
-            bool spectate = (me.Life.Value == LifeState.Dead || me.Escaped.Value) && (phase == MatchPhase.Seeking || phase == MatchPhase.Ended); // escaped hiders watch too
+            bool spectate = (me.Life.Value == LifeState.Dead || me.Escaped.Value) && (phase == MatchPhase.Seeking || phase == MatchPhase.Ended) // escaped hiders watch too
+                            && DeadLobby.AllowsSpectator; // not while the dead walk around the lobby (Game/DeadLobby)
             // Destroyed from outside (scene change): its OnDestroy gave the camera back, forget it.
             if (!ReferenceEquals(_spectator, null) && _spectator == null) _spectator = null;
             if (spectate && _spectator == null)

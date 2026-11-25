@@ -3,8 +3,8 @@ using UnityEngine;
 namespace HideAndSeek.Characters
 {
     /// <summary>
-    /// Looping solo emotes: three dances with different rhythm (disco at 120 bpm with hip pops, a stiff robot that
-    /// snaps between poses with servo jitter, a step-touch with "raise the roof" pushes) and sitting down on the floor
+    /// Looping solo emotes: two dances with different rhythm (disco at 120 bpm with hip pops, a step-touch with
+    /// "raise the roof" pushes) and sitting down on the floor
     /// tired (sit down, heavy breathing, wiping the forehead, getting up again on the stop).
     /// </summary>
     public partial class BlockyCharacterActions
@@ -32,43 +32,6 @@ namespace HideAndSeek.Characters
             hand += new Vector3(0.16f, 0f, 0.12f) * Hump(a, 0f, 1f);
             Arm(ref p, 0, hand, new Vector3(1f, -0.4f, -0.4f));
             Arm(ref p, 1, new Vector3(-0.3f, 0.1f + 0.015f * bounce, 0.02f), new Vector3(-1f, 0f, -0.45f));
-            return p;
-        }
-
-        // Robot: 8 poses, one per snap. Hands in torso space; body = (torso yaw, head yaw, knees).
-        static readonly Vector3[] RobotR =
-        {
-            new(0.36f, 0.33f, 0.3f), new(0.34f, 0.76f, 0.12f), new(0.34f, 0.76f, 0.12f), new(0.37f, 0.02f, 0.2f),
-            new(0.36f, 0.33f, 0.3f), new(0.62f, 0.56f, 0.02f), new(0.17f, 0.46f, 0.38f), new(0.36f, 0.33f, 0.3f),
-        };
-        static readonly Vector3[] RobotL =
-        {
-            new(-0.36f, 0.33f, 0.3f), new(-0.36f, 0.33f, 0.3f), new(-0.34f, 0.76f, 0.12f), new(-0.34f, 0.76f, 0.12f),
-            new(-0.37f, 0.02f, 0.2f), new(-0.36f, 0.33f, 0.3f), new(-0.17f, 0.46f, 0.38f), new(-0.62f, 0.56f, 0.02f),
-        };
-        static readonly Vector3[] RobotBody =
-        {
-            new(0f, 0f, 0.02f), new(24f, -22f, 0.02f), new(24f, 22f, 0.02f), new(0f, 0f, 0.06f),
-            new(-24f, 20f, 0.02f), new(-24f, -24f, 0.02f), new(0f, 0f, 0.03f), new(0f, 30f, 0.07f),
-        };
-
-        CharacterPose RobotPose(in CharacterPose b, float t)
-        {
-            var p = Stance(b);
-            const float step = 0.3f, snap = 0.13f;
-            int i = Mathf.FloorToInt(t / step);
-            float local = t - i * step;
-            int cur = ((i % 8) + 8) % 8, prev = (cur + 7) % 8;
-            float x = EmoteKeys.Snap(local / snap);
-            Vector3 body = Vector3.LerpUnclamped(RobotBody[prev], RobotBody[cur], x);
-            float buzz = Mathf.Sin(t * 95f) * Mathf.Exp(-local / 0.045f);
-            p.PelvisPos += new Vector3(0f, -body.z, 0f);
-            p.Torso = Quaternion.Euler(1.5f * buzz, body.x, 0f);
-            p.Head = Quaternion.Euler(0.8f * buzz, body.y - body.x * 0.5f, 0f);
-            Feet(ref p, new Vector3(0.15f, 0f, 0.02f), new Vector3(-0.15f, 0f, -0.01f));
-            Alive(ref p, t, 0.12f);
-            Arm(ref p, 0, Vector3.LerpUnclamped(RobotR[prev], RobotR[cur], x), new Vector3(1f, -1f, -0.35f));
-            Arm(ref p, 1, Vector3.LerpUnclamped(RobotL[prev], RobotL[cur], x), new Vector3(-1f, -1f, -0.35f));
             return p;
         }
 

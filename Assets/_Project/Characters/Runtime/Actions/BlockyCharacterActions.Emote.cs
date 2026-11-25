@@ -179,14 +179,14 @@ namespace HideAndSeek.Characters
             if (EmoteBeatFired == null) return;
             var beats = EmoteTimeline.Beats(emoteId, out var kind);
             if (beats.Length == 0) return;
-            if (emoteId == EmoteId.SitDown && emoteStopping) return;
+            if (info.BeatsOnce && emoteStopping) return;
             if (info.Loops)
             {
                 float period = info.Period;
                 if (Mathf.Floor(now / period) != Mathf.Floor(prev / period)) emoteBeatsFired = 0; // next loop
                 float a = Mathf.Repeat(prev, period), b = Mathf.Repeat(now, period);
                 if (b < a) a = 0f;
-                if (emoteId == EmoteId.SitDown && now > period) return; // only the sit-down itself
+                if (info.BeatsOnce && now > period) return; // only the way in (sitting down, jumping on)
                 while (emoteBeatsFired < beats.Length && b >= beats[emoteBeatsFired])
                 {
                     int i = emoteBeatsFired++;
@@ -202,7 +202,7 @@ namespace HideAndSeek.Characters
 
             void Fire(int i)
             {
-                try { EmoteBeatFired?.Invoke(emoteId, kind, i); }
+                try { EmoteBeatFired?.Invoke(emoteId, EmoteTimeline.BeatKind(emoteId, i, kind), i); }
                 catch (Exception e) { Debug.LogException(e); }
             }
         }
@@ -215,73 +215,23 @@ namespace HideAndSeek.Characters
                 case EmoteId.Clap: return ClapPose(basePose, t);
                 case EmoteId.Laugh: return LaughPose(basePose, t);
                 case EmoteId.Facepalm: return FacepalmPose(basePose, t);
-                case EmoteId.Shrug: return ShrugPose(basePose, t);
-                case EmoteId.Salute: return SalutePose(basePose, t);
                 case EmoteId.Point: return PointPose(basePose, t);
                 case EmoteId.DanceDisco: return DiscoPose(basePose, t);
-                case EmoteId.DanceRobot: return RobotPose(basePose, t);
                 case EmoteId.DanceRoof: return RoofPose(basePose, t);
                 case EmoteId.SitDown: return SitFloorPose(basePose, t, stopT);
+                case EmoteId.Floss: return FlossPose(basePose, t);
+                case EmoteId.Breakdance: return BreakdancePose(basePose, t, stopT);
+                case EmoteId.Pushups: return PushupsPose(basePose, t, stopT);
                 case EmoteId.Hug: return HugPose(basePose, t);
                 case EmoteId.HighFive: return HighFivePose(basePose, t);
-                case EmoteId.FistBump: return FistBumpPose(basePose, t);
                 case EmoteId.Handshake: return HandshakePose(basePose, t);
                 case EmoteId.PairDance: return PairDancePose(basePose, t);
+                case EmoteId.BearHug: return BearHugPose(basePose, t);
+                case EmoteId.SecretShake: return SecretShakePose(basePose, t);
+                case EmoteId.Piggyback: return PiggybackPose(basePose, t, stopT);
+                case EmoteId.PattyCake: return PattyCakePose(basePose, t);
                 default: return basePose;
             }
         }
-
-        // ================================================================== shared helpers
-
-        static readonly Vector3 FootR = new Vector3(0.12f, 0f, 0.01f), FootL = new Vector3(-0.12f, 0f, -0.01f);
-
-        /// <summary>Upright stance to build on: pelvis from the base, both soles planted (re-solved after any pelvis move).</summary>
-        static CharacterPose Stance(in CharacterPose b)
-        {
-            var p = b;
-            p.Pelvis = Quaternion.identity;
-            p.Torso = Quaternion.identity;
-            p.Head = Quaternion.identity;
-            p.PelvisPos = new Vector3(0f, BlockyCharacter.HipHeight - 0.005f, 0f);
-            return p;
-        }
-
-        static void Feet(ref CharacterPose p, Vector3 r, Vector3 l)
-        {
-            p.SolveLeg(0, r, new Vector3(0.12f, 0f, 1f));
-            p.SolveLeg(1, l, new Vector3(-0.12f, 0f, 1f));
-        }
-
-        static void Feet(ref CharacterPose p) => Feet(ref p, FootR, FootL);
-
-        /// <summary>Breathing and slow weight shifts on top of any standing emote (never a frozen statue).</summary>
-        void Alive(ref CharacterPose p, float t, float amount = 1f)
-        {
-            float b = Mathf.Sin(t * 2f * Mathf.PI * 0.27f + emoteSeed);
-            float n1 = Mathf.PerlinNoise(t * 0.35f, emoteSeed) - 0.5f, n2 = Mathf.PerlinNoise(emoteSeed, t * 0.3f) - 0.5f;
-            p.Torso = p.Torso * Quaternion.Euler(-1.3f * b * amount, 3f * n1 * amount, 1.5f * n2 * amount);
-            p.Head = p.Head * Quaternion.Euler(1.1f * b * amount + 3f * n2 * amount, 5f * n1 * amount, 0f);
-            p.PelvisPos += new Vector3(0.012f * n1, 0.003f * b, 0f) * amount;
-        }
-
-        /// <summary>A point in the head's space (origin at the neck pivot, +Z = the face) in root space.</summary>
-        static Vector3 HeadPoint(in CharacterPose p, Vector3 local) =>
-            p.TorsoPoint(BlockyCharacter.NeckRest) + p.TorsoRoot * (p.Head * local);
-
-        /// <summary>Hand target in torso space with the elbow towards a torso-space direction.</summary>
-        static void Arm(ref CharacterPose p, int arm, Vector3 torsoLocal, Vector3 poleLocal) =>
-            p.SolveArm(arm, p.TorsoPoint(torsoLocal), p.TorsoRoot * poleLocal);
-
-        /// <summary>Relaxed hanging arm (slightly away from the body).</summary>
-        static void Hang(ref CharacterPose p, int arm, float swing = 0f)
-        {
-            float s = arm == 0 ? 1f : -1f;
-            Arm(ref p, arm, new Vector3(0.37f * s, 0.06f, 0.03f + swing), new Vector3(0.3f * s, 0f, -1f));
-        }
-
-        /// <summary>0 -> 1 -> 0 between <paramref name="a"/> and <paramref name="b"/> (smooth both ways).</summary>
-        static float Hump(float t, float a, float b) => Mathf.Sin(Mathf.PI * Mathf.Clamp01((t - a) / (b - a)));
-
-        static float Env(float t, float a, float b, float c, float d) => Seg(t, a, b) * (1f - Seg(t, c, d));
     }
 }

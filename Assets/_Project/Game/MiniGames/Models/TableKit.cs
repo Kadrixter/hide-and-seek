@@ -87,29 +87,31 @@ namespace HideAndSeek.Game.MiniGames
         /// <summary>Corner radius of the game table's top, seen from above.</summary>
         public const float CornerRadius = 0.14f;
 
-        public void Table(Transform root, float top, float height)
+        public void Table(Transform root, float top, float height) => Table(root, top, top, height);
+
+        /// <summary>Rectangular game table: <paramref name="width"/> along local X (the sides without seats), <paramref name="depth"/> along Z (seat to seat).</summary>
+        public void Table(Transform root, float width, float depth, float height)
         {
             const float thick = 0.045f;
             // Rounded top: big corner radius in plan and a bullnose edge (more rounded than a plain box, 2026-11-24).
-            Part("Top", root, BoardMeshes.RoundedTop(top, top, CornerRadius, thick, 0.016f), TableWood, new Vector3(0f, height, 0f));
+            Part("Top", root, BoardMeshes.RoundedTop(width, depth, CornerRadius, thick, 0.016f), TableWood, new Vector3(0f, height, 0f));
             // Moulded edge under the top, following the same rounded outline.
-            Part("TopLip", root, BoardMeshes.RoundedTop(top - 0.03f, top - 0.03f, CornerRadius - 0.015f, 0.02f, 0.008f), LegWood, new Vector3(0f, height - thick + 0.002f, 0f));
-            float inset = top * 0.5f - 0.075f;
+            Part("TopLip", root, BoardMeshes.RoundedTop(width - 0.03f, depth - 0.03f, CornerRadius - 0.015f, 0.02f, 0.008f), LegWood, new Vector3(0f, height - thick + 0.002f, 0f));
+            float insetX = width * 0.5f - 0.075f, insetZ = depth * 0.5f - 0.075f;
             float apronH = 0.085f, apronY = height - thick - 0.018f - apronH * 0.5f;
             // Aprons only on the two sides without a seat (the seated players' knees go under the top).
-            foreach (var (dir, len) in new[] { (Vector3.right, top - 0.17f), (Vector3.left, top - 0.17f) })
+            float len = depth - 0.17f;
+            foreach (float sx in new[] { 1f, -1f })
             {
-                bool alongX = Mathf.Abs(dir.z) > 0.5f;
-                var size = alongX ? new Vector3(len, apronH, 0.024f) : new Vector3(0.024f, apronH, len);
-                Part("Apron", root, BoardMeshes.RoundedBox(size, 0.005f, 3), LegWood, dir * (inset + 0.005f) + Vector3.up * apronY);
+                Vector3 at = new Vector3(sx * (insetX + 0.005f), apronY, 0f);
+                Part("Apron", root, BoardMeshes.RoundedBox(new Vector3(0.024f, apronH, len), 0.005f, 3), LegWood, at);
                 // Bead along the bottom edge of the apron.
-                var bead = alongX ? new Vector3(len - 0.02f, 0.012f, 0.03f) : new Vector3(0.03f, 0.012f, len - 0.02f);
-                Part("ApronBead", root, BoardMeshes.RoundedBox(bead, 0.005f, 3), TableWood, dir * (inset + 0.005f) + Vector3.up * (apronY - apronH * 0.5f));
+                Part("ApronBead", root, BoardMeshes.RoundedBox(new Vector3(0.03f, 0.012f, len - 0.02f), 0.005f, 3), TableWood, at + Vector3.down * (apronH * 0.5f));
             }
             var leg = BoardMeshes.Lathe("tableleg" + height.ToString("0.00"), LegProfile(height - thick - 0.018f), 24, 1.5f);
             foreach (var (sx, sz) in new[] { (1, 1), (1, -1), (-1, 1), (-1, -1) })
-                Part("Leg", root, leg, LegWood, new Vector3(sx * inset, 0f, sz * inset));
-            Collider(root, "TableCollider", new Vector3(0f, height * 0.5f, 0f), new Vector3(top, height, top));
+                Part("Leg", root, leg, LegWood, new Vector3(sx * insetX, 0f, sz * insetZ));
+            Collider(root, "TableCollider", new Vector3(0f, height * 0.5f, 0f), new Vector3(width, height, depth));
         }
 
         /// <summary>Turned leg: square-ish block under the apron, vase, rings, tapering foot.</summary>

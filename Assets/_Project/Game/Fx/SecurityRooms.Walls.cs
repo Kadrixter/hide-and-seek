@@ -45,14 +45,14 @@ namespace HideAndSeek.Game
             _extSign = tb.Finish("SignExt", 0.3f, 15);
 
             tb = new TextureBaker(400, 280, new Color(0.88f, 0.88f, 0.84f));
-            tb.Text("PLAN GARAŻU  P0 / P-1 / P-2", 0.5f, 0.93f, 0.045f, dark);
+            tb.Text("PLAN GARAŻU  P 0 / P -1 / P -2", 0.5f, 0.93f, 0.045f, dark);
             for (int i = 0; i < 3; i++)
             {
                 float y = 0.72f - i * 0.28f;
                 tb.Frame(0.5f, y, 0.9f, 0.22f, 0.012f, new Color(0.2f, 0.3f, 0.55f));
                 for (int a = 0; a < 6; a++) tb.Rect(0.1f + a * 0.16f, y, 0.1f, 0.012f, new Color(0.6f, 0.65f, 0.75f));
                 for (int p = 0; p < 6; p++) tb.Circle(0.1f + p * 0.16f, y + (p % 2 == 0 ? 0.06f : -0.06f), 0.018f, red);
-                tb.Text("P" + LevelName(i), 0.02f, y + 0.08f, 0.035f, dark, TextAnchor.MiddleLeft);
+                tb.Text("P " + LevelName(i), 0.02f, y + 0.08f, 0.035f, dark, TextAnchor.MiddleLeft);
             }
             _planTex = tb.Finish("PlanGarage", 0.4f, 16);
 
@@ -69,7 +69,7 @@ namespace HideAndSeek.Game
             _calTex = tb.Finish("Calendar", 0.4f, 17);
 
             tb = new TextureBaker(64, 32, Color.white);
-            tb.Text("P-1", 0.5f, 0.5f, 0.4f, dark);
+            tb.Text("P -1", 0.5f, 0.5f, 0.36f, dark);
             _keyTagTex = tb.Finish("KeyTag", 0.3f, 18);
 
             tb = new TextureBaker(160, 160, new Color(0.1f, 0.55f, 0.25f));

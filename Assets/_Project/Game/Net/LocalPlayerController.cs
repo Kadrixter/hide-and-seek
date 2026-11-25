@@ -55,6 +55,7 @@ namespace HideAndSeek.Game.Net
         FuseRemove,     // E hold at a filled fuse box socket: pull the fuse out
         FuseInfo,       // looking at a fuse box with nothing to do there (text only)
         SawWrest,       // E next to a knocked-out / blinded seeker with the chainsaw: take it (LocalPlayerController.SawWrest.cs)
+        Kart,           // E at the free lobby go-kart: get in (LocalPlayerController.Kart.cs)
     }
 
     /// <summary>
@@ -314,6 +315,7 @@ namespace HideAndSeek.Game.Net
             }
 
             if (ForceFlashlight && _p.Flashlight != null && !_p.Flashlight.IsOn && _p.Life.Value == LifeState.Alive && _p.HasFlashlight) _p.Flashlight.SetOn(true, false);
+            if (KartTick(kb)) { CancelHold(); return; } // lobby go-kart: driving owns the input (LocalPlayerController.Kart.cs)
 
             // ---- lobby toy bricks: while building the mouse / E / 1-5 belong to the bricks.
             if (phase != MatchPhase.Lobby && LobbyBricks.Building) LobbyBricks.StopBuilding();
@@ -386,7 +388,12 @@ namespace HideAndSeek.Game.Net
             bool sawRev = _p.IsSeeker && phase == MatchPhase.Seeking && _p.Held.Value == HeldItem.Chainsaw &&
                           _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev) &&
                           _p.SawFuel.Value > 0f && // an empty saw does not start (MatchManager.SawFuel.cs)
-                          !_p.SawStalled;          // dust / goo / foam in the eyes, knocked out: the engine is dead (NetPlayer.SawNerf.cs)
+                          _p.SawReady;             // pulled and caught; not stalled by dust / goo / foam / a knock-out (NetPlayer.SawNerf.cs)
+            if (_p.SawInHands && phase == MatchPhase.Seeking && kb.rKey.wasPressedThisFrame && _p.FuelCans.Value > 0 && Time.time >= _nextSawTry)
+            {
+                _nextSawTry = Time.time + 0.6f;
+                _p.RequestRefuelHandsRpc(); // R: fill the saw from the canister in the inventory
+            }
             if (_p.SawRev.Value != sawRev) _p.SawRev.Value = sawRev;
             if (sawRev && Time.time >= _nextSawTry)
             {
@@ -837,6 +844,7 @@ namespace HideAndSeek.Game.Net
             if (phase == MatchPhase.Lobby && _p.Seat.Value < 0 && FlashlightBox.TryPrompt(_p, eye, fwd, out var fbPos, out var fbText, out float fbD))
                 Offer(PromptKind.FlashBox, fbPos, fbText, fbD);
             if (phase == MatchPhase.Lobby && MiniGamePrompt(eye, fwd, out var mgPos, out var mgText, out float mgD)) Offer(PromptKind.MiniGame, mgPos, mgText, mgD);
+            if (TryKartPrompt(eye, fwd, phase, out var kaPos, out var kaText, out float kaD)) Offer(PromptKind.Kart, kaPos, kaText, kaD); // lobby go-kart
 
             // Toy slime blasters (hiders): MatchManager.ToyGuns.
             if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && _p.IsAliveHider && MatchManager.Instance != null &&
@@ -1147,6 +1155,9 @@ namespace HideAndSeek.Game.Net
                 case PromptKind.FuseRemove:
                     FusePromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE);
                     TestPressE = false;
+                    break;
+                case PromptKind.Kart:
+                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestKartE) { TestKartE = false; KartPromptE(); }
                     break;
                 case PromptKind.SawWrest:
                     SawWrestPromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestWrestE);

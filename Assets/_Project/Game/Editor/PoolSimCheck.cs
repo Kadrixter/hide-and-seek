@@ -250,6 +250,9 @@ namespace HideAndSeek.Game.Editor
                 s.Phase = (byte)(k % 3);
                 s.A = k % 5 == 0 ? PoolState.Nobody : (ulong)rng.Next() * 977UL;
                 s.B = (ulong)k;
+                s.A2 = k % 3 == 0 ? PoolState.Nobody : ulong.MaxValue - 1 - (ulong)k;
+                s.B2 = k % 4 == 0 ? PoolState.Nobody : (ulong)rng.Next() * 7919UL;
+                s.Up = (byte)(k % 4);
                 s.Turn = (byte)(k & 1);
                 s.Groups = (byte)(k % 3);
                 s.BallInHand = k % 2 == 0;
@@ -261,7 +264,7 @@ namespace HideAndSeek.Game.Editor
                 s.WinsB = 255;
                 s.Round = k * 13;
                 s.ShotNo = k * 1001;
-                s.Rematch = (byte)(k % 4);
+                s.Ready = (byte)(k % 16);
                 s.Down = (ushort)rng.Next(0, 65536);
                 for (int i = 0; i < 16; i++) s.Pos[i] = new Vector2((float)(rng.NextDouble() * 2 - 1) * FieldX, (float)(rng.NextDouble() * 2 - 1) * FieldY);
                 s.Quantize();
@@ -270,10 +273,10 @@ namespace HideAndSeek.Game.Editor
                 int bytes = System.Text.Encoding.UTF8.GetByteCount(t);
                 maxBytes = Math.Max(maxBytes, bytes);
                 var o = new PoolState();
-                bool ok = PoolState.TryDecode(t, o) && o.Encode() == t && o.Phase == s.Phase && o.A == s.A && o.B == s.B && o.Turn == s.Turn
+                bool ok = PoolState.TryDecode(t, o) && o.Encode() == t && o.Phase == s.Phase && o.A == s.A && o.B == s.B && o.A2 == s.A2 && o.B2 == s.B2 && o.Up == s.Up && o.Turn == s.Turn
                           && o.Groups == s.Groups && o.BallInHand == s.BallInHand && o.Kitchen == s.Kitchen && o.Break == s.Break && o.Winner == s.Winner
                           && o.EndReason == s.EndReason && o.WinsA == s.WinsA && o.WinsB == s.WinsB && o.Round == s.Round && o.ShotNo == s.ShotNo
-                          && o.Rematch == s.Rematch && o.Down == s.Down;
+                          && o.Ready == s.Ready && o.Down == s.Down;
                 for (int i = 0; ok && i < 16; i++) ok = o.Pos[i] == s.Pos[i];
                 if (!ok || bytes >= 480) { all = false; Check($"codec {k}", false, $"{bytes} B: {t}"); }
             }

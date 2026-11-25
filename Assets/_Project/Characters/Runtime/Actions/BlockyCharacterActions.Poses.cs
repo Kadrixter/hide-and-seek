@@ -365,7 +365,7 @@ namespace HideAndSeek.Characters
                     float look = Mathf.Clamp(lookPitch, -40f, 40f) * 0.5f;
                     Quaternion rot = p.TorsoRoot * Quaternion.Euler(-look - 8f - 14f * rv, -6f, 0f);
                     // Pull-start: the saw is held out a little lower, the left hand grabs the starter grip and yanks.
-                    var st = BlockyProps.ChainsawStarter(sawStartT);
+                    var st = BlockyProps.ChainsawStarter(sawStartT, sawAttempts);
                     if (st.x > 0.001f)
                     {
                         fist = Vector3.Lerp(fist, p.TorsoPoint(new Vector3(0.12f, 0.02f, 0.3f)), st.x);

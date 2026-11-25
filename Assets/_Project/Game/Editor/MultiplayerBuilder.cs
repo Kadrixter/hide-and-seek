@@ -99,6 +99,7 @@ namespace HideAndSeek.Game.Editor
                 new EditorBuildSettingsScene(MenuScenePath, true),
                 new EditorBuildSettingsScene(LobbyScenePath, true),
                 new EditorBuildSettingsScene(GameScenePath, true),
+                new EditorBuildSettingsScene(DeadLobbyScenePath, true),
             };
             AssetDatabase.SaveAssets();
             Debug.Log("[MultiplayerBuilder] All scenes built.");
@@ -108,7 +109,7 @@ namespace HideAndSeek.Game.Editor
         {
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
-                scenes = new[] { MenuScenePath, LobbyScenePath, GameScenePath },
+                scenes = new[] { MenuScenePath, LobbyScenePath, GameScenePath, DeadLobbyScenePath },
                 locationPathName = BuildOutput,
                 target = BuildTarget.StandaloneWindows64,
                 options = BuildOptions.None
@@ -291,9 +292,11 @@ namespace HideAndSeek.Game.Editor
             RenderSettings.fog = false;
 
             var root = BuildLobbyRoom(); // MultiplayerBuilder.LobbyRoom.cs, floor plan: Game/Lobby/LobbyLayout.cs
+            BuildLobbyArch(root); // arch in the west wall + passage to the drift track (MultiplayerBuilder.LobbyArch.cs)
             BuildLobbyModels(root);
             ZFightCheck.FixOpenScene(); // no flickering coplanar faces
             EditorSceneManager.SaveScene(scene, LobbyScenePath);
+            SaveDeadLobbyCopy(scene); // the shifted copy for the dead during a round (MultiplayerBuilder.DeadLobby.cs)
         }
 
         /// <summary>Depth-tested text material + auto-fit (see WorldText).</summary>

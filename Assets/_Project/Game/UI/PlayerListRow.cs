@@ -28,6 +28,7 @@ namespace HideAndSeek.Game.UI
             public float Bleed; // downed: part of the bleed-out time left (1 = just went down, 0 = dies), < 0 = no bar
             public float BleedLeft; // downed: seconds left
             public float BleedTotal; // full bleed-out time of this round (seconds)
+            public int Fuses; // fuses in the inventory (0 = no icon, 1 = icon, 2+ = icon + count)
         }
 
         public readonly RectTransform Root;
@@ -37,6 +38,9 @@ namespace HideAndSeek.Game.UI
         private readonly RectTransform _bleed, _bleedFillRt;
         private readonly Image _bleedTrack, _bleedFill;
         private readonly Text _bleedTime;
+        private readonly Image _fuseIcon;
+        private readonly Text _fuseCount;
+        private int _lastFuses = -1;
         private string _lastNick, _lastState;
         private bool _lastSeeker, _bleedOn;
         private int _lastSecs = -1;
@@ -92,6 +96,19 @@ namespace HideAndSeek.Game.UI
             _bleedTime.AddOutline(1f, 0.6f);
             _bleed.gameObject.SetActive(false);
 
+            // Fuses carried: the amber fuse of the minimap, with the number when 2 or more (right, before the voice bars).
+            _fuseIcon = UiKit.Image("Fuse", Root, Color.white);
+            _fuseIcon.raycastTarget = false;
+            _fuseIcon.preserveAspect = true;
+            _fuseIcon.sprite = Minimap.FuseSprite();
+            _fuseIcon.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-VoiceW - 26f, 0), new Vector2(20, 20));
+            _fuseCount = UiKit.Label("FuseCount", Root, "", 16, TextAnchor.MiddleLeft, new Color(1f, 0.78f, 0.3f), FontStyle.Bold);
+            _fuseCount.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(0, 0.5f), new Vector2(-VoiceW - 15f, -1f), new Vector2(16, 20));
+            _fuseCount.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _fuseCount.AddOutline(1f, 0.7f);
+            _fuseIcon.gameObject.SetActive(false);
+            _fuseCount.gameObject.SetActive(false);
+
             for (int i = 0; i < 3; i++)
             {
                 var b = UiKit.Image("VoiceBar" + i, Root, new Color(0.45f, 1f, 0.5f, 1f));
@@ -131,6 +148,7 @@ namespace HideAndSeek.Game.UI
             _marker.color = mc;
 
             UpdateBleed(d);
+            UpdateFuses(d.Fuses);
 
             _strike.enabled = d.Dead;
             if (d.Dead)
@@ -151,6 +169,17 @@ namespace HideAndSeek.Game.UI
                 _bars[i].sizeDelta = new Vector2(4f, Mathf.Max(0f, h));
                 _bars[i].gameObject.SetActive(_speakFx > 0.01f);
             }
+        }
+
+        /// <summary>Fuse icon (+ count from 2) on the right; the nick gives up the room while it shows.</summary>
+        private void UpdateFuses(int n)
+        {
+            if (n == _lastFuses) return;
+            _lastFuses = n;
+            _fuseIcon.gameObject.SetActive(n > 0);
+            _fuseCount.gameObject.SetActive(n > 1);
+            _fuseCount.text = n > 1 ? n.ToString() : "";
+            _nick.rectTransform.sizeDelta = new Vector2(-NickX - VoiceW - (n > 0 ? (n > 1 ? 44f : 32f) : 0f), 0);
         }
 
         /// <summary>Bleed-out bar of a downed player (hidden otherwise); the state text moves up above it.</summary>

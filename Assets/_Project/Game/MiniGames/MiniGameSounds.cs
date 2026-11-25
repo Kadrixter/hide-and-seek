@@ -99,7 +99,7 @@ namespace HideAndSeek.Game.MiniGames
             if (to == 1 && from != 1) ClockButton(t);
             else if (to == 2 && from == 1)
             {
-                bool draw = end is GameEnd.Stalemate or GameEnd.FiftyMoves or GameEnd.Repetition or GameEnd.Material or GameEnd.Full;
+                bool draw = end is GameEnd.Stalemate or GameEnd.FiftyMoves or GameEnd.Repetition or GameEnd.Material or GameEnd.Full or GameEnd.KingMoves;
                 if (draw) Draw(t); else Win(t);
             }
         }

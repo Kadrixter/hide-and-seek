@@ -12,6 +12,32 @@ namespace HideAndSeek.Characters
     /// </summary>
     public static partial class BoardGamePose
     {
+        /// <summary>Half the torso's depth (its front face is the underside when bent over).</summary>
+        const float TorsoHalfD = 2f * BlockyCharacter.PixelSize;
+
+        /// <summary>
+        /// Largest lean (degrees, at least 20) for which the bent torso's underside and the neck stay above a table edge
+        /// <paramref name="edgeZ"/> ahead with its top at <paramref name="edgeY"/>: the chest rests over the rail, never in it.
+        /// </summary>
+        static float ClearLean(Vector3 pelvis, float torsoLen, float edgeZ, float edgeY)
+        {
+            float best = 20f;
+            for (float l = 20f; l <= 80f; l += 1f)
+            {
+                float r = l * Mathf.Deg2Rad, sin = Mathf.Sin(r), cos = Mathf.Cos(r);
+                // Where the underside (front face) crosses the edge, how high it is there.
+                float y = (edgeZ - pelvis.z - TorsoHalfD * cos) / Mathf.Max(0.05f, sin);
+                bool torsoOk = y > torsoLen || y < 0f && pelvis.y - TorsoHalfD * sin >= edgeY + 0.02f
+                               || pelvis.y + y * cos - TorsoHalfD * sin >= edgeY + 0.02f;
+                // The neck (and the big head on it) past the edge: well above the rail.
+                float neckZ = pelvis.z + torsoLen * sin, neckY = pelvis.y + torsoLen * cos;
+                bool neckOk = neckZ < edgeZ || neckY >= edgeY + 0.14f;
+                if (!torsoOk || !neckOk) break;
+                best = l;
+            }
+            return best;
+        }
+
         static CharacterPose PoolStance(in Input inp, float time)
         {
             var p = CharacterPose.Identity;
@@ -39,6 +65,7 @@ namespace HideAndSeek.Characters
                 float neckLen = BlockyCharacter.NeckRest.y;
                 float minNeck = Mathf.Max(inp.Bridge.y, 0.7f) + 0.2f;
                 float maxL = Mathf.Clamp(Mathf.Acos(Mathf.Clamp((minNeck - pelBent.y) / neckLen, 0f, 1f)) * Mathf.Rad2Deg, 30f, 80f);
+                if (inp.ClearZ > 0.01f) maxL = Mathf.Min(maxL, ClearLean(pelBent, neckLen, inp.ClearZ, inp.ClearY));
                 float bestL = maxL, bestT = 0f;
                 for (float l = 30f; l <= maxL + 0.01f; l += 3f)
                 {
@@ -56,6 +83,7 @@ namespace HideAndSeek.Characters
                 twist = bestT * b;
             }
             p.Pelvis = Quaternion.Euler(0f, twist * 0.35f, -sway * 2f);
+            p.PelvisPos.z = Mathf.Min(p.PelvisPos.z, inp.ClearZ > 0.01f ? inp.ClearZ - TorsoHalfD - 0.04f : p.PelvisPos.z);
             p.Torso = Quaternion.Euler(lean, twist * 0.65f, sway * 1.5f);
 
             // Feet: under the hips (stepping in turn while walking) -> the stance (right foot back on the line, left forward).
@@ -71,7 +99,9 @@ namespace HideAndSeek.Characters
             // Left arm: hanging (swinging while walking) -> the bridge on the cloth, elbow out to the side.
             float swing = Mathf.Sin(ph) * walk;
             Vector3 hangL = p.TorsoPoint(new Vector3(-0.36f, 0.12f, 0.08f + swing * 0.12f)) + Vector3.up * breathe * 0.004f;
-            p.SolveArm(1, Vector3.Lerp(hangL, inp.Bridge, b), Vector3.Lerp(new Vector3(-0.6f, -0.6f, -0.5f), new Vector3(-1f, 0.35f, 0.1f), b));
+            // (On the way between the two the hand goes up in an arc, over the rail, not through it.)
+            Vector3 leftTo = Vector3.Lerp(hangL, inp.Bridge, b) + Vector3.up * (0.2f * Mathf.Sin(Mathf.PI * b));
+            p.SolveArm(1, leftTo, Vector3.Lerp(new Vector3(-0.6f, -0.6f, -0.5f), new Vector3(-1f, 0.35f, 0.1f), b));
             // Right arm: the fist on the cue (upright at the side, or the butt behind the body with the elbow up).
             p.SolveArm(0, inp.Reach, Vector3.Lerp(new Vector3(0.6f, -0.6f, -0.5f), new Vector3(0.35f, 1f, -0.45f), b));
 

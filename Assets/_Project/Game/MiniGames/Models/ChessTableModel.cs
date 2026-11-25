@@ -3,14 +3,15 @@ using UnityEngine;
 namespace HideAndSeek.Game.MiniGames
 {
     /// <summary>
-    /// Chess table built at runtime: game table, chess board (raised plate + inlaid slab with coordinates), a digital
+    /// Chess table built at runtime: game table (<see cref="TableWidth"/> wide along X, <see cref="TableTop"/> deep from
+    /// seat to seat; widened 2026-11-25 for more room round the board), chess board (raised plate + inlaid slab with coordinates), a digital
     /// chess clock with two plungers on the +X side, two stools (seat A at -Z, seat B at +Z). Local space: origin on
     /// the floor under the board centre. The board itself sits on a pivot that turns 180 degrees when the colours swap
     /// (white always plays from its own side, so a1 is always on white's left).
     /// </summary>
     public sealed class ChessTableModel
     {
-        public const float TopY = 0.64f, TableTop = 0.96f;
+        public const float TopY = 0.64f, TableTop = 0.96f, TableWidth = 1.2f;
         public const float BoardTop = TopY + 0.028f;
         public const float StoolZ = 0.75f;
         public const float Square = BoardArt.SquareSize;
@@ -29,14 +30,14 @@ namespace HideAndSeek.Game.MiniGames
             int col = n / 8, row = n % 8;
             // Rows a bit tighter than the piece pitch, so a full column stays clear of the table's rounded corner.
             float z = (0.07f + row * 0.042f) * (seat == 0 ? -1f : 1f);
-            return new Vector3(-0.405f - col * 0.045f, TopY, z);
+            return new Vector3(-0.47f - col * 0.048f, TopY, z);
         }
 
         public static ChessTableModel Build(Transform root, Material template, int style)
         {
             var m = new ChessTableModel { Root = root, Kit = new TableKit(template, root.gameObject.layer, style) };
             var k = m.Kit;
-            k.Table(root, TableTop, TopY);
+            k.Table(root, TableWidth, TableTop, TopY);
             k.Stool(root, new Vector3(0f, 0f, -StoolZ));
             k.Stool(root, new Vector3(0f, 0f, StoolZ));
 
@@ -58,7 +59,7 @@ namespace HideAndSeek.Game.MiniGames
             var k = Kit;
             var c = new GameObject("ChessClock") { layer = k.Layer }.transform;
             c.SetParent(Root, false);
-            c.localPosition = new Vector3(0.425f, TopY, 0f);
+            c.localPosition = new Vector3(0.5f, TopY, 0f);
             var body = k.Mat(Kit.Style == 1 ? new Color(0.09f, 0.09f, 0.1f) : new Color(0.33f, 0.2f, 0.12f), 0.1f, 0.6f, Kit.Style == 1 ? null : BoardArt.GrainTable);
             // Wedge case seen from its end: d > 0 = towards the board (-X), the display slopes up away from the board.
             var profile = new System.Collections.Generic.List<Vector2>

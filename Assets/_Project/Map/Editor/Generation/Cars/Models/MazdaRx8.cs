@@ -204,6 +204,8 @@ namespace HideAndSeek.Map.Editor
             Mb.Text("RX-8", new Vector3(-0.45f, 0.735f, tp.z - 0.004f), Vector3.back, Vector3.up, 0.03f, Lib["Text_White"]);
             // boot lid dished in the middle, its trailing edge turned up into a lip spoiler
             CarBlob.Blob(Mb, new Vector3(0, 0.99f, -2.12f), Quaternion.Euler(10f, 0, 0), new Vector3(0.6f, 0.016f, 0.06f), 0.35f, Paint, 0.5f, 1f, 16, 8);
+            // tuned: gloss black swan-neck wing hung from two aluminium goosenecks on the boot lid
+            CarWings.SwanNeck(Mb, new Vector3(0f, 1.13f, -1.99f), 0.72f, 0.24f, 7f, 0.4f, 0.966f, Lib["Car_WingBlack"], Lib["Car_RimSilver"]);
             SeamAcross(-1.6f, 0.66f);
             SeamTop(-2.1f, -1.6f, t => 0.66f);
         }

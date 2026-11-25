@@ -29,7 +29,13 @@ namespace HideAndSeek.Game
                 Item = HotbarItem.Chainsaw, Name = "Piła łańcuchowa", Users = ItemUsers.Both, Weapon = HeldItem.Chainsaw,
                 DropSfx = GameSfx.BodyFall, DropVolume = 0.55f, Glow = new Color(1f, 0.6f, 0.25f, 0.5f), SeekerMapMarker = true,
                 Count = p => p.HasChainsaw.Value ? 1 : 0,
-                Give = (p, extra) => { p.HasChainsaw.Value = true; MatchManager.SetSawFuel(p, SawFuel.Unpack(extra)); return true; },
+                Give = (p, extra) =>
+                {
+                    p.HasChainsaw.Value = true;
+                    MatchManager.SetSawFuel(p, SawFuel.Unpack(extra));
+                    if (p.IsSeeker) p.Held.Value = HeldItem.Chainsaw; // it cannot be carried in the inventory (NetPlayer.SawNerf.cs)
+                    return true;
+                },
                 Take = (NetPlayer p, out byte extra) =>
                 {
                     extra = 0;
@@ -41,8 +47,8 @@ namespace HideAndSeek.Game
                 },
                 Hint = p => p.IsHider ? "Piła szukającego - nie odpalisz jej. Schowaj ją gdzieś (Q - wyrzuć)."
                     : p.SawFuel.Value > 0f
-                    ? $"F przytrzymaj - gaz   paliwo {Mathf.CeilToInt(p.SawFuel.Value - 0.05f)}/{SawFuel.Full:0}"
-                    : "Piła bez paliwa - zatankuj z kanistra albo Q - wyrzuć",
+                    ? $"F przytrzymaj - gaz   paliwo {Mathf.CeilToInt(p.SawFuel.Value - 0.05f)}/{SawFuel.Full:0}{(p.FuelCans.Value > 0 && p.SawFuel.Value < SawFuel.Full - 0.05f ? "   R - zatankuj" : "")}"
+                    : p.FuelCans.Value > 0 ? "Piła bez paliwa - R - zatankuj z kanistra" : "Piła bez paliwa - znajdź kanister albo Q - wyrzuć",
                 Use = (p, click, _) =>
                 {
                     if (click && p.IsHider) GameHud.Toast("Nie umiesz odpalić piły. Schowaj ją, żeby szukający jej nie odzyskał.", 2.5f);

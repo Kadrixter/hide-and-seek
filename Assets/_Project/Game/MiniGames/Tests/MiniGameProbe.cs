@@ -13,6 +13,7 @@ namespace HideAndSeek.Game.MiniGames
     /// <para>-testttt [-tttshots &lt;dir&gt;]: X wins with the diagonal, R for the next round (O starts), a draw, then
     /// the host gets up. Logs "[TttTest]".</para>
     /// <para>-testpool &lt;dir&gt;: 8-ball at the lobby pool table (MiniGameProbe.Pool.cs). Logs "[PoolTest]".</para>
+    /// <para>-testcheckers &lt;dir&gt;: checkers and the lamp at the chess table (MiniGameProbe.Checkers.cs). Logs "[CheckersTest]".</para>
     /// <para>-chesswatch &lt;dir&gt;: a late joining spectator logs the board it got and photographs both tables.</para>
     /// Screens: fp_* = the player's real screen, side_* = a free camera next to the table (what others see).
     /// </summary>
@@ -25,7 +26,7 @@ namespace HideAndSeek.Game.MiniGames
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
-            if (!Has("-testchess") && !Has("-testttt") && !Has("-chesswatch") && !Has("-testpool")) return;
+            if (!Has("-testchess") && !Has("-testttt") && !Has("-chesswatch") && !Has("-testpool") && !Has("-testcheckers")) return;
             var g = new GameObject("MiniGameProbe");
             DontDestroyOnLoad(g);
             g.AddComponent<MiniGameProbe>();
@@ -66,6 +67,11 @@ namespace HideAndSeek.Game.MiniGames
             {
                 _dir = Arg("-chessshots");
                 yield return ChessRun(mm);
+            }
+            if (Has("-testcheckers"))
+            {
+                _dir = Arg("-testcheckers");
+                yield return CheckersRun(mm);
             }
             if (Has("-testttt"))
             {
@@ -140,6 +146,9 @@ namespace HideAndSeek.Game.MiniGames
         }
 
         /// <summary>Free camera render (what other players see) into side_NAME.png.</summary>
+        /// <summary>Frame of the last free-camera render (it shows the shadow-only bodies again for one frame).</summary>
+        int _renderFrame = -10;
+
         void Render(string name, Vector3 from, Vector3 at, float fov = 45f)
         {
             if (_dir == null) return;
@@ -153,6 +162,9 @@ namespace HideAndSeek.Game.MiniGames
             cam.cullingMask = ~(1 << 9);
             cam.transform.position = from;
             cam.transform.LookAt(at);
+            // Bodies hidden from the own board camera (shadow only) are drawn for this outside view.
+            foreach (var p in NetPlayer.All) if (p != null && !p.IsOwner) p.SetGhostBody(false);
+            _renderFrame = Time.frameCount;
             cam.Render();
             var prev = RenderTexture.active;
             RenderTexture.active = rt;

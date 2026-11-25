@@ -8,19 +8,19 @@ namespace HideAndSeek.Game.MiniGames
     /// Board view of a player at the pool table (used by <see cref="MiniGameCamera"/>, mouse wheel = zoom). Own turn:
     /// low behind the cue ball looking down the shot line (follows the aim at once, stays for the stroke); watching
     /// (rolling balls, the other player's turn): high three-quarter view of the whole table from the own side; Space
-    /// (and ball in hand): steep view from the own side, under the lamp. The modes blend smoothly. The other player is
-    /// drawn as a shadow while he stands in front of or right next to the camera.
+    /// (and ball in hand): steep view from the own side, under the lamp. The modes blend smoothly. The other players are
+    /// drawn as shadows while they stand in front of or right next to the camera.
     /// </summary>
     public sealed partial class PoolTable
     {
         float _wAim, _wTop;
-        NetPlayer _ghosted;
+        readonly System.Collections.Generic.List<NetPlayer> _ghosted = new(), _ghostNow = new();
 
         public override void CameraPose(int seat, float zoom, out Vector3 pos, out Quaternion rot)
         {
-            float s = Side(seat);
-            // Watching: three-quarter view of the whole table.
-            Vector3 p0 = new Vector3(0f, PoolDims.ClothY + 0.95f * zoom, s * 1.45f * zoom);
+            float s = Side(seat), px = PlaceX(seat) * 0.8f;
+            // Watching: three-quarter view of the whole table from behind the own waiting spot (not over a team mate).
+            Vector3 p0 = new Vector3(px, PoolDims.ClothY + 0.95f * zoom, s * 1.45f * zoom);
             Vector3 a0 = new Vector3(0f, PoolDims.ClothY, 0f);
             // Top: steep, from the own side (the lamp hangs over the middle, the camera stays in front of it).
             Vector3 p1 = new Vector3(0f, PoolDims.ClothY + 1.3f * zoom, s * 0.85f * zoom);
@@ -89,29 +89,49 @@ namespace HideAndSeek.Game.MiniGames
             TickGhost(seat);
         }
 
-        /// <summary>The other player as a shadow while he stands between our camera and the table.</summary>
+        /// <summary>
+        /// Every other player (the other team, the own team mate, a spectator) as a shadow while he stands between our
+        /// camera and what it looks at, or right next to the camera (walking round the table).
+        /// </summary>
         void TickGhost(int seat)
         {
-            var other = NetPlayer.Find(SeatPlayer(1 - seat));
-            if (other != _ghosted) Unghost();
-            if (other == null || other.IsOwner) return;
             CameraPose(seat, 1f, out var cam, out _);
-            Vector2 c = ToTable(cam), o = ToTable(other.transform.position), mid = Vector2.zero;
+            Vector2 c = ToTable(cam), mid = Vector2.zero;
             if (_wAim > 0.5f && LocalAimFrame(out var cue, out _)) mid = cue;
-            // Distance from the other player to the line camera -> what we look at, on the floor plan.
             Vector2 seg = mid - c;
-            float t = Mathf.Clamp01(Vector2.Dot(o - c, seg) / Mathf.Max(1e-4f, seg.sqrMagnitude));
-            float d = (c + seg * t - o).magnitude;
-            // Between us and what we look at, or simply right next to the camera (he walks round the table).
-            bool between = d < 0.45f && t < 0.75f || (o - c).magnitude < 1.0f;
-            other.SetGhostBody(between);
-            _ghosted = between ? other : null;
+            _ghostNow.Clear();
+            foreach (var other in NetPlayer.All)
+            {
+                if (other == null || other.IsOwner || other.Character == null) continue;
+                Vector2 o = ToTable(other.transform.position);
+                float t = Mathf.Clamp01(Vector2.Dot(o - c, seg) / Mathf.Max(1e-4f, seg.sqrMagnitude));
+                float d = (c + seg * t - o).magnitude;
+                // A bent shooter's head is far from his feet: the nearest point of his body counts too.
+                bool near = (o - c).magnitude < 1.3f || BodyNear(other, cam, 1.3f);
+                if (d < 0.45f && t < 0.75f || near) _ghostNow.Add(other);
+            }
+            foreach (var g in _ghosted)
+                if (g != null && !_ghostNow.Contains(g)) g.SetGhostBody(false);
+            foreach (var g in _ghostNow) g.SetGhostBody(true, false);
+            _ghosted.Clear();
+            _ghosted.AddRange(_ghostNow);
+        }
+
+        /// <summary>Some part of the player's body is within <paramref name="dist"/> of the camera.</summary>
+        static bool BodyNear(NetPlayer p, Vector3 cam, float dist)
+        {
+            if (p.Character == null) return false;
+            Vector3 root = p.transform.position;
+            if ((new Vector2(root.x, root.z) - new Vector2(cam.x, cam.z)).sqrMagnitude > 6.25f) return false;
+            foreach (var r in p.Character.GetComponentsInChildren<Renderer>())
+                if (r.enabled && r.bounds.SqrDistance(cam) < dist * dist) return true;
+            return false;
         }
 
         void Unghost()
         {
-            if (_ghosted != null) _ghosted.SetGhostBody(false);
-            _ghosted = null;
+            foreach (var g in _ghosted) if (g != null) g.SetGhostBody(false);
+            _ghosted.Clear();
         }
 
         PoolAimHud _aimHud;

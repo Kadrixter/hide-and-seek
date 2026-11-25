@@ -13,8 +13,8 @@ namespace HideAndSeek.Game.Net
     /// deterministic) and sends the stroke plus the exact ball positions before it to every client
     /// (<see cref="PoolShotClientRpc"/>); each client runs the same simulation and replays it. Only after the shot's
     /// duration (+ <see cref="PoolSettlePad"/>) does the server apply the rules and publish the new state, and only then
-    /// it takes the next stroke. A player leaving / disconnecting ends the game (the other one wins), the round
-    /// starting resets the table, R from both players after a game racks again (the loser breaks).
+    /// it takes the next stroke. Places, ready, leaving: MatchManager.MiniPoolSeats. The teams alternate innings; inside
+    /// a team its players take the innings in turn (<see cref="PoolState.Up"/>). The round starting resets the table.
     /// </summary>
     public partial class MatchManager
     {
@@ -27,7 +27,6 @@ namespace HideAndSeek.Game.Net
         private readonly PoolState _pool = new();
         private PoolSimResult _poolPending;
         private float _poolSettleAt;
-        private int _poolBreaker;
 
         public PoolState PoolServerState => _pool;
         /// <summary>Server: a stroke is being rolled out (no next stroke until it is published).</summary>
@@ -36,8 +35,18 @@ namespace HideAndSeek.Game.Net
         public PoolSimResult PoolLastResult { get; private set; }
         public int PoolLastShotNo { get; private set; } = -1;
 
+        /// <summary>A change (somebody joined) waits for the shot being rolled out: its counter is already bumped, so the
+        /// clients would take the old balls for the shot's result.</summary>
+        private bool _poolPublishLater;
+
         private void PublishPool()
         {
+            if (_poolPending != null)
+            {
+                _poolPublishLater = true;
+                return;
+            }
+            _poolPublishLater = false;
             string s = _pool.Encode() ?? "";
             if (System.Text.Encoding.UTF8.GetByteCount(s) > 500 && !string.IsNullOrEmpty(_pool.Note))
             {
@@ -53,28 +62,22 @@ namespace HideAndSeek.Game.Net
             catch (System.Exception e) { Debug.LogError($"[Pool] cannot publish the state ({s.Length} chars): {e.Message}"); }
         }
 
-        /// <summary>A fresh rack (seats, series score, game / shot counters kept), cue ball in hand in the kitchen for the break.</summary>
+        /// <summary>A fresh rack (places, series score, game / shot counters kept), cue ball in hand in the kitchen for the break.</summary>
         private void RackPool()
         {
-            ulong a = _pool.A, b = _pool.B;
-            byte wa = _pool.WinsA, wb = _pool.WinsB, phase = _pool.Phase, turn = _pool.Turn;
-            int round = _pool.Round, shot = _pool.ShotNo;
-            _pool.Rack(new System.Random(unchecked(System.Environment.TickCount * 31 + round * 7919)));
-            _pool.A = a;
-            _pool.B = b;
-            _pool.WinsA = wa;
-            _pool.WinsB = wb;
-            _pool.Phase = phase;
-            _pool.Turn = turn;
-            _pool.Round = round + 1;
-            _pool.ShotNo = shot;
-            _pool.Groups = PoolState.Open;
-            _pool.Break = true;
-            _pool.BallInHand = true;
-            _pool.Kitchen = true;
-            _pool.Winner = 255;
-            _pool.EndReason = PoolState.EndNone;
-            _pool.Rematch = 0;
+            var keep = _pool.Clone();
+            _pool.Rack(new System.Random(unchecked(System.Environment.TickCount * 31 + keep.Round * 7919)));
+            _pool.A = keep.A;
+            _pool.B = keep.B;
+            _pool.A2 = keep.A2;
+            _pool.B2 = keep.B2;
+            _pool.WinsA = keep.WinsA;
+            _pool.WinsB = keep.WinsB;
+            _pool.Phase = keep.Phase;
+            _pool.Turn = keep.Turn;
+            _pool.Round = keep.Round + 1;
+            _pool.ShotNo = keep.ShotNo;
+            _pool.Ready = 0;
             _pool.Note = "";
         }
 
@@ -83,8 +86,9 @@ namespace HideAndSeek.Game.Net
             _poolPending = null;
             if (clearSeats)
             {
-                _pool.A = _pool.B = PoolState.Nobody;
+                for (int p = 0; p < PoolState.Places; p++) _pool.SetPlace(p, PoolState.Nobody);
                 _pool.WinsA = _pool.WinsB = 0;
+                _poolNextBreaker = -1;
             }
             _pool.Phase = PoolState.Waiting;
             RackPool(); // a tidy table for the next players
@@ -94,43 +98,19 @@ namespace HideAndSeek.Game.Net
         private void StartPool(int breaker)
         {
             _poolPending = null;
-            _poolBreaker = breaker;
             RackPool();
             _pool.Phase = PoolState.Playing;
             _pool.Turn = (byte)breaker;
             _pool.Note = $"Rozbija {PoolNick(breaker)}";
             PublishPool();
-            Debug.Log($"[Pool] game {_pool.Round}: A={NickOf(_pool.A)} B={NickOf(_pool.B)}, breaks {(breaker == 0 ? 'A' : 'B')}, series {_pool.WinsA}:{_pool.WinsB}");
+            Debug.Log($"[Pool] game {_pool.Round}: A={NickOf(_pool.A)}+{NickOf(_pool.A2)} B={NickOf(_pool.B)}+{NickOf(_pool.B2)}, breaks {(breaker == 0 ? 'A' : 'B')}, series {_pool.WinsA}:{_pool.WinsB}");
         }
 
-        private string PoolNick(int seat)
+        /// <summary>Nick of the player who plays team <paramref name="team"/>'s next inning.</summary>
+        private string PoolNick(int team)
         {
-            string n = NickOf(_pool.Seat(seat));
-            return string.IsNullOrEmpty(n) ? (seat == 0 ? "gracz 1" : "gracz 2") : n;
-        }
-
-        /// <summary>ServerMiniSit, pool branch: takes the seat (false = taken); both seats taken = a new pair starts.</summary>
-        private bool PoolSit(NetPlayer pl, byte seat)
-        {
-            if (_pool.Seat(seat) != PoolState.Nobody) return false;
-            if (seat == 0) _pool.A = pl.NetworkObjectId; else _pool.B = pl.NetworkObjectId;
-            _pool.Rematch = 0;
-            if (_pool.A != PoolState.Nobody && _pool.B != PoolState.Nobody)
-            {
-                _pool.WinsA = _pool.WinsB = 0; // new pair of players
-                StartPool(Random.Range(0, 2));
-            }
-            else PublishPool();
-            return true;
-        }
-
-        /// <summary>ServerMiniRematch, pool branch: both players press R after a game, the loser breaks the new rack.</summary>
-        private void PoolRematch(int seat)
-        {
-            if (seat < 0 || _pool.Phase != PoolState.Over || _pool.A == PoolState.Nobody || _pool.B == PoolState.Nobody) return;
-            _pool.Rematch |= (byte)(1 << seat);
-            if (_pool.Rematch == 3) StartPool(_pool.Winner <= 1 ? 1 - _pool.Winner : 1 - _poolBreaker);
-            else PublishPool();
+            string n = NickOf(_pool.Place(_pool.ShooterPlace(team)));
+            return string.IsNullOrEmpty(n) ? (team == 0 ? "drużyna A" : "drużyna B") : n;
         }
 
         private static bool Finite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
@@ -139,11 +119,11 @@ namespace HideAndSeek.Game.Net
         public void ServerPoolShot(NetPlayer pl, PoolShot shot, Vector2 cuePos)
         {
             if (pl == null || !IsServer) return;
-            int seat = _pool.SeatOf(pl.NetworkObjectId);
+            int seat = _pool.PlaceOf(pl.NetworkObjectId);
             string why = Phase.Value != MatchPhase.Lobby ? "not in the lobby"
                 : _pool.Phase != PoolState.Playing ? "no game running"
                 : seat < 0 ? "not at the table"
-                : seat != _pool.Turn ? "not his turn"
+                : seat != _pool.Shooter ? "not his turn"
                 : _poolPending != null ? "balls still rolling"
                 : !Finite(shot.Angle) || !Finite(shot.Power) || !Finite(shot.SpinX) || !Finite(shot.SpinY) || shot.Power <= 0f || shot.Power > 1.05f ? "bad stroke"
                 : null;
@@ -198,6 +178,7 @@ namespace HideAndSeek.Game.Net
             var r = _poolPending;
             if (r == null) return;
             _poolPending = null;
+            int before = _pool.Turn;
             try { PoolRules.Apply(_pool, r, PoolNick(0), PoolNick(1)); }
             catch (System.Exception e)
             {
@@ -206,40 +187,23 @@ namespace HideAndSeek.Game.Net
                 _pool.Down = r.FinalDown;
                 _pool.Turn = (byte)(1 - _pool.Turn);
             }
+            // The team that leaves the table: its other player takes its next inning.
+            if (_pool.Turn != before) _pool.Up ^= (byte)(1 << before);
             if (_pool.Phase == PoolState.Over)
             {
-                _pool.Rematch = 0;
+                _pool.Ready = 0;
+                _poolNextBreaker = _pool.Winner <= 1 ? 1 - _pool.Winner : -1;
                 Debug.Log($"[Pool] game {_pool.Round} over: winner {_pool.Winner}, reason {_pool.EndReason}, series {_pool.WinsA}:{_pool.WinsB}");
             }
-            if (publish) PublishPool();
-        }
-
-        /// <summary>A player got up / disconnected: a running game is lost by him, the seat is freed.</summary>
-        private void PoolSeatLeft(int seat, bool disconnected)
-        {
-            if (seat < 0) return;
-            string nick = PoolNick(seat);
-            FinishPoolShot(false);
-            if (_pool.Phase == PoolState.Playing)
-            {
-                _pool.Phase = PoolState.Over;
-                _pool.EndReason = PoolState.EndLeft;
-                _pool.Winner = (byte)(1 - seat);
-                _pool.Note = disconnected ? $"{nick} - utracono połączenie" : $"{nick} odchodzi od stołu";
-            }
-            if (seat == 0) _pool.A = PoolState.Nobody; else _pool.B = PoolState.Nobody;
-            _pool.WinsA = _pool.WinsB = 0;
-            _pool.Rematch = 0;
-            if (_pool.A == PoolState.Nobody && _pool.B == PoolState.Nobody) ResetPool(true);
-            else PublishPool();
+            if (publish || _poolPublishLater) PublishPool();
         }
 
         private void PoolServerTick()
         {
-            for (int seat = 0; seat < 2; seat++)
+            for (int place = 0; place < PoolState.Places; place++)
             {
-                ulong id = _pool.Seat(seat);
-                if (id != PoolState.Nobody && NetPlayer.Find(id) == null) PoolSeatLeft(seat, true);
+                ulong id = _pool.Place(place);
+                if (id != PoolState.Nobody && NetPlayer.Find(id) == null) PoolSeatLeft(place, true);
             }
             if (_poolPending != null && Time.unscaledTime >= _poolSettleAt) FinishPoolShot(true);
         }
@@ -249,7 +213,7 @@ namespace HideAndSeek.Game.Net
         private void PoolShotClientRpc(PoolShotMsg msg) => MiniGameTables.Pool?.OnShotMessage(msg);
     }
 
-    /// <summary>One stroke for the clients: the counter, who, the stroke, and the exact balls before it.</summary>
+    /// <summary>One stroke for the clients: the counter, who (place), the stroke, and the exact balls before it.</summary>
     public struct PoolShotMsg : INetworkSerializable
     {
         public int ShotNo;

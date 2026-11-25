@@ -191,6 +191,8 @@ namespace HideAndSeek.Map.Editor
             Mb.Text("320i", new Vector3(-0.55f, 0.82f, ZR - 0.004f), b, Vector3.up, 0.035f, Lib["Text_White"]);
             Bumper(-1f);
             CarKit.Exhaust(Mb, new Vector3(-0.5f, 0.26f, ZR + 0.1f), 0.03f, 0.18f);
+            // Evo-style boot wing in body colour with a black adjustable flap
+            CarWings.BootWing(Mb, new Vector3(0f, 0.95f, -2.0f), 0.7f, 0.2f, 0.58f, 0.885f, Paint, Lib["Car_WingBlack"]);
             SeamAcross(-1.45f, 0.7f);
             SeamTop(-2.12f, -1.45f, t => 0.7f);
         }

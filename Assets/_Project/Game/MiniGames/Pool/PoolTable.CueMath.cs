@@ -19,12 +19,38 @@ namespace HideAndSeek.Game.MiniGames
             float outer = RayOut(cue, -d, PoolTableGeom.OutX, PoolTableGeom.OutZ);
             // A little closer than an arm's length plus the cue, but the hips 30 cm off the rail (the chest clears it).
             float back = Mathf.Max(1.0f, outer + 0.3f);
-            stand = cue - d * back - right * CueSide;
+            stand = KeepOut(cue - d * back - right * CueSide, BodyClear);
             bridgeLen = Mathf.Lerp(0.25f, 0.16f, Mathf.InverseLerp(1.0f, 1.5f, back));
             rail = nose < bridgeLen + 0.03f;
             if (rail) bridgeLen = nose + PoolTableGeom.CushionW + PoolTableGeom.RailW * 0.45f;
             float need = (PoolDims.RailTopY + 0.022f - (PoolDims.ClothY + PoolDims.BallR)) / Mathf.Max(0.03f, nose - PoolDims.BallR);
+            // The right fist (as thick as a blocky arm) on the butt must pass over the rail too when it is above the table.
+            float grip = TipGap + PoolDims.CueLength - GripZ;
+            Vector2 gp = cue - d * grip;
+            if (Mathf.Abs(gp.x) < PoolTableGeom.OutX + 0.3f && Mathf.Abs(gp.y) < PoolTableGeom.OutZ + 0.3f)
+                need = Mathf.Max(need, (PoolDims.RailTopY + FistHalf + 0.03f - (PoolDims.ClothY + PoolDims.BallR)) / grip);
             elev = Mathf.Clamp(Mathf.Atan(need), 5.5f * Mathf.Deg2Rad, 35f * Mathf.Deg2Rad);
+        }
+
+        /// <summary>Half the thickness of a blocky fist / forearm (4 px): a hand rests this far above what it lies on.</summary>
+        const float FistHalf = 0.115f;
+
+        /// <summary>How far the shooter's root (hips) stays outside the rails' outer edge: the belly and the thighs clear the rail.</summary>
+        const float BodyClear = 0.34f;
+
+        /// <summary>
+        /// <paramref name="p"/> moved out of the table's outline grown by <paramref name="margin"/> (to the nearest side), so
+        /// a body standing there never overlaps the rails - an oblique shot or the cue line's side offset could put the
+        /// root half inside the table.
+        /// </summary>
+        public static Vector2 KeepOut(Vector2 p, float margin)
+        {
+            float hx = PoolTableGeom.OutX + margin, hz = PoolTableGeom.OutZ + margin;
+            float dx = hx - Mathf.Abs(p.x), dz = hz - Mathf.Abs(p.y);
+            if (dx <= 0f || dz <= 0f) return p;
+            if (dx < dz) p.x = Mathf.Sign(p.x == 0f ? 1f : p.x) * hx;
+            else p.y = Mathf.Sign(p.y == 0f ? 1f : p.y) * hz;
+            return p;
         }
 
         /// <summary>Distance from <paramref name="p"/> (inside) along <paramref name="d"/> to the box edge (half sizes hx, hz).</summary>
@@ -58,7 +84,8 @@ namespace HideAndSeek.Game.MiniGames
             float h = PoolDims.ClothY + PoolDims.BallR + Mathf.Tan(elev) * Mathf.Max(0f, bridgeLen - PoolDims.BallR);
             float surf = rail ? PoolDims.RailTopY : PoolDims.ClothY;
             Vector3 p = new Vector3(cue.x, 0f, cue.y) - d * bridgeLen - r * 0.1f;
-            p.y = Mathf.Max(surf + 0.06f, h - 0.03f);
+            // The fist rests ON the cloth / the rail: its centre half a (blocky, thick) fist above it.
+            p.y = Mathf.Max(surf + FistHalf + 0.04f, h - 0.03f);
             return p;
         }
 

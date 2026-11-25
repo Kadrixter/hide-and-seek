@@ -122,7 +122,7 @@ namespace HideAndSeek.Game
         }
 
         /// <summary>Fuse (11 px): amber ceramic body with metal caps, lying diagonally.</summary>
-        private static Sprite FuseSprite() => _fuseSprite != null ? _fuseSprite : _fuseSprite = Pixel(11, (x, y) =>
+        internal static Sprite FuseSprite() => _fuseSprite != null ? _fuseSprite : _fuseSprite = Pixel(11, (x, y) =>
         {
             int d = x - y, along = x + y; // along the diagonal 0..20
             if (Mathf.Abs(d) > 2 || along < 2 || along > 18) return new Color32(0, 0, 0, 0);

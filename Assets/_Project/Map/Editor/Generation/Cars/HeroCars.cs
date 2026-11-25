@@ -13,6 +13,7 @@ namespace HideAndSeek.Map.Editor
             yield return new MazdaRx8();
             yield return new VwGolf4();
             yield return new BmwE30();
+            yield return new ToyotaGt86();
         }
 
         public static SportCar ByName(string name)

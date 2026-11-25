@@ -26,6 +26,7 @@ namespace HideAndSeek.Game.Net
                 if (_chess.Phase == ChessState.Playing) Debug.Log("[MiniGames] chess game aborted");
                 _chess.A = _chess.B = ChessState.Nobody;
                 _chess.WhiteIsA = true;
+                _chess.Kind = ChessState.KindNone; // the next players pick the game again
             }
             _chessRef.Reset(ChessBoard.StartFen);
             _chess.Phase = ChessState.Waiting;
@@ -49,6 +50,9 @@ namespace HideAndSeek.Game.Net
 
         private void StartChess(bool swapColours)
         {
+            if (_chess.Kind == ChessState.KindNone) { PublishChess(); return; } // nobody picked the game yet
+            if ((_chess.Rematch & ChessState.RematchSwitch) != 0) _chess.Kind = _chess.OtherKind; // agreed to play the other game
+            if (_chess.Kind == ChessState.KindCheckers) { StartCheckers(swapColours); return; }
             if (swapColours) _chess.WhiteIsA = !_chess.WhiteIsA;
             _chessRef.Reset(ChessBoard.StartFen);
             _chess.Fen = _chessRef.Board.ToFen();
@@ -68,7 +72,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>Server: a move from a seated player (squares 0..63, promotion piece type, 0 = queen).</summary>
         public void ServerChessMove(NetPlayer pl, byte from, byte to, byte promo)
         {
-            if (pl == null || _chess.Phase != ChessState.Playing || from > 63 || to > 63) return;
+            if (pl == null || _chess.Phase != ChessState.Playing || _chess.Kind != ChessState.KindChess || from > 63 || to > 63) return;
             int seat = _chess.SeatOf(pl.NetworkObjectId);
             if (seat < 0 || _chess.ColourOfSeat(seat) != _chessRef.Board.Side) return;
             int mover = _chessRef.Board.Side;
@@ -97,7 +101,7 @@ namespace HideAndSeek.Game.Net
             // Freeze the clocks where they stand.
             if (_chess.HasClock && _chess.Phase == ChessState.Playing)
             {
-                int side = _chessRef.Board.Side;
+                int side = BoardSide;
                 int left = _chess.MsLeft(side, side, Now);
                 if (side > 0) _chess.WhiteMs = left; else _chess.BlackMs = left;
             }
@@ -106,12 +110,12 @@ namespace HideAndSeek.Game.Net
             _chess.Winner = winner;
             _chess.Rematch = 0;
             PublishChess();
-            Debug.Log($"[MiniGames] chess over: {ChessReferee.Describe(end, winner, NickOf(_chess.White), NickOf(_chess.Black))}");
+            Debug.Log($"[MiniGames] {(_chess.IsCheckers ? "checkers" : "chess")} over: {(_chess.IsCheckers ? CheckersReferee.Describe(end, winner, NickOf(_chess.White), NickOf(_chess.Black)) : ChessReferee.Describe(end, winner, NickOf(_chess.White), NickOf(_chess.Black)))}");
         }
 
         private void ChessTimeout(int side)
         {
-            int winner = _chessRef.CanMate(-side) ? -side : 0;
+            int winner = _chess.IsCheckers || _chessRef.CanMate(-side) ? -side : 0;
             FinishChess(GameEnd.Timeout, winner);
         }
 
@@ -148,7 +152,7 @@ namespace HideAndSeek.Game.Net
             }
             if (_chess.Phase == ChessState.Playing && _chess.HasClock)
             {
-                int side = _chessRef.Board.Side;
+                int side = BoardSide;
                 if (_chess.MsLeft(side, side, Now) <= 0) ChessTimeout(side);
             }
         }

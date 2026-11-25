@@ -6,242 +6,159 @@ using UnityEngine;
 namespace HideAndSeek.Game.MiniGames
 {
     /// <summary>
-    /// -testpool &lt;dir&gt; (host AND client): both walk up to the lobby pool table (host = seat A, client = seat B),
-    /// the breaker places the cue ball in the kitchen and breaks, a few shots of both players (scripted shot finder,
-    /// aimed through the table's own aiming state: stance, cue, pull-back, release = <see cref="PoolTable"/>.Shoot),
-    /// a deliberate scratch, the cue ball in hand put down behind the 8 and the 8 potted too early (game over), both
-    /// press R (the loser breaks the rematch), two shots of game 2, the client gets up (the host wins), the host too.
-    /// Every finished shot logs a hash of the state on both peers ("sync shot N"), the replay's end vs the server's
-    /// balls and the shown balls vs the state. Screens: fp_* = the player's own screen, side_* = a free camera.
+    /// -testpool &lt;dir&gt; (every instance): walks up to the lobby pool table, takes a place (-poolplace, default host 0 =
+    /// A1, client 1 = B1), waits for -poolplayers players (default 2) and presses "Gotowy"; plays its own turns with the
+    /// scripted shot finder (aimed through the table's own aiming state), a deliberate scratch, the 8 potted too early
+    /// once -pooleight shots are played; then everybody presses R (the losers break) and plays a few shots of game 2.
+    /// -poolleave N: this player gets up after shot N of game 1 (his team plays on; an empty team loses).
+    /// -poolsitdelay S: sit down S seconds late (a late joiner takes a free place during the game).
+    /// -poolstress N: the host gives every shooter ball in hand for N shots and the shooter places the cue ball on a list
+    /// of awkward spots (frozen on cushions, in the corners, by the jaws) with extreme aims, at low power.
+    /// Checks on every peer: state hashes ("sync shot N"), the inning rotation, the shooters' bodies vs the table, the
+    /// own camera's occluders, never stuck (MiniGameProbe.PoolChecks). Screens: fp_* = own screen, side_* = free camera.
     /// </summary>
     public sealed partial class MiniGameProbe
     {
-        int _poolGame;
+        int _poolGame, _stress, _eightAt = 6, _turnsPlayed;
+        string _prefixOverride;
+
+        static int ArgInt(string name, int def) => int.TryParse(Arg(name), out int v) ? v : def;
 
         IEnumerator PoolRun()
         {
             var pool = MiniGameTables.Pool;
             var me = NetPlayer.Local;
-            int seat = _host ? 0 : 1;
+            int place = ArgInt("-poolplace", _host ? 0 : 1), expect = ArgInt("-poolplayers", 2), leaveAt = ArgInt("-poolleave", -1);
+            int shots1 = ArgInt("-poolshots", 16);
+            _stress = ArgInt("-poolstress", 0);
+            _eightAt = ArgInt("-pooleight", 6);
+            _prefixOverride = $"p{place}_";
             StartCoroutine(PoolSyncWatch(pool));
-            StartCoroutine(PoolWatchOpponent(pool, seat));
+            StartCoroutine(PoolWatchOthers(pool, place));
+            StartCoroutine(PoolReturnWatch(pool));
+            StartCoroutine(PoolChecks(pool));
+            if (_host) StartCoroutine(PoolRotationWatch(pool));
+            if (_host && _stress > 0) StartCoroutine(PoolStressHost(pool));
             if (_host)
             {
                 Log($"table at {pool.transform.position} yaw {pool.transform.eulerAngles.y:0}");
                 RenderTable(pool, "00_lobby_far", new Vector3(4.2f, 2.6f, -3.4f), 60f);
-                RenderTable(pool, "00_lobby_far2", new Vector3(-4.0f, 2.4f, 3.2f), 60f);
-                RenderTable(pool, "00_lobby_end", new Vector3(-4.3f, 1.7f, 0.0f), 62f);
-                Render("00_lamp_ceiling", pool.transform.TransformPoint(new Vector3(2.4f, 1.6f, -1.8f)), pool.transform.TransformPoint(new Vector3(0f, 2.1f, 0f)), 60f);
                 RenderTable(pool, "00_table_empty", new Vector3(1.6f, 1.9f, -1.7f), 55f);
             }
-            else yield return new WaitForSeconds(2.5f);
-            yield return SitDown(pool, seat);
-            for (float w = 0f; w < 20f && pool.State.Phase != PoolState.Playing; w += Time.deltaTime) yield return null;
-            Log($"game 1: phase={pool.State.Phase} breaker seat={pool.State.Turn} round={pool.State.Round} note='{pool.State.Note}' => {(pool.State.Phase == PoolState.Playing ? "OK" : "FAIL")}");
+            yield return new WaitForSeconds(ArgInt("-poolsitdelay", _host ? 0 : 2) + place * 0.7f);
+            yield return SitDown(pool, place);
+            bool lateJoin = pool.State.Phase == PoolState.Playing;
+            if (!lateJoin)
+            {
+                for (float w = 0f; w < 40f && pool.State.Seated < expect; w += Time.deltaTime) yield return null;
+                Log($"lobby: seated {pool.State.Seated} of {expect}, panel shown {MiniGameHud.PoolLobbyShown} => {(pool.State.Seated >= expect && MiniGameHud.PoolLobbyShown ? "OK" : "FAIL")}");
+                yield return new WaitForSeconds(0.6f + place * 0.5f);
+                Shot(Prefix() + "01_lobby");
+                Log($"before my ready: phase={pool.State.Phase} ready={pool.State.Ready} => {(pool.State.Phase == PoolState.Waiting ? "OK" : "FAIL")}");
+                bool clicked = MiniGameHud.TestClick("ready");
+                yield return new WaitForSeconds(0.6f);
+                Log($"clicked Gotowy in the panel: {clicked}, my ready bit {((pool.State.Ready >> place) & 1)} or started {pool.State.Phase == PoolState.Playing} => {(clicked && (((pool.State.Ready >> place) & 1) == 1 || pool.State.Phase == PoolState.Playing) ? "OK" : "FAIL")}");
+            }
+            else Log($"joined a running game at place {place}: shooter={pool.State.Shooter} => OK");
+            for (float w = 0f; w < 30f && pool.State.Phase != PoolState.Playing; w += Time.deltaTime) yield return null;
+            Log($"game 1: phase={pool.State.Phase} breaker team={pool.State.Turn} shooter place={pool.State.Shooter} seated={pool.State.Seated} note='{pool.State.Note}' => {(pool.State.Phase == PoolState.Playing ? "OK" : "FAIL")}");
             yield return new WaitForSeconds(1.5f);
-            Shot(Prefix() + "01_seated");
+            Shot(Prefix() + "02_playing");
             _poolGame = 1;
-            yield return PoolGame(pool, seat, 16);
+            yield return PoolGame(pool, place, shots1, leaveAt);
+            if (pool.LocalSeat < 0)
+            {
+                yield return PoolAfterLeave(pool);
+                yield break;
+            }
             yield return new WaitForSeconds(1.5f);
             var s = pool.State;
             Log($"game 1 over: phase={s.Phase} winner={s.Winner} end={s.EndReason} wins {s.WinsA}:{s.WinsB} note='{s.Note}' => {(s.Phase == PoolState.Over ? "OK" : "FAIL")}");
-            PShot(pool, Prefix() + "40_game_over");
-            if (_host)
-            {
-                RenderTable(pool, "40_over_top", new Vector3(0.05f, 2.3f, -0.4f), 55f);
-                PoolPocketShots(pool, "41");
-            }
+            Shot(Prefix() + "40_game_over");
+            if (_host) PoolPocketShots(pool, "41");
             if (s.Phase != PoolState.Over) yield break;
 
-            // Rematch: both press R, the loser breaks.
-            int loser = s.Winner <= 1 ? 1 - s.Winner : -1, round = s.Round;
-            yield return new WaitForSeconds(_host ? 1f : 2f);
+            // Rematch: everybody presses R ("Gotowy"), the losers break.
+            int losers = s.Winner <= 1 ? 1 - s.Winner : -1, round = s.Round;
+            yield return new WaitForSeconds(1f + place * 0.4f);
             me.MiniRematchRpc();
-            for (float w = 0f; w < 10f && !(pool.State.Phase == PoolState.Playing && pool.State.Round > round); w += Time.deltaTime) yield return null;
-            Log($"rematch: phase={pool.State.Phase} round={pool.State.Round} breaker={pool.State.Turn} loser={loser} => {(pool.State.Phase == PoolState.Playing && pool.State.Turn == loser ? "OK" : "FAIL")}");
+            for (float w = 0f; w < 12f && !(pool.State.Phase == PoolState.Playing && pool.State.Round > round); w += Time.deltaTime) yield return null;
+            Log($"rematch: phase={pool.State.Phase} round={pool.State.Round} breaker team={pool.State.Turn} losers={losers} => {(pool.State.Phase == PoolState.Playing && (losers < 0 || pool.State.Turn == losers) ? "OK" : "FAIL")}");
             yield return new WaitForSeconds(1f);
             Shot(Prefix() + "50_rematch");
             _poolGame = 2;
-            yield return PoolGame(pool, seat, 3);
+            yield return PoolGame(pool, place, 3, -1);
             for (float w = 0f; w < 15f && pool.Rolling; w += Time.deltaTime) yield return null;
-            yield return new WaitForSeconds(2f);
-
-            // The client gets up: the host wins, then the host gets up too.
+            yield return new WaitForSeconds(2f + place * 1.5f);
+            // Everybody gets up, the host last; the table ends empty and waiting.
             if (!_host)
             {
                 me.MiniLeaveRpc();
-                yield return new WaitForSeconds(2f);
-                Log($"client left: seat={pool.LocalSeat} => {(pool.LocalSeat < 0 ? "OK" : "FAIL")}");
-                Shot(Prefix() + "60_left");
-                yield return new WaitForSeconds(4f);
+                yield return PoolAfterLeave(pool);
+                yield break;
             }
-            else
-            {
-                for (float w = 0f; w < 10f && pool.State.Phase == PoolState.Playing; w += Time.deltaTime) yield return null;
-                yield return new WaitForSeconds(0.8f);
-                Log($"opponent left: phase={pool.State.Phase} end={pool.State.EndReason} winner={pool.State.Winner} note='{pool.State.Note}' => {(pool.State.EndReason == PoolState.EndLeft && pool.State.Winner == 0 ? "OK" : "FAIL")}");
-                Shot(Prefix() + "60_opponent_left");
-                yield return new WaitForSeconds(1.5f);
-                me.MiniLeaveRpc();
-                yield return new WaitForSeconds(2f);
-                Log($"host left: A={pool.State.A} B={pool.State.B} phase={pool.State.Phase} => {(pool.State.A == PoolState.Nobody && pool.State.B == PoolState.Nobody && pool.State.Phase == PoolState.Waiting ? "OK" : "FAIL")}");
-                Shot("61_stood_up");
-                RenderTable(pool, "61_table_reset", new Vector3(1.6f, 1.9f, -1.7f), 55f);
-            }
+            for (float w = 0f; w < 20f && pool.State.Seated > 1; w += Time.deltaTime) yield return null;
+            yield return new WaitForSeconds(1f);
+            Shot("60_alone");
+            me.MiniLeaveRpc();
+            yield return new WaitForSeconds(2f);
+            Log($"host left: seated={pool.State.Seated} phase={pool.State.Phase} => {(pool.State.Seated == 0 && pool.State.Phase == PoolState.Waiting ? "OK" : "FAIL")}");
+            yield return PoolAfterLeave(pool);
+            RenderTable(pool, "61_table_reset", new Vector3(1.6f, 1.9f, -1.7f), 55f);
         }
 
-        /// <summary>Plays this seat's shots until the game is over or <paramref name="maxShots"/> shots were made in it.</summary>
-        IEnumerator PoolGame(PoolTable pool, int seat, int maxShots)
+        /// <summary>Plays this place's shots until the game is over, <paramref name="maxShots"/> shots were made or (leaveAt) it is time to get up.</summary>
+        IEnumerator PoolGame(PoolTable pool, int place, int maxShots, int leaveAt)
         {
             int start = pool.State.ShotNo, round = pool.State.Round;
             float idle = 0f;
             int lastShot = start;
             while (pool.State.Phase == PoolState.Playing && pool.State.Round == round && pool.State.ShotNo - start < maxShots)
             {
+                if (leaveAt >= 0 && pool.State.ShotNo - start >= leaveAt && !pool.Rolling)
+                {
+                    int team = PoolState.TeamOf(place), members = pool.State.Members(team);
+                    Log($"leaving mid-game after shot {pool.State.ShotNo} (team {(team == 0 ? 'A' : 'B')} has {members})");
+                    Shot(Prefix() + "30_before_leave");
+                    NetPlayer.Local.MiniLeaveRpc();
+                    for (float w = 0f; w < 3f && pool.LocalSeat >= 0; w += Time.deltaTime) yield return null;
+                    yield return new WaitForSeconds(0.5f);
+                    var s = pool.State;
+                    bool ok = members > 1 ? s.Phase == PoolState.Playing && s.Members(team) == members - 1 : s.Phase == PoolState.Over && s.EndReason == PoolState.EndLeft;
+                    Log($"left: my place free={s.Place(place) == PoolState.Nobody} phase={s.Phase} team members={s.Members(team)} shooter of my team={s.ShooterPlace(team)} note='{s.Note}' => {(ok && pool.LocalSeat < 0 ? "OK" : "FAIL")}");
+                    yield break;
+                }
                 if (pool.LocalTurn && pool.HasState)
                 {
-                    yield return PoolTurn(pool, seat, pool.State.ShotNo - start);
+                    yield return PoolTurn(pool, place, pool.State.ShotNo - start);
                     idle = 0f;
                     continue;
                 }
                 if (pool.State.ShotNo != lastShot) { lastShot = pool.State.ShotNo; idle = 0f; }
                 idle += Time.deltaTime;
-                if (idle > 45f)
+                if (idle > 60f)
                 {
-                    Log($"nothing happens for 45 s (turn={pool.State.Turn}, rolling={pool.Rolling}) FAIL");
+                    Log($"nothing happens for 60 s (turn={pool.State.Turn}, shooter={pool.State.Shooter}, rolling={pool.Rolling}) FAIL");
                     yield break;
                 }
                 yield return null;
             }
-            for (float w = 0f; w < 15f && pool.Rolling; w += Time.deltaTime) yield return null;
+            for (float w = 0f; w < 20f && pool.Rolling; w += Time.deltaTime) yield return null;
         }
 
-        /// <summary>One own turn: k = shot number in this game.</summary>
-        IEnumerator PoolTurn(PoolTable pool, int seat, int k)
+        /// <summary>Got up: free to walk again (controller on, nothing in the way), then watch the rest from here.</summary>
+        IEnumerator PoolAfterLeave(PoolTable pool)
         {
-            var s = pool.State;
-            string tag = $"g{_poolGame}_s{k:00}";
-            Vector2 cue = s.Pos[0];
-            bool eightSetup = false;
-            if (s.BallInHand)
-            {
-                Vector2 spot;
-                if (s.Break) spot = new Vector2(PoolState.KitchenX, 0.11f);
-                else if (_poolGame == 1 && k >= 6 && PoolEightSpot(s, out spot)) eightSetup = true;
-                else if (!PoolHandSpot(s, seat, out spot)) spot = PoolState.HeadSpot2;
-                yield return PoolPlaceHand(pool, spot, tag);
-                cue = PoolAimCue(pool);
-            }
-            float angle, power = 0.5f;
-            Vector2 spin = Vector2.zero;
-            string kind;
-            if (s.Break)
-            {
-                angle = Mathf.Atan2(PoolState.FootSpot2.y - cue.y, PoolState.FootSpot2.x - cue.x);
-                power = 1f;
-                spin = new Vector2(0f, -0.15f);
-                kind = "break";
-            }
-            else if (eightSetup)
-            {
-                angle = Mathf.Atan2(s.Pos[8].y - cue.y, s.Pos[8].x - cue.x);
-                power = 0.45f;
-                kind = "8 too early";
-            }
-            else if (_poolGame == 1 && k == 5 && PoolScratchShot(s, cue, out angle))
-            {
-                power = 0.42f;
-                kind = "scratch";
-            }
-            else if (PoolFindPot(s, PoolRules.Targets(s, seat), cue, out angle, out int ball, out int pocket, out float dist))
-            {
-                power = Mathf.Clamp(0.3f + dist * 0.22f, 0.32f, 0.75f);
-                spin = new Vector2(k % 3 == 1 ? 0.25f : 0f, k % 2 == 0 ? 0.2f : -0.2f);
-                kind = $"pot {ball} -> pocket {pocket}";
-            }
-            else
-            {
-                PoolNearest(s, PoolRules.Targets(s, seat), cue, out angle);
-                power = 0.55f;
-                kind = "safety at the nearest legal ball";
-            }
-            Log($"{tag}: {kind}, angle {angle * Mathf.Rad2Deg:0.0}, power {power:0.00}, spin {spin}, cue {cue}, in hand {s.BallInHand}");
-            yield return PoolStroke(pool, seat, angle, power, spin, tag, k < 2 || kind == "scratch" || eightSetup);
+            yield return new WaitForSeconds(1.2f);
+            var me = NetPlayer.Local;
+            var cc = me.GetComponent<CharacterController>();
+            int blocked = 0;
+            foreach (var c in Physics.OverlapCapsule(me.transform.position + Vector3.up * 0.4f, me.transform.position + Vector3.up * 1.5f, 0.3f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                if (c.GetComponentInParent<NetPlayer>() == null) blocked++;
+            Log($"after leaving: seat={pool.LocalSeat} move={me.Motor.MovementEnabled} look={me.Motor.LookEnabled} controller={(cc != null && cc.enabled)} overlaps={blocked} at {me.transform.position} => {(pool.LocalSeat < 0 && me.Motor.MovementEnabled && cc != null && cc.enabled && blocked == 0 ? "OK" : "FAIL")}");
+            RenderTable(pool, Prefix() + "70_after_leave", new Vector3(1.9f, 1.7f, -1.9f), 60f);
+            // Watch until the table is empty (or 4 minutes), so the logs of every peer cover the whole run.
+            for (float w = 0f; w < 240f && pool.State.Seated > 0; w += Time.deltaTime) yield return null;
         }
-
-        /// <summary>Aim, (top view), pull back, release; waits until the balls stopped and the result is in.</summary>
-        IEnumerator PoolStroke(PoolTable pool, int seat, float angle, float power, Vector2 spin, string tag, bool shots)
-        {
-            int shotNo = pool.State.ShotNo;
-            pool.TestAim(angle, spin);
-            for (float w = 0f; w < 8f && pool.TestBend(seat) < 0.98f; w += Time.deltaTime)
-            {
-                pool.TestAim(angle, spin);
-                yield return null;
-            }
-            yield return new WaitForSeconds(0.7f);
-            Log($"{tag}: stance bend={pool.TestBend(seat):0.00} aim={pool.AimAngle * Mathf.Rad2Deg:0.0}");
-            if (shots)
-            {
-                PShot(pool, $"{Prefix()}{tag}_a_aim");
-                pool.TestTopView(true);
-                yield return new WaitForSeconds(0.9f);
-                PShot(pool, $"{Prefix()}{tag}_b_top");
-                pool.TestTopView(false);
-                yield return new WaitForSeconds(0.9f);
-            }
-            pool.TestPull(Mathf.Clamp01(power * 0.9f + 0.1f));
-            yield return new WaitForSeconds(0.6f);
-            if (shots) Shot($"{Prefix()}{tag}_c_pull");
-            yield return new WaitForSeconds(0.2f);
-            pool.TestRelease();
-            for (float w = 0f; w < 4f && !pool.Rolling; w += Time.deltaTime) yield return null;
-            if (!pool.Rolling)
-            {
-                Log($"{tag}: the shot did not start FAIL");
-                yield break;
-            }
-            if (shots)
-            {
-                yield return new WaitForSeconds(0.45f);
-                Shot($"{Prefix()}{tag}_d_rolling");
-                yield return new WaitForSeconds(0.6f);
-                RenderTable(pool, $"{Prefix()}{tag}_e_rolling_top", new Vector3(0.05f, 2.3f, -0.4f), 55f);
-            }
-            for (float w = 0f; w < 30f && (pool.Rolling || pool.State.ShotNo <= shotNo); w += Time.deltaTime) yield return null;
-            var s = pool.State;
-            Log($"{tag}: result shot {s.ShotNo}: turn={s.Turn} groups={s.Groups} inHand={s.BallInHand} kitchen={s.Kitchen} down={s.Down:X4} phase={s.Phase} note='{s.Note}'");
-            yield return new WaitForSeconds(0.8f);
-            if (shots) Shot($"{Prefix()}{tag}_f_after");
-        }
-
-        /// <summary>Ball in hand: carry the cue ball over the cloth to the spot (screens), then put it down.</summary>
-        IEnumerator PoolPlaceHand(PoolTable pool, Vector2 spot, string tag)
-        {
-            yield return new WaitForSeconds(0.8f);
-            Vector2 from = pool.State.Pos[0];
-            for (float t = 0f; t < 1f; t += Time.deltaTime / 0.8f)
-            {
-                pool.TestHold(Vector2.Lerp(from, spot, t), false);
-                yield return null;
-            }
-            pool.TestHold(spot, false);
-            yield return new WaitForSeconds(0.5f);
-            Shot($"{Prefix()}{tag}_0_in_hand");
-            pool.TestHold(spot, true);
-            yield return new WaitForSeconds(0.3f);
-            pool.TestHold(null, false);
-            Vector2 at = PoolAimCue(pool);
-            Log($"{tag}: cue ball put down at {at} (wanted {spot}) holding={pool.LocalHolding} => {(!pool.LocalHolding && (at - spot).magnitude < 0.06f ? "OK" : "FAIL")}");
-        }
-
-        void PShot(PoolTable pool, string name)
-        {
-            Log($"screen {name}: {pool.TestCamInfo()}");
-            Shot(name);
-        }
-
-        /// <summary>Cue ball the local shooter aims from (the one in hand once put down).</summary>
-        static Vector2 PoolAimCue(PoolTable pool) => pool.HandBall(out var p) ? p : pool.State.Pos[0];
     }
 }

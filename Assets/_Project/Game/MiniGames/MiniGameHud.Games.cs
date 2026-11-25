@@ -42,13 +42,17 @@ namespace HideAndSeek.Game.MiniGames
         {
             if (!t.State.HasClock) return "";
             var mm = MatchManager.Instance;
-            int ms = t.State.MsLeft(colour, t.Target.Side, mm != null ? mm.Now : 0d);
+            int ms = t.State.MsLeft(colour, t.SideToMove, mm != null ? mm.Now : 0d);
             return ChessClockFace.Format(ms);
         }
 
         void TickChess(NetPlayer me, ChessTable t, int seat)
         {
             var s = t.State;
+            // The table's game is picked first (choice panel); checkers has its own texts.
+            if (s.Phase == ChessState.Waiting || s.Kind == ChessState.KindNone) { TickBoardChoice(t, seat); return; }
+            ShowChoice(false);
+            if (s.IsCheckers) { TickCheckers(t, seat); return; }
             int colour = s.ColourOfSeat(seat);
             string opp = t.SeatNick(1 - seat);
             if (string.IsNullOrEmpty(opp)) opp = "-";
@@ -98,14 +102,7 @@ namespace HideAndSeek.Game.MiniGames
             // Hints.
             if (s.Phase == ChessState.Playing)
                 _hints.text = "LPM - wybierz figurę, potem pole      kółko myszy - przybliż      Esc - poddaj i wstań";
-            else
-            {
-                int other = 1 << (1 - seat), mineBit = 1 << seat;
-                string rematch = s.Phase != ChessState.Over || string.IsNullOrEmpty(t.SeatNick(1 - seat)) ? ""
-                    : (s.Rematch & mineBit) != 0 ? "czekamy na zgodę przeciwnika...      "
-                    : (s.Rematch & other) != 0 ? "R - przeciwnik chce rewanżu, zgódź się      " : "R - rewanż (zamiana kolorów)      ";
-                _hints.text = $"{rematch}C - zegar: {clockName}      Esc - wstań";
-            }
+            else _hints.text = $"{RematchHint(t, seat)}C - zegar: {clockName}      Esc - wstań";
             _ = me;
         }
 

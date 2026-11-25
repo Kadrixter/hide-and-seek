@@ -25,11 +25,15 @@ namespace HideAndSeek.Game.MiniGames
         /// <summary>Prompt verb ("usiądź" at a table, "podejdź" to a wall board).</summary>
         public virtual string JoinVerb => "usiądź";
 
-        public static float Side(int seat) => seat == 0 ? -1f : 1f;
+        /// <summary>Number of seats / places (2 at the board tables, 4 at the pool table).</summary>
+        public virtual int Places => 2;
+
+        /// <summary>Side of the table a seat is on: -1 = local -Z (seat A), +1 = +Z (seat B). Places 2 / 3 belong to A / B.</summary>
+        public static float Side(int seat) => (seat & 1) == 0 ? -1f : 1f;
 
         /// <summary>Where a seated player's root stands (on the stool centre; the controller is off while seated).</summary>
         public virtual Vector3 SeatStand(int seat) => transform.TransformPoint(new Vector3(0f, 0.02f, Side(seat) * StoolZ));
-        public virtual float SeatYaw(int seat) => transform.eulerAngles.y + (seat == 0 ? 0f : 180f);
+        public virtual float SeatYaw(int seat) => transform.eulerAngles.y + ((seat & 1) == 0 ? 0f : 180f);
         /// <summary>Where a player stands after getting up (behind the stool).</summary>
         public virtual Vector3 LeavePoint(int seat) => transform.TransformPoint(new Vector3(0f, 0.02f, Side(seat) * (StoolZ + 0.62f)));
         public Vector3 SeatTop(int seat) => transform.TransformPoint(new Vector3(0f, TableKit.StoolHeight + 0.034f, Side(seat) * StoolZ));
@@ -62,7 +66,7 @@ namespace HideAndSeek.Game.MiniGames
 
         // ================================================================ seated poses
 
-        readonly NetPlayer[] _posed = new NetPlayer[2];
+        readonly NetPlayer[] _posed = new NetPlayer[4];
         protected AudioSource Audio;
 
         protected virtual void Awake()
@@ -88,7 +92,7 @@ namespace HideAndSeek.Game.MiniGames
 
         protected void DrivePoses()
         {
-            for (int seat = 0; seat < 2; seat++)
+            for (int seat = 0; seat < Places; seat++)
             {
                 ulong id = SeatPlayer(seat);
                 var pl = id == ulong.MaxValue ? null : NetPlayer.Find(id);
@@ -122,8 +126,7 @@ namespace HideAndSeek.Game.MiniGames
 
         protected virtual void OnDestroy()
         {
-            StopPose(_posed[0]);
-            StopPose(_posed[1]);
+            foreach (var pl in _posed) StopPose(pl);
         }
 
         /// <summary>Right-hand rest point of a seat (fist on the table edge), used as the start of a reach.</summary>
@@ -138,6 +141,12 @@ namespace HideAndSeek.Game.MiniGames
         }
 
         /// <summary>Seat of a player at this table, -1 = none.</summary>
-        public int SeatOf(ulong id) => id == ulong.MaxValue ? -1 : SeatPlayer(0) == id ? 0 : SeatPlayer(1) == id ? 1 : -1;
+        public int SeatOf(ulong id)
+        {
+            if (id == ulong.MaxValue) return -1;
+            for (int s = 0; s < Places; s++)
+                if (SeatPlayer(s) == id) return s;
+            return -1;
+        }
     }
 }

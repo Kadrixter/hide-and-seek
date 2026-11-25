@@ -112,7 +112,7 @@ namespace HideAndSeek.Game.Editor
             var chess = new GameObject("MiniGameSpot_Chess").transform;
             chess.SetParent(parent, false);
             chess.position = LobbyLayout.ChessSpot;
-            chess.rotation = Quaternion.identity; // players at local +-X (0.75 m), table 0.8 x 0.8 m
+            chess.rotation = Quaternion.identity; // players at local +-X (0.75 m), table 0.96 m (seat to seat) x 1.2 m
             var ttt = new GameObject("MiniGameSpot_TicTacToe").transform;
             ttt.SetParent(parent, false);
             ttt.position = LobbyLayout.TicTacToeSpot;

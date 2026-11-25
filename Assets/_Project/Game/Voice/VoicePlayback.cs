@@ -97,6 +97,7 @@ namespace HideAndSeek.Game.Voice
             _stream.Gain = BaseGain * Mathf.Max(0f, LocalProfile.ChatVolume) * PlayerVoiceVolumes.Get(_nick);
             bool speaking = IsSpeaking;
             _stream.Tick(speaking);
+            if (DeadLobbyVoice.Route(_owner, transform, _source, _echo, _lowPass)) { _wasSpeaking = speaking; return; } // dead players' lobby (Game/DeadLobby)
 
             DeadChannel = VoiceRules.OnDeadChannel(_owner) && VoiceRules.OnDeadChannel(NetPlayer.Local);
             if (DeadChannel)

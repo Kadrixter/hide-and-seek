@@ -6,12 +6,17 @@ namespace HideAndSeek.Game.MiniGames.Pool
     /// Whole state of the lobby pool table (8-ball), replicated as one text network variable (MatchManager.PoolNet,
     /// FixedString512Bytes - <see cref="Encode"/> stays under 480 bytes, see PoolState.Codec.cs). Ball positions live on
     /// a 0.05 mm grid (<see cref="Quant"/>), so the decoded copy on a client equals the server's exactly.
+    /// Players: two teams (A and B) of one or two players in four places - place 0 = A1, 1 = B1, 2 = A2, 3 = B2 (team =
+    /// place &amp; 1). "Seat" in the rules (Turn, Groups, Winner, WinsA / WinsB) means the TEAM; inside a team the players
+    /// take the team's innings in turn (<see cref="Up"/>), a lone player plays all of his team's turns.
     /// </summary>
     public sealed partial class PoolState
     {
         public const ulong Nobody = ulong.MaxValue;
         public const byte Waiting = 0, Playing = 1, Over = 2;
-        /// <summary>Groups: 0 = open table, 1 = seat A has the solids (1-7), 2 = seat A has the stripes (9-15).</summary>
+        /// <summary>Number of places at the table (two per team).</summary>
+        public const int Places = 4;
+        /// <summary>Groups: 0 = open table, 1 = team A has the solids (1-7), 2 = team A has the stripes (9-15).</summary>
         public const byte Open = 0, ASolids = 1, AStripes = 2;
         /// <summary>Why a game ended (EndReason).</summary>
         public const byte EndNone = 0, EndEight = 1, EndEightEarly = 2, EndEightScratch = 3, EndLeft = 4;
@@ -25,24 +30,27 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public const float QStep = 0.00005f, RackGap = 0.0001f;
 
         public byte Phase;
-        public ulong A = Nobody, B = Nobody;
-        /// <summary>Seat (0 = A, 1 = B) to shoot next.</summary>
+        /// <summary>Players in the places A1, B1 (the first of each team) and A2, B2 (the second).</summary>
+        public ulong A = Nobody, B = Nobody, A2 = Nobody, B2 = Nobody;
+        /// <summary>Team (0 = A, 1 = B) to shoot next.</summary>
         public byte Turn;
+        /// <summary>Bit t = team t's next inning is played by its second place (flips when the team leaves the table).</summary>
+        public byte Up;
         public byte Groups;
         /// <summary>The shooter may place the cue ball first (after a foul); <see cref="Kitchen"/> = only behind the head string.</summary>
         public bool BallInHand, Kitchen;
         /// <summary>The next shot is the break.</summary>
         public bool Break;
-        /// <summary>Winner seat (255 = none) and <see cref="EndReason"/> of the last game.</summary>
+        /// <summary>Winner team (255 = none) and <see cref="EndReason"/> of the last game.</summary>
         public byte Winner = 255, EndReason;
-        /// <summary>Games won by seat A / B with the current pair of players.</summary>
+        /// <summary>Games won by team A / B with the current line-up.</summary>
         public byte WinsA, WinsB;
         /// <summary>Counts every game (a new rack = +1).</summary>
         public int Round;
         /// <summary>Counts the shots (every stroke = +1; the clients replay shot n when it changes).</summary>
         public int ShotNo;
-        /// <summary>Rematch wishes (bit 0 = seat A, bit 1 = seat B).</summary>
-        public byte Rematch;
+        /// <summary>"Gotowy" of each place (bit p): a game starts when every seated player is ready.</summary>
+        public byte Ready;
         /// <summary>Short Polish note about the last shot for the HUD ("Faul: biała w łuzie", "Pełne dla Kasi").</summary>
         public string Note = "";
         /// <summary>Ball centres (table space 2D); index 0 = cue ball, 1..15 object balls.</summary>
@@ -50,10 +58,53 @@ namespace HideAndSeek.Game.MiniGames.Pool
         /// <summary>Bit i = ball i is pocketed (the cue ball's bit is cleared again when it comes back in hand).</summary>
         public ushort Down;
 
-        public ulong Seat(int s) => s == 0 ? A : B;
-        public int SeatOf(ulong id) => id == Nobody ? -1 : id == A ? 0 : id == B ? 1 : -1;
+        /// <summary>Player in place p (0 = A1, 1 = B1, 2 = A2, 3 = B2).</summary>
+        public ulong Place(int p) => p switch { 0 => A, 1 => B, 2 => A2, 3 => B2, _ => Nobody };
+        public void SetPlace(int p, ulong id)
+        {
+            if (p == 0) A = id;
+            else if (p == 1) B = id;
+            else if (p == 2) A2 = id;
+            else if (p == 3) B2 = id;
+        }
+
+        /// <summary>Place of a player, -1 = not at the table.</summary>
+        public int PlaceOf(ulong id)
+        {
+            if (id == Nobody) return -1;
+            for (int p = 0; p < Places; p++)
+                if (Place(p) == id) return p;
+            return -1;
+        }
+
+        public static int TeamOf(int place) => place & 1;
+        /// <summary>Players in a team (0..2).</summary>
+        public int Members(int team) => (Place(team) != Nobody ? 1 : 0) + (Place(team + 2) != Nobody ? 1 : 0);
+        public int Seated => Members(0) + Members(1);
+        /// <summary>Bit mask of the occupied places.</summary>
+        public byte Occupied
+        {
+            get
+            {
+                int m = 0;
+                for (int p = 0; p < Places; p++) if (Place(p) != Nobody) m |= 1 << p;
+                return (byte)m;
+            }
+        }
+
+        /// <summary>Place that plays team <paramref name="team"/>'s next inning (its other place when that one is empty).</summary>
+        public int ShooterPlace(int team)
+        {
+            team &= 1;
+            int p = team + 2 * ((Up >> team) & 1), q = team + 2 - (p - team);
+            return Place(p) != Nobody || Place(q) == Nobody ? p : q;
+        }
+
+        /// <summary>Place of the player to shoot now.</summary>
+        public int Shooter => ShooterPlace(Turn);
+        public ulong ShooterId => Place(Shooter);
         public bool IsDown(int ball) => (Down & (1 << ball)) != 0;
-        /// <summary>Group of a seat: 0 = none yet, 1 = solids, 2 = stripes.</summary>
+        /// <summary>Group of a team: 0 = none yet, 1 = solids, 2 = stripes.</summary>
         public int GroupOf(int seat) => Groups == Open ? 0 : (Groups == ASolids) == (seat == 0) ? 1 : 2;
 
         /// <summary>Object balls still on the table (bit mask, bit 0 never set).</summary>
@@ -99,7 +150,8 @@ namespace HideAndSeek.Game.MiniGames.Pool
         /// A fresh rack: 15 balls in the triangle (apex = ball 1 on the foot spot, widening towards +X, 0.1 mm apart),
         /// the 8 in the middle, one solid and one stripe in the back corners, the rest shuffled with <paramref name="rng"/>
         /// (null = the fixed order of <see cref="PoolBallModels.RackOrder"/>). Cue ball on the head spot, in hand in the
-        /// kitchen, break next, open table, no winner. Players, Phase, Turn, wins, Round, ShotNo, Rematch, Note untouched.
+        /// kitchen, break next, open table, no winner, every team's first place up. Players, Phase, Turn, wins, Round,
+        /// ShotNo, Ready, Note untouched.
         /// </summary>
         public void Rack(System.Random rng)
         {
@@ -142,6 +194,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
             Kitchen = true;
             Winner = 255;
             EndReason = EndNone;
+            Up = 0;
             Quantize();
         }
 
@@ -159,7 +212,10 @@ namespace HideAndSeek.Game.MiniGames.Pool
             Phase = o.Phase;
             A = o.A;
             B = o.B;
+            A2 = o.A2;
+            B2 = o.B2;
             Turn = o.Turn;
+            Up = o.Up;
             Groups = o.Groups;
             BallInHand = o.BallInHand;
             Kitchen = o.Kitchen;
@@ -170,7 +226,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
             WinsB = o.WinsB;
             Round = o.Round;
             ShotNo = o.ShotNo;
-            Rematch = o.Rematch;
+            Ready = o.Ready;
             Note = o.Note ?? "";
             System.Array.Copy(o.Pos, Pos, 16);
             Down = o.Down;

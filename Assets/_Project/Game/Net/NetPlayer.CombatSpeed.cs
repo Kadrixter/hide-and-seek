@@ -11,7 +11,7 @@ namespace HideAndSeek.Game.Net
     ///   so the hider gets a moment to run away. Derived from the synced <see cref="AttackReadyAt"/>
     ///   (the server sets it to now + cooldown when an attack starts / a kill ends), no extra network state.
     /// - aiming the Glock (RMB) slows walking a little.
-    /// - the chainsaw at full throttle (F): -30% (<see cref="SawSpeedScale"/>, NetPlayer.SawNerf.cs).
+    /// - the chainsaw in the hands: -15% (<see cref="SawSpeedScale"/>, NetPlayer.SawNerf.cs).
     /// </summary>
     public partial class NetPlayer
     {

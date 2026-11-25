@@ -19,10 +19,10 @@ namespace HideAndSeek.Game.MiniGames
         public float AimAngle => _aimAngle;
 
         /// <summary>Stance (0 = upright, 1 = down on the cue) and shown pull-back of a seat, as every peer draws it.</summary>
-        public float TestBend(int seat) => _view[seat & 1].Bend;
-        public float TestShownPull(int seat) => _view[seat & 1].Pull;
+        public float TestBend(int seat) => _view[seat & 3].Bend;
+        public float TestShownPull(int seat) => _view[seat & 3].Pull;
         /// <summary>The stroke animation of a seat is running.</summary>
-        public bool TestStroking(int seat) => _view[seat & 1].StrokeT >= 0f;
+        public bool TestStroking(int seat) => _view[seat & 3].StrokeT >= 0f;
 
         /// <summary>Camera blend state for the test log.</summary>
         public string TestCamInfo()
@@ -71,6 +71,33 @@ namespace HideAndSeek.Game.MiniGames
             _testHold = p;
             _testClick = put;
         }
+
+        /// <summary>Ball return for the test log: per side the queue (ball, pocket, phase H/F/R, metres left to the stop).</summary>
+        public string TestReturnInfo()
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int side = 0; side < 2; side++)
+            {
+                sb.Append(side == 0 ? "side-Z [" : " side+Z [");
+                _retOrder.Clear();
+                for (int i = 0; i < 16; i++)
+                    if (_ret[i] >= 0 && Pool.PoolReturnTrack.SideOf(_ret[i]) == side) _retOrder.Add(i);
+                _retOrder.Sort(CompareQueue);
+                foreach (int i in _retOrder) sb.Append($" {i}@p{_ret[i]}:{"HFR"[_retPhase[i]]}{_retR[i]:0.000}");
+                sb.Append(" ]");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Pose inputs of a place for the test log (table space).</summary>
+        public string TestPoseInfo(int place)
+        {
+            var v = _view[place & 3];
+            return $"bend {v.Bend:0.00} walk {v.Walk:0.00} valid {v.PoseValid} grip {transform.InverseTransformPoint(v.Grip):F2} bridge {transform.InverseTransformPoint(v.Bridge):F2}";
+        }
+
+        /// <summary>Pocket ball i went into (-1 = not pocketed).</summary>
+        public int TestReturnPocket(int i) => i >= 0 && i < 16 ? _ret[i] : -1;
 
         /// <summary>LocalInput: the test's hold point / click override the mouse.</summary>
         bool TestHandPoint(ref Vector2 p, ref bool click)

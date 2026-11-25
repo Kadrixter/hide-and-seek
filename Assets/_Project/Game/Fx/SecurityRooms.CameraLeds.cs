@@ -36,7 +36,7 @@ namespace HideAndSeek.Game
             AddCam(lv, "RAMPA 2", new Vector3(38f, y0 + 2.4f, 4f), new Vector3(1f, -0.16f, 0f));
         }
 
-        /// <summary>Per-level camera number for the on-screen display (CAM01..CAM24).</summary>
+        /// <summary>Per-level camera number for the on-screen display (CAM01..CAM27).</summary>
         private int CamNumber(int ci) => _levelCams[_cams[ci].Level].IndexOf(ci) + 1;
 
         private static float Blink(float phase, float on)

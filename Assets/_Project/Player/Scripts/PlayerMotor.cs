@@ -26,7 +26,7 @@ namespace HideAndSeek.Player
     [DefaultExecutionOrder(-50)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CharacterController))]
-    public class PlayerMotor : MonoBehaviour, ICharacterMotionSource
+    public partial class PlayerMotor : MonoBehaviour, ICharacterMotionSource
     {
         [Header("References")]
         [SerializeField] private PlayerInputReader input;
@@ -327,6 +327,7 @@ namespace HideAndSeek.Player
             Vector2 move = hasInput ? Vector2.ClampMagnitude(cmd.Move, 1f) : Vector2.zero;
 
             // --- look
+            Quaternion rotBeforeLook = transform.rotation;
             if (LookEnabled)
             {
                 transform.Rotate(0f, cmd.Look.x, 0f, Space.Self);
@@ -338,6 +339,7 @@ namespace HideAndSeek.Player
             bool proneCmd = cmd.Prone && !Downed && !Seated && !Burdened;
             // Lying down needs a grounded player; getting up needs room for the crouched capsule.
             if (proneCmd && !_wantsProne && !_grounded) proneCmd = false;
+            if (proneCmd && !_wantsProne && !RoomToLieDown()) proneCmd = false; // PlayerMotor.BodyFootprint.cs
             if (!proneCmd && _wantsProne && _proneLinear > 0.01f && !CanFitAt(transform.position, crouchHeight)) proneCmd = true;
             _wantsProne = proneCmd;
             _wantsCrouch = (cmd.Crouch && !Seated && !Burdened) || Downed || _wantsProne || ForceCrouch;
@@ -438,6 +440,9 @@ namespace HideAndSeek.Player
                 _jumpedSinceGrounded = false;
                 if (_verticalVelocity < 0f) _verticalVelocity = -groundStickVelocity;
             }
+
+            // The lying / crouched body reaches behind the capsule: keep it out of walls (PlayerMotor.BodyFootprint.cs).
+            KeepBodyOutOfWalls(rotBeforeLook);
 
             // Kill horizontal velocity lost to walls so we don't keep pushing.
             Vector3 actual = (transform.position - startPos) / dt;

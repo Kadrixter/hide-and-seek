@@ -9,6 +9,8 @@ namespace HideAndSeek.Game
     public class SpectatorCamera : MonoBehaviour
     {
         public NetPlayer Target { get; private set; }
+        /// <summary>Test hook: switch to the next player (like the left mouse button).</summary>
+        public static bool TestNext;
 
         private Camera _cam;
         private NetPlayer _me;
@@ -82,10 +84,22 @@ namespace HideAndSeek.Game
             Target = null;
         }
 
+        /// <summary>Switches to <paramref name="p"/> when he can be watched (the lobby TV hands its player over, Game/DeadLobby).</summary>
+        public void Watch(NetPlayer p)
+        {
+            if (p == null || p == _me || p.Life.Value == LifeState.Dead || p.Escaped.Value) return;
+            int i = NetPlayer.All.IndexOf(p);
+            if (i < 0) return;
+            _index = i;
+            Target = p;
+            _yaw = p.transform.eulerAngles.y;
+        }
+
         private void LateUpdate()
         {
             var mouse = Mouse.current;
             if (Target == null || !Target.IsSpawned || Target.Life.Value == LifeState.Dead || Target.Escaped.Value) Cycle(1);
+            if (TestNext) { TestNext = false; Cycle(1); }
             if (mouse != null && !LocalPlayerController.MenuOpen)
             {
                 if (mouse.leftButton.wasPressedThisFrame) Cycle(1);

@@ -38,7 +38,7 @@ namespace HideAndSeek.Game
         };
 
         // ---- mini games (agent "minigames" finds the anchors by name)
-        /// <summary>MiniGameSpot_Chess: floor centre of a 0.8 x 0.8 m table, players at local +-X (0.75 m).</summary>
+        /// <summary>MiniGameSpot_Chess: floor centre of the 1.2 x 0.96 m chess / checkers table (pendant lamp above it), players at local +-X (0.75 m).</summary>
         public static readonly Vector3 ChessSpot = new(2.9f, 0f, 2.2f);
         /// <summary>MiniGameSpot_TicTacToe: centre of a ~0.7 m wall board on the north wall (forward = into the room).</summary>
         public static readonly Vector3 TicTacToeSpot = new(6.85f, 1.45f, HalfD - 0.01f);

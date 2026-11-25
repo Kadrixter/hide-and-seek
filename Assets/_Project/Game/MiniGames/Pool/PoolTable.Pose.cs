@@ -15,8 +15,8 @@ namespace HideAndSeek.Game.MiniGames
     {
         /// <summary>The cue line runs this far right of the shooter's root (under his head when bent over).</summary>
         const float CueSide = 0.2f;
-        /// <summary>The walking path around the table: this far outside the rails.</summary>
-        const float WalkOut = 0.42f, WalkSpeed = 1.5f;
+        /// <summary>The walking path around the table: this far outside the rails (the swinging arms clear the rail).</summary>
+        const float WalkOut = 0.5f, WalkSpeed = 1.5f;
 
         Vector2 _rootPos;
         float _rootYaw;
@@ -61,7 +61,7 @@ namespace HideAndSeek.Game.MiniGames
             else if (!Rolling || _rollSeat != seat)
             {
                 target = ToTable(SeatStand(seat));
-                yaw = seat == 0 ? 0f : 180f;
+                yaw = Side(seat) < 0f ? 0f : 180f;
             }
 
             Vector2 cur = _rootPos;
@@ -70,7 +70,9 @@ namespace HideAndSeek.Game.MiniGames
             if (dist > 0.0005f)
             {
                 float stepLen = WalkSpeed * dt;
-                next = dist < 0.45f || SegmentClear(cur, target) ? Vector2.MoveTowards(cur, target, stepLen) : PathStep(cur, target, stepLen);
+                // Straight only when that keeps the body off the table, else round it on the walking path.
+                next = SegmentClear(cur, target) ? Vector2.MoveTowards(cur, target, stepLen) : PathStep(cur, target, stepLen);
+                next = KeepOut(next, BodyClear - 0.04f);
             }
             Vector2 moved = next - cur;
             float wantYaw = dist > 0.45f && moved.sqrMagnitude > 1e-8f ? Mathf.Atan2(moved.x, moved.y) * Mathf.Rad2Deg : yaw;
@@ -97,7 +99,7 @@ namespace HideAndSeek.Game.MiniGames
         /// <summary>The straight walk from a to b keeps clear of the table.</summary>
         static bool SegmentClear(Vector2 a, Vector2 b)
         {
-            float hx = PoolTableGeom.OutX + 0.12f, hz = PoolTableGeom.OutZ + 0.12f;
+            float hx = PoolTableGeom.OutX + 0.26f, hz = PoolTableGeom.OutZ + 0.26f;
             Vector2 d = b - a;
             float t0 = 0f, t1 = 1f;
             return Slab(a.x, d.x, hx, ref t0, ref t1) && Slab(a.y, d.y, hz, ref t0, ref t1) ? false : true;
@@ -160,8 +162,24 @@ namespace HideAndSeek.Game.MiniGames
                 act.SetBoardStand(Centre, 0f, 0f, Centre, here, seed);
                 return 0f;
             }
-            act.SetPoolStance(v.Grip, v.Bridge, v.Bend, v.Look, v.Walk, seed);
+            // The table's outer edge straight ahead of the body: the bent torso rests over the rail, never in it.
+            Transform rt = act.transform;
+            Vector2 at = ToTable(rt.position);
+            Vector3 f = transform.InverseTransformDirection(rt.forward);
+            float edge = RayIn(at, new Vector2(f.x, f.z), PoolTableGeom.OutX, PoolTableGeom.OutZ);
+            float top = transform.TransformPoint(new Vector3(0f, PoolDims.RailTopY, 0f)).y - rt.position.y;
+            act.SetPoolStance(v.Grip, v.Bridge, v.Bend, v.Look, v.Walk, seed, edge < 50f ? Mathf.Max(edge, 0.02f) : 0f, top);
             return 0f;
+        }
+
+        /// <summary>Distance from <paramref name="p"/> (outside) along <paramref name="d"/> into the box (half sizes hx, hz); 99 = misses it.</summary>
+        static float RayIn(Vector2 p, Vector2 d, float hx, float hz)
+        {
+            if (d.sqrMagnitude < 1e-8f) return 99f;
+            d.Normalize();
+            float t0 = 0f, t1 = 99f;
+            if (!Slab(p.x, d.x, hx, ref t0, ref t1) || !Slab(p.y, d.y, hz, ref t0, ref t1)) return 99f;
+            return t0;
         }
     }
 }

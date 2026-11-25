@@ -60,7 +60,7 @@ namespace HideAndSeek.Game
             var ph = mm.Phase.Value;
             if (ph != MatchPhase.Hiding && ph != MatchPhase.Seeking) return false;
             if (SceneManager.GetActiveScene().name != NetSession.GameScene) return false;
-            return p.Life.Value != LifeState.Dead && !KillCam.Active && (p.IsHider || p.IsSeeker);
+            return p.Life.Value != LifeState.Dead && !KillCam.Active && (p.IsHider || p.IsSeeker) && !DeadLobby.InWorld; // escaped: no items in the lobby
         }
 
         /// <summary>Hint for the selected item (what the left mouse button does now).</summary>
@@ -108,6 +108,11 @@ namespace HideAndSeek.Game
 
         private static void Select(NetPlayer p, int slot)
         {
+            if (p.SawInHands && ItemAt(p, slot) != HotbarItem.Chainsaw)
+            {
+                GameHud.Toast("Piły nie schowasz - Q, żeby ją wyrzucić.", 2f);
+                return;
+            }
             if (_sel != slot) GameAudio.Play2D(GameSfx.UiClick, 0.35f);
             _sel = slot;
             _nextEquip = 0f;

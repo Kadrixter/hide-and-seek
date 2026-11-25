@@ -70,7 +70,14 @@ namespace HideAndSeek.Game.MiniGames
         void UpdateMarks()
         {
             int local = LocalSeat;
-            if (local < 0 || State.Phase != ChessState.Playing) { Selected = -1; PendingPromotion = (-1, -1); Place(_hover, -1, 0f); }
+            if (local < 0 || State.Phase != ChessState.Playing || State.IsCheckers) { Selected = -1; PendingPromotion = (-1, -1); Place(_hover, -1, 0f); }
+            UpdateCheckersMarks();
+            if (!GameOnBoard || State.IsCheckers)
+            {
+                Place(_lastA, -1, 0f); Place(_lastB, -1, 0f); Place(_check, -1, 0f); Place(_sel, -1, 0f);
+                if (_marksSel != -3) { _marksSel = -3; for (int i = 0; i < _dots.Count; i++) Place(_dots[i], -1, 0f); }
+                return;
+            }
             // Last move and check follow the shown board (they appear when the piece lands).
             bool idle = !Animating;
             int lf = -1, lt = -1;
@@ -124,6 +131,7 @@ namespace HideAndSeek.Game.MiniGames
         /// <summary>Local player: mouse over the board (hover mark) and clicks. Returns true when a move was sent.</summary>
         public bool LocalPointer(NetPlayer me, Ray ray, bool click)
         {
+            if (State.IsCheckers) return CheckersPointer(me, ray, click);
             int seat = SeatOf(me.NetworkObjectId);
             if (seat < 0 || State.Phase != ChessState.Playing) return false;
             int colour = State.ColourOfSeat(seat);

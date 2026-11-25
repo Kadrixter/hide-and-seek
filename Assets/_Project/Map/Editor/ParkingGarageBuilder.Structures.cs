@@ -249,7 +249,7 @@ namespace HideAndSeek.Map.Editor
             ElevatorDoors(lv, -2.6f, HZ, -1f, lv != 2);
             ElevatorDoors(lv, 2.6f, HZ, -1f, false);
             SignPlate(_signs[lv], new Vector3(0, y0 + 2.75f, zf), Vector3.back, 1.6f, 0.36f, "LIFT N " + LevelName(lv), 0.18f, M("Sign_Blue"), M("Text_White"));
-            SignPlate(_signs[lv], new Vector3(-6f, y0 + 1.8f, 55.5f), Vector3.right, 0.9f, 0.7f, LevelName(lv), 0.45f, M("Sign_Blue"), M("Text_White"));
+            SignPlate(_signs[lv], new Vector3(-6f, y0 + 1.8f, 55.5f), Vector3.right, 0.9f, 0.7f, LevelNum(lv), 0.45f, M("Sign_Blue"), M("Text_White"));
             _decals[lv].FloorQuad(-2f, 2f, zf - 1.4f, zf, y0 + DecalY.Hatch, M("Hatch_Yellow"));
         }
 

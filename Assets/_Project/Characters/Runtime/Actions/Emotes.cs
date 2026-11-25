@@ -10,19 +10,25 @@ namespace HideAndSeek.Characters
         Clap = 2,
         Laugh = 3,
         Facepalm = 4,
-        Shrug = 5,
-        Salute = 6,
+        // 5 (shrug), 6 (salute): removed, values reserved.
         Point = 7,
         DanceDisco = 8,
-        DanceRobot = 9,
+        // 9 (robot dance): removed, value reserved.
         DanceRoof = 10,
         SitDown = 11,
+        Floss = 12,
+        Breakdance = 13,
+        Pushups = 14,
 
         Hug = 32,
         HighFive = 33,
-        FistBump = 34,
+        // 34 (fist bump): removed, value reserved.
         Handshake = 35,
         PairDance = 36,
+        BearHug = 37,
+        SecretShake = 38,
+        Piggyback = 39,
+        PattyCake = 40,
     }
 
     /// <summary>Static description of an emote.</summary>
@@ -47,6 +53,8 @@ namespace HideAndSeek.Characters
         public string Ask;
         /// <summary>The feet stay in place (WASD stops it); false = the body is on the floor (movement waits for the exit).</summary>
         public bool Standing = true;
+        /// <summary>Loops: contact beats only in the first period (the way in, e.g. sitting down), not every loop.</summary>
+        public bool BeatsOnce;
 
         public bool Loops => Duration <= 0f;
         public bool IsPair => Emotes.IsPair(Id);
@@ -57,13 +65,14 @@ namespace HideAndSeek.Characters
         /// <summary>Order of the slices in the wheel (clockwise from 12 o'clock).</summary>
         public static readonly EmoteId[] Solo =
         {
-            EmoteId.Wave, EmoteId.Clap, EmoteId.Laugh, EmoteId.Facepalm, EmoteId.Shrug, EmoteId.Salute,
-            EmoteId.Point, EmoteId.DanceDisco, EmoteId.DanceRobot, EmoteId.DanceRoof, EmoteId.SitDown,
+            EmoteId.Wave, EmoteId.Clap, EmoteId.Laugh, EmoteId.Facepalm, EmoteId.Point, EmoteId.Pushups,
+            EmoteId.DanceDisco, EmoteId.DanceRoof, EmoteId.Floss, EmoteId.Breakdance, EmoteId.SitDown,
         };
 
         public static readonly EmoteId[] Pair =
         {
-            EmoteId.Hug, EmoteId.HighFive, EmoteId.FistBump, EmoteId.Handshake, EmoteId.PairDance,
+            EmoteId.Hug, EmoteId.BearHug, EmoteId.HighFive, EmoteId.SecretShake, EmoteId.Handshake, EmoteId.PattyCake,
+            EmoteId.PairDance, EmoteId.Piggyback,
         };
 
         /// <summary>Furthest a partner may stand when asking (eye to eye, metres).</summary>
@@ -81,25 +90,28 @@ namespace HideAndSeek.Characters
 
         static EmoteInfo[] Build()
         {
-            var t = new EmoteInfo[40];
+            var t = new EmoteInfo[48];
             void Add(EmoteInfo e) => t[(byte)e.Id] = e;
             Add(new EmoteInfo { Id = EmoteId.Wave, Name = "Machanie", Duration = EmoteTimeline.WaveEnd, ThumbTime = 1.05f });
             Add(new EmoteInfo { Id = EmoteId.Clap, Name = "Oklaski", Duration = EmoteTimeline.ClapEnd, ThumbTime = 1.16f });
             Add(new EmoteInfo { Id = EmoteId.Laugh, Name = "Śmiech", Duration = EmoteTimeline.LaughEnd, ThumbTime = 1.6f });
             Add(new EmoteInfo { Id = EmoteId.Facepalm, Name = "Facepalm", Duration = EmoteTimeline.FacepalmEnd, ThumbTime = 1.5f });
-            Add(new EmoteInfo { Id = EmoteId.Shrug, Name = "Wzruszenie ramion", Duration = EmoteTimeline.ShrugEnd, ThumbTime = 0.9f });
-            Add(new EmoteInfo { Id = EmoteId.Salute, Name = "Salut", Duration = EmoteTimeline.SaluteEnd, ThumbTime = 1.3f });
             Add(new EmoteInfo { Id = EmoteId.Point, Name = "Pokazanie palcem", Duration = EmoteTimeline.PointEnd, ThumbTime = 0.95f });
             Add(new EmoteInfo { Id = EmoteId.DanceDisco, Name = "Disco", Period = EmoteTimeline.DiscoPeriod, In = 0.35f, Out = 0.35f, ThumbTime = 0.5f });
-            Add(new EmoteInfo { Id = EmoteId.DanceRobot, Name = "Robot", Period = EmoteTimeline.RobotPeriod, In = 0.35f, Out = 0.35f, ThumbTime = 0.75f });
             Add(new EmoteInfo { Id = EmoteId.DanceRoof, Name = "Ręce w górę", Period = EmoteTimeline.RoofPeriod, In = 0.35f, Out = 0.35f, ThumbTime = 0.3f });
-            Add(new EmoteInfo { Id = EmoteId.SitDown, Name = "Zmęczony", Period = 4.4f, In = 0.12f, Out = 0.2f, Exit = EmoteTimeline.SitExit, ThumbTime = 3f, Standing = false });
+            Add(new EmoteInfo { Id = EmoteId.SitDown, Name = "Zmęczony", Period = 4.4f, In = 0.12f, Out = 0.2f, Exit = EmoteTimeline.SitExit, ThumbTime = 3f, Standing = false, BeatsOnce = true });
+            Add(new EmoteInfo { Id = EmoteId.Floss, Name = "Floss", Period = EmoteTimeline.FlossPeriod, In = 0.3f, Out = 0.35f, ThumbTime = EmoteTimeline.FlossThumb });
+            Add(new EmoteInfo { Id = EmoteId.Breakdance, Name = "Breakdance", Period = EmoteTimeline.BreakPeriod, In = 0.2f, Out = 0.3f, Exit = EmoteTimeline.BreakExit, ThumbTime = EmoteTimeline.BreakThumb, Standing = false });
+            Add(new EmoteInfo { Id = EmoteId.Pushups, Name = "Pompki", Duration = EmoteTimeline.PushEnd, In = 0.2f, Out = 0.5f, Exit = EmoteTimeline.PushExit, ThumbTime = EmoteTimeline.PushThumb, Standing = false });
 
             Add(new EmoteInfo { Id = EmoteId.Hug, Name = "Przytulenie", Duration = EmoteTimeline.HugEnd, PairDistance = EmoteTimeline.HugDistance, ThumbTime = 1.9f, Ask = "chce się przytulić" });
             Add(new EmoteInfo { Id = EmoteId.HighFive, Name = "Piątka", Duration = EmoteTimeline.FiveEnd, PairDistance = EmoteTimeline.FiveDistance, ThumbTime = EmoteTimeline.FiveHit + 0.02f, Ask = "chce przybić piątkę" });
-            Add(new EmoteInfo { Id = EmoteId.FistBump, Name = "Żółwik", Duration = EmoteTimeline.BumpEnd, PairDistance = EmoteTimeline.BumpDistance, ThumbTime = EmoteTimeline.BumpHit + 0.02f, Ask = "chce przybić żółwika" });
-            Add(new EmoteInfo { Id = EmoteId.Handshake, Name = "Uścisk dłoni", Duration = EmoteTimeline.ShakeEnd, PairDistance = EmoteTimeline.ShakeDistance, ThumbTime = 1.1f, Ask = "chce uścisnąć Ci dłoń" });
-            Add(new EmoteInfo { Id = EmoteId.PairDance, Name = "Taniec w parze", Period = EmoteTimeline.PairDancePeriod, In = 0.4f, Out = 0.45f, PairDistance = EmoteTimeline.PairDanceDistance, ThumbTime = 2.55f, Ask = "chce z Tobą zatańczyć" });
+            Add(new EmoteInfo { Id = EmoteId.Handshake, Name = "Uścisk prezesa", Duration = EmoteTimeline.ShakeEnd, PairDistance = EmoteTimeline.ShakeDistance, ThumbTime = EmoteTimeline.ShakeThumb, Ask = "zaprasza Cię na uścisk prezesa" });
+            Add(new EmoteInfo { Id = EmoteId.PairDance, Name = "Taniec w parze", Period = EmoteTimeline.PairDancePeriod, In = 0.4f, Out = 0.45f, PairDistance = EmoteTimeline.PairDanceDistance, ThumbTime = EmoteTimeline.PairDanceThumb, Ask = "chce z Tobą zatańczyć" });
+            Add(new EmoteInfo { Id = EmoteId.BearHug, Name = "Niedźwiadek", Duration = EmoteTimeline.BearEnd, Out = 0.5f, PairDistance = EmoteTimeline.BearDistance, ThumbTime = EmoteTimeline.BearThumb, Ask = "chce Cię złapać w niedźwiadka i zakręcić" });
+            Add(new EmoteInfo { Id = EmoteId.SecretShake, Name = "Tajny uścisk dłoni", Duration = EmoteTimeline.SecretEnd, PairDistance = EmoteTimeline.SecretDistance, ThumbTime = EmoteTimeline.SecretThumb, Ask = "chce Ci pokazać tajny uścisk dłoni" });
+            Add(new EmoteInfo { Id = EmoteId.Piggyback, Name = "Na barana", Period = EmoteTimeline.PiggyPeriod, In = 0.25f, Out = 0.3f, Exit = EmoteTimeline.PiggyExit, PairDistance = EmoteTimeline.PiggyDistance, ThumbTime = EmoteTimeline.PiggyThumb, Standing = false, BeatsOnce = true, Ask = "chce Cię wziąć na barana" });
+            Add(new EmoteInfo { Id = EmoteId.PattyCake, Name = "Łapki", Period = EmoteTimeline.PattyPeriod, In = 0.35f, Out = 0.35f, PairDistance = EmoteTimeline.PattyDistance, ThumbTime = EmoteTimeline.PattyThumb, Ask = "chce zagrać z Tobą w łapki" });
             return t;
         }
     }
@@ -145,13 +157,5 @@ namespace HideAndSeek.Characters
             return (2f * u3 - 3f * u2 + 1f) * a.y + (u3 - 2f * u2 + u) * m0 + (-2f * u3 + 3f * u2) * b.y + (u3 - u2) * m1;
         }
 
-        /// <summary>Robot-style step: holds, then snaps to the next value with a small overshoot and settle.</summary>
-        public static float Snap(float x)
-        {
-            x = Mathf.Clamp01(x);
-            if (x >= 1f) return 1f;
-            float e = 1f - Mathf.Pow(1f - x, 3f);
-            return e + Mathf.Sin(x * Mathf.PI) * 0.12f * (1f - x);
-        }
     }
 }

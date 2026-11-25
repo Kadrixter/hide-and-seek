@@ -55,7 +55,7 @@ namespace HideAndSeek.Game.MiniGames
             }
         }
 
-        readonly SeatView[] _view = { new SeatView(), new SeatView() };
+        readonly SeatView[] _view = { new SeatView(), new SeatView(), new SeatView(), new SeatView() };
         /// <summary>Seat that made the shot being replayed (-1 = none yet).</summary>
         int _rollSeat = -1;
 
@@ -63,7 +63,7 @@ namespace HideAndSeek.Game.MiniGames
         {
             TickLocalFallback();
             TickOwnRoot(dt);
-            for (int s = 0; s < 2; s++) TickSeat(s, dt);
+            for (int s = 0; s < 4; s++) TickSeat(s, dt);
             HeldCuePos = HandBall(out var held) ? held : (Vector2?)null;
             TickLocalAim(dt);
             TickCursor();
@@ -74,7 +74,7 @@ namespace HideAndSeek.Game.MiniGames
 
         partial void OnShotStarted(int seat, PoolShot shot)
         {
-            if (seat < 0 || seat > 1) return;
+            if (seat < 0 || seat > 3) return;
             _rollSeat = seat;
             if (seat == LocalSeat) LocalShotStarted();
             var v = _view[seat];
@@ -115,7 +115,7 @@ namespace HideAndSeek.Game.MiniGames
         }
 
         /// <summary>Ball in hand is being used by the seat to shoot.</summary>
-        bool HandActive(int seat) => Playing && State.BallInHand && State.Turn == seat;
+        bool HandActive(int seat) => Playing && State.BallInHand && State.Shooter == seat;
 
         /// <summary>Cue ball a seat aims from (in hand: where the shooter holds / put it).</summary>
         Vector2 SeatCue(int seat, SeatView v) => HandActive(seat) && v.HandMode >= 1 ? v.Hand : State.Pos[0];
@@ -133,8 +133,10 @@ namespace HideAndSeek.Game.MiniGames
                 return;
             }
             if (v.Cue == null && Model != null && Model.Kit != null && Model.Kit.Template != null)
-                v.Cue = CueModel.Build(transform, Model.Kit.Template, s == 0 ? 1 : 3);
-            if (v.Cue != null && !v.Cue.gameObject.activeSelf) v.Cue.gameObject.SetActive(true);
+                v.Cue = CueModel.Build(transform, Model.Kit.Template, new[] { 1, 3, 0, 2 }[s & 3]);
+            // Another player's cue goes with his body when he is drawn as a shadow in front of the own camera.
+            bool ghostCue = !pl.IsOwner && _ghosted.Contains(pl);
+            if (v.Cue != null && v.Cue.gameObject.activeSelf == ghostCue && !pl.IsOwner) v.Cue.gameObject.SetActive(!ghostCue);
             UpdateShownAim(s, v, pl, dt);
 
             if (v.StrokeT >= 0f)
@@ -151,7 +153,10 @@ namespace HideAndSeek.Game.MiniGames
                 }
             }
             bool stroking = v.StrokeT >= 0f;
-            bool aiming = !stroking && Playing && State.Turn == s && !Rolling && !(HandActive(s) && v.HandMode == 1);
+            bool aiming = !stroking && Playing && State.Shooter == s && !Rolling && !(HandActive(s) && v.HandMode == 1);
+            // Own cue: only while it is used (waiting, the upright cue would stand right in front of the own camera).
+            bool ownHidden = pl.IsOwner && !stroking && !aiming && v.Bend < 0.05f;
+            if (pl.IsOwner && v.Cue != null && v.Cue.gameObject.activeSelf == ownHidden) v.Cue.gameObject.SetActive(!ownHidden);
 
             Vector2 cue, spin;
             float angle, tip;
@@ -196,7 +201,7 @@ namespace HideAndSeek.Game.MiniGames
             v.Bridge = transform.TransformPoint(BridgeFist(cue, angle, elev, bridgeLen, rail));
             Vector2 dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
             bool shooter = stroking || aiming;
-            v.Look = shooter && !(stroking && v.StrokeT > 0.35f) ? ToWorld(cue + dir * 0.45f, 0f) : ToWorld(Rolling ? ShownPos[0] : SeatCue(State.Turn, _view[State.Turn & 1]));
+            v.Look = shooter && !(stroking && v.StrokeT > 0.35f) ? ToWorld(cue + dir * 0.45f, 0f) : ToWorld(Rolling ? ShownPos[0] : SeatCue(State.Shooter, _view[State.Shooter & 3]));
             v.PoseValid = true;
         }
 

@@ -22,15 +22,15 @@ namespace HideAndSeek.Game.Voice
             }
         }
 
-        /// <summary>True when <paramref name="p"/> is dead in a running round (talks / listens on the observer channel).</summary>
-        public static bool OnDeadChannel(NetPlayer p) => p != null && p.Life.Value == LifeState.Dead && !LobbyLike;
+        /// <summary>True when <paramref name="p"/> is out of a running round - dead or escaped (talks / listens on the observer channel).</summary>
+        public static bool OnDeadChannel(NetPlayer p) => p != null && p.IsObserver && !LobbyLike;
 
         /// <summary>Server: does <paramref name="listener"/> get <paramref name="speaker"/>'s voice?</summary>
         public static bool Hears(NetPlayer listener, NetPlayer speaker, bool shout)
         {
             if (LobbyLike) return true;
-            bool speakerDead = speaker.Life.Value == LifeState.Dead;
-            bool listenerDead = listener.Life.Value == LifeState.Dead;
+            bool speakerDead = speaker.IsObserver; // dead or escaped: the observer channel (the dead players' lobby)
+            bool listenerDead = listener.IsObserver;
             if (speakerDead) return listenerDead;
             if (listenerDead) return true;
             float range = (shout ? VoiceChat.ShoutRange : VoiceChat.HearRange) + 5f;

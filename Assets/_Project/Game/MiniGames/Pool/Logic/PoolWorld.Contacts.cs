@@ -15,8 +15,8 @@ namespace HideAndSeek.Game.MiniGames.Pool
         readonly float[] lastPair = new float[N * N], lastRail = new float[N];
         readonly bool[] railed = new bool[N];
 
-        /// <summary>Cushion restitution: livelier for soft hits (0.82), deader for hard ones (0.74 from 3 m/s).</summary>
-        static float CushionE(float speed) => 0.82f - 0.08f * Mathf.Clamp01(speed / 3f);
+        /// <summary>Cushion restitution (K-66 rubber): 0.80 for soft hits, 0.75 for hard ones (from 3 m/s).</summary>
+        static float CushionE(float speed) => 0.80f - 0.05f * Mathf.Clamp01(speed / 3f);
 
         void AddEvent(byte kind, int a, int b, float speed, Vector2 at)
         {

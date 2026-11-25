@@ -8,11 +8,14 @@ namespace HideAndSeek.Game.MiniGames
     /// The chess table on every peer: follows <see cref="MatchManager.ChessNet"/>, keeps the 3D pieces in sync
     /// (moves are animated by the mover's hand, see ChessTable.Anim; a jump in the state, a late join or a new game
     /// snaps the board), turns the board when the colours swap, runs the clock display, poses both players.
+    /// The table also plays checkers (<see cref="ChessState.Kind"/>, ChessTable.Checkers*). The board stays empty while
+    /// no game has started; the pieces of a new game pop up onto it and fly off when the table is free again
+    /// (ChessTable.Setup). The pendant lamp above it (<see cref="ChessLamp"/>) burns while a game is on the board.
     /// </summary>
     public sealed partial class ChessTable : MiniTable
     {
         public override byte Game => MatchManager.GameChess;
-        public override string Title => "szachy";
+        public override string Title => State.IsCheckers ? "warcaby" : State.Kind == ChessState.KindChess ? "szachy" : "szachy / warcaby";
         protected override float StoolZ => ChessTableModel.StoolZ;
         protected override float TopY => ChessTableModel.TopY;
         protected override float TableHalf => ChessTableModel.TableTop * 0.5f;
@@ -20,8 +23,13 @@ namespace HideAndSeek.Game.MiniGames
         public override ulong SeatPlayer(int seat) => State.Seat(seat);
         public override string SeatName(int seat) => State.ColourOfSeat(seat) > 0 ? "białe" : "czarne";
         public override bool Playing => State.Phase == ChessState.Playing;
+        /// <summary>A game (running or just finished) stands on the board: the pieces are out and the lamp is on.</summary>
+        public bool GameOnBoard => _hasState && State.Phase != ChessState.Waiting && State.Kind != ChessState.KindNone;
+        /// <summary>Side to move in the game on the board (+1 white, -1 black).</summary>
+        public int SideToMove => State.IsCheckers ? CkTarget.Side : Target.Side;
 
         public ChessTableModel Model { get; private set; }
+        public ChessLamp Lamp { get; private set; }
         /// <summary>Latest state from the server.</summary>
         public readonly ChessState State = new();
         /// <summary>Position after all queued animations (what the server has).</summary>
@@ -48,7 +56,10 @@ namespace HideAndSeek.Game.MiniGames
             var t = go.AddComponent<ChessTable>();
             t.Model = ChessTableModel.Build(go.transform, template, 0);
             t.InitMarks();
-            t.Snap(ChessBoard.StartFen, 0, 0);
+            t.InitCheckersMarks();
+            t.Target.SetFen(ChessBoard.StartFen);
+            t.Target.CopyTo(t.Shown);
+            t.Lamp = ChessLamp.Create(t, template, LobbyLayout.H - pos.y);
             return t;
         }
 
@@ -66,7 +77,9 @@ namespace HideAndSeek.Game.MiniGames
                 }
             }
             float dt = Time.deltaTime;
+            TickSetup(dt);
             TickAnim(dt);
+            TickCheckersAnim(dt);
             float wantYaw = State.WhiteIsA ? 0f : 180f;
             _pivotYaw = Mathf.MoveTowardsAngle(_pivotYaw, wantYaw, dt * 240f * AnimSpeed);
             Model.BoardPivot.localRotation = Quaternion.Euler(0f, _pivotYaw, 0f);
@@ -77,18 +90,26 @@ namespace HideAndSeek.Game.MiniGames
 
         void OnState(ChessState ns)
         {
-            bool sameGame = _hasState && ns.Game == State.Game;
+            bool sameGame = _hasState && ns.Game == State.Game && ns.Kind == _shownKind;
             bool flipped = _hasState && ns.WhiteIsA != State.WhiteIsA;
             int prevPly = State.Ply;
             byte prevPhase = State.Phase;
             ns.CopyTo(State);
             _hasState = true;
             Version++;
-            if (sameGame && ns.Ply == prevPly + 1 && ns.Last.Length >= 4 && TryQueue(ns.Last)) { }
+            if (!GameOnBoard)
+            {
+                // Free table / nobody picked a game yet: the board is cleared.
+                if (_shownKind != ChessState.KindNone) { CancelAnims(); CancelCheckersAnims(); ClearPieces(true); }
+                _shownKind = ChessState.KindNone;
+            }
+            else if (ns.IsCheckers) CheckersOnState(sameGame, prevPly, flipped);
+            else if (sameGame && ns.Ply == prevPly + 1 && ns.Last.Length >= 4 && TryQueue(ns.Last)) { }
             else if (!sameGame || ns.Fen != Target.ToFen() || flipped)
             {
                 CancelAnims();
-                Snap(ns.Fen, ns.WhiteIsA ? 0f : 180f, ns.Ply);
+                CancelCheckersAnims();
+                Snap(ns.Fen, !sameGame);
                 if (flipped) _pivotYaw = ns.WhiteIsA ? 180f : 0f; // turn the board round in view
             }
             if (prevPhase != ns.Phase)
@@ -111,7 +132,7 @@ namespace HideAndSeek.Game.MiniGames
             {
                 // Out of step (should not happen): show the server's board.
                 CancelAnims();
-                Snap(State.Fen, State.WhiteIsA ? 0f : 180f, State.Ply);
+                Snap(State.Fen, false);
                 return true;
             }
             QueueMove(move, mover);
@@ -120,15 +141,16 @@ namespace HideAndSeek.Game.MiniGames
 
         // ================================================================ snapping
 
-        /// <summary>Rebuilds all pieces for a position; captured pieces from the material that is missing.</summary>
-        void Snap(string fen, float yaw, int ply)
+        /// <summary>
+        /// Rebuilds all pieces for a position; captured pieces from the material that is missing. <paramref name="fresh"/>
+        /// (a new game): the old pieces fly off and the new ones pop up one after another.
+        /// </summary>
+        void Snap(string fen, bool fresh)
         {
+            ClearPieces(fresh);
+            _shownKind = ChessState.KindChess;
             Target.SetFen(fen);
             Target.CopyTo(Shown);
-            for (int i = 0; i < 64; i++) if (_at[i] != null) { Destroy(_at[i].gameObject); _at[i] = null; }
-            foreach (var c in _captured) if (c != null) Destroy(c.gameObject);
-            _captured.Clear();
-            _capturedCount[0] = _capturedCount[1] = 0;
             var count = new int[13];
             for (int sq = 0; sq < 64; sq++)
             {
@@ -144,7 +166,7 @@ namespace HideAndSeek.Game.MiniGames
                     int missing = full[type] - count[type * colour + 6];
                     for (int k = 0; k < missing; k++) AddCaptured(type * colour, false);
                 }
-            _ = yaw; _ = ply;
+            if (fresh) AppearChess();
         }
 
         Transform NewPiece(int piece, int sq)
@@ -180,7 +202,7 @@ namespace HideAndSeek.Game.MiniGames
         {
             if (Model.ClockTex == null) return;
             double now = mm != null ? mm.Now : 0d;
-            int side = Target.Side;
+            int side = SideToMove;
             int msA = State.MsLeft(State.ColourOfSeat(0), side, now), msB = State.MsLeft(State.ColourOfSeat(1), side, now);
             bool running = State.Phase == ChessState.Playing;
             bool runA = running && State.ColourOfSeat(0) == side;

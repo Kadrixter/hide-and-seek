@@ -160,7 +160,7 @@ namespace HideAndSeek.Game
             {
                 var s = _slots[i];
                 string name = s.CamIndex >= 0 ? _cams[s.CamIndex].Name : "";
-                string lvl = s.CamIndex >= 0 ? "P" + LevelName(_cams[s.CamIndex].Level) : "";
+                string lvl = s.CamIndex >= 0 ? "P " + LevelName(_cams[s.CamIndex].Level) : "";
                 string time = now.ToString("dd-MM-yyyy  HH:mm:ss");
                 string key = $"{name}|{lvl}|{time}|{blink}|{s.Motion}";
                 if (key == s.OsdKey) continue;

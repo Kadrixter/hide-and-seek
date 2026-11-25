@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.MiniGames
     /// <summary>
     /// Keys and mouse of the local player at a board-game table (runs before the HUD, so Esc opens our question
     /// instead of the game menu): LMB = select / move / mark, Esc = get up (asks first; resigns a running game),
-    /// R = rematch, C = time control (chess, between games). Pool: the mouse goes to PoolTable.LocalPointer (aiming). Also keeps <see cref="MiniGameHud"/> up to date.
+    /// R = rematch, C = time control (chess, between games), G = rematch in the other game (chess / checkers). Pool: the mouse goes to PoolTable.LocalPointer (aiming). Also keeps <see cref="MiniGameHud"/> up to date.
     /// </summary>
     [DefaultExecutionOrder(-500)]
     public sealed class MiniGameLocal : MonoBehaviour
@@ -44,9 +44,11 @@ namespace HideAndSeek.Game.MiniGames
             bool dialog = ConfirmDialog.IsOpen || LocalPlayerController.MenuOpen;
             if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape)
             {
-                if (table is PoolTable)
+                if (table is PoolTable pt)
                 {
-                    if (table.Playing) ConfirmDialog.Show("Poddać partię i odejść?", "Przeciwnik wygra tę partię.", "Tak, odchodzę", "Nie", me.MiniLeaveRpc);
+                    bool mate = pt.State.Members(seat & 1) > 1;
+                    if (table.Playing && !mate) ConfirmDialog.Show("Poddać partię i odejść?", "Rywale wygrają tę partię.", "Tak, odchodzę", "Nie", me.MiniLeaveRpc);
+                    else if (table.Playing) ConfirmDialog.Show("Odejść od stołu?", "Twoja drużyna gra dalej bez ciebie.", "Tak, odchodzę", "Nie", me.MiniLeaveRpc);
                     else ConfirmDialog.Show("Odejść od stołu?", null, "Tak", "Nie", me.MiniLeaveRpc);
                 }
                 else if (table.Playing)
@@ -58,6 +60,12 @@ namespace HideAndSeek.Game.MiniGames
             if (dialog) return;
             if (kb != null && kb.rKey.wasPressedThisFrame && !table.Playing) me.MiniRematchRpc();
             if (kb != null && kb.cKey.wasPressedThisFrame && table is ChessTable ct && !ct.Playing) me.ChessClockRpc();
+            if (kb != null && kb.gKey.wasPressedThisFrame && table is ChessTable bt && bt.State.Phase == ChessState.Over)
+            {
+                // G after a game: propose (or take back) a rematch in the other game of the table.
+                bool proposed = (bt.State.Rematch & ChessState.RematchSwitch) != 0 && (bt.State.Rematch & (1 << seat)) != 0;
+                me.BoardKindRpc(proposed ? bt.State.Kind : bt.State.OtherKind);
+            }
             if (!MiniGameCamera.MouseRay(out var ray) || mouse == null) return;
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             bool click = mouse.leftButton.wasPressedThisFrame && !overUi && MiniGameCamera.Weight > 0.8f;

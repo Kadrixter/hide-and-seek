@@ -38,6 +38,7 @@ namespace HideAndSeek.Game.Net
         private void UpdateSawFuel()
         {
             if (Phase.Value != MatchPhase.Seeking) return;
+            UpdateSawStarts(); // pull-start tries (MatchManager.SawNerf.cs)
             float rate = Settings.Value.SawUseRate;
             foreach (var p in NetPlayer.All)
             {

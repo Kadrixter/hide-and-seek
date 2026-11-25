@@ -87,7 +87,7 @@ namespace HideAndSeek.Game.MiniGames
                 if (t == null) continue;
                 Vector3 c = t.PromptTarget(eye);
                 if (!t.PromptNear(eye) || !inView(c, t.transform)) continue;
-                for (int s = 0; s < 2; s++)
+                for (int s = 0; s < t.Places; s++)
                 {
                     if (t.SeatPlayer(s) != ulong.MaxValue) continue;
                     float d = t.JoinDistance(eye, s);
@@ -96,7 +96,7 @@ namespace HideAndSeek.Game.MiniGames
                     game = t.Game;
                     seat = s;
                     aim = c + Vector3.up * 0.25f;
-                    text = $"E  {t.JoinVerb} - {t.Title} ({t.SeatName(s)})";
+                    text = t is PoolTable ? $"E  {t.JoinVerb} - {t.Title}" : $"E  {t.JoinVerb} - {t.Title} ({t.SeatName(s)})";
                 }
             }
             return game >= 0;

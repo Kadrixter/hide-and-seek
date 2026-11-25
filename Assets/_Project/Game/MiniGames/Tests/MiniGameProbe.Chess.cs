@@ -21,6 +21,7 @@ namespace HideAndSeek.Game.MiniGames
             if (!_host) yield return new WaitForSeconds(2.5f); // host first
             RenderTable(chess, "00_empty", new Vector3(1.5f, 1.5f, -1.3f));
             yield return SitDown(chess, seat);
+            if (_host) me.BoardKindRpc(ChessState.KindChess); // the table asks which game first
             for (float w = 0f; w < 20f && chess.State.Phase != ChessState.Playing; w += Time.deltaTime) yield return null;
             Log($"game 1 phase={chess.State.Phase} colour={(chess.State.ColourOfSeat(seat) > 0 ? "white" : "black")} clock={ChessState.ClockName(chess.State.ClockMin, chess.State.ClockInc)}");
             yield return new WaitForSeconds(1f);
@@ -79,7 +80,7 @@ namespace HideAndSeek.Game.MiniGames
             else yield return new WaitForSeconds(3f);
         }
 
-        string Prefix() => _host ? "a_" : "b_";
+        string Prefix() => _prefixOverride ?? (_host ? "a_" : "b_");
 
         /// <summary>A real Esc key press through the Input System (as if typed).</summary>
         static IEnumerator PressEscape()

@@ -45,8 +45,8 @@ namespace HideAndSeek.Game.MiniGames
         {
             pos = default;
             if (!Playing || !State.BallInHand || Rolling) return false;
-            int s = State.Turn;
-            if (s < 0 || s > 1) return false;
+            int s = State.Shooter;
+            if (s < 0 || s > 3) return false;
             var v = _view[s];
             if (v.Player != SeatPlayer(s) || v.HandMode == 0) return false;
             pos = v.Hand;

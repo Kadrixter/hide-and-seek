@@ -48,11 +48,17 @@ namespace HideAndSeek.Map
             halfSize = garageHalfSize;
         }
 
+        /// <summary>
+        /// True when <paramref name="p"/> is inside the garage volume, where lights are kept to their level. Outside (above
+        /// the roof, beyond the outer walls, below the lowest floor) nothing is restricted.
+        /// </summary>
+        public bool Restricts(Vector3 p) =>
+            Mathf.Abs(p.x) <= halfSize.x + 1f && Mathf.Abs(p.z) <= halfSize.y + 1f && p.y <= 3.6f && p.y >= -LevelHeight * Levels;
+
         /// <summary>Level bits a light at <paramref name="p"/> may reach.</summary>
         public int LevelBits(Vector3 p)
         {
-            if (Mathf.Abs(p.x) > halfSize.x + 1f || Mathf.Abs(p.z) > halfSize.y + 1f || p.y > 3.6f || p.y < -LevelHeight * Levels)
-                return AllLevels;
+            if (!Restricts(p)) return AllLevels;
             int lv = LevelAt(p.y);
             int bits = 1 << LayerOf(lv);
             foreach (var h in holes)

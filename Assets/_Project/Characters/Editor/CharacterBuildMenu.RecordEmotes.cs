@@ -36,10 +36,16 @@ namespace HideAndSeek.Characters.Editor
             a.Actions.PlayEmote(id, 0f);
             if (pair) bch.Actions.PlayEmote(id, 0f);
 
-            float stopAt = info.Loops ? (id == EmoteId.SitDown ? 6f : info.Period * 2f) : 999f;
+            float stopAt = info.Loops ? (!info.Standing ? 6f + (info.IsPair ? 6f : 0f) : Mathf.Max(info.Period * 2f, 4f)) : 999f;
+            // HNS_REC_STOP=PairDance:9,Piggyback:9 overrides when a loop is stopped.
+            foreach (var kv in (Environment.GetEnvironmentVariable("HNS_REC_STOP") ?? "").Split(','))
+            {
+                var parts = kv.Split(':');
+                if (parts.Length == 2 && parts[0] == id.ToString() && float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float st)) stopAt = st;
+            }
             float len = info.Loops ? stopAt + Mathf.Max(info.Exit, info.Out) + 0.5f : info.Duration + 0.4f;
             var clip = NewClip("emote_" + id);
-            Vector3 mid = pair ? new Vector3(0f, 0.95f, d * 0.5f) : new Vector3(0f, id == EmoteId.SitDown ? 0.6f : 0.95f, 0f);
+            Vector3 mid = pair ? new Vector3(0f, 1.05f, d * 0.5f) : new Vector3(0f, !info.Standing ? 0.6f : 0.95f, 0f);
             bool fixedYaw = float.TryParse(Environment.GetEnvironmentVariable("HNS_REC_YAW"), out float yaw);
             bool stopped = false;
             for (float t = 0f; t < len; t += RecDt)
@@ -54,7 +60,7 @@ namespace HideAndSeek.Characters.Editor
                 if (pair) ba.Tick(RecDt);
                 float x = t / len;
                 float y = fixedYaw ? yaw : pair ? Mathf.Lerp(52f, 128f, x) : Mathf.Lerp(30f, -30f, x);
-                Orbit(mid, y, pair ? 3.4f : 3.3f, pair ? 0.45f : 0.3f, 36f);
+                Orbit(mid, y, pair ? 4.4f : 3.7f, pair ? 0.5f : 0.35f, 36f);
                 clip.Shot(recCam);
             }
             Debug.Log($"[Rec] emote {id}: {beats} beats, {len:0.00} s");

@@ -8,10 +8,10 @@ namespace HideAndSeek.Game.MiniGames
     {
         partial void OnStateChanged()
         {
-            bool fresh = State.ShotNo != _seenShot || State.Turn != _seenTurn || State.Round != _seenRound
+            bool fresh = State.ShotNo != _seenShot || State.Shooter != _seenTurn || State.Round != _seenRound
                          || State.Phase != _seenPhase || State.BallInHand != _seenHand;
             _seenShot = State.ShotNo;
-            _seenTurn = State.Turn;
+            _seenTurn = State.Shooter;
             _seenRound = State.Round;
             _seenPhase = State.Phase;
             _seenHand = State.BallInHand;

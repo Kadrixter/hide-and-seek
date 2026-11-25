@@ -6,6 +6,8 @@ namespace HideAndSeek.Game.MiniGames
     public enum GameEnd : byte
     {
         None, Checkmate, Stalemate, FiftyMoves, Repetition, Material, Resign, Timeout, Left, Aborted, Line, Full,
+        /// <summary>Checkers: the loser has no pieces left / no legal move; draw after 15 moves by kings only.</summary>
+        NoPieces, NoMoves, KingMoves,
     }
 
     /// <summary>
@@ -13,11 +15,17 @@ namespace HideAndSeek.Game.MiniGames
     /// joiner gets the whole board at once and every change is a single update. Seat A / B are the two chairs of the
     /// table; <see cref="WhiteIsA"/> says who has white (swapped on every rematch). <see cref="Last"/> is the move that
     /// led to <see cref="Fen"/> (clients animate it when <see cref="Seq"/> grew by one).
+    /// The same table also plays checkers: <see cref="Kind"/> says which game the seated players picked (none while the
+    /// table is free); for checkers <see cref="Fen"/> holds a <see cref="CheckersBoard"/> position and <see cref="Last"/>
+    /// the path of the last move ("c3e5c7").
     /// </summary>
     public sealed class ChessState
     {
         public const byte Waiting = 0, Playing = 1, Over = 2;
         public const ulong Nobody = ulong.MaxValue;
+        /// <summary>Game picked at the table: none yet, chess, checkers.</summary>
+        public const byte KindNone = 0, KindChess = 1, KindCheckers = 2;
+        public const int RematchSwitch = 4;
 
         public int Seq;
         public ulong A = Nobody, B = Nobody;
@@ -34,12 +42,18 @@ namespace HideAndSeek.Game.MiniGames
         public int WhiteMs, BlackMs;
         /// <summary>Server time the current turn started (clock running for the side to move).</summary>
         public double TurnStart;
-        /// <summary>Bit 1: seat A wants a rematch, bit 2: seat B.</summary>
+        /// <summary>Bit 1: seat A wants a rematch, bit 2: seat B, <see cref="RematchSwitch"/>: the rematch is in the other game (chess / checkers).</summary>
         public int Rematch;
         /// <summary>Half-moves played in this game.</summary>
         public int Ply;
         /// <summary>Game number at this table (rematches count up).</summary>
         public int Game;
+        /// <summary><see cref="KindNone"/> / <see cref="KindChess"/> / <see cref="KindCheckers"/>.</summary>
+        public byte Kind;
+
+        public bool IsCheckers => Kind == KindCheckers;
+        /// <summary>The other game of the table.</summary>
+        public byte OtherKind => Kind == KindCheckers ? KindChess : KindCheckers;
 
         public bool HasClock => ClockMin > 0;
         public ulong White => WhiteIsA ? A : B;
@@ -55,7 +69,7 @@ namespace HideAndSeek.Game.MiniGames
             var c = CultureInfo.InvariantCulture;
             return string.Join(";", Seq.ToString(c), A.ToString(c), B.ToString(c), WhiteIsA ? "1" : "0", Phase.ToString(c), Fen, Last,
                 ((int)End).ToString(c), Winner.ToString(c), ClockMin.ToString(c), ClockInc.ToString(c), WhiteMs.ToString(c), BlackMs.ToString(c),
-                TurnStart.ToString("0.###", c), Rematch.ToString(c), Ply.ToString(c), Game.ToString(c));
+                TurnStart.ToString("0.###", c), Rematch.ToString(c), Ply.ToString(c), Game.ToString(c), Kind.ToString(c));
         }
 
         public static bool TryDecode(string s, ChessState into)
@@ -83,6 +97,7 @@ namespace HideAndSeek.Game.MiniGames
                 into.Rematch = int.Parse(p[14], c);
                 into.Ply = int.Parse(p[15], c);
                 into.Game = int.Parse(p[16], c);
+                into.Kind = p.Length > 17 ? byte.Parse(p[17], c) : KindChess;
                 return true;
             }
             catch (System.FormatException) { return false; }
@@ -93,6 +108,8 @@ namespace HideAndSeek.Game.MiniGames
 
         /// <summary>Clock options cycled with a key while waiting (minutes, increment).</summary>
         public static readonly (int min, int inc)[] ClockOptions = { (5, 3), (10, 5), (3, 2), (0, 0) };
+
+        public static string KindName(byte kind) => kind == KindCheckers ? "warcaby" : kind == KindChess ? "szachy" : "-";
 
         public static string ClockName(int min, int inc) => min <= 0 ? "bez zegara" : $"{min}+{inc}";
 

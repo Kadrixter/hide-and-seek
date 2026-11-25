@@ -10,8 +10,9 @@ namespace HideAndSeek.Game.MiniGames
     /// (origin on the floor under the centre of the cloth, long axis local X, head / kitchen at -X). Follows
     /// <see cref="MatchManager.PoolNet"/> (<see cref="State"/> is always the newest server state); a stroke arrives as
     /// <see cref="OnShotMessage"/> and is simulated again here and replayed (<see cref="Rolling"/>); when it is over the
-    /// balls glide / snap onto the server's positions. Players wait at the long sides: seat A (gracz 1) at local -Z,
-    /// seat B at +Z, <see cref="StandOut"/> from the rail.
+    /// balls glide / snap onto the server's positions. Four places ("seat" in the MiniTable API = place, see
+    /// <see cref="PoolState"/>): team A waits at the long side at local -Z, team B at +Z, <see cref="StandOut"/> from
+    /// the rail, the first player of a team towards the head, the second towards the foot.
     /// </summary>
     public sealed partial class PoolTable : MiniTable
     {
@@ -24,8 +25,9 @@ namespace HideAndSeek.Game.MiniGames
         protected override float TopY => PoolDims.RailTopY;
         protected override float TableHalf => PoolTableModel.OuterW * 0.5f;
         public override float SurfaceY => PoolDims.ClothY;
-        public override ulong SeatPlayer(int seat) => State.Seat(seat);
-        public override string SeatName(int seat) => seat == 0 ? "gracz 1" : "gracz 2";
+        public override int Places => PoolState.Places;
+        public override ulong SeatPlayer(int seat) => State.Place(seat);
+        public override string SeatName(int seat) => (seat & 1) == 0 ? "drużyna A" : "drużyna B";
         public override bool Playing => State.Phase == PoolState.Playing;
 
         /// <summary>Last replicated state (the newest from the server; during a replay it may already hold the shot's result).</summary>
@@ -34,14 +36,14 @@ namespace HideAndSeek.Game.MiniGames
         public PoolLampModel Lamp { get; private set; }
         /// <summary>Balls as shown right now (table space 2D) - during a replay the current replay frame, else the state.</summary>
         public readonly Vector2[] ShownPos = new Vector2[16];
-        /// <summary>Bit i = ball i is shown pocketed (falling into or lying in a pocket's basket).</summary>
+        /// <summary>Bit i = ball i is shown pocketed (dropping, rolling down the ball return or lying in its tray).</summary>
         public ushort ShownDown;
         /// <summary>A shot is being replayed (balls rolling) or its result has not arrived yet: no aiming.</summary>
         public bool Rolling { get; private set; }
         /// <summary>Seat of the local player at this table (-1 = not at it).</summary>
         public int LocalSeat => NetPlayer.Local != null ? SeatOf(NetPlayer.Local.NetworkObjectId) : -1;
         /// <summary>The local player may shoot now (seated, game running, his turn, nothing rolling).</summary>
-        public bool LocalTurn => LocalSeat >= 0 && Playing && State.Turn == LocalSeat && !Rolling;
+        public bool LocalTurn => LocalSeat >= 0 && Playing && State.Shooter == LocalSeat && !Rolling;
         /// <summary>Bumped on every new server state (HUD watches it).</summary>
         public int Version { get; private set; }
         /// <summary>A state has arrived at all.</summary>
@@ -124,6 +126,7 @@ namespace HideAndSeek.Game.MiniGames
                 }
             }
             BuildNextBall();
+            _retClock += dt;
             TickReplay(dt);
             if (!Rolling) SyncToState(dt, _snapNext);
             _snapNext = false;

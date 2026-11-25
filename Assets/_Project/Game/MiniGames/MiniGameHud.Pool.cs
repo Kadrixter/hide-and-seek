@@ -6,14 +6,18 @@ using UnityEngine.UI;
 namespace HideAndSeek.Game.MiniGames
 {
     /// <summary>
-    /// Pool texts of the board-game HUD: whose shot, the own group (solids / stripes / open table), balls left of
-    /// each group, the note of the last shot, ball in hand, the series score, rematch; flashes for the break, a
-    /// foul giving ball in hand and the end of a game. The result of a shot shows only once the balls stopped.
+    /// Pool texts of the board-game HUD, kept short: during a game a slim panel with the teams and the series score,
+    /// whose shot it is and the groups (the last shot's note for a few seconds after the balls stop); one controls
+    /// line that fades out a few seconds into the own turn; flashes for the break, a foul and the end of a game.
+    /// Between games the join panel (MiniGameHud.PoolLobby) is shown instead.
     /// </summary>
     public sealed partial class MiniGameHud
     {
-        const string PoolAimHint = "Mysz - celuj (Shift / Q E - precyzyjnie)   LPM przytrzymaj i odciągnij - siła, puść - strzał   PPM / WASD - podkręcenie   Spacja - widok z góry   Esc - odejdź";
-        int _poolRound = -1, _poolEndFlashed = -1, _poolShotSeen = -1;
+        const string PoolAimHint = "LPM przytrzymaj i odciągnij - strzał    PPM - podkręcenie    Spacja - z góry    Esc - odejdź";
+        const float HintShow = 7f, NoteShow = 4f;
+        int _poolRound = -1, _poolEndFlashed = -1, _poolShotSeen = -1, _poolNoteShot = -1;
+        float _poolNoteAt, _poolHintAt;
+        string _poolHintKey;
 
         static int Left(PoolState s, int from, int to)
         {
@@ -22,81 +26,88 @@ namespace HideAndSeek.Game.MiniGames
             return n;
         }
 
-        static string GroupName(int g) => g == 1 ? "pełne (1-7)" : g == 2 ? "połówki (9-15)" : "stół otwarty";
+        static string GroupShort(PoolState s, int team)
+        {
+            int g = s.GroupOf(team);
+            return g == 1 ? $"pełne ({Left(s, 1, 7)})" : g == 2 ? $"połówki ({Left(s, 9, 15)})" : "-";
+        }
 
-        void TickPool(PoolTable t, int seat)
+        /// <summary>"Host, Ola" - the nicks of a team ("-" when empty).</summary>
+        static string TeamNicks(PoolTable t, int team)
+        {
+            string a = t.SeatNick(team), b = t.SeatNick(team + 2);
+            if (a == "") return b == "" ? "-" : b;
+            return b == "" ? a : a + ", " + b;
+        }
+
+        void TickPool(PoolTable t, int place)
         {
             var s = t.State;
-            // Pool texts can be long (notes, endings): they shrink to one line instead of wrapping over each other.
+            int team = PoolState.TeamOf(place), other = 1 - team;
+            bool playing = s.Phase == PoolState.Playing;
+            TickPoolLobby(t, place, !playing);
+            if (_panel.gameObject.activeSelf != playing) _panel.gameObject.SetActive(playing);
             FitOneLine(_title, 14);
-            FitOneLine(_status, 20);
-            FitOneLine(_side, 13);
-            string opp = t.SeatNick(1 - seat);
-            if (string.IsNullOrEmpty(opp)) opp = "-";
-            int my = seat == 0 ? s.WinsA : s.WinsB, their = seat == 0 ? s.WinsB : s.WinsA;
+            FitOneLine(_status, 22);
+            FitOneLine(_side, 14);
             bool rolling = t.Rolling;
-            int g = s.GroupOf(seat);
-            string mine = g == 0 ? "stół otwarty" : $"grasz: {GroupName(g)}, zostało {(g == 1 ? Left(s, 1, 7) : Left(s, 9, 15))}";
-            _title.text = $"BILARD - ÓSEMKA   |   {mine}   |   seria {my} : {their}";
-            bool myTurn = s.Phase == PoolState.Playing && s.Turn == seat && !rolling;
-            switch (s.Phase)
+            int shooter = s.Shooter;
+            bool myTurn = playing && shooter == place && !rolling;
+            _title.text = $"A: {TeamNicks(t, 0)}    {s.WinsA} : {s.WinsB}    B: {TeamNicks(t, 1)}";
+            if (playing)
             {
-                case PoolState.Waiting:
-                    _status.text = "Czekamy na przeciwnika...";
-                    _status.color = UiKit.Text;
-                    break;
-                case PoolState.Playing:
-                    if (rolling) _status.text = t.ReplaySeat == seat ? "Kule w ruchu..." : $"Strzela {opp}...";
-                    else if (myTurn) _status.text = s.Break ? "Rozbijasz!" : s.BallInHand ? "Twój strzał - biała w ręce" : "Twój strzał";
-                    else _status.text = $"Strzela {opp}";
-                    _status.color = myTurn ? Good : UiKit.Text;
-                    break;
-                default:
-                    _status.text = rolling ? "Kule w ruchu..." : PoolEnd(s, seat, opp);
-                    _status.color = Gold;
-                    break;
+                if (rolling) _status.text = "Kule w ruchu";
+                else if (myTurn) _status.text = s.Break ? "Rozbijasz!" : s.BallInHand ? "Twój strzał - biała w ręce" : "Twój strzał";
+                else _status.text = $"Strzela {t.SeatNick(shooter)} ({(PoolState.TeamOf(shooter) == team ? "twoja drużyna" : "rywale")})";
+                _status.color = myTurn ? Good : UiKit.Text;
             }
-            // One short line under the status (a long note would wrap into the status above it): the last shot's
-            // note once the balls stopped, else how many balls each group has left.
-            if (s.Phase == PoolState.Waiting) _side.text = "";
-            else _side.text = !rolling && !string.IsNullOrEmpty(s.Note) ? s.Note : $"pełne: {Left(s, 1, 7)}      połówki: {Left(s, 9, 15)}";
-            // Flashes (only for states seen after the HUD came up, and only once the balls stopped).
+            // Under the status: the note of the last shot for a few seconds, else the groups.
+            if (!rolling && s.ShotNo != _poolNoteShot)
+            {
+                _poolNoteShot = s.ShotNo;
+                _poolNoteAt = Time.unscaledTime;
+            }
+            bool note = !rolling && !string.IsNullOrEmpty(s.Note) && Time.unscaledTime - _poolNoteAt < NoteShow;
+            _side.text = note ? s.Note : s.Groups == PoolState.Open ? "stół otwarty" : $"twoja drużyna: {GroupShort(s, team)}      rywale: {GroupShort(s, other)}";
+            PoolFlashes(t, place, team, rolling);
+            _seenVersion = t.Version;
+            // One controls line, only while it matters, fading out after a few seconds (ball in hand stays).
+            string hint = !myTurn ? "" : t.LocalHolding ? "Biała w ręce - LPM: połóż ją na stole" : (s.BallInHand ? "B - weź białą znowu    " : "") + PoolAimHint;
+            if (hint != _poolHintKey)
+            {
+                _poolHintKey = hint;
+                _poolHintAt = Time.unscaledTime;
+            }
+            float age = Time.unscaledTime - _poolHintAt;
+            _hints.text = hint;
+            var hc = _hints.color;
+            hc.a = t.LocalHolding ? 0.92f : Mathf.Clamp01((HintShow - age) / 1.5f) * 0.92f;
+            _hints.color = hc;
+            if (_promo.activeSelf) _promo.SetActive(false);
+        }
+
+        void PoolFlashes(PoolTable t, int place, int team, bool rolling)
+        {
+            var s = t.State;
             if (_seenVersion == -1)
             {
                 _poolRound = s.Round;
                 _poolEndFlashed = s.Phase == PoolState.Over ? s.Round : -1;
                 _poolShotSeen = s.ShotNo;
             }
-            if (!rolling)
+            if (rolling) return;
+            bool mineNext = PoolState.TeamOf(s.Shooter) == team;
+            if (s.Phase == PoolState.Playing && s.Round != _poolRound)
+                Flash(s.Shooter == place ? "Rozbijasz!" : $"Rozbija {t.SeatNick(s.Shooter)}", 2f, Good);
+            else if (s.Phase == PoolState.Over && _poolEndFlashed != s.Round)
             {
-                if (s.Phase == PoolState.Playing && s.Round != _poolRound)
-                    Flash(s.Turn == seat ? "Rozbijasz!" : $"Rozbija {opp}", 2f, Good);
-                else if (s.Phase == PoolState.Over && _poolEndFlashed != s.Round)
-                {
-                    _poolEndFlashed = s.Round;
-                    Flash(PoolEnd(s, seat, opp), 4.5f, Gold);
-                }
-                else if (s.Phase == PoolState.Playing && s.ShotNo != _poolShotSeen && s.BallInHand && !s.Break)
-                    Flash(s.Turn == seat ? "Faul przeciwnika - biała w ręce" : "Faul - przeciwnik ma białą w ręce", 2.2f, s.Turn == seat ? Good : Bad);
-                _poolRound = s.Round;
-                _poolShotSeen = s.ShotNo;
+                _poolEndFlashed = s.Round;
+                Flash(PoolEnd(s, team), 4.5f, Gold);
             }
-            _seenVersion = t.Version;
-            // Hints.
-            if (s.Phase == PoolState.Playing)
-                _hints.text = myTurn ? (t.LocalHolding ? "Biała w ręce - LPM połóż ją na stole (zielony krąg = wolno)"
-                        : (s.BallInHand ? "B - weź białą znowu do ręki      " : "") + PoolAimHint)
-                    : "Czekaj na swoją kolej      Esc - odejdź (oddajesz partię)";
-            else if (s.Phase == PoolState.Over)
-            {
-                int other = 1 << (1 - seat), mineBit = 1 << seat;
-                string rematch = t.SeatNick(1 - seat) == "" ? ""
-                    : (s.Rematch & mineBit) != 0 ? "czekamy na zgodę przeciwnika...      "
-                    : (s.Rematch & other) != 0 ? "R - przeciwnik chce rewanżu, zgódź się      " : "R - rewanż (rozbija przegrany)      ";
-                _hints.text = rematch + "Esc - odejdź od stołu";
-            }
-            else _hints.text = "Esc - odejdź od stołu";
-            if (_promo.activeSelf) _promo.SetActive(false);
+            else if (s.Phase == PoolState.Playing && s.ShotNo != _poolShotSeen && s.BallInHand && !s.Break)
+                Flash(mineNext ? "Faul rywali - biała w ręce" : "Faul - rywale mają białą w ręce", 2.2f, mineNext ? Good : Bad);
+            _poolRound = s.Round;
+            _poolShotSeen = s.ShotNo;
         }
 
         static void FitOneLine(Text label, int min)
@@ -109,16 +120,17 @@ namespace HideAndSeek.Game.MiniGames
             label.resizeTextForBestFit = true;
         }
 
-        static string PoolEnd(PoolState s, int seat, string opp)
+        /// <summary>End of a game from the point of view of <paramref name="team"/>.</summary>
+        static string PoolEnd(PoolState s, int team)
         {
-            bool won = s.Winner == seat;
+            bool won = s.Winner == team;
             return s.EndReason switch
             {
-                PoolState.EndEight => won ? "Wygrywasz - ósemka w łuzie!" : $"Wygrywa {opp} - ósemka w łuzie",
-                PoolState.EndEightEarly => won ? "Przedwczesna ósemka przeciwnika - wygrywasz!" : "Ósemka wbita za wcześnie - przegrywasz",
-                PoolState.EndEightScratch => won ? "Ósemka przeciwnika z białą w łuzie - wygrywasz!" : "Ósemka i biała w łuzie - przegrywasz",
-                PoolState.EndLeft => won ? "Przeciwnik odszedł - wygrywasz" : "Partia przerwana",
-                _ => s.Winner > 1 ? "Koniec partii" : won ? "Wygrywasz!" : $"Wygrywa {opp}",
+                PoolState.EndEight => won ? "Wygrana - ósemka w łuzie!" : "Przegrana - rywale wbili ósemkę",
+                PoolState.EndEightEarly => won ? "Rywale wbili ósemkę za wcześnie - wygrana!" : "Ósemka za wcześnie - przegrana",
+                PoolState.EndEightScratch => won ? "Ósemka rywali z faulem - wygrana!" : "Ósemka z faulem - przegrana",
+                PoolState.EndLeft => won ? "Rywale odeszli - wygrana" : "Partia przerwana",
+                _ => s.Winner > 1 ? "Koniec partii" : won ? "Wygrana!" : "Przegrana",
             };
         }
 
@@ -126,11 +138,10 @@ namespace HideAndSeek.Game.MiniGames
         static string PoolWatchLine(PoolTable t)
         {
             var s = t.State;
-            string a = Nick(s.A), b = Nick(s.B);
             string what = s.Phase == PoolState.Over
-                ? (s.Winner <= 1 ? $"wygrywa {(s.Winner == 0 ? a : b)}" : "koniec partii")
-                : t.Rolling ? "kule w ruchu" : $"strzela {(s.Turn == 0 ? a : b)}";
-            return $"Bilard: {a} {s.WinsA} : {s.WinsB} {b}   |   {what}";
+                ? (s.Winner <= 1 ? $"wygrywa drużyna {(s.Winner == 0 ? "A" : "B")}" : "koniec partii")
+                : t.Rolling ? "kule w ruchu" : $"strzela {t.SeatNick(s.Shooter)}";
+            return $"Bilard: {TeamNicks(t, 0)} {s.WinsA} : {s.WinsB} {TeamNicks(t, 1)}   |   {what}";
         }
     }
 }

@@ -55,6 +55,7 @@ namespace HideAndSeek.Game.MiniGames
             _watch.AddOutline(2f, 0.85f);
 
             BuildPromotion(root);
+            BuildChoice(root);
             SetSeated(false);
             _watch.text = "";
         }
@@ -64,6 +65,7 @@ namespace HideAndSeek.Game.MiniGames
             if (_panel.gameObject.activeSelf != on) _panel.gameObject.SetActive(on);
             if (_hints.gameObject.activeSelf != on) _hints.gameObject.SetActive(on);
             if (!on && _promo.activeSelf) _promo.SetActive(false);
+            if (!on) ShowChoice(false);
         }
 
         void Flash(string text, float seconds, Color color)
@@ -78,6 +80,7 @@ namespace HideAndSeek.Game.MiniGames
             bool seated = table != null && seat >= 0;
             SetSeated(seated);
             _watch.text = seated ? "" : WatchLine(me);
+            if (!(table is PoolTable) || !seated) HidePoolLobby();
             if (!seated)
             {
                 if (Time.unscaledTime > _flashUntil) _flash.text = "";
@@ -101,6 +104,8 @@ namespace HideAndSeek.Game.MiniGames
             if (me == null) return "";
             Vector3 p = me.transform.position;
             var chess = MiniGameTables.Chess;
+            if (chess != null && Vector3.Distance(p, chess.Centre) < 3.2f && chess.State.Phase != ChessState.Waiting && chess.State.IsCheckers)
+                return CheckersWatchLine(chess);
             if (chess != null && Vector3.Distance(p, chess.Centre) < 3.2f && chess.State.Phase != ChessState.Waiting)
             {
                 string w = Nick(chess.State.White), b = Nick(chess.State.Black);

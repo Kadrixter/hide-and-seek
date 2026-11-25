@@ -74,8 +74,8 @@ namespace HideAndSeek.Game.Cinematics
             int layer = HideAndSeek.Map.LevelLighting.LayerOf(0);
             var rng = new System.Random((int)(_pack.StartAt * 10) & 0x7fffffff);
             EmoteId[] cheer = _pack.SeekersWon
-                ? new[] { EmoteId.Laugh, EmoteId.Point, EmoteId.Salute, EmoteId.Clap }
-                : new[] { EmoteId.Wave, EmoteId.Clap, EmoteId.Salute, EmoteId.Wave };
+                ? new[] { EmoteId.Laugh, EmoteId.Point, EmoteId.Wave, EmoteId.Clap }
+                : new[] { EmoteId.Wave, EmoteId.Clap, EmoteId.Laugh, EmoteId.Wave };
             // Only the winners still here (a figure per player; the slots are laid out for this number).
             var src = new List<NetPlayer>();
             foreach (var id in Row) if (NetPlayer.Find(id) is var f && f != null) src.Add(f);

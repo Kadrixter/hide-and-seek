@@ -43,6 +43,18 @@ namespace HideAndSeek.Audio
             return 1f;
         }
 
+        /// <summary>
+        /// Every 3D one-shot as it starts (clip, position, volume, range) - the dead players' lobby TV plays the ones near
+        /// the watched player again from its speaker (Game/DeadLobby/DeadLobbyVoice).
+        /// </summary>
+        public static event System.Action<AudioClip, Vector3, float, float> SpatialPlayed;
+
+        internal static void RaiseSpatial(AudioClip clip, Vector3 pos, float volume, float range)
+        {
+            try { SpatialPlayed?.Invoke(clip, pos, volume, range); }
+            catch (System.Exception ex) { Debug.LogException(ex); }
+        }
+
         /// <summary>Muffle 3D sounds behind walls (one raycast per voice every ~0.12 s).</summary>
         public static bool OcclusionEnabled { get; set; } = true;
 

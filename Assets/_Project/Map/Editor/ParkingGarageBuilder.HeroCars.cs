@@ -20,17 +20,20 @@ namespace HideAndSeek.Map.Editor
 
         private static readonly HeroSpot[] HeroSpots =
         {
-            // P-1: the Lamborghini parked diagonally across two bays near the central lobby
+            // level 0 (top, index 0): the Lamborghini parked diagonally across two bays near the central lobby
             new HeroSpot { Level = 0, Bay = "E29", Model = "LamborghiniDiablo", Paint = "CarPaint_Arancio", NoseIn = true, KeepEmpty = new[] { "E30" }, Lat = 1.05f, Rot = 9f },
             new HeroSpot { Level = 0, Bay = "G11", Model = "Peugeot306Cabrio", Paint = "CarPaint_Sunflower", NoseIn = false },
             new HeroSpot { Level = 0, Bay = "C45", Model = "BmwE30", Paint = "CarPaint_Alpinweiss", NoseIn = true },
-            // P-2
+            // level -1 (index 1)
             new HeroSpot { Level = 1, Bay = "F20", Model = "MazdaRx7", Paint = "CarPaint_Brilliantrot", NoseIn = true },
             new HeroSpot { Level = 1, Bay = "B50", Model = "BmwE30", Paint = "CarPaint_Diamantschwarz", NoseIn = false },
             new HeroSpot { Level = 1, Bay = "H32", Model = "VwGolf4", Paint = "CarPaint_ReflexSilver", NoseIn = true },
-            // P-3
+            // level -2 (index 2)
             new HeroSpot { Level = 2, Bay = "D17", Model = "MazdaRx8", Paint = "CarPaint_MontegoBlue", NoseIn = true },
             new HeroSpot { Level = 2, Bay = "G40", Model = "BmwE30", Paint = "CarPaint_VelocityRed", NoseIn = true },
+            // level -1 (index 1): the GT86 reversed into a bay of the row south of the central lobby, nose to the aisle
+            // (kept last so the older hero cars keep their Car_### numbers; the bay was empty, so the random cars do not move)
+            new HeroSpot { Level = 1, Bay = "D32", Model = "ToyotaGt86", Paint = "CarPaint_OrangeMetallic", NoseIn = false },
         };
 
         private static bool HeroReserved(int lv, string label) =>

@@ -17,6 +17,47 @@ namespace HideAndSeek.Game.Net
         public int FuelCansDealt { get; private set; }
         public int SawWrests { get; private set; }
 
+        private readonly Dictionary<ulong, (bool inHands, bool stalled)> _sawStartWatch = new();
+
+        /// <summary>
+        /// Server, every frame: a new pull-start every time the saw comes into the hands or the stall is over; the number
+        /// of tries is rolled here (25% two, 10% four, else one) and synced, so every peer animates the same yanks.
+        /// </summary>
+        private void UpdateSawStarts()
+        {
+            foreach (var p in NetPlayer.All)
+            {
+                if (p == null || !p.IsSpawned) continue;
+                bool inHands = p.SawInHands, stalled = p.SawStalled;
+                _sawStartWatch.TryGetValue(p.NetworkObjectId, out var was);
+                _sawStartWatch[p.NetworkObjectId] = (inHands, stalled);
+                if (!inHands)
+                {
+                    if (p.SawStartAt.Value != SawTuning.NotStarted) p.SawStartAt.Value = SawTuning.NotStarted;
+                    continue;
+                }
+                if (stalled || (was.inHands && !was.stalled)) continue;
+                byte tries = ForcedSawTries > 0 ? (byte)ForcedSawTries : RollSawTries(Random.value);
+                p.SawAttempts.Value = tries;
+                p.SawStartAt.Value = Now + (was.inHands ? 0d : SawTuning.PullDelay);
+                Debug.Log($"[Saw] {p.Nick}: pull-start, {tries} tries{(was.inHands ? " (after the stall)" : "")}");
+            }
+        }
+
+        /// <summary>Tries a pull-start needs for a random <paramref name="r"/> in 0..1: 10% four, 25% two, else one.</summary>
+        public static byte RollSawTries(float r) => (byte)(r < SawTuning.FourTries ? 4 : r < SawTuning.FourTries + SawTuning.TwoTries ? 2 : 1);
+
+        /// <summary>Tests: the next pull-starts need this many tries (0 = random).</summary>
+        public static int ForcedSawTries;
+
+        /// <summary>R of a seeker with the saw in the hands and a canister in the inventory (the saw cannot be put away).</summary>
+        public void ServerRefuelFromHands(NetPlayer p)
+        {
+            if (p == null || !p.SawInHands) return;
+            if (p.FuelCans.Value == 0) { p.ToastRpc("Nie masz kanistra.", 2f); return; }
+            ServerRefuelSaw(p);
+        }
+
         /// <summary>E of a hider next to a stunned / blinded seeker holding the chainsaw.</summary>
         public void ServerWrestSaw(NetPlayer hider, NetPlayer seeker)
         {

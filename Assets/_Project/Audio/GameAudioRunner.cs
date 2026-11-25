@@ -87,6 +87,7 @@ namespace HideAndSeek.Audio
             if (e == null || e.clips == null || e.clips.Length == 0) return null;
             var clip = e.clips[Random.Range(0, e.clips.Length)];
             if (clip == null) return null;
+            if (spatial && !loop) GameAudio.RaiseSpatial(clip, pos, volume * e.volume, e.range); // dead players' lobby TV
 
             var v = GetFree();
             var s = v.Source;

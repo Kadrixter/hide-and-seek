@@ -179,13 +179,15 @@ namespace HideAndSeek.Game.UI
         {
             var info = Emotes.Get(id);
             bool pair = info != null && info.IsPair;
-            bool low = id == EmoteId.SitDown;
+            bool low = info != null && !info.Standing && !pair; // body on the floor (sitting, breakdance, push-ups)
             Vector3 focus = pair ? new Vector3(0f, 1.08f, info.PairDistance * 0.5f) : new Vector3(0f, low ? 0.55f : 1.0f, low ? 0.05f : 0f);
             if (_lights != null) _lights.localRotation = Quaternion.Euler(0f, pair ? 68f : 0f, 0f);
-            float dist = pair ? (_thumbs ? 5.0f : 5.6f) : low ? (_thumbs ? 3.3f : 3.9f) : (_thumbs ? 4.3f : 5.0f);
+            float dist = pair ? (_thumbs ? 5.0f : 5.6f) : low ? (_thumbs ? 3.6f : 4.2f) : (_thumbs ? 4.3f : 5.0f);
             float swing = _thumbs ? 0f : Mathf.Sin(_time * 0.5f);
             // Solo: in front, a little to the side. Pair: from the side, slightly in front of the own copy.
-            Quaternion q = pair ? Quaternion.Euler(8f, 248f + 10f * swing, 0f) : Quaternion.Euler(low ? 14f : 6f, 180f + (_thumbs ? 22f : 18f * swing), 0f);
+            // Bodies lying along the floor (push-ups, breakdance) read best from the side.
+            float soloYaw = low && id != EmoteId.SitDown ? 238f : 180f;
+            Quaternion q = pair ? Quaternion.Euler(8f, 248f + 10f * swing, 0f) : Quaternion.Euler(low ? 14f : 6f, soloYaw + (_thumbs ? 22f : 18f * swing), 0f);
             _cam.transform.position = transform.TransformPoint(focus - q * Vector3.forward * dist);
             _cam.transform.rotation = transform.rotation * q;
         }

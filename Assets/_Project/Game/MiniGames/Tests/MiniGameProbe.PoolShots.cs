@@ -175,58 +175,47 @@ namespace HideAndSeek.Game.MiniGames
         }
 
         /// <summary>
-        /// While the other player aims and strikes: what others see of him (his stance, cue, pull-back, the stroke) and
-        /// my own screen; while I aim: the other one waiting with his cue.
+        /// While another player aims and strikes: what the others see of him (his stance, cue, pull-back, the stroke)
+        /// and the waiting players round the table; my own screen meanwhile.
         /// </summary>
-        IEnumerator PoolWatchOpponent(PoolTable pool, int seat)
+        IEnumerator PoolWatchOthers(PoolTable pool, int place)
         {
-            int opp = 1 - seat, lastAim = -1, lastStrike = -1, lastWait = -1, n = 0;
-            while (n < 14)
+            int lastAim = -1, n = 0;
+            while (n < 10)
             {
                 var s = pool.State;
-                var other = NetPlayer.Find(pool.SeatPlayer(opp));
-                if (other != null && s.Phase == PoolState.Playing)
+                int sh = s.Shooter;
+                var other = sh == place ? null : NetPlayer.Find(pool.SeatPlayer(sh));
+                if (other != null && s.Phase == PoolState.Playing && !pool.Rolling && pool.TestBend(sh) > 0.97f && lastAim != s.ShotNo)
                 {
+                    lastAim = s.ShotNo;
+                    n++;
+                    yield return new WaitForSeconds(0.3f);
                     Vector3 root = other.transform.position;
                     Vector3 toT = pool.Centre - root;
                     toT.y = 0f;
                     toT.Normalize();
                     Vector3 side = Vector3.Cross(Vector3.up, toT);
-                    if (s.Turn == opp && !pool.Rolling && pool.TestBend(opp) > 0.97f && lastAim != s.ShotNo)
-                    {
-                        lastAim = s.ShotNo;
-                        n++;
-                        yield return new WaitForSeconds(0.3f);
-                        Render($"{Prefix()}opp_{s.ShotNo:00}_aim_side", root + side * 1.7f + toT * 0.4f + Vector3.up * 1.25f, root + Vector3.up * 0.85f + toT * 0.3f, 50f);
-                        Render($"{Prefix()}opp_{s.ShotNo:00}_aim_front", root + toT * 2.9f + Vector3.up * 1.6f, root + Vector3.up * 0.9f, 45f);
-                        PShot(pool, $"{Prefix()}opp_{s.ShotNo:00}_watching");
-                    }
-                    if (pool.TestShownPull(opp) > 0.3f && lastStrike != s.ShotNo)
-                    {
-                        lastStrike = s.ShotNo;
-                        Render($"{Prefix()}opp_{s.ShotNo:00}_pull", root + side * 1.6f + toT * 0.6f + Vector3.up * 1.15f, root + Vector3.up * 0.8f + toT * 0.5f, 50f);
-                        for (float w = 0f; w < 3f && !pool.Rolling; w += Time.deltaTime) yield return null;
-                        yield return new WaitForSeconds(0.04f);
-                        Render($"{Prefix()}opp_{s.ShotNo:00}_strike", root + side * 1.6f + toT * 0.6f + Vector3.up * 1.15f, root + Vector3.up * 0.8f + toT * 0.5f, 50f);
-                    }
-                    if (s.Turn == seat && pool.LocalTurn && lastWait != s.ShotNo && pool.TestBend(seat) > 0.97f)
-                    {
-                        lastWait = s.ShotNo;
-                        Vector3 back = (root - pool.Centre);
-                        back.y = 0f;
-                        Render($"{Prefix()}wait_{s.ShotNo:00}_opponent", pool.Centre + Vector3.up * 0.9f - back.normalized * 0.6f, root + Vector3.up * 0.9f, 55f);
-                    }
+                    Render($"{Prefix()}opp_{s.ShotNo:00}_aim_side", root + side * 1.7f + toT * 0.4f + Vector3.up * 1.25f, root + Vector3.up * 0.85f + toT * 0.3f, 50f);
+                    Render($"{Prefix()}opp_{s.ShotNo:00}_aim_low", root + side * 1.3f - toT * 0.2f + Vector3.up * 0.75f, root + Vector3.up * 0.8f + toT * 0.6f, 55f);
+                    RenderTable(pool, $"{Prefix()}opp_{s.ShotNo:00}_table", new Vector3(-2.6f, 2.1f, 2.2f), 58f);
+                    // The free-camera renders show the shadow-only bodies for a frame: the own screen after that.
+                    yield return null;
+                    yield return null;
+                    PShot(pool, $"{Prefix()}opp_{s.ShotNo:00}_watching");
                 }
                 yield return null;
             }
         }
 
-        /// <summary>Close-ups of the pocket baskets (balls under the pockets).</summary>
+        /// <summary>The ball return: the tray under the foot rail, a gully from low down at both sides, the pockets.</summary>
         void PoolPocketShots(PoolTable pool, string tag)
         {
             RenderTable(pool, $"{tag}_pocket_corner", new Vector3(1.55f, 0.95f, 1.05f), 40f);
-            Render($"{tag}_pocket_under", pool.transform.TransformPoint(new Vector3(0.6f, 0.45f, 1.3f)), pool.transform.TransformPoint(new Vector3(0f, 0.62f, PHalfW + 0.06f)), 50f);
-            Render($"{tag}_pockets_low", pool.transform.TransformPoint(new Vector3(-0.3f, 0.5f, -2.0f)), pool.transform.TransformPoint(new Vector3(0f, 0.6f, -PHalfW)), 70f);
+            Render($"{tag}_return_tray", pool.transform.TransformPoint(new Vector3(1.68f, 0.7f, -0.45f)), pool.transform.TransformPoint(new Vector3(1.19f, 0.465f, -0.05f)), 38f);
+            Render($"{tag}_return_foot", pool.transform.TransformPoint(new Vector3(2.3f, 0.85f, 0.5f)), pool.transform.TransformPoint(new Vector3(1.12f, 0.5f, 0f)), 42f);
+            Render($"{tag}_return_low_a", pool.transform.TransformPoint(new Vector3(0.3f, 0.4f, -2.1f)), pool.transform.TransformPoint(new Vector3(0.2f, 0.5f, -0.4f)), 60f);
+            Render($"{tag}_return_low_b", pool.transform.TransformPoint(new Vector3(0.3f, 0.4f, 2.1f)), pool.transform.TransformPoint(new Vector3(0.2f, 0.5f, 0.4f)), 60f);
         }
     }
 }

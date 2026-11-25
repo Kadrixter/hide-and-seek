@@ -196,15 +196,8 @@ namespace HideAndSeek.Map.Editor
                 var (p, pn) = Top(z, 0.01f);
                 Mb.Box(p + pn * 0.012f, new Vector3(1.0f, 0.012f, 0.05f), Paint, Quaternion.LookRotation(Vector3.forward, pn) * Quaternion.Euler(-12f, 0, 0));
             }
-            // rear wing on two struts with end plates
-            float wy = 1.1f, wz = -1.98f;
-            Mb.Box(new Vector3(0, wy, wz), new Vector3(1.7f, 0.035f, 0.3f), Paint, Quaternion.Euler(-6f, 0, 0));
-            Mb.Box(new Vector3(0, wy + 0.02f, wz - 0.14f), new Vector3(1.7f, 0.02f, 0.03f), Paint, Quaternion.Euler(-30f, 0, 0));
-            foreach (float s in new[] { -1f, 1f })
-            {
-                Mb.Box(new Vector3(s * 0.86f, wy - 0.02f, wz), new Vector3(0.015f, 0.12f, 0.36f), Paint);
-                Mb.Box(new Vector3(s * 0.45f, (wy + 0.93f) * 0.5f, wz + 0.02f), new Vector3(0.04f, wy - 0.93f, 0.1f), Paint, Quaternion.Euler(-10f, 0, 0));
-            }
+            // rear wing: body-colour airfoil on two swept pylons with end caps
+            CarWings.PylonWing(Mb, new Vector3(0f, 1.1f, -1.98f), 0.86f, 0.3f, 6f, 0.45f, 0.945f, Paint);
             // boot / engine lid shut lines
             SeamAcross(-1.08f, 0.62f);
             SeamTop(-2.12f, -1.08f, t => 0.62f);

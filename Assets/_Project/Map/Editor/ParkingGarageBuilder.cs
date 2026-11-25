@@ -123,7 +123,12 @@ namespace HideAndSeek.Map.Editor
 
         private Material M(string n) => _lib[n];
         private static string Tag(int lv) => "L" + (lv + 1);
-        private static string LevelName(int lv) => "P-" + (lv + 1);
+        /// <summary>Level number as the HUD shows it (minimap "POZIOM", elevators, security room): 0 top, -1, -2.</summary>
+        private static string LevelNum(int lv) => lv == 0 ? "0" : "-" + lv;
+        /// <summary>Compact level mark for pillars and small signs: "P 0", "P -1", "P -2".</summary>
+        private static string LevelName(int lv) => "P " + LevelNum(lv);
+        /// <summary>Long level mark for the big wall lettering: "POZIOM -1".</summary>
+        private static string LevelWord(int lv) => "POZIOM " + LevelNum(lv);
         private Material LevelPaint(int lv) => M(lv == 0 ? "Paint_Blue" : lv == 1 ? "Paint_Orange" : "Paint_Red");
         private Material FloorMat(int lv) => M(lv == 2 ? "Floor_Concrete_Old" : "Floor_Concrete");
         private Material WallMat(int lv) => M(lv == 2 ? "Wall_Concrete_Old" : "Wall_Concrete");
@@ -527,11 +532,11 @@ namespace HideAndSeek.Map.Editor
 
             var white = M("Text_White");
             for (float x = -75f; x <= 75f; x += 30f)
-                b.Text(LevelName(lv), new Vector3(x + 7.5f, y0 + 1.75f, HZ - 0.015f), Vector3.back, Vector3.up, 0.7f, white);
+                b.Text(LevelWord(lv), new Vector3(x + 7.5f, y0 + 1.75f, HZ - 0.015f), Vector3.back, Vector3.up, 0.7f, white);
             foreach (float z in new[] { -40f, -28f, 28f, 40f })
             {
-                b.Text(LevelName(lv), new Vector3(-HX + 0.015f, y0 + 1.75f, z), Vector3.right, Vector3.up, 0.7f, white);
-                b.Text(LevelName(lv), new Vector3(HX - 0.015f, y0 + 1.75f, z), Vector3.left, Vector3.up, 0.7f, white);
+                b.Text(LevelWord(lv), new Vector3(-HX + 0.015f, y0 + 1.75f, z), Vector3.right, Vector3.up, 0.7f, white);
+                b.Text(LevelWord(lv), new Vector3(HX - 0.015f, y0 + 1.75f, z), Vector3.left, Vector3.up, 0.7f, white);
             }
             for (int j = 0; j < ColZ.Length; j++)
             {

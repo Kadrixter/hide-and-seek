@@ -3,7 +3,7 @@ using UnityEngine;
 namespace HideAndSeek.Characters
 {
     /// <summary>
-    /// Solo one-shot emotes: wave, applause, laughing, facepalm, shrug, salute, pointing. Each one: anticipation,
+    /// Solo one-shot emotes: wave, applause, laughing, facepalm, pointing. Each one: anticipation,
     /// the gesture with follow-through, a settle back towards the stance (the layer fade finishes it). Hand targets in
     /// torso space (they ride on the breathing body), contacts with the own head in head space.
     /// </summary>
@@ -109,44 +109,6 @@ namespace HideAndSeek.Characters
             // Other hand on the hip.
             float hip = Seg(t, 0.25f, 0.7f) * (1f - Seg(t, 2.6f, 3.1f));
             Arm(ref p, 1, Vector3.Lerp(RestL, new Vector3(-0.3f, 0.1f, 0.01f), hip), new Vector3(-1f, 0f, -0.45f));
-            return p;
-        }
-
-        CharacterPose ShrugPose(in CharacterPose b, float t)
-        {
-            var p = Stance(b);
-            float up = Seg(t, 0.05f, 0.36f) * (1f - Seg(t, 1.55f, 2.1f));
-            float peak = Env(t, 0.22f, 0.45f, 1.15f, 1.55f);
-            p.PelvisPos += new Vector3(0f, 0.01f * peak, -0.01f * up);
-            p.Torso = Quaternion.Euler(-4f * up, 0f, -2f * peak);
-            p.Head = Quaternion.Euler(7f * peak, -8f * up, 10f * peak);
-            Feet(ref p);
-            Alive(ref p, t, 0.8f);
-            for (int arm = 0; arm < 2; arm++)
-            {
-                float sx = arm == 0 ? 1f : -1f;
-                var palm = new Vector3(0.44f * sx, 0.29f + 0.06f * peak, 0.25f + 0.02f * peak);
-                Arm(ref p, arm, Vector3.Lerp(arm == 0 ? RestR : RestL, palm, up), new Vector3(0.45f * sx, -1f, -0.55f));
-            }
-            return p;
-        }
-
-        CharacterPose SalutePose(in CharacterPose b, float t)
-        {
-            var p = Stance(b);
-            float straight = Env(t, 0f, 0.25f, 2.3f, 2.8f);
-            float up = Seg(t, 0.22f, 0.55f) * (1f - Seg(t, 2.0f, 2.22f));
-            p.PelvisPos += new Vector3(0f, 0.006f * straight, 0f);
-            p.Torso = Quaternion.Euler(-3f * straight, 0f, 0f);
-            p.Head = Quaternion.Euler(-6f * straight, 0f, 0f);
-            float f = 1f - 0.4f * straight;
-            Feet(ref p, new Vector3(0.12f * f, 0f, 0.01f), new Vector3(-0.12f * f, 0f, -0.01f));
-            Alive(ref p, t, 1f - 0.7f * straight);
-            Vector3 brow = HeadPoint(p, new Vector3(0.17f, 0.33f, 0.3f));
-            Vector3 rest = p.TorsoPoint(new Vector3(0.36f, 0.06f, 0.02f));
-            Vector3 hand = Vector3.Lerp(rest, brow, up) + p.TorsoRoot * new Vector3(0.15f, 0f, 0.06f) * Hump(up, 0f, 1f);
-            p.SolveArm(0, hand, p.TorsoRoot * new Vector3(1f, 0.1f, 0.2f));
-            Arm(ref p, 1, new Vector3(-0.355f, 0.06f, 0.01f), new Vector3(-0.2f, 0f, -1f));
             return p;
         }
 

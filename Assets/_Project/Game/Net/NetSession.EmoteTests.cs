@@ -48,7 +48,7 @@ namespace HideAndSeek.Game.Net
             Shot(dir, "tabs_dwell");
             Debug.Log($"[EmoteTabs] 0.10 s on WSPÓLNE: page={EmoteWheel.Page} (expected 0)");
             yield return new WaitForSecondsRealtime(0.2f);
-            Debug.Log($"[EmoteTabs] 0.30 s on WSPÓLNE: page={EmoteWheel.Page} slices={EmoteWheel.SliceCount} (expected 1, 5)");
+            Debug.Log($"[EmoteTabs] 0.30 s on WSPÓLNE: page={EmoteWheel.Page} slices={EmoteWheel.SliceCount} (expected 1, 8)");
             yield return new WaitForSecondsRealtime(0.5f);
             Shot(dir, "tabs_pair");
             Debug.Log($"[EmoteTabs] staying on it 0.8 s: page={EmoteWheel.Page} (expected 1)");
@@ -169,9 +169,12 @@ namespace HideAndSeek.Game.Net
                 }
                 yield return new WaitForSeconds(Mathf.Max(0.6f, info.ThumbTime));
                 var body = me.Character.Actions;
+                foreach (var k in EmoteContacts.For(id))
+                    Debug.Log($"[EmoteTest] {id} contact '{k.Label}' gap now={EmoteContacts.Gap(k, me.Character, null, new PartBox[BodyBoxes.Count]) * 100f:0.0} cm (t={body.EmoteTime:0.00}, want {k.T:0.00})");
                 Debug.Log($"[EmoteTest] {id}: started={ok} var={me.EmoteVar.Value.Id} body={body.Emote} w={body.EmoteWeight:0.00} view={me.EmoteViewActive}");
                 Shot(dir, $"solo_{id}_view");
                 SideShot(dir, $"solo_{id}_side", me, null);
+                SoloBackShot(dir, $"solo_{id}_back", me);
                 float len = info.Loops ? 3.5f : info.Duration - info.ThumbTime;
                 yield return new WaitForSeconds(Mathf.Max(0.5f, len));
                 if (info.Loops) me.StopEmote();
@@ -194,15 +197,30 @@ namespace HideAndSeek.Game.Net
                     if (!pv.Active) continue;
                     var info = Emotes.Get(id);
                     var mm = MatchManager.Instance;
+                    // Contacts: the gap between the two bodies' blocks at each contact moment (same clock on both peers).
+                    var contacts = EmoteContacts.For(id);
+                    System.Array.Sort(contacts, (x, y) => x.T.CompareTo(y.T));
+                    var buf = new PartBox[BodyBoxes.Count];
+                    int ci = 0;
+                    foreach (var k in contacts)
+                    {
+                        while (mm.Now < pv.StartAt + k.T) yield return null;
+                        float g = EmoteContacts.Gap(k, me.Character, other.Character, buf);
+                        Debug.Log($"[EmoteTest] {id} contact '{k.Label}' t={k.T:0.00} gap={g * 100f:0.0} cm {(Mathf.Abs(g) < 0.06f ? "PASS" : "FAIL")}");
+                        if (ci++ < 3) SideShot(dir, $"pair_{id}_c{ci}", me, other);
+                    }
                     while (mm.Now < pv.StartAt + info.ThumbTime) yield return null;
                     float d = Vector3.Distance(me.transform.position, other.transform.position);
-                    Debug.Log($"[EmoteTest] {id}: at contact dist={d:0.00} (want {info.PairDistance:0.00}) other var={other.PairVar.Value.Id} body={me.Character.Actions.Emote}/{other.Character.Actions.Emote}");
+                    Debug.Log($"[EmoteTest] {id}: at thumb dist={d:0.00} (want {info.PairDistance:0.00}) other var={other.PairVar.Value.Id} body={me.Character.Actions.Emote}/{other.Character.Actions.Emote}");
                     Shot(dir, $"pair_{id}_view");
                     SideShot(dir, $"pair_{id}_side", me, other);
+                    SideShot(dir, $"pair_{id}_side2", other, me);
                     if (info.Loops)
                     {
-                        yield return new WaitForSeconds(3.5f);
+                        while (mm.Now < pv.StartAt + Mathf.Max(info.ThumbTime, 3.5f) + 0.5f) yield return null;
                         me.StopEmote();
+                        yield return new WaitForSeconds(0.45f);
+                        SideShot(dir, $"pair_{id}_exit", me, other);
                     }
                     t0 = Time.time;
                     while (me.PairVar.Value.Active && Time.time - t0 < 8f) yield return null;
@@ -225,12 +243,19 @@ namespace HideAndSeek.Game.Net
             me.TeleportLocal(pos, Quaternion.LookRotation(-f).eulerAngles.y);
         }
 
+        private static void SoloBackShot(string dir, string name, NetPlayer me)
+        {
+            var t = me.transform;
+            me.SetCinematicBody(true);
+            CamShot(dir, name, t.position - t.forward * 1.9f + t.right * 1.7f + Vector3.up * 1.3f, t.position + Vector3.up * 0.8f);
+        }
+
         private static void SideShot(string dir, string name, NetPlayer me, NetPlayer other)
         {
             Vector3 c = other != null ? (me.transform.position + other.transform.position) * 0.5f : me.transform.position;
             Vector3 axis = other != null ? (other.transform.position - me.transform.position).normalized : me.transform.forward;
             Vector3 side = Vector3.Cross(Vector3.up, axis);
-            Vector3 eye = c + side * 2.6f + axis * (other != null ? 0.6f : 1.6f) + Vector3.up * 1.4f;
+            Vector3 eye = c + side * 3.7f + axis * (other != null ? 0.8f : 1.6f) + Vector3.up * 1.7f;
             me.SetCinematicBody(true);
             CamShot(dir, name, eye, c + Vector3.up * 1.0f);
         }

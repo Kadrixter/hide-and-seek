@@ -37,8 +37,8 @@ namespace HideAndSeek.Game.Net
                 dist = d;
                 pos = at;
                 _wrestId = o.NetworkObjectId;
-                text = flat > SawTuning.WrestRange ? "E  wyrwij piłę (podejdź bliżej)"
-                    : Inventory.PickupText(_p, HotbarItem.Chainsaw, "E  wyrwij mu piłę!");
+                text = flat > SawTuning.WrestRange ? "E  wyrwij (podejdź bliżej)"
+                    : Inventory.PickupText(_p, HotbarItem.Chainsaw, "E  wyrwij");
             }
             return _wrestId != ulong.MaxValue;
         }

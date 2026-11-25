@@ -9,7 +9,7 @@ namespace HideAndSeek.Map.Editor
         public static readonly string[] HeroPaints =
         {
             "CarPaint_Arancio", "CarPaint_MontegoBlue", "CarPaint_VelocityRed", "CarPaint_Brilliantrot",
-            "CarPaint_Alpinweiss", "CarPaint_Diamantschwarz", "CarPaint_Sunflower", "CarPaint_ReflexSilver"
+            "CarPaint_Alpinweiss", "CarPaint_Diamantschwarz", "CarPaint_Sunflower", "CarPaint_ReflexSilver", "CarPaint_OrangeMetallic"
         };
 
         private void BuildDetailedCarMaterials()
@@ -23,6 +23,7 @@ namespace HideAndSeek.Map.Editor
             Make("CarPaint_Diamantschwarz", new Color(0.025f, 0.025f, 0.03f), null, 1f, 0.45f, 0.86f);
             Make("CarPaint_Sunflower", new Color(0.98f, 0.76f, 0.02f), null, 1f, 0.15f, 0.8f);
             Make("CarPaint_ReflexSilver", new Color(0.66f, 0.68f, 0.7f), null, 1f, 0.6f, 0.78f);
+            Make("CarPaint_OrangeMetallic", new Color(0.88f, 0.27f, 0.025f), null, 1f, 0.45f, 0.86f); // GT86 launch orange
             // extra paints of the ordinary parked cars (realistic mix, see ParkingGarageBuilder.ParkedCars)
             Make("CarPaint_PearlWhite", new Color(0.88f, 0.87f, 0.82f), null, 1f, 0.3f, 0.82f);
             Make("CarPaint_Gunmetal", new Color(0.2f, 0.21f, 0.23f), null, 1f, 0.65f, 0.78f);
@@ -51,6 +52,7 @@ namespace HideAndSeek.Map.Editor
             Make("Car_BadgeBlue", new Color(0.1f, 0.35f, 0.8f), null, 1f, 0.2f, 0.7f);
             Make("Car_BadgeGold", new Color(0.85f, 0.65f, 0.2f), null, 1f, 0.7f, 0.8f);
             // rims
+            Make("Car_WingBlack", new Color(0.025f, 0.025f, 0.028f), null, 1f, 0.25f, 0.78f); // gloss black rear wings
             Make("Car_RimSilver", new Color(0.78f, 0.79f, 0.8f), "Metal_Brushed", 0.5f, 0.45f, 0.72f);
             Make("Car_RimGraphite", new Color(0.22f, 0.23f, 0.24f), null, 1f, 0.5f, 0.6f);
             Make("Car_RimGold", new Color(0.72f, 0.58f, 0.3f), null, 1f, 0.6f, 0.68f);

@@ -78,6 +78,7 @@ namespace HideAndSeek.Game.UI
         private static string Situation(NetPlayer me, MatchPhase phase)
         {
             if (me.HoldsPaMic) return "pa";
+            if (DeadLobby.InLobby) return "deadlobby"; // dead / escaped, walking around the lobby (Game/DeadLobby)
             switch (phase)
             {
                 case MatchPhase.Lobby:
@@ -139,6 +140,14 @@ namespace HideAndSeek.Game.UI
                     break;
                 case "spectate":
                     _tmp.Add(("LPM / PPM", "zmiana obserwowanego gracza"));
+                    if (DeadLobby.Watching) _tmp.Add(("F", "wróć do lobby"));
+                    break;
+                case "deadlobby":
+                    _tmp.Add(("TV", "podejdź do telewizora - gra na żywo"));
+                    _tmp.Add(("LPM / PPM", "przy telewizorze - zmień gracza"));
+                    _tmp.Add(("F", "przy telewizorze - pełny ekran"));
+                    _tmp.Add(("E", "kanapa, włączniki, kominek, rybki, globus"));
+                    if (ptt) _tmp.Add(("V", "mów - słyszą cię tylko martwi"));
                     break;
                 case "pa":
                     _tmp.Add(("LPM", "przytrzymaj - mów przez głośniki na całym parkingu"));

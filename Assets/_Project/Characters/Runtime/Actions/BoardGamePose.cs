@@ -29,6 +29,7 @@ namespace HideAndSeek.Characters
             public Vector3 Bridge;       // pool: left fist (the bridge on the cloth / rail)
             public float Bend;           // pool: 0 = standing with the cue upright, 1 = down in the shooting stance
             public float Walk;           // pool: 0..1 walking around the table
+            public float ClearZ, ClearY; // pool: the table's edge straight ahead (forward distance, rail-top height; ClearZ 0 = none)
         }
 
         const float Reach = RigIK.UpperArm + RigIK.Forearm;

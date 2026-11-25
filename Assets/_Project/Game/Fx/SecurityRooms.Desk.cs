@@ -162,7 +162,7 @@ namespace HideAndSeek.Game
             }
             var ink = new Color(0.12f, 0.15f, 0.4f);
             tb.Text("DZIENNIK ZMIANY", 0.25f, 0.93f, 0.045f, new Color(0.2f, 0.2f, 0.2f));
-            string[] left = { "22:00 obchód P0 - ok", "23:15 brama zamknięta", "00:40 ruch? P-2 kam.4", "01:05 nic nie widać", "02:30 światło P-1 miga" };
+            string[] left = { "22:00 obchód P 0 - ok", "23:15 brama zamknięta", "00:40 ruch? P -2 kam.4", "01:05 nic nie widać", "02:30 światło P -1 miga" };
             for (int i = 0; i < left.Length; i++) tb.Text(left[i], 0.04f, 0.8f - i * 0.075f, 0.035f, ink, TextAnchor.MiddleLeft, false, 0.42f);
             string[] right = { "03:10 hałas przy windzie", "03:12 sprawdzić!!", "03:47 ktoś na schodach", "skrzynię zostawić", "NIE WYCHODZIĆ" };
             for (int i = 0; i < right.Length; i++) tb.Text(right[i], 0.54f, 0.8f - i * 0.075f, 0.035f, i == 4 ? new Color(0.6f, 0.08f, 0.06f) : ink, TextAnchor.MiddleLeft, false, 0.42f);
