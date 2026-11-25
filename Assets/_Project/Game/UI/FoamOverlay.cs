@@ -159,7 +159,7 @@ namespace HideAndSeek.Game
             var st = mm.Extinguishers[idx];
             if (!st.Unlocked) return "LPM - zerwij plombę i wyciągnij zawleczkę   |   Q - odłóż gaśnicę";
             if (st.Charge == 0) return "Gaśnica pusta   |   Q - odłóż";
-            return $"LPM (przytrzymaj) - strzelaj pianą   |   Q - odłóż   |   ciśnienie {Mathf.RoundToInt(st.Charge01 * 100f)}%";
+            return $"LPM - strzał pianą ({ExtTuning.BurstTime:0} s)   |   Q - odłóż   |   zostało użyć: {ExtTuning.UsesLeft(st.Charge)}/{ExtTuning.Uses}";
         }
 
         // ---------------------------------------------------------------- sprites

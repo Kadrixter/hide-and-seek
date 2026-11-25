@@ -37,15 +37,20 @@ namespace HideAndSeek.Game.Net
     /// <summary>Tuning of the extinguishers and the foam.</summary>
     public static class ExtTuning
     {
-        public const float SprayTime = 10f;        // seconds of continuous spraying from full to empty (16.5 / 1.65: +65% use)
-        public const float MaxBurst = 5f;          // longest continuous spray; then the trigger has to be released
+        public const int Uses = 3;                 // a full extinguisher = 3 uses
+        public const float BurstTime = 3f;         // one use = one click = a 3 s spray (no holding)
+        public const float SprayTime = Uses * BurstTime; // seconds of spraying from full to empty
         public const float Range = 4.6f;           // jet reach (m)
         public const float ConeDeg = 13f;          // half angle of the jet that counts as a hit
         public const float ExposureToHit = 0f;     // the foam takes effect on the first hit, no delay
-        public const float FoamTime = 5f;          // seeker: no attacks, slowed, wiping the face
-        public const float FoamMax = 5.5f;          // more spray during the effect extends it up to this in total
+        public const float FoamTime = 6f;          // seeker: no attacks, slowed, wiping the face
+        public const float FoamMax = 6f;          // more spray during the effect extends it up to this in total
         public const float Immunity = 0f;          // after the effect: no cooldown, a fresh hit foams again at once
         public const float FoamSpeed = 0.45f;      // speed multiplier while foamed (recovers in the last 1.2 s)
+        /// <summary>Uses left for a charge (0..<see cref="Uses"/>).</summary>
+        public static int UsesLeft(byte charge) => charge == 0 ? 0 : Mathf.Clamp(Mathf.CeilToInt(charge * Uses / (float)ExtState.Full - 0.02f), 1, Uses);
+        /// <summary>Charge at which the use started at <paramref name="charge"/> ends.</summary>
+        public static int UseEnd(byte charge) => Mathf.RoundToInt(ExtState.Full * (UsesLeft(charge) - 1) / (float)Uses);
         public const float TakeRange = 1.9f, PromptRange = 2.6f, HangBackRange = 1.7f;
     }
 
@@ -66,6 +71,7 @@ namespace HideAndSeek.Game.Net
         private System.Action _stepExt;
         private bool _extSpawned;
         private readonly float[] _extDrain = new float[3];
+        private readonly int[] _extUseEnd = { -1, -1, -1 }; // charge at which the running use ends, -1 = none
         private readonly double[] _extUnlockAt = new double[3];
         private readonly Vector3[] _extLastPos = new Vector3[3];
         private float _extNextHitTest;
@@ -117,6 +123,7 @@ namespace HideAndSeek.Game.Net
                 {
                     Extinguishers.Add(new ExtState { Where = ExtState.OnWall, Holder = NoExtHolder, Charge = ExtState.Full });
                     _extDrain[i] = 0f;
+                    _extUseEnd[i] = -1;
                 }
                 Debug.Log("[Ext] 3 extinguishers on their brackets");
             }

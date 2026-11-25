@@ -18,8 +18,7 @@ namespace HideAndSeek.Game.Net
         public static bool TestExtSpray, TestExtDrop;
 
         private int _extPromptIdx = -1;
-        private float _extNextRequest, _extPinAt = -99f, _extEmptyToast, _extBurst;
-        private bool _extBurstOut;
+        private float _extNextRequest, _extPinAt = -99f, _extEmptyToast, _extBurstEnd = -99f;
 
         /// <summary>Called before the other actions; true while the extinguisher (or the foam) owns the hands.</summary>
         private bool ExtTick(Keyboard kb, Mouse mouse)
@@ -35,6 +34,7 @@ namespace HideAndSeek.Game.Net
             int idx = mm.ExtHeldBy(_p);
             if (idx < 0)
             {
+                _extBurstEnd = -99f;
                 if (_p.ExtSpray.Value) _p.ExtSpray.Value = false;
                 return false;
             }
@@ -48,19 +48,16 @@ namespace HideAndSeek.Game.Net
                 _p.RequestExtRpc(MatchManager.ExtUnlock, (byte)idx);
             }
             bool pinAnim = Time.time - _extPinAt < ExtTimeline.SprayAfterUnlock;
-            bool spray = trigger && st.Unlocked && st.Charge > 0 && !pinAnim && !_p.Motor.IsProne;
-            // at most ExtTuning.MaxBurst s of continuous spraying, then the trigger has to be released
-            if (!trigger) { _extBurst = 0f; _extBurstOut = false; }
-            if (spray && !_extBurstOut)
+            bool can = st.Unlocked && st.Charge > 0 && !pinAnim && !_p.Motor.IsProne;
+            // one click = one use: a ExtTuning.BurstTime s spray on its own (no holding), ExtTuning.Uses per extinguisher
+            bool bursting = Time.time < _extBurstEnd;
+            if (click && can && !bursting && st.Unlocked && Time.time - _extPinAt >= ExtTimeline.SprayAfterUnlock)
             {
-                _extBurst += Time.deltaTime;
-                if (_extBurst >= ExtTuning.MaxBurst)
-                {
-                    _extBurstOut = true;
-                    GameHud.Toast("Puść przycisk, żeby psikać dalej.", 1.8f);
-                }
+                _extBurstEnd = Time.time + ExtTuning.BurstTime;
+                bursting = true;
             }
-            if (_extBurstOut) spray = false;
+            bool spray = bursting && can;
+            if (!spray) _extBurstEnd = -99f;
             if (_p.ExtSpray.Value != spray) _p.ExtSpray.Value = spray;
             if (click && st.Unlocked && st.Charge == 0 && Time.time >= _extEmptyToast)
             {

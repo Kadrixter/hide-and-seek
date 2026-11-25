@@ -26,13 +26,25 @@ namespace HideAndSeek.Game.Net
         {
             var e = Extinguishers[i];
             bool spraying = p.ExtSpray.Value && e.Unlocked && e.Charge > 0 && Now - _extUnlockAt[i] >= ExtTimeline.SprayAfterUnlock - 0.15f && !p.Motion.Value.IsProne;
-            if (!spraying) return;
+            if (!spraying)
+            {
+                // the use is over (or cut short): the whole use is spent
+                if (_extUseEnd[i] >= 0)
+                {
+                    if (e.Charge > _extUseEnd[i]) { e.Charge = (byte)_extUseEnd[i]; Extinguishers[i] = e; }
+                    _extUseEnd[i] = -1;
+                    _extDrain[i] = 0f;
+                }
+                return;
+            }
+            if (_extUseEnd[i] < 0) _extUseEnd[i] = ExtTuning.UseEnd(e.Charge);
+            if (e.Charge <= _extUseEnd[i]) return; // this use has run out, the next one needs a new click
             _extDrain[i] += Time.deltaTime * ExtState.Full / ExtTuning.SprayTime;
             int dec = Mathf.FloorToInt(_extDrain[i]);
             if (dec > 0)
             {
                 _extDrain[i] -= dec;
-                e.Charge = (byte)Mathf.Max(0, e.Charge - dec);
+                e.Charge = (byte)Mathf.Max(_extUseEnd[i], e.Charge - dec);
                 Extinguishers[i] = e;
                 if (e.Charge == 0) Debug.Log($"[Ext] extinguisher {i} is empty");
             }
