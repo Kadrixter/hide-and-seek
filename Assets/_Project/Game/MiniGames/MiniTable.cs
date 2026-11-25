@@ -37,6 +37,19 @@ namespace HideAndSeek.Game.MiniGames
         public float FootRestY => transform.position.y + TableKit.FootRing + 0.015f;
         public virtual Vector3 Centre => transform.TransformPoint(new Vector3(0f, SurfaceY, 0f));
 
+        /// <summary>Point the player must look at for the "E" prompt (and where the prompt hangs).</summary>
+        public virtual Vector3 PromptTarget(Vector3 eye) => Centre;
+
+        /// <summary>The "E" prompt may show for this table at all (eye close enough to it).</summary>
+        public virtual bool PromptNear(Vector3 eye) => Vector3.Distance(eye, Centre) <= 2.4f;
+
+        /// <summary>Horizontal distance of a player at <paramref name="pos"/> to joining seat <paramref name="seat"/> (prompt: nearest wins, at most 2.2 m; server: at most 2.6 m).</summary>
+        public virtual float JoinDistance(Vector3 pos, int seat)
+        {
+            Vector3 s = SeatStand(seat);
+            return Vector2.Distance(new Vector2(pos.x, pos.z), new Vector2(s.x, s.z));
+        }
+
         /// <summary>Camera above the board seen from a seat (pitched down at the board from behind the player's head).</summary>
         public virtual void CameraPose(int seat, float zoom, out Vector3 pos, out Quaternion rot)
         {

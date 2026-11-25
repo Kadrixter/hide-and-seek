@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.MiniGames
     /// <summary>
     /// Keys and mouse of the local player at a board-game table (runs before the HUD, so Esc opens our question
     /// instead of the game menu): LMB = select / move / mark, Esc = get up (asks first; resigns a running game),
-    /// R = rematch, C = time control (chess, between games). Also keeps <see cref="MiniGameHud"/> up to date.
+    /// R = rematch, C = time control (chess, between games). Pool: the mouse goes to PoolTable.LocalPointer (aiming). Also keeps <see cref="MiniGameHud"/> up to date.
     /// </summary>
     [DefaultExecutionOrder(-500)]
     public sealed class MiniGameLocal : MonoBehaviour
@@ -44,7 +44,12 @@ namespace HideAndSeek.Game.MiniGames
             bool dialog = ConfirmDialog.IsOpen || LocalPlayerController.MenuOpen;
             if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape)
             {
-                if (table.Playing)
+                if (table is PoolTable)
+                {
+                    if (table.Playing) ConfirmDialog.Show("Poddać partię i odejść?", "Przeciwnik wygra tę partię.", "Tak, odchodzę", "Nie", me.MiniLeaveRpc);
+                    else ConfirmDialog.Show("Odejść od stołu?", null, "Tak", "Nie", me.MiniLeaveRpc);
+                }
+                else if (table.Playing)
                     ConfirmDialog.Show(table is ChessTable ? "Poddać partię i wstać?" : "Przerwać grę i odejść?",
                         table is ChessTable ? "Przeciwnik wygra przez poddanie." : "Runda nie zostanie policzona.", "Tak, wstaję", "Nie", me.MiniLeaveRpc);
                 else ConfirmDialog.Show(table is ChessTable ? "Wstać od stolika?" : "Odejść od tablicy?", null, "Tak", "Nie", me.MiniLeaveRpc);
@@ -58,6 +63,7 @@ namespace HideAndSeek.Game.MiniGames
             bool click = mouse.leftButton.wasPressedThisFrame && !overUi && MiniGameCamera.Weight > 0.8f;
             if (table is ChessTable chess) chess.LocalPointer(me, ray, click);
             else if (table is TttTable ttt) ttt.LocalPointer(me, ray, click);
+            else if (table is PoolTable pool) pool.LocalPointer(me, ray, click);
         }
     }
 }

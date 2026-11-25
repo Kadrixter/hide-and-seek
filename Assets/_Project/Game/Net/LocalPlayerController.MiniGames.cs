@@ -40,6 +40,7 @@ namespace HideAndSeek.Game.Net
                 if (_miniWasSeated)
                 {
                     _miniWasSeated = false;
+                    PoolTable.CursorHidden = false;
                     _p.BoardBodyEnd();
                 }
                 return false;
@@ -53,8 +54,10 @@ namespace HideAndSeek.Game.Net
             _p.Motor.LookEnabled = false;
             _p.InputReader.ManageCursor = false;
             _p.InputReader.ResetStance(); // C is the time-control key here, not crouch
-            if (!Cursor.visible) Cursor.visible = true;
-            if (Cursor.lockState != CursorLockMode.None) Cursor.lockState = CursorLockMode.None;
+            // Pool: the aiming code may hide / lock the cursor while a stroke is drawn (PoolTable.CursorHidden).
+            bool poolHides = table is PoolTable && PoolTable.CursorHidden;
+            if (!Cursor.visible && !poolHides) Cursor.visible = true;
+            if (Cursor.lockState != CursorLockMode.None && !poolHides) Cursor.lockState = CursorLockMode.None;
             var cc = _p.GetComponent<CharacterController>();
             if (cc != null && cc.enabled) cc.enabled = false;
             if (_p.Flashlight != null) _p.Flashlight.ListenToInput = false;

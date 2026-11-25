@@ -63,8 +63,18 @@ namespace HideAndSeek.Game.MiniGames.Pool
             return d;
         }
 
-        public static Texture2D Make(int n)
+        public static Texture2D Make(int n) => Make(n, W, H);
+
+        /// <summary>Texture of ball <paramref name="n"/> at a smaller size (<paramref name="w"/> x <paramref name="h"/>, 2:1), e.g. 1024 x 512 in the lobby.</summary>
+        public static Texture2D Make(int n, int w, int h) => ToTexture(n, Pixels(n, w, h), w, h);
+
+        /// <summary>
+        /// The pixels of ball <paramref name="n"/> (row-major, w x h). Pure maths with no Unity objects, so it may run
+        /// on a worker thread; <see cref="ToTexture"/> then uploads them on the main thread.
+        /// </summary>
+        public static Color32[] Pixels(int n, int w, int h)
         {
+            int W = Mathf.Max(8, w), H = Mathf.Max(4, h);
             var px = new Color32[W * H];
             var cosLon = new float[W];
             var sinLon = new float[W];
@@ -131,6 +141,13 @@ namespace HideAndSeek.Game.MiniGames.Pool
                     px[y * W + x] = col;
                 }
             }
+            return px;
+        }
+
+        /// <summary>Main thread: a mip-mapped, compressed texture from <see cref="Pixels"/>.</summary>
+        public static Texture2D ToTexture(int n, Color32[] px, int w, int h)
+        {
+            int W = Mathf.Max(8, w), H = Mathf.Max(4, h);
             var tex = new Texture2D(W, H, TextureFormat.RGB24, true, false)
             {
                 name = "PoolBall" + n,

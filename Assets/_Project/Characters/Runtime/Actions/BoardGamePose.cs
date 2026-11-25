@@ -25,6 +25,10 @@ namespace HideAndSeek.Characters
             public float Lean;           // extra lean (degrees) e.g. while it is the player's turn
             public bool Standing;        // at a wall board instead of a table (see BoardGamePose.Standing.cs)
             public Vector3 Shift;        // standing: where the body steps to while reaching (root space, on the floor)
+            public bool Pool;            // at the pool table with a cue (see BoardGamePose.Pool.cs): Reach = right fist on the cue
+            public Vector3 Bridge;       // pool: left fist (the bridge on the cloth / rail)
+            public float Bend;           // pool: 0 = standing with the cue upright, 1 = down in the shooting stance
+            public float Walk;           // pool: 0..1 walking around the table
         }
 
         const float Reach = RigIK.UpperArm + RigIK.Forearm;
@@ -34,6 +38,7 @@ namespace HideAndSeek.Characters
         public static CharacterPose Compute(in Input inp, float time)
         {
             if (inp.Standing) return Standing(inp, time);
+            if (inp.Pool) return PoolStance(inp, time);
             var p = CharacterPose.Identity;
             float s = inp.Seed;
             float breathe = Mathf.Sin(time * 1.55f + s * 3f);

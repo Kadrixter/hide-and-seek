@@ -1,4 +1,5 @@
 using HideAndSeek.Game.MiniGames;
+using HideAndSeek.Game.MiniGames.Pool;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -6,8 +7,8 @@ using UnityEngine;
 namespace HideAndSeek.Game.Net
 {
     /// <summary>
-    /// Lobby board games (chess, tic-tac-toe), refereed by the server. Each table's whole state is one text network
-    /// variable (<see cref="ChessNet"/>, <see cref="TttNet"/>): late joiners get the current board at once, every
+    /// Lobby board games (chess, tic-tac-toe, pool), refereed by the server. Each table's whole state is one text network
+    /// variable (<see cref="ChessNet"/>, <see cref="TttNet"/>, <see cref="PoolNet"/>): late joiners get the current board at once, every
     /// change is one update, and the clients animate the difference. Players sit down with E (seat A / B), a game
     /// starts when both seats are taken; leaving, disconnecting or the round starting ends it cleanly.
     /// </summary>
@@ -34,16 +35,19 @@ namespace HideAndSeek.Game.Net
                 _miniInit = true;
                 ResetChess(true);
                 ResetTtt(true);
+                ResetPool(true);
             }
             if (!lobby)
             {
                 // Round starting / loading: every game ends, every seat is freed.
                 if (_chess.A != ChessState.Nobody || _chess.B != ChessState.Nobody || _chess.Phase != ChessState.Waiting) ResetChess(true);
                 if (_ttt.A != TttState.Nobody || _ttt.B != TttState.Nobody || _ttt.Phase != TttState.Waiting) ResetTtt(true);
+                if (_pool.A != PoolState.Nobody || _pool.B != PoolState.Nobody || _pool.Phase != PoolState.Waiting || _poolPending != null) ResetPool(true);
                 return;
             }
             ChessServerTick();
             TttServerTick();
+            PoolServerTick();
         }
 
         /// <summary>Which table and seat a player sits at (game, seat) or (-1, -1).</summary>
@@ -53,22 +57,24 @@ namespace HideAndSeek.Game.Net
             if (s >= 0) return (GameChess, s);
             s = _ttt.SeatOf(id);
             if (s >= 0) return (GameTtt, s);
+            s = _pool.SeatOf(id);
+            if (s >= 0) return (GamePool, s);
             return (-1, -1);
         }
 
         /// <summary>Server: E at a table = sit down on seat A / B.</summary>
         public void ServerMiniSit(NetPlayer pl, byte game, byte seat)
         {
-            if (pl == null || Phase.Value != MatchPhase.Lobby || seat > 1 || game > 1) return;
+            if (pl == null || Phase.Value != MatchPhase.Lobby || seat > 1 || game > GamePool) return;
             string why = pl.Busy.Value ? "busy" : pl.Seat.Value >= 0 ? "on a sofa" : ArcadePlayer.Value == pl.NetworkObjectId ? "at the arcade"
                 : ForkHolder.Value == pl.NetworkObjectId ? "holds the fork" : MiniSeatOf(pl.NetworkObjectId).game >= 0 ? "already seated" : null;
             var table = MiniGameTables.Get(game);
             if (why == null && table == null) why = "no table";
-            if (why == null && Vector3.Distance(pl.transform.position, table.SeatStand(seat)) > 2.6f)
-                why = $"too far ({Vector3.Distance(pl.transform.position, table.SeatStand(seat)):0.0} m)";
+            if (why == null && table.JoinDistance(pl.transform.position, seat) > 2.6f)
+                why = $"too far ({table.JoinDistance(pl.transform.position, seat):0.0} m)";
             if (why != null)
             {
-                Debug.Log($"[MiniGames] {pl.Nick} cannot sit at {(game == GameChess ? "chess" : "ttt")} seat {seat}: {why}");
+                Debug.Log($"[MiniGames] {pl.Nick} cannot sit at {GameName(game)} seat {seat}: {why}");
                 return;
             }
             if (game == GameChess)
@@ -78,6 +84,10 @@ namespace HideAndSeek.Game.Net
                 _chess.Rematch = 0;
                 if (_chess.A != ChessState.Nobody && _chess.B != ChessState.Nobody) StartChess(false);
                 else PublishChess();
+            }
+            else if (game == GamePool)
+            {
+                if (!PoolSit(pl, seat)) return;
             }
             else
             {
@@ -92,7 +102,7 @@ namespace HideAndSeek.Game.Net
                 else PublishTtt();
             }
             pl.TeleportRpc(table.SeatStand(seat), table.SeatYaw(seat));
-            Debug.Log($"[MiniGames] {pl.Nick} sat at {(game == GameChess ? "chess" : "ttt")} seat {(seat == 0 ? 'A' : 'B')}");
+            Debug.Log($"[MiniGames] {pl.Nick} sat at {GameName(game)} seat {(seat == 0 ? 'A' : 'B')}");
         }
 
         /// <summary>Server: the player gets up (Esc). A running game is resigned / abandoned.</summary>
@@ -102,6 +112,7 @@ namespace HideAndSeek.Game.Net
             var (game, seat) = MiniSeatOf(pl.NetworkObjectId);
             if (game == GameChess) ChessSeatLeft(seat, false);
             else if (game == GameTtt) TttSeatLeft(seat, false);
+            else if (game == GamePool) PoolSeatLeft(seat, false);
             var table = game >= 0 ? MiniGameTables.Get(game) : null;
             if (table != null) pl.TeleportRpc(table.LeavePoint(seat), table.SeatYaw(seat));
         }
@@ -122,7 +133,10 @@ namespace HideAndSeek.Game.Net
                 // Tic-tac-toe rounds are short: one R from either player starts the next one (the other starts it).
                 if (_ttt.A != TttState.Nobody && _ttt.B != TttState.Nobody) StartTtt(true);
             }
+            else if (game == GamePool) PoolRematch(seat);
         }
+
+        private static string GameName(int game) => game == GameChess ? "chess" : game == GameTtt ? "ttt" : game == GamePool ? "pool" : "?";
 
         private static string NickOf(ulong id)
         {
