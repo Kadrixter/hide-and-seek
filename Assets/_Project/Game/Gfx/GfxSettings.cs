@@ -129,6 +129,7 @@ namespace HideAndSeek.Game.Gfx
             Prefs.SetInt("hns.gfx.bloom", p.Bloom ? 1 : 0);
             Prefs.SetInt("hns.gfx.lights", p.Lights);
             Prefs.SetFloat("hns.gfx.lod", p.Lod);
+            MirrorSettings.Quality = MirrorSettings.ForPreset(Mathf.Clamp(i, 0, Presets.Length - 1)); // the lobby mirror follows the profile
             Apply();
         }
 
@@ -172,8 +173,29 @@ namespace HideAndSeek.Game.Gfx
             QualitySettings.vSyncCount = vs ? 1 : 0;
             int cap = FpsCap;
             Application.targetFrameRate = vs || cap <= 0 ? -1 : cap;
+            if (CmdFps > 0)
+            {
+                // -fps N on the command line (test windows): a hard cap over the player's own settings.
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = CmdFps;
+            }
 
             Changed?.Invoke();
+        }
+
+        private static int _cmdFps = -1;
+
+        /// <summary>-fps N from the command line (0 = none): caps test windows so several of them do not eat the PC.</summary>
+        public static int CmdFps
+        {
+            get
+            {
+                if (_cmdFps >= 0) return _cmdFps;
+                var a = System.Environment.GetCommandLineArgs();
+                int i = System.Array.IndexOf(a, "-fps");
+                _cmdFps = i >= 0 && i + 1 < a.Length && int.TryParse(a[i + 1], out int n) && n > 0 ? n : 0;
+                return _cmdFps;
+            }
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -184,7 +206,7 @@ namespace HideAndSeek.Game.Gfx
             GfxPostDriver.Ensure();
             GarageReflections.Ensure();
             Debug.Log($"[Gfx] profile {(CurrentPreset() is int p && p >= 0 ? Presets[p].Name : "własny")}: AA {AaName(Aa)}, aniso {Aniso}x, textures {TextureName(TextureLevel)}, " +
-                      $"shadows {ShadowName(Shadows)} {ShadowDistance:0} m, bloom {Bloom}, vsync {VSync}, fps cap {FpsCap}, lights {PixelLights}, lod {LodBias}, reflections {Reflections}");
+                      $"shadows {ShadowName(Shadows)} {ShadowDistance:0} m, bloom {Bloom}, vsync {VSync}, fps cap {FpsCap}, lights {PixelLights}, lod {LodBias}, reflections {Reflections}, mirror {MirrorSettings.Name(MirrorSettings.Quality)}");
         }
     }
 }

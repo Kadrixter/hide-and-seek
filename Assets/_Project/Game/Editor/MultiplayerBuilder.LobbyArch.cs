@@ -8,7 +8,7 @@ namespace HideAndSeek.Game.Editor
     /// The arch in the lobby's west wall and the passage behind it (to the drift track, <see cref="DriftTrackLayout"/>):
     /// the plain wall box is replaced by a wall mesh with a round-headed opening (wallpaper on the room side in the
     /// same phase as before, brick on the passage side), framed by a dark wood architrave (plinths, pilasters, a round
-    /// archivolt, keystone) with a brass "TOR DRIFTOWY" plaque above; the reveal is lined with wood. The passage is
+    /// archivolt, keystone); the reveal is lined with wood. The passage is
     /// brick with an asphalt floor (its material is the track's asphalt: TrackArt.cs), a cage lamp and a closed roller
     /// shutter at the far end - the runtime track lifts it in the real lobby, the dead-lobby copy keeps it shut (no
     /// track there). The neon sign above the side sofa moves 0.8 m north to clear the arch.
@@ -24,7 +24,6 @@ namespace HideAndSeek.Game.Editor
 
             var wood = Mat("LobbyDarkWood", new Color(0.55f, 0.4f, 0.3f), Tex("lobby_wood", TexKind.Wood), 0.5f, new Vector2(1, 1));
             var brick = Mat("TrackPassageBrick", new Color(0.78f, 0.62f, 0.55f), Tex("track_bricks", TexKind.Bricks), 0.08f, new Vector2(2f, 1.5f));
-            var brass = Mat("TrackBrass", new Color(0.72f, 0.55f, 0.25f), null, 0.75f, Vector2.one, 0.8f);
             var concrete = Mat("TrackPassageConcrete", new Color(0.55f, 0.55f, 0.56f), Tex("track_concrete", TexKind.Concrete), 0.1f, new Vector2(2f, 2f));
             var steel = Mat("TrackSteel", new Color(0.42f, 0.44f, 0.47f), null, 0.55f, Vector2.one, 0.7f);
 
@@ -32,7 +31,6 @@ namespace HideAndSeek.Game.Editor
             ArchFrame(root, wood, -LobbyLayout.HalfW + 0.002f, 1f);
             ArchFrame(root, wood, DriftTrackLayout.PassageStart - 0.002f, -1f);
             ArchReveal(root, wood);
-            ArchPlaque(root, brass);
             BuildPassage(root, brick, concrete, steel);
 
             // Neon above the side sofa: 0.8 m north, clear of the arch.
@@ -156,25 +154,6 @@ namespace HideAndSeek.Game.Editor
             go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(m.ToMesh("ArchReveal"), "LobbyArchReveal");
             go.AddComponent<MeshRenderer>().sharedMaterial = wood;
             go.isStatic = true;
-        }
-
-        private static void ArchPlaque(Transform root, Material brass)
-        {
-            float x = -LobbyLayout.HalfW;
-            var p = Deco("ArchPlaque", root, new Vector3(x + 0.012f, DriftTrackLayout.ArchTop + 0.36f, DriftTrackLayout.ArchZ), new Vector3(0.02f, 0.16f, 0.78f), brass);
-            RoundCube(p.transform, 0.008f, 0f);
-            var t = new GameObject("ArchPlaqueText").AddComponent<TextMesh>();
-            t.transform.SetParent(root, false);
-            t.transform.position = new Vector3(x + 0.024f, DriftTrackLayout.ArchTop + 0.36f, DriftTrackLayout.ArchZ);
-            t.transform.rotation = Quaternion.Euler(0f, -90f, 0f);
-            t.text = "TOR DRIFTOWY";
-            t.characterSize = 0.02f;
-            t.fontSize = 64;
-            t.fontStyle = FontStyle.Bold;
-            t.anchor = TextAnchor.MiddleCenter;
-            t.color = new Color(0.16f, 0.1f, 0.04f);
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            AddWorldText(t, new Vector2(0.7f, 0.12f));
         }
     }
 }

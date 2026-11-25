@@ -157,7 +157,7 @@ namespace HideAndSeek.Game
                 psi.StandardOutputEncoding = Encoding.UTF8;
                 p = Process.Start(psi);
                 lock (Running) Running.Add(p);
-                string err = null, file = null, line;
+                string err = null, file = null;
                 p.ErrorDataReceived += (_, e) =>
                 {
                     if (string.IsNullOrEmpty(e.Data)) return;
@@ -165,9 +165,10 @@ namespace HideAndSeek.Game
                     if (e.Data.Contains("ERROR")) err = e.Data.Length > 90 ? e.Data.Substring(0, 90) + "..." : e.Data;
                 };
                 p.BeginErrorReadLine();
-                while ((line = p.StandardOutput.ReadLine()) != null)
+                // Until the exit, not the end of the pipe (another process may hold it open: RadioTools.ReadLinesUntilExit).
+                RadioTools.ReadLinesUntilExit(p, l =>
                 {
-                    line = line.Trim();
+                    string line = l.Trim();
                     if (line.StartsWith("HNSPROG"))
                     {
                         string v = line.Substring(7).Trim().TrimEnd('%');
@@ -175,8 +176,7 @@ namespace HideAndSeek.Game
                             d.Progress = Mathf.Clamp01(pc / 100f) * 0.99f;
                     }
                     else if (line.Length > 0 && File.Exists(line)) file = line;
-                }
-                p.WaitForExit(15000);
+                }, 30 * 60 * 1000);
                 if (file == null) throw new Exception(err ?? "yt-dlp nie zapisał pliku");
                 string final = Path.Combine(Dir, d.Key + Path.GetExtension(file));
                 try

@@ -48,10 +48,10 @@ namespace HideAndSeek.Game
                 l.transform.SetPositionAndRotation(top + aim * new Vector3(0f, 0f, 0.4f), aim);
                 l.type = LightType.Spot;
                 l.spotAngle = 112f;
-                l.innerSpotAngle = 60f;
-                l.range = 160f;
-                l.intensity = 5.5f;
-                l.color = new Color(1f, 0.96f, 0.88f);
+                l.innerSpotAngle = 30f; // soft edge
+                l.range = 110f;
+                l.intensity = 1.25f; // a believable night track: lit enough to drive, no blown-out asphalt
+                l.color = new Color(1f, 0.9f, 0.76f); // warm sodium-white
                 l.shadows = i == 6 || i == 7 ? LightShadows.Soft : LightShadows.None; // two shadow casters (mid north / south)
                 l.shadowStrength = 0.8f;
                 l.renderMode = LightRenderMode.ForcePixel;
@@ -59,19 +59,19 @@ namespace HideAndSeek.Game
             }
             TrackMats.Piece(root, "TowerPoles", pole.ToMesh("TrackTowerPoles"), TrackMats.Get("TrackGalvanised", new Color(0.5f, 0.52f, 0.54f), 0.55f, 0.6f));
             TrackMats.Piece(root, "TowerHeads", head.ToMesh("TrackTowerHeads"), TrackMats.Get("TrackSteelDark", new Color(0.22f, 0.23f, 0.25f), 0.5f, 0.7f));
-            TrackMats.Piece(root, "TowerGlow", glow.ToMesh("TrackTowerGlow"), TrackMats.Glow("TrackLampGlow", new Color(1f, 0.97f, 0.9f), new Color(6f, 5.6f, 4.8f)), false);
+            TrackMats.Piece(root, "TowerGlow", glow.ToMesh("TrackTowerGlow"), TrackMats.Glow("TrackLampGlow", new Color(1f, 0.97f, 0.9f), new Color(1.7f, 1.5f, 1.2f)), false);
 
             // Warm lamp over the gate and the kart row.
             var gate = new GameObject("GateLight").AddComponent<Light>();
             gate.transform.SetParent(root, false);
-            gate.transform.position = new Vector3(DriftTrackLayout.PadEast - 3.5f, 4.6f, DriftTrackLayout.ArchZ + 7.5f);
+            gate.transform.position = new Vector3(DriftTrackLayout.PadEast - 4.5f, 4.2f, DriftTrackLayout.ArchZ + 8.5f); // range kept off the lobby room
             gate.type = LightType.Point;
-            gate.range = 19f;
-            gate.intensity = 2.3f;
+            gate.range = 9.5f;
+            gate.intensity = 1.2f;
             gate.color = new Color(1f, 0.8f, 0.55f);
             var lamp = new ProcMesh();
-            lamp.At(new Vector3(DriftTrackLayout.PadEast - 0.15f, 4.6f, DriftTrackLayout.ArchZ + 7.5f)).Box(Vector3.zero, new Vector3(0.3f, 0.2f, 0.5f));
-            TrackMats.Piece(root, "GateLamp", lamp.ToMesh("TrackGateLamp"), TrackMats.Glow("TrackGateLampGlow", new Color(1f, 0.85f, 0.6f), new Color(3f, 2.2f, 1.3f)), false);
+            lamp.At(new Vector3(DriftTrackLayout.PadEast - 0.15f, 4.4f, DriftTrackLayout.ArchZ + 8.5f)).Box(Vector3.zero, new Vector3(0.3f, 0.2f, 0.5f));
+            TrackMats.Piece(root, "GateLamp", lamp.ToMesh("TrackGateLamp"), TrackMats.Glow("TrackGateLampGlow", new Color(1f, 0.85f, 0.6f), new Color(1.4f, 1.0f, 0.6f)), false);
 
             Sky(root);
         }

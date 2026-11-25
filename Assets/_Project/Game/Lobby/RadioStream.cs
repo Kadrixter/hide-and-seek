@@ -68,7 +68,13 @@ namespace HideAndSeek.Game
             _ring = new float[RingFrames * Ch];
         }
 
-        public static RadioStream Start(string url, float pos, out string error)
+        public static RadioStream Start(string url, float pos, out string error) => Start(url, null, pos, out error);
+
+        /// <summary>The sound of a local file that is already there (the lobby TV plays its video file's sound track).</summary>
+        public static RadioStream StartFile(string path, float pos, out string error) =>
+            Start(path, new RadioDownload(path, path) { Path = path, Progress = 1f, Started = true }, pos, out error);
+
+        private static RadioStream Start(string url, RadioDownload file, float pos, out string error)
         {
             error = null;
             if (RadioTools.YtDlp == null || RadioTools.Ffmpeg == null)
@@ -77,7 +83,7 @@ namespace HideAndSeek.Game
                 return null;
             }
             int rate = AudioSettings.outputSampleRate > 0 ? AudioSettings.outputSampleRate : 48000;
-            var s = new RadioStream(pos, rate) { _dl = RadioCache.Get(url, true) };
+            var s = new RadioStream(pos, rate) { _dl = file ?? RadioCache.Get(url, true) };
             // Waiting for the file and starting ffmpeg: never on the main thread, which also sends and receives the
             // voice chat.
             new Thread(() =>

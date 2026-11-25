@@ -56,6 +56,7 @@ namespace HideAndSeek.Game.Net
         FuseInfo,       // looking at a fuse box with nothing to do there (text only)
         SawWrest,       // E next to a knocked-out / blinded seeker with the chainsaw: take it (LocalPlayerController.SawWrest.cs)
         Kart,           // E at the free lobby go-kart: get in (LocalPlayerController.Kart.cs)
+        LobbyTv,        // E looking at the lobby wall TV: the YouTube panel (LocalPlayerController.LobbyTv.cs)
     }
 
     /// <summary>
@@ -801,6 +802,7 @@ namespace HideAndSeek.Game.Net
                     float d = Vector3.Distance(eye, bp);
                     if (d <= 2.3f && InView(eye, fwd, bp, 35f, bb.transform)) Offer(PromptKind.Radio, bp + Vector3.up * 0.25f, "E  radio", d);
                 }
+                if (TryTvPrompt(eye, fwd, out var tvPos, out float tvD)) Offer(PromptKind.LobbyTv, tvPos, "E  telewizor (YouTube)", tvD);
                 var vend = LobbyVending.Instance;
                 if (vend != null && vend.Free && mmL.ForkHolder.Value != _p.NetworkObjectId)
                 {
@@ -1102,6 +1104,9 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.Radio:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) Boombox.OpenPanel();
+                    break;
+                case PromptKind.LobbyTv:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) LobbyTvVideo.OpenPanel();
                     break;
                 case PromptKind.ExitDoor:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestExitDoorRpc();

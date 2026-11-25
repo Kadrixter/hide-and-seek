@@ -24,6 +24,8 @@ namespace HideAndSeek.Game
         private bool _ended;
         private GUIStyle _hint, _big;
         private readonly RaycastHit[] _hits = new RaycastHit[8];
+        /// <summary>First person (the driver's eyes) by default; V switches to the chase camera and back (kept for the session).</summary>
+        public static bool FirstPerson = true;
 
         public static KartCamera Begin(NetPlayer me, LobbyKart kart)
         {
@@ -84,11 +86,20 @@ namespace HideAndSeek.Game
             float dt = Time.deltaTime;
             if (_me.Camera != null && _me.Camera.enabled) _me.Camera.enabled = false; // one view, one listener
             var mouse = Mouse.current;
+            var kb = Keyboard.current;
+            if (kb != null && kb.vKey.wasPressedThisFrame && !LocalPlayerController.MenuOpen)
+            {
+                FirstPerson = !FirstPerson;
+                _orbitYaw = 0f;
+                _orbitPitch = FirstPerson ? 0f : 16f;
+            }
+            if (_cam != null)
+                _cam.cullingMask = FirstPerson ? ~((1 << 9) | (1 << PlayerAvatarBinder.LocalBodyLayer)) : ~(1 << 9); // own body hidden in first person
             if (mouse != null && !LocalPlayerController.MenuOpen && Cursor.lockState == CursorLockMode.Locked)
             {
                 Vector2 d = mouse.delta.ReadValue() * 0.1f * Mathf.Max(0.2f, LocalProfile.MouseSensitivity);
-                _orbitYaw = Mathf.Clamp(_orbitYaw + d.x, -170f, 170f);
-                _orbitPitch = Mathf.Clamp(_orbitPitch - d.y, -2f, 50f);
+                _orbitYaw = Mathf.Clamp(_orbitYaw + d.x, FirstPerson ? -110f : -170f, FirstPerson ? 110f : 170f);
+                _orbitPitch = Mathf.Clamp(_orbitPitch - d.y, FirstPerson ? -30f : -2f, FirstPerson ? 35f : 50f);
                 _idle = d.sqrMagnitude > 0.01f ? 0f : _idle + dt;
             }
             else _idle += dt;
@@ -96,7 +107,7 @@ namespace HideAndSeek.Game
             {
                 float k = 1f - Mathf.Exp(-2.5f * dt);
                 _orbitYaw = Mathf.Lerp(_orbitYaw, 0f, k);
-                _orbitPitch = Mathf.Lerp(_orbitPitch, 16f, k);
+                _orbitPitch = Mathf.Lerp(_orbitPitch, FirstPerson ? 0f : 16f, k);
             }
             // Drift timer for the overlay.
             bool drifting = _kart.SlidingNow && Mathf.Abs(_kart.SlipAngleShown) > 10f && _kart.Phys.Speed > 2f;
@@ -111,6 +122,7 @@ namespace HideAndSeek.Game
 
         private void Place(float dt, bool snap)
         {
+            if (FirstPerson) { PlaceEyes(dt, snap); return; }
             var kt = _kart.transform;
             Vector3 vel = _kart.Phys.Vel;
             float speed = new Vector2(vel.x, vel.z).magnitude;
@@ -148,6 +160,24 @@ namespace HideAndSeek.Game
             }
         }
 
+        /// <summary>First person: at the seated driver's eyes, looking along the kart (mouse looks around), a little shake on bumps.</summary>
+        private void PlaceEyes(float dt, bool snap)
+        {
+            var kt = _kart.transform;
+            var seat = _kart.Parts != null && _kart.Parts.Seat != null ? _kart.Parts.Seat : kt;
+            Vector3 eye = seat.TransformPoint(new Vector3(0f, 0.74f, 0.06f));
+            float b = _kart.Bump, t = Time.time;
+            var shake = Quaternion.Euler(b * 2f * Mathf.Sin(t * 47f), b * 1.5f * Mathf.Sin(t * 39f + 1f), b * 2f * Mathf.Sin(t * 31f + 2f));
+            transform.position = eye;
+            transform.rotation = Quaternion.LookRotation(kt.forward, kt.up) * Quaternion.Euler(_orbitPitch, _orbitYaw, 0f) * shake;
+            if (_cam != null)
+            {
+                float speed = new Vector2(_kart.Phys.Vel.x, _kart.Phys.Vel.z).magnitude;
+                float fov = 72f + 12f * Mathf.Clamp01(speed / KartPhysics.MaxSpeed);
+                _cam.fieldOfView = snap ? fov : Mathf.Lerp(_cam.fieldOfView, fov, 1f - Mathf.Exp(-3f * dt));
+            }
+        }
+
         private Texture2D _white;
         private GUIStyle _speed, _unit;
 
@@ -181,7 +211,7 @@ namespace HideAndSeek.Game
             _hint.fontSize = Mathf.RoundToInt(22 * s);
             _big.fontSize = Mathf.RoundToInt(44 * s);
             float kmh = Mathf.Abs(_kart.Phys.Speed) * 3.6f;
-            string line = "W / S - gaz, hamulec     A / D - skręt     Spacja - ręczny     R - na start     E - wysiądź";
+            string line = "W / S - gaz, hamulec     A / D - skręt     Spacja - ręczny     V - kamera     R - na start     E - wysiądź";
             var r = new Rect(0f, Screen.height - 50f * s, Screen.width, 40f * s);
             GUI.color = new Color(0f, 0f, 0f, 0.7f);
             GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), line, _hint);

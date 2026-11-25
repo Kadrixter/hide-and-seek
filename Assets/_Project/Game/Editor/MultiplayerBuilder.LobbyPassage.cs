@@ -5,7 +5,7 @@ namespace HideAndSeek.Game.Editor
 {
     /// <summary>
     /// The passage from the lobby arch to the drift track (<see cref="DriftTrackLayout"/>): brick walls, a concrete
-    /// ceiling, an asphalt floor, a cage lamp, a "TOR DRIFTOWY" arrow sign, and the roller shutter at the track end
+    /// ceiling, an asphalt floor, a cage lamp and the roller shutter at the track end
     /// (closed; <see cref="DriftTrack"/> lifts it in the real lobby). The asphalt material is saved here with its
     /// normal / gloss / detail keywords and small placeholder maps, so the player build keeps those Standard shader
     /// variants; the runtime swaps in the generated maps for the graphics profile (<see cref="AsphaltMaps"/>).
@@ -92,22 +92,6 @@ namespace HideAndSeek.Game.Editor
             l.range = 5f;
             l.intensity = 1.3f;
             l.shadows = LightShadows.None;
-
-            // Arrow sign on the north wall.
-            var sign = Deco("PassageSign", p, new Vector3(xm, 1.75f, z + w * 0.5f - 0.012f), new Vector3(1.6f, 0.36f, 0.02f), Mat("TrackSignYellow", new Color(0.95f, 0.75f, 0.1f), null, 0.4f, Vector2.one));
-            RoundCube(sign.transform, 0.01f, 0f);
-            var t = new GameObject("PassageSignText").AddComponent<TextMesh>();
-            t.transform.SetParent(p, false);
-            t.transform.position = new Vector3(xm, 1.75f, z + w * 0.5f - 0.024f);
-            t.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-            t.text = "<  TOR DRIFTOWY";
-            t.characterSize = 0.035f;
-            t.fontSize = 64;
-            t.fontStyle = FontStyle.Bold;
-            t.anchor = TextAnchor.MiddleCenter;
-            t.color = new Color(0.08f, 0.07f, 0.05f);
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            AddWorldText(t, new Vector2(1.5f, 0.3f));
 
             // Roller shutter (closed) in a steel frame at the track end.
             var shutterMat = Mat("TrackShutter", new Color(0.5f, 0.52f, 0.55f), Tex("track_concrete", TexKind.Concrete), 0.35f, new Vector2(1f, 6f), 0.4f);

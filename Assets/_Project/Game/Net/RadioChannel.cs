@@ -19,7 +19,7 @@ namespace HideAndSeek.Game.Net
     /// current position), at most <see cref="MatchManager.RadioWaitMax"/> s after the track was chosen. The start is set
     /// <see cref="MatchManager.RadioLead"/> s ahead so the new state reaches everybody before the first sample.</para>
     /// </summary>
-    public sealed class RadioChannel
+    public sealed partial class RadioChannel
     {
         public readonly string Name;
         public readonly NetworkVariable<RadioState> State;
@@ -163,6 +163,10 @@ namespace HideAndSeek.Game.Net
                     }
                     break;
                 }
+                case RadioOp.Replace:
+                case RadioOp.Clear:
+                    if (!ServerTvOp(ref r, op, url)) return; // RadioChannel.Tv.cs
+                    break;
                 case RadioOp.Remove:
                 {
                     if (!TryNumber(url, out int del) || del < 0 || del >= Queue.Count) return;

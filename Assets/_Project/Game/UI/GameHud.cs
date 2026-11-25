@@ -300,6 +300,7 @@ namespace HideAndSeek.Game
                 && !HideAndSeek.Game.DotLink.DotLinkLocal.ConsumesEscape) // Esc at the dot link panel = leave it
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
+                else if (LobbyTvVideo.PanelOpen) LobbyTvVideo.ClosePanel();
                 else if (_settingsPanel != null || _escMenu != null) CloseMenus();
                 else ShowEscMenu();
             }

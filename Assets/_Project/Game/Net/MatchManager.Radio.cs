@@ -54,6 +54,10 @@ namespace HideAndSeek.Game.Net
     {
         Add = 0, Toggle = 1, Next = 2, VolUp = 3, VolDown = 4, BassUp = 5, BassDown = 6, Prev = 7,
         Loop = 8, SetVolume = 9, SetBass = 10, Jump = 11, Remove = 12, Seek = 13,
+        /// <summary>Lobby TV: play this link now instead of whatever plays (the queue becomes just this link).</summary>
+        Replace = 14,
+        /// <summary>Lobby TV: stop and empty the queue (the TV goes back to its CCTV picture).</summary>
+        Clear = 15,
     }
 
     /// <summary>Loop mode of a boombox (<see cref="RadioState.Loop"/>).</summary>
@@ -83,6 +87,7 @@ namespace HideAndSeek.Game.Net
             LobbyRadio = new RadioChannel(this, "", Radio, RadioQueue, RadioReadyMessage, () => Phase.Value == MatchPhase.Lobby, null,
                 (me, op, url) => me.RequestRadioRpc(op, url));
             InitMapRadio();
+            InitLobbyTv(); // MatchManager.LobbyTv.cs
         }
 
         /// <summary>Accepts youtube.com / youtu.be / music.youtube.com links only (they are passed to yt-dlp as data, never as options).</summary>
@@ -105,6 +110,7 @@ namespace HideAndSeek.Game.Net
         {
             LobbyRadio.ServerUpdate();
             UpdateMapRadioServer();
+            UpdateLobbyTvServer(); // MatchManager.LobbyTv.cs
         }
     }
 }

@@ -32,12 +32,12 @@ namespace HideAndSeek.Game.Editor
             for (int i = 0; i < LobbyLayout.Arcades.Length; i++)
                 Arcade(deco, LobbyLayout.Arcades[i].pos, LobbyLayout.Arcades[i].yaw, i, metal);
             // CCTV TV over the fireplace (built facing +Z, turned to face the room from the north wall)
-            var tvPos = new Vector3(LobbyLayout.Fireplace.x, 1.98f, -LobbyLayout.HalfD + 0.06f);
-            WallTv(deco, tvPos, cctv, cctvLabels, darkWood, false);
+            var tvPos = new Vector3(LobbyLayout.Fireplace.x, LobbyLayout.TvCenterY, -LobbyLayout.HalfD + 0.06f);
+            WallTv(deco, tvPos, cctv, cctvLabels, darkWood, false, LobbyLayout.TvScale);
             var tv = deco.Find("WallTv");
             tv.RotateAround(new Vector3(tvPos.x, 0f, 0f), Vector3.up, 180f);
             Vending(deco, LobbyLayout.Vending, metal);
-            WallClock(deco, new Vector3(-1.9f, 2.62f, LobbyLayout.HalfD - 0.04f));
+            WallClock(deco, LobbyLayout.WallClock);
             CorkBoard(deco, LobbyLayout.CorkBoard, cctv, trim);
             TrashBin(deco, LobbyLayout.TrashBin); // MultiplayerBuilder.TrashBin
             BuildLobbyDetails(root, darkWood, metal, trim);
@@ -277,7 +277,8 @@ namespace HideAndSeek.Game.Editor
 
         // ================================================================ CCTV TV
 
-        private static void WallTv(Transform p, Vector3 pos, Texture2D[] feeds, string[] labels, Material darkWood, bool console = true)
+        /// <param name="k">Size factor on width / height of everything (the depth stays: a thin wall-mounted set).</param>
+        private static void WallTv(Transform p, Vector3 pos, Texture2D[] feeds, string[] labels, Material darkWood, bool console = true, float k = 1f)
         {
             var t = new GameObject("WallTv").transform;
             t.SetParent(p, false);
@@ -285,19 +286,20 @@ namespace HideAndSeek.Game.Editor
             // On the south wall, facing north (+Z, towards the sofa).
             var face = Quaternion.Euler(0, 180, 0);
             var black = Mat("LobbyTvBody", new Color(0.03f, 0.03f, 0.035f), null, 0.7f, Vector2.one);
-            Box("TvBody", t, pos, new Vector3(1.56f, 0.92f, 0.06f), black);
+            Box("TvBody", t, pos, new Vector3(1.56f * k, 0.92f * k, 0.06f), black);
             var screenMat = Unlit("LobbyTvScreen", feeds.Length > 0 ? feeds[0] : null);
-            var screen = QuadAt("Screen", t, pos + new Vector3(0, 0, 0.032f), face, new Vector2(1.48f, 0.84f), screenMat);
-            var overlay = Label3D("Osd", t, pos + new Vector3(0.38f, 0.33f, 0.036f), face, "CAM 01", new Color(1f, 1f, 1f, 0.9f), 0.012f, new Vector2(0.62f, 0.14f));
+            var screen = QuadAt("Screen", t, pos + new Vector3(0, 0, 0.032f), face, new Vector2(1.48f, 0.84f) * k, screenMat);
+            var overlay = Label3D("Osd", t, pos + new Vector3(0.38f * k, 0.33f * k, 0.036f), face, "CAM 01", new Color(1f, 1f, 1f, 0.9f), 0.012f * k, new Vector2(0.62f, 0.14f) * k);
             overlay.anchor = TextAnchor.MiddleCenter;
             // Warm LED glow behind the TV (strips peeking out around the edge + light on the wall).
             var led = Emissive("LobbyLedWarm", new Color(1f, 0.6f, 0.25f), new Color(1f, 0.55f, 0.2f) * 2.2f);
-            Deco("LedTop", t, pos + new Vector3(0, 0.47f, -0.02f), new Vector3(1.5f, 0.015f, 0.015f), led);
-            Deco("LedBottom", t, pos + new Vector3(0, -0.47f, -0.02f), new Vector3(1.5f, 0.015f, 0.015f), led);
-            Deco("LedL", t, pos + new Vector3(-0.79f, 0, -0.02f), new Vector3(0.015f, 0.88f, 0.015f), led);
-            Deco("LedR", t, pos + new Vector3(0.79f, 0, -0.02f), new Vector3(0.015f, 0.88f, 0.015f), led);
-            PointLight("TvBacklight", t, pos + new Vector3(0, 0, 0.12f), new Color(1f, 0.55f, 0.25f), 0.45f, 1.6f);
-            var glow = PointLight("TvGlow", t, pos + new Vector3(0, 0, 0.7f), new Color(0.6f, 0.9f, 0.7f), 0.55f, 2.8f);
+            float hx = 0.79f * k, hy = 0.47f * k;
+            Deco("LedTop", t, pos + new Vector3(0, hy, -0.02f), new Vector3(1.5f * k, 0.015f, 0.015f), led);
+            Deco("LedBottom", t, pos + new Vector3(0, -hy, -0.02f), new Vector3(1.5f * k, 0.015f, 0.015f), led);
+            Deco("LedL", t, pos + new Vector3(-hx, 0, -0.02f), new Vector3(0.015f, 0.88f * k, 0.015f), led);
+            Deco("LedR", t, pos + new Vector3(hx, 0, -0.02f), new Vector3(0.015f, 0.88f * k, 0.015f), led);
+            PointLight("TvBacklight", t, pos + new Vector3(0, 0, 0.12f), new Color(1f, 0.55f, 0.25f), 0.45f, 1.6f * Mathf.Sqrt(k) + 0.4f * (k - 1f));
+            var glow = PointLight("TvGlow", t, pos + new Vector3(0, 0, 0.7f + 0.2f * (k - 1f)), new Color(0.6f, 0.9f, 0.7f), 0.55f, 2.8f * Mathf.Sqrt(k));
             // Media console below
             if (console) Box("MediaConsole", t, new Vector3(pos.x, 0.25f, pos.z + 0.22f), new Vector3(1.8f, 0.5f, 0.4f), darkWood);
             if (console) Deco("ConsoleBox", t, new Vector3(pos.x + 0.5f, 0.55f, pos.z + 0.22f), new Vector3(0.36f, 0.08f, 0.28f), black);

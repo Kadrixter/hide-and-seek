@@ -25,6 +25,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testtrack")) StartCoroutine(TrackHostTest(ArgOr("-testtrack", "")));
             if (has("-testtrackwatch")) StartCoroutine(TrackWatchTest(ArgOr("-testtrackwatch", "")));
             if (has("-testtracklate")) StartCoroutine(TrackLateTest(ArgOr("-testtracklate", "")));
+            if (has("-testtracklight")) StartCoroutine(TrackLightTest(ArgOr("-testtracklight", ""))); // NetSession.TrackTests.cs
         }
 
         private static IEnumerator WaitKartLobby(int players)

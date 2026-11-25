@@ -85,6 +85,10 @@ MonoBehaviour:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0
+  TvQueue:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
   MapRadios:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0

@@ -22,6 +22,7 @@ namespace HideAndSeek.Game
             ("overview_nw", new Vector3(-7.4f, 2.7f, 5.4f), new Vector3(3f, 0.6f, -2.5f), 72f),
             ("lounge", new Vector3(-0.8f, 1.65f, -0.6f), new Vector3(-4.6f, 0.7f, 3.6f), 62f),
             ("fireplace", new Vector3(-3.3f, 1.35f, 3.3f), new Vector3(-4f, 1.2f, 6f), 60f),
+            ("tv", new Vector3(-4.0f, 1.3f, 0.9f), new Vector3(-4f, 2.1f, 6f), 66f),
             ("fan", new Vector3(-3.0f, 1.5f, 0.6f), new Vector3(-4f, 3.15f, 2.8f), 55f),
             ("games", new Vector3(1.4f, 1.7f, 0.2f), new Vector3(5.2f, 1.1f, 4.8f), 62f),
             ("arcades", new Vector3(4.8f, 1.6f, 2.6f), new Vector3(4.8f, 1.2f, 6f), 58f),

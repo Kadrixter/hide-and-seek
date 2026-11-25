@@ -27,6 +27,13 @@ namespace HideAndSeek.Game
             (new Vector3(-2.2f, 0f, 2.75f), -90f), (new Vector3(-2.25f, 0f, 3.9f), -90f),
         };
         public static readonly Vector3 Fireplace = new(-4.0f, 0f, HalfD);
+        /// <summary>
+        /// Wall TV over the fireplace: 2.2 x the old 1.56 x 0.92 m set (screen 3.26 x 1.85 m), centre height. Bottom edge
+        /// 1.42 m (above the mantel candles), top 3.44 m (under the 11 cm crown moulding); the sconces stand outside it
+        /// (<see cref="TvSconceDx"/>), the wall clock moved east to make room.
+        /// </summary>
+        public const float TvScale = 2.2f, TvCenterY = 2.43f, TvSconceDx = 1.95f;
+        public static readonly Vector3 WallClock = new(-1.45f, 2.62f, HalfD - 0.04f);
         /// <summary>Snacks / fork were placed for the old table centre (-1.5, 0.8); this moves them onto the new one.</summary>
         public static Vector3 TableShift => CoffeeTable - new Vector3(-1.5f, 0f, 0.8f);
 

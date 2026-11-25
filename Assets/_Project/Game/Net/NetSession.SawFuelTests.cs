@@ -31,6 +31,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testdeadlobby")) StartCoroutine(DeadLobbyTest(ArgOr("-testdeadlobby", ""))); // NetSession.DeadLobbyTests.cs
             StartKartTests(has); // -testkart / -testkartwatch / -testkartlate (NetSession.KartTests.cs)
             StartGt86Tests(has); // -testgt86 (NetSession.Gt86Tests.cs)
+            StartTvYtTests(has); // -testtvyt (NetSession.TvYtTests.cs)
         }
 
         private static NetPlayer SfHider()

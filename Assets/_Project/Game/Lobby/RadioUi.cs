@@ -104,6 +104,7 @@ namespace HideAndSeek.Game
                 case "prev": return Sd("next", -u, v);
                 case "close": return Mathf.Min(Seg(u, v, -0.2f, -0.2f, 0.2f, 0.2f), Seg(u, v, -0.2f, 0.2f, 0.2f, -0.2f)) - 0.045f;
                 case "dot": return Mathf.Sqrt(u * u + v * v) - 0.4f;
+                case "stop": return BoxSd(u, v, 0.2f, 0.2f, 0.04f);
                 case "ring": return Mathf.Abs(Mathf.Sqrt(u * u + v * v) - 0.42f) - 0.04f;
                 case "loop":
                 {

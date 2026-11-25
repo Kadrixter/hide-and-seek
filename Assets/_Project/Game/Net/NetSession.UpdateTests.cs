@@ -27,6 +27,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testpush")) StartCoroutine(PushTest());
             if (has("-testglockfin")) StartCoroutine(GlockFinisherTest());
             StartCrateTests(has);
+            StartMirrorQualityTests(has); // -testmirrorq (NetSession.MirrorQualityTests.cs)
         }
 
         private static void Shot(string dir, string name)

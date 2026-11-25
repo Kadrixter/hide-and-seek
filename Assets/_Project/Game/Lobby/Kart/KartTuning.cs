@@ -12,7 +12,7 @@ namespace HideAndSeek.Game
     public static class KartTuning
     {
         public const float Mass = 160f;
-        public const float TopSpeedKmh = 108f;
+        public const float TopSpeedKmh = 170f; // 2026-11-25: user asked for 170 km/h (was 108)
 
         public static void Apply(ArcadeCar car, Rigidbody rb)
         {
@@ -23,13 +23,13 @@ namespace HideAndSeek.Game
             car.debugDraw = false;
             car.showDebugGui = false;
             car.raycastMask = KartCollide.LevelMask;
-            car.accelerationCurve = Rise(TopSpeedKmh, 2.2f, 12f);
+            car.accelerationCurve = Rise(TopSpeedKmh, 3.6f, 20f);
             car.accelerationCurveReverse = Rise(26f, 1.4f, 6f);
-            car.steerAngleLimit = Lines((0f, 30f), (40f, 17f), (110f, 7f));
-            car.steeringResetSpeed = Lines((0f, 90f), (110f, 60f));
-            car.steeringSpeed = Lines((0f, 3.2f), (40f, 1.7f), (110f, 0.75f));
+            car.steerAngleLimit = Lines((0f, 30f), (40f, 17f), (110f, 7f), (170f, 4.5f));
+            car.steeringResetSpeed = Lines((0f, 90f), (110f, 60f), (170f, 50f));
+            car.steeringSpeed = Lines((0f, 3.2f), (40f, 1.7f), (110f, 0.75f), (170f, 0.5f));
             car.handBrakeSlipperyTime = 1.4f;
-            car.downForceCurve = Lines((0f, 0f), (200f, 100f));
+            car.downForceCurve = Lines((0f, 0f), (200f, 100f), (300f, 160f));
             car.downForce = 5f;
             car.flightStabilizationForce = 6f;
             car.flightStabilizationDamping = 0.7f;

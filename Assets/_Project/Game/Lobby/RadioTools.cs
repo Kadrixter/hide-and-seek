@@ -16,10 +16,23 @@ namespace HideAndSeek.Game
         public static string YtDlp { get { Search(); return _ytdlp; } }
         public static string Ffmpeg { get { Search(); return _ffmpeg; } }
 
+        private static readonly object SearchLock = new();
+
+        /// <summary>On the main thread at the start (Application.dataPath cannot be read from a worker thread).</summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void Init()
+        {
+            if (!Application.isBatchMode) Search();
+        }
+
         private static void Search()
         {
+            lock (SearchLock) SearchLocked();
+        }
+
+        private static void SearchLocked()
+        {
             if (_searched) return;
-            _searched = true;
             var dirs = new List<string>
             {
                 Path.Combine(Path.GetDirectoryName(Application.dataPath) ?? ".", "Tools"),
@@ -35,7 +48,29 @@ namespace HideAndSeek.Game
                 }
                 catch { /* bad PATH entry */ }
             }
+            _searched = true;
             Debug.Log($"[Radio] tools: yt-dlp={_ytdlp ?? "-"} ffmpeg={_ffmpeg ?? "-"}");
+        }
+
+        /// <summary>
+        /// Feeds every stdout line of <paramref name="p"/> to <paramref name="onLine"/> until the process exits (at most
+        /// <paramref name="timeoutMs"/>). Waits for the exit, not for the end of the pipe: a process started meanwhile by
+        /// another thread of the game can inherit the pipe's write end and keep it open long after this one is done
+        /// (that held a finished download "at 100 %" until the boombox's decoder closed).
+        /// </summary>
+        public static void ReadLinesUntilExit(Process p, Action<string> onLine, int timeoutMs)
+        {
+            var done = new System.Threading.ManualResetEventSlim(false);
+            p.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data == null) { done.Set(); return; }
+                onLine(e.Data);
+            };
+            p.BeginOutputReadLine();
+            var sw = Stopwatch.StartNew();
+            while (!p.WaitForExit(100) && sw.ElapsedMilliseconds < timeoutMs) { }
+            done.Wait(1500); // the last lines written before the exit
+            try { p.CancelOutputRead(); } catch { /* already finished */ }
         }
 
         /// <summary>Process start info without a shell; every argument is passed as data (no injection).</summary>

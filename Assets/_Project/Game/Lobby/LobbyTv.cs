@@ -6,6 +6,9 @@ namespace HideAndSeek.Game
     /// <summary>
     /// Wall TV showing the parking garage CCTV feeds (images rendered from the real map at build time):
     /// switches camera every few seconds with a static burst, slight jitter, live clock and a blinking REC dot.
+    /// In the lobby it can also play a YouTube video (<see cref="LobbyTvVideo"/>, added at the start; the dead-player lobby
+    /// copy disables this component before its start and shows its own feed): while the video owns the screen the CCTV
+    /// loop stands still.
     /// </summary>
     public class LobbyTv : MonoBehaviour
     {
@@ -20,6 +23,11 @@ namespace HideAndSeek.Game
         private Material _mat;
         private Texture2D _noise;
         private Color32[] _noisePx;
+        private LobbyTvVideo _video;
+        private bool _owned;
+
+        /// <summary>The screen's own material instance (the video draws into it while it owns the screen).</summary>
+        public Material ScreenMaterial => _mat;
 
         private void Start()
         {
@@ -28,6 +36,7 @@ namespace HideAndSeek.Game
             _noisePx = new Color32[64 * 36];
             Show(0);
             _next = Time.time + 6f;
+            if (gameObject.scene.name != DeadLobby.SceneName) _video = LobbyTvVideo.Attach(this);
         }
 
         private void Show(int i)
@@ -41,6 +50,17 @@ namespace HideAndSeek.Game
         private void Update()
         {
             if (_mat == null) return;
+            if (_video != null && _video.OwnsScreen)
+            {
+                _owned = true;
+                return;
+            }
+            if (_owned)
+            {
+                _owned = false;
+                _static = 0f;
+                Show(_index);
+            }
             if (Time.time >= _next)
             {
                 _next = Time.time + 6f;

@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.UI
     /// <summary>"Grafika" settings page (main menu and Esc menu), see <see cref="GfxSettings"/>.</summary>
     public static class GraphicsSettingsUi
     {
-        public const float PanelHeight = 990f;
+        public const float PanelHeight = 1000f;
 
         private static readonly float[] ShadowDists = { 25f, 35f, 50f, 60f, 75f, 100f, 125f, 150f };
         private static readonly int[] LightCounts = { 1, 2, 3, 4, 6, 8 };
@@ -45,6 +45,8 @@ namespace HideAndSeek.Game.UI
                 _ => GfxSettings.Bloom = !GfxSettings.Bloom);
             Row(refresher, parent, "GfxRefl", "Odbicia (eksperym.)", () => GfxSettings.Reflections ? "włączone" : "wyłączone",
                 _ => GfxSettings.Reflections = !GfxSettings.Reflections);
+            Row(refresher, parent, "GfxMirror", "Lustro", () => MirrorSettings.Name(MirrorSettings.Quality),
+                s => MirrorSettings.Quality = Cycle(MirrorSettings.Quality, s, MirrorSettings.High + 1));
             Row(refresher, parent, "GfxVsync", "VSync", () => GfxSettings.VSync ? "włączona" : "wyłączona",
                 _ => GfxSettings.VSync = !GfxSettings.VSync);
             Row(refresher, parent, "GfxFps", "Limit FPS", () => GfxSettings.VSync ? "VSync" : GfxSettings.FpsCap <= 0 ? "bez limitu" : GfxSettings.FpsCap.ToString(),
@@ -57,7 +59,7 @@ namespace HideAndSeek.Game.UI
         private static void Row(GfxRowRefresher r, Transform parent, string name, string label, Func<string> value, Action<int> step)
         {
             var rt = UiStyle.Choice(name, parent, label, value, step, 22);
-            rt.Height(50);
+            rt.Height(46); // 12 rows still fit the Esc menu column
             var t = rt.Find("Value")?.GetComponent<Text>();
             if (t != null) r.Rows.Add((t, value));
         }

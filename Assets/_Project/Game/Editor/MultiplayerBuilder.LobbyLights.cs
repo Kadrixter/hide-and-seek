@@ -112,8 +112,8 @@ namespace HideAndSeek.Game.Editor
 
             // ---- wall sconces: both sides of the TV over the fireplace, both sides of the painting on the west wall
             float fx = LobbyLayout.Fireplace.x;
-            Sconce(lt, new Vector3(fx - 1.25f, 2.05f, hd), 180f);
-            Sconce(lt, new Vector3(fx + 1.25f, 2.05f, hd), 180f);
+            Sconce(lt, new Vector3(fx - LobbyLayout.TvSconceDx, 2.05f, hd), 180f);
+            Sconce(lt, new Vector3(fx + LobbyLayout.TvSconceDx, 2.05f, hd), 180f);
             Sconce(lt, new Vector3(-LobbyLayout.HalfW, 2.0f, LobbyLayout.Globe.z - 0.95f), 90f);
             Sconce(lt, new Vector3(-LobbyLayout.HalfW, 2.0f, LobbyLayout.Globe.z + 0.95f), 90f);
 

@@ -105,6 +105,49 @@ namespace HideAndSeek.Game.Net
             KLog("host done");
         }
 
+        /// <summary>-testtracklight (one instance): the lobby by the arch, then a drive at full speed with shots from the driver's seat.</summary>
+        private IEnumerator TrackLightTest(string dir)
+        {
+            yield return WaitKartLobby(1);
+            var me = NetPlayer.Local;
+            float az = DriftTrackLayout.ArchZ;
+            Vector3 arch = new(-LobbyLayout.HalfW, 1.4f, az);
+            Vector3 spot = new(-3.6f, 0.02f, az - 0.6f);
+            Vector3 to = arch - (spot + Vector3.up * 1.62f);
+            me.TeleportLocal(spot, YawTo(to));
+            me.Motor.SetLook(YawTo(to), PitchTo(to));
+            yield return new WaitForSeconds(1.5f);
+            Shot(dir, "light_00_lobby_arch");
+            me.Motor.SetLook(YawTo(to) + 60f, -5f);
+            yield return new WaitForSeconds(0.8f);
+            Shot(dir, "light_01_lobby_room");
+            yield return EnterKart(me, 0, dir, null);
+            var kart = LobbyKart.Get(0);
+            LocalPlayerController.TestKartActive = true;
+            float t = 0f, top = 0f;
+            int shots = 0;
+            while (t < 9f)
+            {
+                LocalPlayerController.TestKartThrottle = 1f;
+                LocalPlayerController.TestKartSteer = t < 0.9f ? -0.35f : 0f;
+                LocalPlayerController.TestKartHandbrake = false;
+                top = Mathf.Max(top, kart.Phys.Speed * 3.6f);
+                if ((shots == 0 && t > 2.5f) || (shots == 1 && t > 6.5f)) { Shot(dir, $"light_02_driver_{shots}"); shots++; }
+                t += Time.deltaTime;
+                yield return null;
+            }
+            float ms = 0f;
+            yield return FrameMs(v => ms = v);
+            KLog($"light run: top speed {top:0} km/h, frame {ms:0.0} ms, kart at {kart.transform.position}");
+            LocalPlayerController.TestKartThrottle = -1f;
+            yield return new WaitForSeconds(2.5f);
+            LocalPlayerController.TestKartThrottle = 0f;
+            Shot(dir, "light_03_driver_stopped");
+            DriftTrack.ForceVisible = true;
+            CamShot(dir, "light_04_overview", new Vector3(DriftTrackLayout.PadEast - 6f, 16f, az - 30f), DriftTrackLayout.PadCenter);
+            KLog("light test done");
+        }
+
         /// <summary>Average frame time over 2 s (ms).</summary>
         private static IEnumerator FrameMs(System.Action<float> result)
         {

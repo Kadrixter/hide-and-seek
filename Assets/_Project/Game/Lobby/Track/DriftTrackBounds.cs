@@ -6,7 +6,7 @@ namespace HideAndSeek.Game
     /// Edges of the drift track: concrete jersey barriers in 3 m sections (red / white painted tops) round the inside
     /// of the pad with a gap at the gate, tyre walls in the barrier corners, a tall galvanised fence on the pad edge,
     /// and the brick entrance wall on the east side with the gate from the passage (a steel bollard in it keeps the
-    /// karts on the track), the "TOR DRIFTOWY" lettering and the rolled-up shutter box. Colliders: long boxes.
+    /// karts on the track) and the rolled-up shutter box. Colliders: long boxes.
     /// </summary>
     public static class DriftTrackBounds
     {
@@ -90,7 +90,7 @@ namespace HideAndSeek.Game
             TrackMats.Piece(root, "Fence", m.ToMesh("TrackFence"), TrackMats.Get("TrackGalvanised", new Color(0.5f, 0.52f, 0.54f), 0.55f, 0.6f));
         }
 
-        /// <summary>East wall of the track (x = PadEast) with the gate, a bollard in it, the shutter box and the lettering.</summary>
+        /// <summary>East wall of the track (x = PadEast) with the gate, a bollard in it and the shutter box.</summary>
         private static void EntranceWall(Transform root, Material brick)
         {
             float x = DriftTrackLayout.PadEast, gz = DriftTrackLayout.ArchZ, gw = DriftTrackLayout.PassageWidth * 0.5f, gh = DriftTrackLayout.PassageHeight;
@@ -119,7 +119,6 @@ namespace HideAndSeek.Game
             bc.radius = 0.11f;
             bc.height = 1.2f;
 
-            DriftTrackProps.Letters(root, "TOR DRIFTOWY", new Vector3(x - 0.02f, 4.6f, gz), Quaternion.Euler(0f, 90f, 0f), 0.11f, new Color(1f, 0.82f, 0.2f), new Vector2(9f, 1.3f));
         }
     }
 }
