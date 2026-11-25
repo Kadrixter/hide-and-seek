@@ -78,6 +78,19 @@ namespace HideAndSeek.Game.MiniGames
             c.size = size;
         }
 
+        /// <summary>
+        /// Invisible wall over a table (layer Ignore Raycast: players collide with it, raycasts with the default mask
+        /// do not see it), so nobody can jump up and stand on the table.
+        /// </summary>
+        public static void Blocker(Transform parent, string name, float topY, float width, float depth, float height = 2.4f)
+        {
+            var g = new GameObject(name) { layer = 2 };
+            g.transform.SetParent(parent, false);
+            var c = g.AddComponent<BoxCollider>();
+            c.center = new Vector3(0f, topY + height * 0.5f, 0f);
+            c.size = new Vector3(width, height, depth);
+        }
+
         // ================================================================ table
 
         /// <summary>

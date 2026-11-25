@@ -38,6 +38,7 @@ namespace HideAndSeek.Game.MiniGames
             var m = new ChessTableModel { Root = root, Kit = new TableKit(template, root.gameObject.layer, style) };
             var k = m.Kit;
             k.Table(root, TableWidth, TableTop, TopY);
+            TableKit.Blocker(root, "TableBlocker", TopY, TableWidth, TableTop); // no standing on the table
             k.Stool(root, new Vector3(0f, 0f, -StoolZ));
             k.Stool(root, new Vector3(0f, 0f, StoolZ));
 

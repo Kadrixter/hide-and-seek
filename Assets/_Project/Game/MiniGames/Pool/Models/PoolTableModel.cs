@@ -44,6 +44,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
             m.BuildFrame();
             m.BuildLegs();
             TableKit.Collider(root, "PoolTableCollider", new Vector3(0f, PoolDims.RailTopY * 0.5f, 0f), new Vector3(OuterL, PoolDims.RailTopY, OuterW));
+            TableKit.Blocker(root, "PoolTableBlocker", PoolDims.RailTopY, OuterL, OuterW); // no standing on the table
             return m;
         }
 
