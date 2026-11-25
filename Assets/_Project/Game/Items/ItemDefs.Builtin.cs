@@ -24,7 +24,9 @@ namespace HideAndSeek.Game
             };
             yield return new ItemDef
             {
-                Item = HotbarItem.Chainsaw, Name = "Piła łańcuchowa", Users = ItemUsers.Seeker, Weapon = HeldItem.Chainsaw,
+                // Hiders may carry it too (wrested from a stunned / blinded seeker, MatchManager.SawWrest.cs, or picked up
+                // from the floor) but never start it: it only goes into hiding with them.
+                Item = HotbarItem.Chainsaw, Name = "Piła łańcuchowa", Users = ItemUsers.Both, Weapon = HeldItem.Chainsaw,
                 DropSfx = GameSfx.BodyFall, DropVolume = 0.55f, Glow = new Color(1f, 0.6f, 0.25f, 0.5f), SeekerMapMarker = true,
                 Count = p => p.HasChainsaw.Value ? 1 : 0,
                 Give = (p, extra) => { p.HasChainsaw.Value = true; MatchManager.SetSawFuel(p, SawFuel.Unpack(extra)); return true; },
@@ -32,14 +34,19 @@ namespace HideAndSeek.Game
                 {
                     extra = 0;
                     if (!p.HasChainsaw.Value) return false;
-                    extra = SawFuel.Pack(p.ServerSawFuel); // the dropped saw keeps its fuel
+                    extra = SawFuel.Pack(p.ServerSawFuel, p.IsHider); // the dropped saw keeps its fuel (and who hid it)
                     p.HasChainsaw.Value = false;
                     if (p.Held.Value == HeldItem.Chainsaw) p.Held.Value = HeldItem.None;
                     return true;
                 },
-                Hint = p => p.SawFuel.Value > 0f
+                Hint = p => p.IsHider ? "Piła szukającego - nie odpalisz jej. Schowaj ją gdzieś (Q - wyrzuć)."
+                    : p.SawFuel.Value > 0f
                     ? $"F przytrzymaj - gaz   paliwo {Mathf.CeilToInt(p.SawFuel.Value - 0.05f)}/{SawFuel.Full:0}"
-                    : "Piła bez paliwa - nie odpali (Q - wyrzuć)",
+                    : "Piła bez paliwa - zatankuj z kanistra albo Q - wyrzuć",
+                Use = (p, click, _) =>
+                {
+                    if (click && p.IsHider) GameHud.Toast("Nie umiesz odpalić piły. Schowaj ją, żeby szukający jej nie odzyskał.", 2.5f);
+                },
                 Model = r => Prop(r, HeldItem.Chainsaw),
             };
             yield return new ItemDef
@@ -165,6 +172,7 @@ namespace HideAndSeek.Game
             };
             yield return SeveredLegDef(); // ItemDefs.Leg.cs
             yield return WireDef(); // ItemDefs.Wire.cs
+            yield return FuelCanDef(); // ItemDefs.FuelCan.cs
             foreach (var d in FuseDefs()) yield return d; // ItemDefs.Fuse.cs
         }
 

@@ -132,6 +132,7 @@ namespace HideAndSeek.Game.Net
                 SpawnRestingDrop(FuseItems.Of(s), p.Value, rnd);
                 Debug.Log($"[Fuses] fuse {FuseSymbols.Name(s)} on level {lv} at {p.Value} (cover {FuseSpots.Cover(p.Value)})");
             }
+            DealFuelCans(rnd, placed, boxPos); // chainsaw fuel canisters (MatchManager.SawNerf.cs)
         }
 
         private static void Deal(ref FuseBoxSet set, int box, int[] marks, System.Random rnd)

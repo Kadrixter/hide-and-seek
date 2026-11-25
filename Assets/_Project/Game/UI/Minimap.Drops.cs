@@ -57,7 +57,7 @@ namespace HideAndSeek.Game
                 {
                     var d = mm.Drops[i];
                     var def = ItemDefs.Get(d.Kind);
-                    if (def == null || !def.SeekerMapMarker) continue;
+                    if (def == null || !def.SeekerMapMarker || SawFuel.ByHider(d.Extra)) continue; // hidden by a hider: not shown
                     Vector3 w = mm.DropPosition(d);
                     int f = NearestFloor(w.y - 0.3f);
                     Vector2 off = new Vector2(w.x - pos.x, w.z - pos.z) * pxPerM;

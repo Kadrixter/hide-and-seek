@@ -1188,7 +1188,7 @@ namespace HideAndSeek.Game.Net
 
         /// <summary>Chainsaw engine: idle loop while held, loud throttle loop while F is held; drives the animations.</summary>
         private float _sawOutAt = -99f, _sawBlood, _sawSlashUntil = -99f;
-        private bool _wasSawOut;
+        private bool _wasSawOut, _wasStalled;
 
         /// <summary>Called when the saw cut somebody: the chain is soaked, it wipes clean over ~40 s of running.</summary>
         public void BloodySaw() => _sawBlood = 1f;
@@ -1196,13 +1196,21 @@ namespace HideAndSeek.Game.Net
         private void UpdateChainsaw()
         {
             bool sawOut = Held.Value == HeldItem.Chainsaw && Life.Value == LifeState.Alive;
-            bool killing = Busy.Value && sawOut && IsSeeker;
-            bool rev = sawOut && (SawRev.Value || killing || Time.time < _sawSlashUntil);
+            bool killing = Busy.Value && sawOut && IsSeeker && !Stunned;
+            // Stalled (blinded / foamed / knocked out, NetPlayer.SawNerf.cs): the engine dies, it is pulled again after.
+            bool stalled = sawOut && SawStalled && !killing;
+            bool rev = sawOut && !stalled && (SawRev.Value || killing || Time.time < _sawSlashUntil);
             if (sawOut && !_wasSawOut && !rev) _sawOutAt = Time.time;
+            if (sawOut && _wasStalled && !stalled)
+            {
+                _sawOutAt = Time.time; // pull-start again
+                GameAudio.PlayAttached(GameSfx.ChainsawStart, transform, IsOwner ? 0.6f : 0.85f);
+            }
             _wasSawOut = sawOut;
+            _wasStalled = stalled;
             // The engine only runs after the pull-start (the start sound plays with the switch).
             bool fired = rev || Time.time - _sawOutAt >= BlockyProps.ChainsawFireTime;
-            bool idle = sawOut && !rev && fired;
+            bool idle = sawOut && !rev && fired && !stalled;
             if (sawOut) _sawBlood = Mathf.Max(0f, _sawBlood - Time.deltaTime * (rev ? 0.06f : 0.012f));
             (Actions as BlockyCharacterActions)?.SetSawBlood(_sawBlood);
             if (IsOwner) (ViewModel as FirstPersonViewModel)?.SetSawBlood(_sawBlood);

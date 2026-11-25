@@ -401,6 +401,7 @@ namespace HideAndSeek.Game
             UpdateTeamDots(me, pos, pxPerM, size);
             UpdatePins(pos, pxPerM, size, floor);
             UpdateSeekerDrops(me, pos, pxPerM, size);
+            UpdateSawAlarm(me, pos, pxPerM, size); // a running chainsaw on the hiders' level (Minimap.Saw.cs)
         }
 
         private void UpdateScale(float pxPerM)

@@ -54,6 +54,7 @@ namespace HideAndSeek.Game.Net
         FuseInsert,     // E at a fuse box socket with a fuse of its mark (LocalPlayerController.Fuses.cs)
         FuseRemove,     // E hold at a filled fuse box socket: pull the fuse out
         FuseInfo,       // looking at a fuse box with nothing to do there (text only)
+        SawWrest,       // E next to a knocked-out / blinded seeker with the chainsaw: take it (LocalPlayerController.SawWrest.cs)
     }
 
     /// <summary>
@@ -384,7 +385,8 @@ namespace HideAndSeek.Game.Net
             // ---- seeker: chainsaw (hold F = full throttle, walk into a hider = kill)
             bool sawRev = _p.IsSeeker && phase == MatchPhase.Seeking && _p.Held.Value == HeldItem.Chainsaw &&
                           _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev) &&
-                          _p.SawFuel.Value > 0f; // an empty saw does not start (MatchManager.SawFuel.cs)
+                          _p.SawFuel.Value > 0f && // an empty saw does not start (MatchManager.SawFuel.cs)
+                          !_p.SawStalled;          // dust / goo / foam in the eyes, knocked out: the engine is dead (NetPlayer.SawNerf.cs)
             if (_p.SawRev.Value != sawRev) _p.SawRev.Value = sawRev;
             if (sawRev && Time.time >= _nextSawTry)
             {
@@ -731,6 +733,7 @@ namespace HideAndSeek.Game.Net
             if (TryAntennaPrompt(out var aPos, out string aText, out float aD)) Offer(PromptKind.AntennaSwap, aPos, aText, aD);
             if (TryDotLinkPrompt(eye, fwd, out var dlPos, out string dlText, out float dlD)) Offer(PromptKind.DotLink, dlPos, dlText, dlD); // exit-gate panel
             if (TryFusePrompt(eye, fwd, phase, out var fbPos2, out string fbText2, out float fbD2, out var fbKind)) Offer(fbKind, fbPos2, fbText2, fbD2); // fuse boxes
+            if (TrySawWrestPrompt(eye, fwd, phase, out var swPos, out string swText, out float swD)) Offer(PromptKind.SawWrest, swPos, swText, swD - 0.5f); // chainsaw nerf
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -1144,6 +1147,10 @@ namespace HideAndSeek.Game.Net
                 case PromptKind.FuseRemove:
                     FusePromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE);
                     TestPressE = false;
+                    break;
+                case PromptKind.SawWrest:
+                    SawWrestPromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestWrestE);
+                    TestWrestE = false;
                     break;
             }
 

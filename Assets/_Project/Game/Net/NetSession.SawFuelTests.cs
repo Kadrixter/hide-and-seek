@@ -7,7 +7,7 @@ namespace HideAndSeek.Game.Net
 {
     /// <summary>
     /// Chainsaw option and fuel tests (host = seeker: -forceseeker -autostart -autostartplayers 2 -hidetime N, + a hider client):
-    ///  -testsawfuel &lt;dir&gt;: saw from the shelf is full (20), holding F burns 1/s, the hint shows "paliwo X/20", a dropped
+    ///  -testsawfuel &lt;dir&gt;: saw from the shelf is full (12), holding F burns 1/s, the hint shows "paliwo X/12", a dropped
     ///      and picked up saw keeps its fuel, at 10/s it runs dry (toast), an empty saw does not start and does not cut.
     ///  -testnosaw &lt;dir&gt;: lobby option "Piła łańcuchowa: wyłączona" (settings panel + board photo), in the round the
     ///      shelf is empty, no prompt, the pickup is refused.
@@ -24,6 +24,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testnosaw")) StartCoroutine(NoSawTest(ArgOr("-testnosaw", "")));
             if (has("-testdropsafe")) StartCoroutine(DropSafeTest(ArgOr("-testdropsafe", ""))); // NetSession.DropSafeTests.cs
             if (has("-testrc4")) StartCoroutine(Rc4Test(ArgOr("-testrc4", ""))); // NetSession.Rc4Tests.cs
+            StartSawNerfTests(has); // -testsawnerf (NetSession.SawNerfTests.cs)
         }
 
         private static NetPlayer SfHider()
@@ -61,7 +62,7 @@ namespace HideAndSeek.Game.Net
             yield return new WaitForSeconds(0.5f);
             float f1 = me.SawFuel.Value;
             string hint = Hotbar.Hint(me, HotbarItem.Chainsaw);
-            SfLog($"after 3 s of F: fuel={f1:0.0} (expected ~17) hint='{hint}' -> {Pf(f1 > 16.2f && f1 < 17.8f && hint.Contains("paliwo"))}");
+            SfLog($"after 3 s of F: fuel={f1:0.0} (expected ~{SawFuel.Full - 3f:0}) hint='{hint}' -> {Pf(f1 > SawFuel.Full - 3.8f && f1 < SawFuel.Full - 2.2f && hint.Contains("paliwo"))}");
             Shot(dir, "saw_c_hint_fuel");
 
             // 3. Drop it and take it back: same fuel.

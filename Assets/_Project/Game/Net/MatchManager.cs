@@ -330,6 +330,7 @@ namespace HideAndSeek.Game.Net
             pl.Held.Value = HeldItem.None;
             pl.HasGlock.Value = false;
             pl.HasChainsaw.Value = false;
+            pl.FuelCans.Value = 0;
             pl.Inv.Value = default;
             pl.Ammo.Value = 0;
             pl.SpareMags.Value = 0;
