@@ -18,7 +18,8 @@ namespace HideAndSeek.Game.Net
         public static bool TestExtSpray, TestExtDrop;
 
         private int _extPromptIdx = -1;
-        private float _extNextRequest, _extPinAt = -99f, _extEmptyToast;
+        private float _extNextRequest, _extPinAt = -99f, _extEmptyToast, _extBurst;
+        private bool _extBurstOut;
 
         /// <summary>Called before the other actions; true while the extinguisher (or the foam) owns the hands.</summary>
         private bool ExtTick(Keyboard kb, Mouse mouse)
@@ -48,6 +49,18 @@ namespace HideAndSeek.Game.Net
             }
             bool pinAnim = Time.time - _extPinAt < ExtTimeline.SprayAfterUnlock;
             bool spray = trigger && st.Unlocked && st.Charge > 0 && !pinAnim && !_p.Motor.IsProne;
+            // at most ExtTuning.MaxBurst s of continuous spraying, then the trigger has to be released
+            if (!trigger) { _extBurst = 0f; _extBurstOut = false; }
+            if (spray && !_extBurstOut)
+            {
+                _extBurst += Time.deltaTime;
+                if (_extBurst >= ExtTuning.MaxBurst)
+                {
+                    _extBurstOut = true;
+                    GameHud.Toast("Puść przycisk, żeby psikać dalej.", 1.8f);
+                }
+            }
+            if (_extBurstOut) spray = false;
             if (_p.ExtSpray.Value != spray) _p.ExtSpray.Value = spray;
             if (click && st.Unlocked && st.Charge == 0 && Time.time >= _extEmptyToast)
             {

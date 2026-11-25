@@ -37,7 +37,8 @@ namespace HideAndSeek.Game.Net
     /// <summary>Tuning of the extinguishers and the foam.</summary>
     public static class ExtTuning
     {
-        public const float SprayTime = 16.5f;      // seconds of continuous spraying from full to empty
+        public const float SprayTime = 10f;        // seconds of continuous spraying from full to empty (16.5 / 1.65: +65% use)
+        public const float MaxBurst = 5f;          // longest continuous spray; then the trigger has to be released
         public const float Range = 4.6f;           // jet reach (m)
         public const float ConeDeg = 13f;          // half angle of the jet that counts as a hit
         public const float ExposureToHit = 0f;     // the foam takes effect on the first hit, no delay
