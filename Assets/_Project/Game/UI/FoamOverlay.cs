@@ -25,6 +25,8 @@ namespace HideAndSeek.Game
         private readonly float[] _blobSize = new float[Blobs], _blobGone = new float[Blobs], _dripX = new float[Drips], _dripSpeed = new float[Drips];
         private Text _hint;
         private double _seededFor = -1;
+        /// <summary>The wiping is spread over the whole effect (the patches were timed for 5 s; the foam lasts ExtTuning.FoamTime).</summary>
+        private float _stretch = 1f;
         private float _cloudA;
         private Sprite[] _foam;
         private Sprite _drip;
@@ -68,9 +70,10 @@ namespace HideAndSeek.Game
         }
 
         /// <summary>New hit: a fresh layout of patches (same for the whole effect), each with the stroke that wipes it.</summary>
-        private void Seed(double start)
+        private void Seed(double start, float duration)
         {
             _seededFor = start;
+            _stretch = Mathf.Clamp((duration - 1f) / 4.4f, 1f, 3f);
             var r = new System.Random((int)(start * 1000.0) & 0x7fffffff);
             for (int i = 0; i < Blobs; i++)
             {
@@ -84,7 +87,7 @@ namespace HideAndSeek.Game
                 bool right = x >= 0.5f;
                 float off = Mathf.Abs(x - 0.5f);
                 int rank = off < 0.15f ? r.Next(0, 2) : off < 0.3f ? 1 + r.Next(0, 2) : 2 + r.Next(0, 2);
-                int stroke = (right ? 0 : 1) + 2 * rank;
+                int stroke = (right ? 0 : 1) + 2 * Mathf.RoundToInt(rank * _stretch);
                 _blobGone[i] = ExtTimeline.WipeIn + stroke * ExtTimeline.WipeStroke + ExtTimeline.WipeStroke * 0.45f;
             }
             for (int i = 0; i < Drips; i++)
@@ -100,12 +103,12 @@ namespace HideAndSeek.Game
             var mm = MatchManager.Instance;
             bool foamed = me != null && me.IsSeeker && me.Foamed;
             float e = foamed ? me.FoamElapsed : 0f, left = foamed ? me.FoamLeft : 0f;
-            if (foamed && me.FoamStart.Value != _seededFor) Seed(me.FoamStart.Value);
+            if (foamed && me.FoamStart.Value != _seededFor) Seed(me.FoamStart.Value, (float)(me.FoamUntil.Value - me.FoamStart.Value));
             var size = ((RectTransform)_haze.canvas.transform).rect.size;
             float appear = Mathf.Clamp01(e / 0.1f);
             float end = Mathf.Clamp01(left / 0.7f);
 
-            _haze.color = new Color(0.9f, 0.9f, 0.88f, foamed ? appear * Mathf.Lerp(0.2f, 0.85f, Mathf.Clamp01(1f - (e - 0.4f) / 3.2f)) * end : 0f);
+            _haze.color = new Color(0.9f, 0.9f, 0.88f, foamed ? appear * Mathf.Lerp(0.2f, 0.85f, Mathf.Clamp01(1f - (e - 0.4f) / (3.2f * _stretch))) * end : 0f);
             for (int i = 0; i < Blobs; i++)
             {
                 var b = _blobs[i];

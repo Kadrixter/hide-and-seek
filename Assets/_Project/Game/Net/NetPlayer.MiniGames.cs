@@ -43,6 +43,8 @@ namespace HideAndSeek.Game.Net
                 Character.SetFirstPersonMode(false);
                 Character.SetHeadHidden(true);
                 _boardRenderers = null;
+                // The first-person arms have their own camera (it follows the eyes, not the board view): off at the table.
+                ViewModel?.SetVisible(false);
             }
             if (_boardRenderers == null || Time.unscaledTime >= _boardRefresh)
             {
@@ -96,6 +98,7 @@ namespace HideAndSeek.Game.Net
             _boardOriginal.Clear();
             _boardRenderers = null;
             ApplyOwnBodyMode();
+            ViewModel?.SetVisible(_vmVisible);
         }
     }
 }

@@ -122,6 +122,11 @@ namespace HideAndSeek.Map.Editor
             d.Text("EXIT", new Vector3(84f, y0 + DecalY.Mark, 0f), Vector3.up, Vector3.right, 0.9f, M("Text_Floor"));
             foreach (float z in new[] { -6f, -5f, 5f, 6f })
                 P(lv, _props.Bollard(), "Bollard", 86f, z, 0f);
+            // The same marks at the second street exit on the west wall (Game/Cinematics/ExitGate.West).
+            d.FloorQuad(-89.9f, -86.5f, -3.5f, 3.5f, y0 + DecalY.Hatch, M("Hatch_Yellow"));
+            d.Text("EXIT", new Vector3(-84f, y0 + DecalY.Mark, 0f), Vector3.up, Vector3.left, 0.9f, M("Text_Floor"));
+            foreach (float z in new[] { -6f, -5f, 5f, 6f })
+                P(lv, _props.Bollard(), "Bollard", -86f, z, 0f);
         }
 
         private void LoadingDock(int lv)

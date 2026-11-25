@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using HideAndSeek.Game.Net;
 using HideAndSeek.Player;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace HideAndSeek.Game
 {
@@ -108,8 +109,16 @@ namespace HideAndSeek.Game
             Vector4 clipPlane = CameraSpacePlane(_mirrorCam, pos, normal);
             _mirrorCam.projectionMatrix = src.CalculateObliqueMatrix(clipPlane);
 
-            // Show the local player's own body (normally shadow-only in first person).
+            // Show the local player's own body (normally shadow-only in first person). The render modes are put back
+            // exactly as they were afterwards (a board-game table hides the body its own way, the setters would undo it).
             var local = NetPlayer.Local;
+            _ownRenderers.Clear();
+            _ownModes.Clear();
+            if (local != null && local.Character != null)
+            {
+                local.Character.GetComponentsInChildren(true, _ownRenderers);
+                foreach (var r in _ownRenderers) _ownModes.Add(r != null ? r.shadowCastingMode : ShadowCastingMode.On);
+            }
             bool restoreFp = local != null && local.Character != null && local.Character.IsFirstPerson;
             var lamp = restoreFp ? local.Character.GetComponentInChildren<ShoulderLamp>() : null;
             if (restoreFp) local.Character.SetFirstPersonMode(false);
@@ -131,7 +140,12 @@ namespace HideAndSeek.Game
             if (restoreFp) local.Character.SetFirstPersonMode(true);
             lamp?.SetFirstPerson(true);
             if (restoreHead) local.Character.SetHeadHidden(true);
+            for (int i = 0; i < _ownRenderers.Count; i++)
+                if (_ownRenderers[i] != null) _ownRenderers[i].shadowCastingMode = _ownModes[i];
         }
+
+        private static readonly List<Renderer> _ownRenderers = new();
+        private static readonly List<ShadowCastingMode> _ownModes = new();
 
         // ================================================================ flashlight bounce
 

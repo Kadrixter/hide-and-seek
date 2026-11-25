@@ -38,7 +38,7 @@ namespace HideAndSeek.Game
                     return true;
                 },
                 Hint = p => p.SawFuel.Value > 0f
-                    ? $"F przytrzymaj - gaz   paliwo {Mathf.CeilToInt(p.SawFuel.Value)}/{SawFuel.Full:0}"
+                    ? $"F przytrzymaj - gaz   paliwo {Mathf.CeilToInt(p.SawFuel.Value - 0.05f)}/{SawFuel.Full:0}"
                     : "Piła bez paliwa - nie odpali (Q - wyrzuć)",
                 Model = r => Prop(r, HeldItem.Chainsaw),
             };

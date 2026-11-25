@@ -1,6 +1,7 @@
 using HideAndSeek.Game.MiniGames.Pool;
 using HideAndSeek.Game.UI;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace HideAndSeek.Game.MiniGames
 {
@@ -26,11 +27,17 @@ namespace HideAndSeek.Game.MiniGames
         void TickPool(PoolTable t, int seat)
         {
             var s = t.State;
+            // Pool texts can be long (notes, endings): they shrink to one line instead of wrapping over each other.
+            FitOneLine(_title, 14);
+            FitOneLine(_status, 20);
+            FitOneLine(_side, 13);
             string opp = t.SeatNick(1 - seat);
             if (string.IsNullOrEmpty(opp)) opp = "-";
             int my = seat == 0 ? s.WinsA : s.WinsB, their = seat == 0 ? s.WinsB : s.WinsA;
             bool rolling = t.Rolling;
-            _title.text = $"BILARD - ÓSEMKA   |   grasz: {GroupName(s.GroupOf(seat))}   |   seria {my} : {their}";
+            int g = s.GroupOf(seat);
+            string mine = g == 0 ? "stół otwarty" : $"grasz: {GroupName(g)}, zostało {(g == 1 ? Left(s, 1, 7) : Left(s, 9, 15))}";
+            _title.text = $"BILARD - ÓSEMKA   |   {mine}   |   seria {my} : {their}";
             bool myTurn = s.Phase == PoolState.Playing && s.Turn == seat && !rolling;
             switch (s.Phase)
             {
@@ -49,12 +56,10 @@ namespace HideAndSeek.Game.MiniGames
                     _status.color = Gold;
                     break;
             }
+            // One short line under the status (a long note would wrap into the status above it): the last shot's
+            // note once the balls stopped, else how many balls each group has left.
             if (s.Phase == PoolState.Waiting) _side.text = "";
-            else
-            {
-                string balls = $"pełne: zostało {Left(s, 1, 7)}      połówki: zostało {Left(s, 9, 15)}";
-                _side.text = !rolling && !string.IsNullOrEmpty(s.Note) ? $"{balls}      |      {s.Note}" : balls;
-            }
+            else _side.text = !rolling && !string.IsNullOrEmpty(s.Note) ? s.Note : $"pełne: {Left(s, 1, 7)}      połówki: {Left(s, 9, 15)}";
             // Flashes (only for states seen after the HUD came up, and only once the balls stopped).
             if (_seenVersion == -1)
             {
@@ -79,7 +84,8 @@ namespace HideAndSeek.Game.MiniGames
             _seenVersion = t.Version;
             // Hints.
             if (s.Phase == PoolState.Playing)
-                _hints.text = myTurn ? (s.BallInHand ? "Biała w ręce - ustaw ją przed strzałem      " : "") + PoolAimHint
+                _hints.text = myTurn ? (t.LocalHolding ? "Biała w ręce - LPM połóż ją na stole (zielony krąg = wolno)"
+                        : (s.BallInHand ? "B - weź białą znowu do ręki      " : "") + PoolAimHint)
                     : "Czekaj na swoją kolej      Esc - odejdź (oddajesz partię)";
             else if (s.Phase == PoolState.Over)
             {
@@ -91,6 +97,16 @@ namespace HideAndSeek.Game.MiniGames
             }
             else _hints.text = "Esc - odejdź od stołu";
             if (_promo.activeSelf) _promo.SetActive(false);
+        }
+
+        static void FitOneLine(Text label, int min)
+        {
+            if (label == null || label.resizeTextForBestFit) return;
+            label.resizeTextMaxSize = label.fontSize;
+            label.resizeTextMinSize = min;
+            label.horizontalOverflow = HorizontalWrapMode.Wrap;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.resizeTextForBestFit = true;
         }
 
         static string PoolEnd(PoolState s, int seat, string opp)

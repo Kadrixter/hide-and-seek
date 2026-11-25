@@ -17,9 +17,10 @@ namespace HideAndSeek.Game.MiniGames
             var right = new Vector2(d.y, -d.x);
             float nose = RayOut(cue, -d, PoolTableGeom.HalfL, PoolTableGeom.HalfW);
             float outer = RayOut(cue, -d, PoolTableGeom.OutX, PoolTableGeom.OutZ);
-            float back = Mathf.Max(1.1f, outer + 0.22f);
+            // A little closer than an arm's length plus the cue, but the hips 30 cm off the rail (the chest clears it).
+            float back = Mathf.Max(1.0f, outer + 0.3f);
             stand = cue - d * back - right * CueSide;
-            bridgeLen = Mathf.Lerp(0.25f, 0.16f, Mathf.InverseLerp(1.1f, 1.5f, back));
+            bridgeLen = Mathf.Lerp(0.25f, 0.16f, Mathf.InverseLerp(1.0f, 1.5f, back));
             rail = nose < bridgeLen + 0.03f;
             if (rail) bridgeLen = nose + PoolTableGeom.CushionW + PoolTableGeom.RailW * 0.45f;
             float need = (PoolDims.RailTopY + 0.022f - (PoolDims.ClothY + PoolDims.BallR)) / Mathf.Max(0.03f, nose - PoolDims.BallR);
