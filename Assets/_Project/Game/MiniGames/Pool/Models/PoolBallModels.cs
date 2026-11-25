@@ -18,7 +18,10 @@ namespace HideAndSeek.Game.MiniGames.Pool
         static readonly Material[] NoTemplate = new Material[16];
 
         /// <summary>Ball <paramref name="number"/> (0-15) under <paramref name="parent"/>; its centre is the local origin. No collider.</summary>
-        public static GameObject Build(Transform parent, Material template, int number)
+        public static GameObject Build(Transform parent, Material template, int number) => Build(parent, template, number, 0);
+
+        /// <summary>Like <see cref="Build(Transform, Material, int)"/> with the <paramref name="texW"/> x texW/2 texture (0 = full size).</summary>
+        public static GameObject Build(Transform parent, Material template, int number, int texW)
         {
             number = Mathf.Clamp(number, 0, 15);
             var g = new GameObject("PoolBall_" + number);
@@ -28,7 +31,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
                 g.transform.SetParent(parent, false);
             }
             g.AddComponent<MeshFilter>().sharedMesh = SphereMesh;
-            g.AddComponent<MeshRenderer>().sharedMaterial = BallMaterial(template, number);
+            g.AddComponent<MeshRenderer>().sharedMaterial = BallMaterial(template, number, texW);
             return g;
         }
 
@@ -36,6 +39,68 @@ namespace HideAndSeek.Game.MiniGames.Pool
         {
             number = Mathf.Clamp(number, 0, 15);
             return Textures[number] != null ? Textures[number] : (Textures[number] = PoolBallArt.Make(number));
+        }
+
+        // ---- smaller textures (lobby: 1024 x 512), cached per width; pixels can be computed on worker threads first
+
+        static readonly Dictionary<int, Texture2D[]> SizedTextures = new();
+        static readonly Dictionary<int, Color32[][]> SizedPixels = new();
+        static readonly Dictionary<int, int[]> SizedLeft = new();
+
+        /// <summary>Ball texture <paramref name="texW"/> x texW/2 (the full size when texW is 0 or <see cref="PoolBallArt.W"/>).</summary>
+        public static Texture2D Texture(int number, int texW)
+        {
+            if (texW <= 0 || texW >= PoolBallArt.W) return Texture(number);
+            number = Mathf.Clamp(number, 0, 15);
+            if (!SizedTextures.TryGetValue(texW, out var set)) SizedTextures[texW] = set = new Texture2D[16];
+            if (set[number] != null) return set[number];
+            Color32[] px = null;
+            if (SizedPixels.TryGetValue(texW, out var pending))
+                lock (pending) { px = pending[number]; pending[number] = null; }
+            return set[number] = px != null ? PoolBallArt.ToTexture(number, px, texW, texW / 2) : PoolBallArt.Make(number, texW, texW / 2);
+        }
+
+        /// <summary>
+        /// Starts computing the sixteen textures of width <paramref name="texW"/> on worker threads (no hitch on the main
+        /// thread); <see cref="PixelsReady"/> tells when <see cref="Build(Transform, Material, int, int)"/> only has to upload them.
+        /// </summary>
+        public static void Prewarm(int texW)
+        {
+            if (texW <= 0 || texW >= PoolBallArt.W || SizedPixels.ContainsKey(texW)) return;
+            var pending = new Color32[16][];
+            SizedPixels[texW] = pending;
+            var left = new[] { 16 };
+            SizedLeft[texW] = left;
+            for (int i = 0; i < 16; i++)
+            {
+                int n = i;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    Color32[] px = null;
+                    try { px = PoolBallArt.Pixels(n, texW, texW / 2); }
+                    catch (System.Exception e) { Debug.LogWarning($"[PoolBalls] texture {n} failed on a worker: {e.Message}"); }
+                    lock (pending) pending[n] = px;
+                    System.Threading.Interlocked.Decrement(ref left[0]);
+                });
+            }
+        }
+
+        /// <summary>All worker jobs of <see cref="Prewarm"/> are done (true as well when it was never started).</summary>
+        public static bool PixelsReady(int texW)
+        {
+            return !SizedLeft.TryGetValue(texW, out var left) || System.Threading.Volatile.Read(ref left[0]) <= 0;
+        }
+
+        static readonly Dictionary<(Material, int), Material[]> SizedMaterials = new();
+
+        /// <summary><see cref="BallMaterial(Material, int)"/> with the smaller texture (cached per template and size).</summary>
+        public static Material BallMaterial(Material template, int number, int texW)
+        {
+            if (texW <= 0 || texW >= PoolBallArt.W) return BallMaterial(template, number);
+            number = Mathf.Clamp(number, 0, 15);
+            if (!SizedMaterials.TryGetValue((template, texW), out var set)) SizedMaterials[(template, texW)] = set = new Material[16];
+            if (set[number] != null) return set[number];
+            return set[number] = NewMaterial(template, number, Texture(number, texW), $"PoolBall{number}_{texW}");
         }
 
         public static Color BallColor(int number) => PoolBallArt.BallColor(number);
@@ -47,10 +112,15 @@ namespace HideAndSeek.Game.MiniGames.Pool
             Material[] set = NoTemplate;
             if (template != null && !Materials.TryGetValue(template, out set)) Materials[template] = set = new Material[16];
             if (set[number] != null) return set[number];
+            return set[number] = NewMaterial(template, number, Texture(number), "PoolBall" + number);
+        }
+
+        static Material NewMaterial(Material template, int number, Texture2D tex, string name)
+        {
             var m = template != null ? new Material(template) : new Material(Shader.Find("Standard"));
-            m.name = "PoolBall" + number;
+            m.name = name;
             m.color = Color.white;
-            m.mainTexture = Texture(number);
+            m.mainTexture = tex;
             m.mainTextureScale = Vector2.one;
             m.mainTextureOffset = Vector2.zero;
             m.DisableKeyword("_EMISSION");
@@ -60,7 +130,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
             m.SetFloat("_Glossiness", number == 8 ? 0.95f : 0.93f);
             m.SetFloat("_SpecularHighlights", 1f);
             m.SetFloat("_GlossyReflections", 1f);
-            return set[number] = m;
+            return m;
         }
 
         /// <summary>The shared ball sphere: latitude rings round local Z, u = longitude, v = latitude (matches <see cref="PoolBallArt"/>).</summary>

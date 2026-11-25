@@ -4,20 +4,26 @@ using UnityEngine;
 namespace HideAndSeek.Game.MiniGames
 {
     /// <summary>
-    /// Builds the chess and tic-tac-toe tables in the lobby at runtime (MatchManager calls <see cref="Ensure"/> every
-    /// lobby frame): at the anchors "MiniGameSpot_Chess" / "MiniGameSpot_TicTacToe" left by the lobby builder, or at
-    /// the fallback spots of <see cref="MiniGameSpots"/>. The object lives in the lobby scene, so it goes with it.
+    /// Builds the chess and tic-tac-toe tables and the pool table in the lobby at runtime (MatchManager calls
+    /// <see cref="Ensure"/> every lobby frame): at the anchors "MiniGameSpot_Chess" / "MiniGameSpot_TicTacToe" /
+    /// "MiniGameSpot_Pool" left by the lobby builder, or at the fallback spots of <see cref="MiniGameSpots"/>. The object
+    /// lives in the lobby scene, so it goes with it.
     /// </summary>
     public sealed class MiniGameTables : MonoBehaviour
     {
         static MiniGameTables _inst;
         ChessTable _chess;
         TttTable _ttt;
+        PoolTable _pool;
 
         public static ChessTable Chess => _inst != null ? _inst._chess : null;
         public static TttTable Ttt => _inst != null ? _inst._ttt : null;
+        public static PoolTable Pool => _inst != null ? _inst._pool : null;
 
-        public static MiniTable Get(int game) => game == MatchManager.GameChess ? Chess : game == MatchManager.GameTtt ? Ttt : (MiniTable)null;
+        public static MiniTable Get(int game) => game == MatchManager.GameChess ? Chess : game == MatchManager.GameTtt ? Ttt
+            : game == MatchManager.GamePool ? Pool : (MiniTable)null;
+
+        static MiniTable[] All => new MiniTable[] { _inst._chess, _inst._ttt, _inst._pool };
 
         public static void Ensure()
         {
@@ -37,10 +43,12 @@ namespace HideAndSeek.Game.MiniGames
             var template = FindTemplate();
             MiniGameSpots.Resolve(MiniGameSpots.ChessName, out var cp, out var cr, out bool cf);
             MiniGameSpots.Resolve(MiniGameSpots.TttName, out var tp, out var tr, out bool tf);
+            MiniGameSpots.Resolve(MiniGameSpots.PoolName, out var pp, out var pr, out bool pf);
             _chess = ChessTable.Create(transform, cp, cr, template);
             _ttt = TttTable.Create(transform, tp, tr, template);
+            _pool = PoolTable.Create(transform, pp, pr, template);
             MiniGameLocal.Ensure(); // HUD (also the spectator line) and the seated player's input
-            Debug.Log($"[MiniGames] tables built: chess {cp} ({(cf ? "fallback" : "anchor")}), ttt {tp} ({(tf ? "fallback" : "anchor")})");
+            Debug.Log($"[MiniGames] tables built: chess {cp} ({(cf ? "fallback" : "anchor")}), ttt {tp} ({(tf ? "fallback" : "anchor")}), pool {pp} ({(pf ? "fallback" : "anchor")})");
         }
 
         /// <summary>A Standard material of the lobby to clone (same shader variants as the room), else a new Standard.</summary>
@@ -60,7 +68,7 @@ namespace HideAndSeek.Game.MiniGames
             seat = -1;
             var me = NetPlayer.Local;
             if (me == null || _inst == null) return null;
-            foreach (MiniTable t in new MiniTable[] { _inst._chess, _inst._ttt })
+            foreach (MiniTable t in All)
             {
                 if (t == null) continue;
                 int s = t.SeatOf(me.NetworkObjectId);
@@ -74,15 +82,15 @@ namespace HideAndSeek.Game.MiniGames
         {
             game = seat = -1; aim = default; text = null; dist = float.MaxValue;
             if (_inst == null) return false;
-            foreach (MiniTable t in new MiniTable[] { _inst._chess, _inst._ttt })
+            foreach (MiniTable t in All)
             {
                 if (t == null) continue;
-                Vector3 c = t.Centre;
-                if (Vector3.Distance(eye, c) > 2.4f || !inView(c, t.transform)) continue;
+                Vector3 c = t.PromptTarget(eye);
+                if (!t.PromptNear(eye) || !inView(c, t.transform)) continue;
                 for (int s = 0; s < 2; s++)
                 {
                     if (t.SeatPlayer(s) != ulong.MaxValue) continue;
-                    float d = Vector3.Distance(new Vector3(eye.x, 0f, eye.z), new Vector3(t.SeatStand(s).x, 0f, t.SeatStand(s).z));
+                    float d = t.JoinDistance(eye, s);
                     if (d >= dist || d > 2.2f) continue;
                     dist = d;
                     game = t.Game;

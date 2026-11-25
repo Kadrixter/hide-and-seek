@@ -8,10 +8,12 @@ namespace HideAndSeek.Game.MiniGames
     /// (0.75 m out, a round rug under it); <see cref="TttName"/> = centre of the chalkboard on the wall at 1.45 m,
     /// forward pointing into the room. FALLBACK (anchors not in this branch's lobby yet): the same spots as the new
     /// lobby layout uses - chess at (2.9; 0; 2.2), the board on the north wall at (6.85; 1.45; 5.99) facing south.
+    /// <see cref="PoolName"/> (optional anchor) = floor under the middle of the pool table's cloth, the anchor's yaw =
+    /// the table root's yaw (table +X = the foot end); fallback <see cref="LobbyLayout.PoolSpot"/> / <see cref="LobbyLayout.PoolYaw"/>.
     /// </summary>
     public static class MiniGameSpots
     {
-        public const string ChessName = "MiniGameSpot_Chess", TttName = "MiniGameSpot_TicTacToe";
+        public const string ChessName = "MiniGameSpot_Chess", TttName = "MiniGameSpot_TicTacToe", PoolName = "MiniGameSpot_Pool";
 
         /// <summary>Height of the chalkboard centre above the floor (the anchor sits there).</summary>
         public const float BoardHeight = 1.45f;
@@ -19,6 +21,7 @@ namespace HideAndSeek.Game.MiniGames
         /// <summary>FALLBACK placement (no anchor in the scene): anchor position and yaw.</summary>
         public static (Vector3 pos, float yaw) Fallback(string name) => name == ChessName
             ? (new Vector3(2.9f, 0f, 2.2f), 0f)
+            : name == PoolName ? (LobbyLayout.PoolSpot, LobbyLayout.PoolYaw)
             : (new Vector3(6.85f, BoardHeight, 5.99f), 180f);
 
         /// <summary>

@@ -87,6 +87,7 @@ namespace HideAndSeek.Game.MiniGames
             if (table != _seenTable) { _seenTable = table; _seenVersion = -1; _flashUntil = 0f; }
             if (table is ChessTable chess) TickChess(me, chess, seat);
             else if (table is TttTable ttt) TickTtt(ttt, seat);
+            else if (table is PoolTable pool) TickPool(pool, seat);
             float left = _flashUntil - Time.unscaledTime;
             _flash.text = left > 0f ? _flashText : "";
             var c = _flash.color;
@@ -111,6 +112,8 @@ namespace HideAndSeek.Game.MiniGames
             var ttt = MiniGameTables.Ttt;
             if (ttt != null && Vector3.Distance(p, ttt.Centre) < 3f && ttt.State.Phase != TttState.Waiting)
                 return $"Kółko i krzyżyk: {Nick(ttt.State.A)} (X) {ttt.State.ScoreA} : {ttt.State.ScoreB} {Nick(ttt.State.B)} (O)";
+            var pool = MiniGameTables.Pool;
+            if (pool != null && pool.DistanceToEdge(p) < 2.2f && pool.State.Phase != HideAndSeek.Game.MiniGames.Pool.PoolState.Waiting) return PoolWatchLine(pool);
             return "";
         }
 

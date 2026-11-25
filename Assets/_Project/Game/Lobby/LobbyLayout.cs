@@ -8,7 +8,7 @@ namespace HideAndSeek.Game
     /// flashlight box, boombox, mini-game spots). Room: <see cref="W"/> x <see cref="D"/> m (the original size),
     /// centred on the origin, floor at y 0, inner wall faces at x = +-HalfW and z = +-HalfD. North = +Z.
     /// Layout (23.11): lounge with the fireplace + TV on the north wall (north-west), games in the north-east
-    /// (two SNAKE cabinets, chess spot, tic-tac-toe board, darts), start lever / cork board / vending on the east wall,
+    /// (two SNAKE cabinets, chess spot, tic-tac-toe board, darts), the pool table in the north-middle, start lever / cork board / vending on the east wall,
     /// mirror, flashlight box, aquarium, record player and exit on the south wall, bricks / bookshelf / globe west.
     /// </summary>
     public static class LobbyLayout
@@ -42,6 +42,16 @@ namespace HideAndSeek.Game
         public static readonly Vector3 ChessSpot = new(2.9f, 0f, 2.2f);
         /// <summary>MiniGameSpot_TicTacToe: centre of a ~0.7 m wall board on the north wall (forward = into the room).</summary>
         public static readonly Vector3 TicTacToeSpot = new(6.85f, 1.45f, HalfD - 0.01f);
+        /// <summary>
+        /// MiniGameSpot_Pool: floor point under the middle of the cloth of the 7 ft pool table (outside 2.30 x 1.31 m),
+        /// north-middle of the room between the lounge and the chess spot. The long axis runs along world Z: the root
+        /// yaw <see cref="PoolYaw"/> = 90 turns table +X (foot end, rack) to world -Z (south) and table +Z to world +X,
+        /// so the head end (kitchen, break) points north; player 1 waits on the west long side, player 2 on the east.
+        /// The table's lamp hangs from the ceiling over it (canopies at z 0.58 / 2.02, x -0.1), 1.3 m clear of the
+        /// ceiling light at (1.2; 2.6).
+        /// </summary>
+        public static readonly Vector3 PoolSpot = new(-0.1f, 0f, 1.3f);
+        public const float PoolYaw = 90f;
 
         // ---- east wall
         public static readonly Vector3 Lever = new(HalfW - 0.02f, 0f, 0.5f);
