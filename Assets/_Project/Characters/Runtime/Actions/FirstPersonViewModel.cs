@@ -257,6 +257,16 @@ namespace HideAndSeek.Characters
         /// <summary>Chainsaw throttle (F held): saw raised, hands shaking.</summary>
         public void SetRevving(bool value) => revving = value;
 
+        private float extSawT = float.NaN;
+        private int sawAttempts = 1;
+
+        /// <summary>Drives the pull-start from the synced clock (see BlockyCharacterActions.SetSawStart; NaN = local clock).</summary>
+        public void SetSawStart(float t, int attempts)
+        {
+            extSawT = t;
+            sawAttempts = Mathf.Max(1, attempts);
+        }
+
         float sawStartT = 99f;
         float sawBlood;
         HeldItem lastShow;
@@ -474,6 +484,7 @@ namespace HideAndSeek.Characters
             if (revving) sawStartT = Mathf.Max(sawStartT, BlockyProps.ChainsawStartTime);
             lastShow = show;
             sawStartT += dt;
+            if (!float.IsNaN(extSawT)) sawStartT = revving ? Mathf.Max(extSawT, BlockyProps.ChainsawStartEnd(sawAttempts)) : extSawT;
 
             // Action clock.
             float prev = actionTime;
@@ -606,7 +617,7 @@ namespace HideAndSeek.Characters
                     Vector3 sPos = new Vector3(0.2f, -0.46f + 0.06f * rv, 0.5f + 0.05f * rv) + jit;
                     Quaternion sRot = Quaternion.Euler(-6f - 10f * rv, -8f, 0f);
                     // Pull-start: saw held out lower and turned a little, left hand yanks the starter cord twice.
-                    var st = BlockyProps.ChainsawStarter(sawStartT);
+                    var st = BlockyProps.ChainsawStarter(sawStartT, sawAttempts);
                     if (st.x > 0.001f)
                     {
                         float yank = st.y;
@@ -670,9 +681,9 @@ namespace HideAndSeek.Characters
             var sawProp = props[(int)HeldItem.Chainsaw];
             if (sawProp != null && show == HeldItem.Chainsaw)
             {
-                bool engine = sawStartT >= BlockyProps.ChainsawFireTime;
+                bool engine = sawStartT >= BlockyProps.ChainsawFireAt(sawAttempts);
                 sawProp.SetChainRun(revving ? 1f : engine ? 0.3f : 0f, time);
-                sawProp.SetStarterPull(BlockyProps.ChainsawStarter(sawStartT).y);
+                sawProp.SetStarterPull(BlockyProps.ChainsawStarter(sawStartT, sawAttempts).y);
                 sawProp.SetSawBlood(sawBlood);
             }
             var glock = props[(int)HeldItem.Glock];

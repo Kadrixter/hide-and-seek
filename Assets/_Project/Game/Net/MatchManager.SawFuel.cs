@@ -6,14 +6,23 @@ namespace HideAndSeek.Game.Net
     /// <summary>Chainsaw fuel (2026-11-24).</summary>
     public static class SawFuel
     {
-        /// <summary>A full saw: this many units (= seconds of holding F at the default use of 1 per second).</summary>
-        public const float Full = 20f;
+        /// <summary>A full saw: this many units (= seconds of holding F at the default use of 1 per second). 12 since the 2026-11-25 nerf (was 20).</summary>
+        public const float Full = 12f;
         /// <summary>Lobby slider range for the use per second (tests: drain it fast).</summary>
         public const int UseMin = 1, UseMax = 20;
+        /// <summary>Bit of the dropped item's extra byte: a hider threw it away (hidden: not on the seeker's minimap).</summary>
+        public const byte HiderFlag = 0x80;
 
-        /// <summary>Fuel -> the dropped item's extra byte (0 = unknown = full).</summary>
-        public static byte Pack(float fuel) => (byte)(1 + Mathf.Clamp(Mathf.RoundToInt(fuel * 10f), 0, 200));
-        public static float Unpack(byte extra) => extra == 0 ? Full : Mathf.Clamp((extra - 1) / 10f, 0f, Full);
+        /// <summary>Fuel -> the dropped item's extra byte (0 = unknown = full; 1..121 = fuel in 0.1 steps, + <see cref="HiderFlag"/>).</summary>
+        public static byte Pack(float fuel, bool byHider = false) =>
+            (byte)((1 + Mathf.Clamp(Mathf.RoundToInt(fuel * 10f), 0, Mathf.RoundToInt(Full * 10f))) | (byHider ? HiderFlag : 0));
+        public static float Unpack(byte extra)
+        {
+            int v = extra & ~HiderFlag;
+            return v == 0 ? Full : Mathf.Clamp((v - 1) / 10f, 0f, Full);
+        }
+        /// <summary>The drop was thrown away by a hider (a seeker item hidden from him: no minimap marker).</summary>
+        public static bool ByHider(byte extra) => (extra & HiderFlag) != 0;
     }
 
     /// <summary>
@@ -29,6 +38,7 @@ namespace HideAndSeek.Game.Net
         private void UpdateSawFuel()
         {
             if (Phase.Value != MatchPhase.Seeking) return;
+            UpdateSawStarts(); // pull-start tries (MatchManager.SawNerf.cs)
             float rate = Settings.Value.SawUseRate;
             foreach (var p in NetPlayer.All)
             {

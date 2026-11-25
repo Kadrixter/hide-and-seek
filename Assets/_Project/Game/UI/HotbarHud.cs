@@ -1,3 +1,4 @@
+using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using HideAndSeek.Game.UI;
 using UnityEngine;
@@ -10,6 +11,7 @@ namespace HideAndSeek.Game
     /// a filled slot shows the item's pixel icon and the count. The selected slot gets a light frame around it
     /// (Minecraft style) that glides between slots; above the bar the item's name and what the left mouse button / Q do.
     /// Own canvas just under the main HUD (menus and blind overlays cover it). Also runs <see cref="Hotbar.Tick"/>.
+    /// Dead and spectating: shows the watched player's inventory instead (read only).
     /// </summary>
     [DefaultExecutionOrder(-5)]
     public class HotbarHud : MonoBehaviour
@@ -132,15 +134,31 @@ namespace HideAndSeek.Game
 
         private void Update() => Hotbar.Tick(NetPlayer.Local);
 
+        /// <summary>
+        /// Whose inventory the bar shows: the local player, or - dead and watching somebody (GameHud.Spectated) - the
+        /// watched player's slots, his selected slot (synced HandSlot) and counts, with his nick above the bar.
+        /// </summary>
+        private static NetPlayer Viewed(NetPlayer me, out bool spectating)
+        {
+            spectating = false;
+            if (me == null || me.Life.Value != LifeState.Dead) return me;
+            var w = GameHud.Spectated;
+            if (w == null || w == me || w.Life.Value == LifeState.Dead || KillCam.Active) return me;
+            var mm = MatchManager.Instance;
+            if (mm == null || mm.RaceMode || (mm.Phase.Value != MatchPhase.Hiding && mm.Phase.Value != MatchPhase.Seeking)) return me;
+            spectating = true;
+            return w;
+        }
+
         private void LateUpdate()
         {
-            var me = NetPlayer.Local;
-            bool active = Hotbar.Active(me);
+            var me = Viewed(NetPlayer.Local, out bool spectating);
+            bool active = spectating || Hotbar.Active(me);
             _shown = Mathf.MoveTowards(_shown, active ? 1f : 0f, Time.unscaledDeltaTime * 6f);
             _group.alpha = _shown;
             if (_shown <= 0f || me == null) return;
 
-            int sel = Hotbar.Selected(me);
+            int sel = spectating ? Mathf.Clamp(me.HandSlot.Value - 1, 0, Hotbar.Slots - 1) : Hotbar.Selected(me);
             float dt = Time.unscaledDeltaTime;
             for (int i = 0; i < Hotbar.Slots; i++)
             {
@@ -166,6 +184,12 @@ namespace HideAndSeek.Game
             _frame.localScale = Vector3.one * (1f + 0.04f * _pulse);
 
             var cur = Hotbar.ItemAt(me, sel);
+            if (spectating)
+            {
+                _name.text = $"Ekwipunek: {me.Nick}";
+                _hint.text = cur == HotbarItem.None ? "w ręce: nic" : $"w ręce: {Hotbar.Name(cur)}";
+                return;
+            }
             _name.text = cur == HotbarItem.None ? "" : Hotbar.Name(cur);
             _hint.text = cur == HotbarItem.None ? "" : Hotbar.Hint(me, cur);
         }

@@ -48,8 +48,10 @@ namespace HideAndSeek.Game
         public float DropVolume = 0.7f;
         /// <summary>Faint light on a dropped one so it can be found in the dark garage (alpha 0 = none).</summary>
         public Color Glow = new Color(1f, 1f, 1f, 0f);
-        /// <summary>Shown on the seeker's minimap when lying on the floor (seeker weapons).</summary>
+        /// <summary>Shown on the seeker's minimap when lying on the floor (seeker weapons; not when a hider threw it away, <see cref="SawFuel.ByHider"/>).</summary>
         public bool SeekerMapMarker;
+        /// <summary>The seeker's own non-weapon item (fuel canister): he always may pick it up and its <see cref="Use"/> / <see cref="Hint"/> work for him.</summary>
+        public bool SeekerTool;
 
         /// <summary>Amount the player has (0 = not in the inventory). Read on every peer.</summary>
         public Func<NetPlayer, int> Count = _ => 0;

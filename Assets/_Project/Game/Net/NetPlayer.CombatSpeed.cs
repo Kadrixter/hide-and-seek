@@ -11,11 +11,12 @@ namespace HideAndSeek.Game.Net
     ///   so the hider gets a moment to run away. Derived from the synced <see cref="AttackReadyAt"/>
     ///   (the server sets it to now + cooldown when an attack starts / a kill ends), no extra network state.
     /// - aiming the Glock (RMB) slows walking a little.
+    /// - the chainsaw in the hands: -15% (<see cref="SawSpeedScale"/>, NetPlayer.SawNerf.cs).
     /// </summary>
     public partial class NetPlayer
     {
         /// <summary>Product of all fight-related speed penalties (1 = none).</summary>
-        public float CombatSpeedScale => AttackSlowScale * (GlockAiming.Value && Held.Value == HeldItem.Glock ? Tuning.GlockAimSpeedScale : 1f);
+        public float CombatSpeedScale => AttackSlowScale * SawSpeedScale * (GlockAiming.Value && Held.Value == HeldItem.Glock ? Tuning.GlockAimSpeedScale : 1f);
 
         /// <summary>Seconds since the seeker's last attack / kill (negative or huge when none).</summary>
         public double SinceLastAttack

@@ -69,7 +69,8 @@ namespace HideAndSeek.Game.Cinematics
             g.Build();
             g.SetOpen(0f);
             g.SetLever(1f);
-            g.SetBroken(true);
+            g.SetBroken(i == 0); // only the east lever is torn off (the intro, the dot link clue); the west one is whole
+            g.SetLamp(true); // red until the gate opens (the intro drives the east one itself; the west one had no colour)
             Debug.Log($"[Cine] exit gate {i} built at {pos}, street {(g.StreetVisible ? "open" : "behind the old painted shutter")}");
             return g;
         }

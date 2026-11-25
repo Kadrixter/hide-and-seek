@@ -330,6 +330,7 @@ namespace HideAndSeek.Game.Net
             pl.Held.Value = HeldItem.None;
             pl.HasGlock.Value = false;
             pl.HasChainsaw.Value = false;
+            pl.FuelCans.Value = 0;
             pl.Inv.Value = default;
             pl.Ammo.Value = 0;
             pl.SpareMags.Value = 0;
@@ -647,6 +648,7 @@ namespace HideAndSeek.Game.Net
                 pl.SpareMags.Value = Tuning.Mags - 1;
                 if (!Inventory.HasRoomFor(pl, HotbarItem.Glock)) { ServerGlockToFloor(pl); onFloor.Add(pl.NetworkObjectId); continue; } // full: it lands next to him
                 pl.HasGlock.Value = true;
+                if (pl.SawInHands) continue; // the saw stays in the hands, the Glock goes to the inventory
                 pl.Held.Value = HeldItem.Glock;
                 pl.SfxRpc(GameSfx.GlockEquip, 1f);
             }
@@ -714,6 +716,7 @@ namespace HideAndSeek.Game.Net
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (seeker.Busy.Value || victim.Busy.Value) return;
             if (Now < seeker.AttackReadyAt.Value || seeker.CannotAttack) return; // cooldown; blinded / gooed / knocked out (NetPlayer.AttackBlock)
+            if (seeker.SawInHands) return; // the saw cannot be put away for the knife (NetPlayer.SawNerf.cs)
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.KnifeServerRange) return;
             if (!victim.Limping.Value && !victim.Wounded.Value && victim.Severed.Value == 0)
             {
@@ -738,6 +741,7 @@ namespace HideAndSeek.Game.Net
             if (!Seeking || seeker == null || victim == null || !seeker.IsSeeker || !victim.IsAliveHider) return;
             if (!seeker.HasChainsaw.Value || seeker.Held.Value != HeldItem.Chainsaw) return;
             if (seeker.SawFuel.Value <= 0f) return; // out of fuel (MatchManager.SawFuel.cs)
+            if (seeker.SawStartElapsed < BlockyProps.ChainsawFireAt(seeker.SawAttempts.Value) - 0.3f) return; // still pulling the cord
             if (seeker.Busy.Value || victim.Busy.Value) return;
             if (Now < seeker.AttackReadyAt.Value || seeker.CannotAttack) return; // cooldown; blinded / gooed / knocked out (NetPlayer.AttackBlock)
             if (Vector3.Distance(seeker.transform.position, victim.transform.position) > Tuning.ChainsawServerRange) return;
@@ -814,9 +818,8 @@ namespace HideAndSeek.Game.Net
             ChainsawTaken.Value = true;
             pl.HasChainsaw.Value = true;
             SetSawFuel(pl, SawFuel.Full); // a full saw from the shelf
-            pl.Held.Value = HeldItem.Chainsaw;
-            pl.SfxRpc(GameSfx.ChainsawStart, 1f);
-            pl.ToastRpc("Masz piłę! F (przytrzymaj) - odpal i wejdź w chowającego. 1-5 - zmiana broni, Q - wyrzuć.", 6f);
+            pl.Held.Value = HeldItem.Chainsaw; // the pull-start sounds come with the yanks (NetPlayer.SawStart.cs)
+            pl.ToastRpc("Masz piłę! F - gaz, wejdź w chowającego. Nie schowasz jej, Q - wyrzuć.", 6f);
         }
 
         /// <summary>Seeker weapon switch (hotbar keys 1-5; None = empty hands on a slot without a weapon).</summary>
@@ -827,8 +830,9 @@ namespace HideAndSeek.Game.Net
             if (item == HeldItem.Chainsaw && !pl.HasChainsaw.Value) return;
             if (item != HeldItem.Knife && item != HeldItem.Glock && item != HeldItem.Chainsaw && item != HeldItem.None) return;
             if (pl.Held.Value == item) return;
+            if (pl.SawInHands) return; // the saw cannot be put away, only thrown down with Q (NetPlayer.SawNerf.cs)
             pl.Held.Value = item;
-            if (item != HeldItem.None) pl.SfxRpc(item == HeldItem.Glock ? GameSfx.GlockEquip : item == HeldItem.Chainsaw ? GameSfx.ChainsawStart : GameSfx.KnifeDraw, 0.8f);
+            if (item != HeldItem.None && item != HeldItem.Chainsaw) pl.SfxRpc(item == HeldItem.Glock ? GameSfx.GlockEquip : GameSfx.KnifeDraw, 0.8f);
         }
 
         private bool IsLastHider(NetPlayer victim)

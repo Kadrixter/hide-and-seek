@@ -115,7 +115,9 @@ namespace HideAndSeek.Game.MiniGames
                 {
                     CancelDrag();
                     PosWithout(_handPos);
-                    if (HitCloth(ray, out var p)) _handPos = PoolSim.ClampCueBall(_scratch, (ushort)(State.Down | 1), p, State.Kitchen);
+                    bool got = HitCloth(ray, out var p);
+                    got |= TestHandPoint(ref p, ref click);
+                    if (got) _handPos = PoolSim.ClampCueBall(_scratch, (ushort)(State.Down | 1), p, State.Kitchen);
                     _handOk = PoolSim.CanPlaceCueBall(_scratch, (ushort)(State.Down | 1), _handPos, State.Kitchen);
                     if (click)
                     {
@@ -163,7 +165,7 @@ namespace HideAndSeek.Game.MiniGames
                 _dragPx = Mathf.Clamp(_dragPx - delta.y, 0f, DragFull);
                 _pull = _dragPx / DragFull;
                 if (mouse.rightButton.wasPressedThisFrame) CancelDrag(); // RMB = cancel
-                else if (!mouse.leftButton.isPressed)
+                else if (!mouse.leftButton.isPressed && !_testLmb)
                 {
                     float pull = _pull;
                     CancelDrag();
@@ -200,12 +202,13 @@ namespace HideAndSeek.Game.MiniGames
             if (seat < 0 || me == null) return;
             Vector2 cue = AimCue();
             float power = Mathf.Clamp01(pull);
-            me.PoolShotRpc(_aimAngle, power, _spin.x, _spin.y, cue.x, cue.y);
             _syncPull = pull;
             _sendNow = true;
             _awaitShot = true;
             _awaitT = 0f;
+            // The stroke first: on the host the RPC runs (and starts the shot, OnShotStarted) right inside the call.
             StartLocalStroke(seat, cue, _aimAngle, pull, power, _spin);
+            me.PoolShotRpc(_aimAngle, power, _spin.x, _spin.y, cue.x, cue.y);
         }
 
         /// <summary>Our shot started on this peer (OnShotStarted).</summary>

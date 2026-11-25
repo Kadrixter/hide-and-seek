@@ -11,11 +11,11 @@ namespace HideAndSeek.Game.MiniGames.Pool
     public static class PoolSim
     {
         /// <summary>Cue ball speed for power 0 and 1 (m/s).</summary>
-        public const float MinSpeed = 0.5f, MaxSpeed = 7.5f;
+        public const float MinSpeed = 0.5f, MaxSpeed = 8.5f;
         /// <summary>Hard limit of a simulated shot (s): everything is stopped there.</summary>
         public const float MaxTime = 25f;
 
-        /// <summary>Cue ball speed (m/s) for a power 0..1: quadratic, so soft shots are easy to dose (0.5 -> 2.25 m/s).</summary>
+        /// <summary>Cue ball speed (m/s) for a power 0..1: quadratic, so soft shots are easy to dose (0.5 -> 2.5 m/s).</summary>
         public static float ShotSpeed(float power)
         {
             if (float.IsNaN(power) || float.IsInfinity(power)) power = 0f;

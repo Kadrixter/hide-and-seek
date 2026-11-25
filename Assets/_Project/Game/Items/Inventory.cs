@@ -73,7 +73,7 @@ namespace HideAndSeek.Game
             if (p == null || d == null || p.Life.Value != LifeState.Alive) return false;
             if (phase != MatchPhase.Hiding && phase != MatchPhase.Seeking) return false;
             if (p.IsHider) return (d.Users & ItemUsers.Hider) != 0;
-            if (p.IsSeeker) return phase == MatchPhase.Seeking && (d.Users & ItemUsers.Seeker) != 0 && (d.Weapon != HeldItem.None || SeekerTakesItems);
+            if (p.IsSeeker) return phase == MatchPhase.Seeking && (d.Users & ItemUsers.Seeker) != 0 && (d.Weapon != HeldItem.None || d.SeekerTool || SeekerTakesItems);
             return false;
         }
 

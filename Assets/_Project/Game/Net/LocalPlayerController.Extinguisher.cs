@@ -67,6 +67,7 @@ namespace HideAndSeek.Game.Net
                     GameHud.Toast("Gaśnica nie mieści się do ekwipunku - trzymasz ją w rękach. Q - odłóż.", 2.5f);
                 }
             if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
+            SawWrestWithExt(kb, mm.Phase.Value); // E: grab the saw of the seeker just foamed (LocalPlayerController.SawWrest.cs)
             return true;
         }
 

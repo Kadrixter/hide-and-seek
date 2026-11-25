@@ -10,7 +10,8 @@ namespace HideAndSeek.Game
 {
     /// <summary>Kinds of inventory items (definitions in <see cref="ItemDefs"/>). New kinds go at the END (synced as a byte).</summary>
     public enum HotbarItem : byte { None, Medkit, Syringe, RcCar, Rod, Knife, Chainsaw, Glock, ToyGun, Phone, RcRemote, SeveredLeg, Wire,
-        Fuse0, Fuse1, Fuse2, Fuse3, Fuse4, Fuse5, Fuse6, Fuse7 } // fuses: one kind per mark (FuseSymbols, ItemDefs.Fuse.cs)
+        Fuse0, Fuse1, Fuse2, Fuse3, Fuse4, Fuse5, Fuse6, Fuse7, // fuses: one kind per mark (FuseSymbols, ItemDefs.Fuse.cs)
+        FuelCan } // the seeker's chainsaw fuel canister (ItemDefs.FuelCan.cs)
 
     /// <summary>
     /// Requests from the hotbar to <see cref="LocalPlayerController"/> for this frame (left mouse button on the
@@ -67,7 +68,7 @@ namespace HideAndSeek.Game
         {
             var def = ItemDefs.Get(item);
             if (def == null) return "";
-            if (p.IsSeeker && def.Weapon == HeldItem.None) return "zabrane chowającym - Q wyrzuć";
+            if (p.IsSeeker && def.Weapon == HeldItem.None && !def.SeekerTool) return "zabrane chowającym - Q wyrzuć";
             string h = def.Hint != null ? def.Hint(p) : "";
             return def.Droppable && h.Length > 0 && h.IndexOf("Q -", System.StringComparison.Ordinal) < 0 ? h + "   |   Q - wyrzuć" : h;
         }
@@ -107,6 +108,11 @@ namespace HideAndSeek.Game
 
         private static void Select(NetPlayer p, int slot)
         {
+            if (p.SawInHands && ItemAt(p, slot) != HotbarItem.Chainsaw)
+            {
+                GameHud.Toast("Piły nie schowasz - Q, żeby ją wyrzucić.", 2f);
+                return;
+            }
             if (_sel != slot) GameAudio.Play2D(GameSfx.UiClick, 0.35f);
             _sel = slot;
             _nextEquip = 0f;
@@ -180,7 +186,7 @@ namespace HideAndSeek.Game
             if (!click && !hold) return;
             var def = ItemDefs.Get(item);
             if (def == null) return; // empty slot: the left mouse button keeps its other uses (Glock, flashlight...)
-            if (p.IsSeeker)
+            if (p.IsSeeker && !def.SeekerTool)
             {
                 if (def.Weapon == HeldItem.None && click) GameHud.Toast($"{def.Name}: jako szukający tego nie użyjesz (zabrane chowającym). Q - wyrzuć.", 2.5f);
                 return; // weapons: F / LPM are handled by the player controller

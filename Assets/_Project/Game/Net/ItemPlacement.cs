@@ -288,6 +288,13 @@ namespace HideAndSeek.Game.Net
             // The level's floor top, not a car roof the player may stand on (the item may fall off it).
             float levelY = MapInfo.HasGarage ? MapInfo.FloorUnder(feet.y) : FloorHeight(feet);
             if (pos.y < levelY - 0.35f && !MapInfo.InSlabOpening(pos, 1f) && !MapInfo.InSlabOpening(feet, 1f)) return Reject.WrongHeight;
+            if (MapInfo.InSlabOpening(pos, 1f) || MapInfo.InSlabOpening(feet, 1f))
+            {
+                // Stairs / ramp: the level's floor is far under the player, a flat line at its height runs through the
+                // steps. Chest -> just above the item instead (it follows the slope).
+                if (Blocked(feet + Vector3.up * 1.2f, pos + Vector3.up * 0.3f, 0f, self)) return Reject.Blocked;
+                return Reject.None;
+            }
             float h = Mathf.Min(feet.y + 1.8f, levelY + 2.4f); // above the cars, under the ceiling beams
             if (Blocked(new Vector3(feet.x, h, feet.z), new Vector3(pos.x, h, pos.z), 0f, self)) return Reject.Blocked;
             return Reject.None;

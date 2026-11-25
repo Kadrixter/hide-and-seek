@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.Net
     /// Cut-off leg / knock-out / body marker tests in the built game:
     ///  -testlegthrow (host -forcehider -autostart, + a seeker client and a second hider client = the victim): the saw
     ///      takes the victim's leg (a dropped item), the host picks it up, winds up (Hotbar test hold) and throws it at
-    ///      the seeker (stun: Busy, knife rejected, back after 6 s), throws it again (immune: hit without a stun), then a
+    ///      the seeker (stun: Busy, knife rejected, back after StunTimeline.Duration = 14 s), throws it again (immune: hit without a stun), then a
     ///      saw finisher on the victim (leg items from the kill) and the body marker on the minimap (same level / another).
     ///  -teststunview (the seeker client): logs the black screen during its own knock-out.
     ///  -legshots &lt;folder&gt;: screenshots of both (wind-up, throw, the seeker falling / lying / getting up, his black screen).
@@ -148,9 +148,9 @@ namespace HideAndSeek.Game.Net
             LegShot("release");
             float t0 = Time.time;
             bool knifeTried = false;
-            while (Time.time - t0 < 7.5f)
+            while (Time.time - t0 < StunTimeline.Duration + 1.5f)
             {
-                yield return new WaitForSeconds(0.3f);
+                yield return new WaitForSeconds(Time.time - t0 < 3f ? 0.3f : 1.2f);
                 LegShot($"after_{Time.time - t0:0.0}");
                 if (!knifeTried && seeker.Stunned)
                 {
@@ -237,7 +237,8 @@ namespace HideAndSeek.Game.Net
             var me = NetPlayer.Local;
             while (me != null && !me.Stunned) yield return null;
             if (me == null) yield break;
-            float[] marks = { 0.1f, 0.5f, 0.9f, 1.4f, 2.5f, 3.9f, 4.4f, 4.9f, 5.4f, 5.9f, 6.3f };
+            const float o = StunTimeline.Out; // the long lie (2026-11-24: +8 s)
+            float[] marks = { 0.1f, 0.5f, 0.9f, 1.4f, 2.5f, 5f, 8f, o + 2.5f, o + 3.9f, o + 4.4f, o + 4.9f, o + 5.4f, o + 5.9f, o + 6.3f };
             foreach (float m in marks)
             {
                 while (me.Stunned && me.StunTime < m) yield return null;

@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.MiniGames
     /// low behind the cue ball looking down the shot line (follows the aim at once, stays for the stroke); watching
     /// (rolling balls, the other player's turn): high three-quarter view of the whole table from the own side; Space
     /// (and ball in hand): steep view from the own side, under the lamp. The modes blend smoothly. The other player is
-    /// drawn as a shadow while he stands right in front of the camera.
+    /// drawn as a shadow while he stands in front of or right next to the camera.
     /// </summary>
     public sealed partial class PoolTable
     {
@@ -102,7 +102,8 @@ namespace HideAndSeek.Game.MiniGames
             Vector2 seg = mid - c;
             float t = Mathf.Clamp01(Vector2.Dot(o - c, seg) / Mathf.Max(1e-4f, seg.sqrMagnitude));
             float d = (c + seg * t - o).magnitude;
-            bool between = d < 0.45f && t < 0.75f;
+            // Between us and what we look at, or simply right next to the camera (he walks round the table).
+            bool between = d < 0.45f && t < 0.75f || (o - c).magnitude < 1.0f;
             other.SetGhostBody(between);
             _ghosted = between ? other : null;
         }

@@ -15,7 +15,8 @@ namespace HideAndSeek.Game.Net
     ///  to GateOpening, the opening is timed, the seeker (host) tries to run past the line, two hiders escape one after
     ///  the other -> the round ends, hiders win, outro; -escvariant kill = the second hider is killed after the first
     ///  got out (still a hiders' win). PNGs into &lt;dir&gt;.
-    ///  Clients: -escapewatch &lt;dir&gt; = a hider walks out at its turn (first at GateOpen + 7 s, second + 20 s), then
+    ///  -escgate 1 (host and clients): the same through the west gate.
+///  Clients: -escapewatch &lt;dir&gt; = a hider walks out at its turn (first at GateOpen + 7 s, second + 20 s), then
     ///  spectator / end / outro shots.
     /// </summary>
     public partial class NetSession
@@ -28,9 +29,14 @@ namespace HideAndSeek.Game.Net
 
         private static void ELog(string s) => Debug.Log("[EscTest] " + s);
 
+        /// <summary>-escgate N: the run goes through gate N (0 = east, 1 = west; host and clients alike).</summary>
+        private static int EG => int.TryParse(ArgOr("-escgate", "0"), out int g) ? g : 0;
+        private static Vector3 GW(Vector3 local) => EscapeTimeline.ToWorld(local, EG);
+        private static Vector3 GL(Vector3 world) => EscapeTimeline.ToLocal(world, EG);
+
         private static float GateYaw(Vector3 localDir)
         {
-            EscapeTimeline.Frame(out _, out var rot);
+            EscapeTimeline.Frame(out _, out var rot, EG);
             return Quaternion.LookRotation(rot * localDir).eulerAngles.y;
         }
 
@@ -49,18 +55,18 @@ namespace HideAndSeek.Game.Net
             while ((mm = MatchManager.Instance) == null || mm.Phase.Value != MatchPhase.Seeking || NetPlayer.Local == null) yield return null;
             yield return new WaitForSeconds(2f);
             var me = NetPlayer.Local;
-            var gate = ExitGate.Instance;
+            var gate = ExitGate.Get(EG);
             var hiders = HidersByClient();
-            ELog($"start: variant={(kill ? "kill" : "both escape")} me={me.Nick} seeker={me.IsSeeker} hiders={hiders.Count} gate={(gate != null ? "ok" : "-")} stage={mm.Escape.Value} gateAt={mm.EscapeGateAt.Value:0.0}");
+            ELog($"start: gate={EG} variant={(kill ? "kill" : "both escape")} me={me.Nick} seeker={me.IsSeeker} hiders={hiders.Count} gate={(gate != null ? "ok" : "-")} stage={mm.Escape.Value} gateAt={mm.EscapeGateAt.Value:0.0}");
             if (gate == null || hiders.Count < 2 || !me.IsSeeker) { ELog("need the gate, 2 hiders and the host as the seeker - stop"); yield break; }
-            ELog($"closed gate: block={(Physics.Raycast(EscapeTimeline.ToWorld(new Vector3(0f, 1f, 1f)), EscapeTimeline.ToWorld(new Vector3(0f, 1f, -1f)) - EscapeTimeline.ToWorld(new Vector3(0f, 1f, 1f)), 2f) ? "solid" : "OPEN")}");
+            ELog($"closed gate: block={(Physics.Raycast(GW(new Vector3(0f, 1f, 1f)), GW(new Vector3(0f, 1f, -1f)) - GW(new Vector3(0f, 1f, 1f)), 2f) ? "solid" : "OPEN")}");
 
             // Everybody near the gate, inside.
-            me.TeleportLocal(EscapeTimeline.ToWorld(new Vector3(2.4f, 0.05f, 7.5f)), GateYaw(Vector3.back));
+            me.TeleportLocal(GW(new Vector3(2.4f, 0.05f, 7.5f)), GateYaw(Vector3.back));
             for (int i = 0; i < hiders.Count; i++)
-                hiders[i].TeleportRpc(EscapeTimeline.ToWorld(new Vector3(i == 0 ? -2f : 0.5f, 0.05f, 5.5f + i)), GateYaw(Vector3.back));
+                hiders[i].TeleportRpc(GW(new Vector3(i == 0 ? -2f : 0.5f, 0.05f, 5.5f + i)), GateYaw(Vector3.back));
             yield return new WaitForSeconds(1f);
-            LookAt(me, EscapeTimeline.ToWorld(new Vector3(0f, 1.4f, 0f)));
+            LookAt(me, GW(new Vector3(0f, 1.4f, 0f)));
 
             mm.ServerEscapeAdvance(EscapeStage.GateOpening);
             float t0 = Time.time;
@@ -71,9 +77,9 @@ namespace HideAndSeek.Game.Net
             {
                 if (k < at.Length && Time.time - t0 >= at[k])
                 {
-                    LookAt(me, EscapeTimeline.ToWorld(new Vector3(0f, 1.4f, 0f)));
+                    LookAt(me, GW(new Vector3(0f, 1.4f, 0f)));
                     Shot(dir, $"esc_{k}_opening_{at[k]:0}s");
-                    CamShot(dir, $"esc_{k}_opening_side_{at[k]:0}s", EscapeTimeline.ToWorld(new Vector3(-5.5f, 1.9f, 6.5f)), EscapeTimeline.ToWorld(new Vector3(0.5f, 1.2f, 0f)));
+                    CamShot(dir, $"esc_{k}_opening_side_{at[k]:0}s", GW(new Vector3(-5.5f, 1.9f, 6.5f)), GW(new Vector3(0.5f, 1.2f, 0f)));
                     ELog($"opening t={mm.Now - mm.EscapeGateAt.Value:0.0} clearance={EscapeTimeline.Clearance(mm.Now - mm.EscapeGateAt.Value):0.00} m");
                     k++;
                 }
@@ -82,25 +88,25 @@ namespace HideAndSeek.Game.Net
             double openT = mm.Now - mm.EscapeGateAt.Value;
             ELog($"stage GateOpen after {openT:0.0} s (wall clock {Time.time - t0:0.0} s), clearance {EscapeTimeline.Clearance(openT):0.00} m - expected ~{EscapeTimeline.StandAt:0.0} s");
             Shot(dir, "esc_3_open_seeker_view");
-            CamShot(dir, "esc_4_open_side", EscapeTimeline.ToWorld(new Vector3(-5.5f, 1.9f, 6.5f)), EscapeTimeline.ToWorld(new Vector3(0.5f, 1.2f, 0f)));
-            CamShot(dir, "esc_5_boundary_line", EscapeTimeline.ToWorld(new Vector3(2.2f, 2.3f, -1.2f)), EscapeTimeline.ToWorld(new Vector3(-0.3f, 0f, EscapeTimeline.LineZ)));
+            CamShot(dir, "esc_4_open_side", GW(new Vector3(-5.5f, 1.9f, 6.5f)), GW(new Vector3(0.5f, 1.2f, 0f)));
+            CamShot(dir, "esc_5_boundary_line", GW(new Vector3(2.2f, 2.3f, -1.2f)), GW(new Vector3(-0.3f, 0f, EscapeTimeline.LineZ)));
 
             // The seeker runs at the line.
-            me.TeleportLocal(EscapeTimeline.ToWorld(new Vector3(0f, 0.05f, -2.5f)), GateYaw(Vector3.back));
+            me.TeleportLocal(GW(new Vector3(0f, 0.05f, -2.5f)), GateYaw(Vector3.back));
             yield return new WaitForSeconds(0.3f);
             me.Motor.CommandProvider = () => new MotorCommand { Move = new Vector2(0f, 1f), Run = true };
             float minZ = 99f;
             for (float t = 0f; t < 3f; t += Time.deltaTime)
             {
-                minZ = Mathf.Min(minZ, EscapeTimeline.ToLocal(me.transform.position).z);
+                minZ = Mathf.Min(minZ, GL(me.transform.position).z);
                 yield return null;
             }
             me.Motor.CommandProvider = null;
             ELog($"seeker run at the line: closest local z {minZ:0.00} (line {EscapeTimeline.LineZ}, wall {EscapeTimeline.SeekerWallZ}) -> {(minZ > EscapeTimeline.LineZ ? "BLOCKED OK" : "PASSED - FAIL")}, escaped={me.Escaped.Value}");
-            CamShot(dir, "esc_6_seeker_at_wall", EscapeTimeline.ToWorld(new Vector3(-2.5f, 2.2f, -1f)), me.transform.position + Vector3.up);
-            me.TeleportLocal(EscapeTimeline.ToWorld(new Vector3(-4.5f, 0.05f, 2.6f)), GateYaw(Vector3.back));
+            CamShot(dir, "esc_6_seeker_at_wall", GW(new Vector3(-2.5f, 2.2f, -1f)), me.transform.position + Vector3.up);
+            me.TeleportLocal(GW(new Vector3(-4.5f, 0.05f, 2.6f)), GateYaw(Vector3.back));
             yield return new WaitForSeconds(0.5f);
-            LookAt(me, EscapeTimeline.ToWorld(new Vector3(0f, 1f, -5f)));
+            LookAt(me, GW(new Vector3(0f, 1f, -5f)));
 
             // Hider 1 walks out (its own copy, -escapewatch).
             var h1 = hiders[0];
@@ -108,11 +114,11 @@ namespace HideAndSeek.Game.Net
             float w0 = Time.time;
             while (!h1.Escaped.Value && Time.time - w0 < 25f)
             {
-                if (EscapeTimeline.ToLocal(h1.transform.position).z < -2.5f && k < 99)
+                if (GL(h1.transform.position).z < -2.5f && k < 99)
                 {
                     k = 99;
                     yield return new WaitForSeconds(0.4f);
-                    CamShot(dir, "esc_7_hider_running_out", EscapeTimeline.ToWorld(new Vector3(-3f, 2.0f, 3.5f)), h1.transform.position + Vector3.up);
+                    CamShot(dir, "esc_7_hider_running_out", GW(new Vector3(-3f, 2.0f, 3.5f)), h1.transform.position + Vector3.up);
                 }
                 yield return null;
             }
@@ -156,13 +162,13 @@ namespace HideAndSeek.Game.Net
             ELog($"{me.Nick}: hider #{idx}, gate open, walking out at +{start - mm.Now:0.0} s");
             while (mm.Now < start && mm.Phase.Value == MatchPhase.Seeking) yield return null;
             if (!me.IsAliveHider || mm.Phase.Value != MatchPhase.Seeking) { ELog($"{me.Nick}: not walking (life {me.Life.Value}, phase {mm.Phase.Value})"); yield return EscapeWatchEnd(mm, dir); yield break; }
-            me.TeleportLocal(EscapeTimeline.ToWorld(new Vector3(idx == 0 ? -1f : 1f, 0.05f, 3f)), GateYaw(Vector3.back));
+            me.TeleportLocal(GW(new Vector3(idx == 0 ? -1f : 1f, 0.05f, 3f)), GateYaw(Vector3.back));
             yield return new WaitForSeconds(0.3f);
             me.Motor.CommandProvider = () => new MotorCommand { Move = new Vector2(0f, 1f), Run = true };
             float t0 = Time.time;
             while (!me.Escaped.Value && Time.time - t0 < 8f) yield return null;
             me.Motor.CommandProvider = null;
-            ELog($"{me.Nick}: escaped={me.Escaped.Value} after {Time.time - t0:0.0} s, local z {EscapeTimeline.ToLocal(me.transform.position).z:0.0}");
+            ELog($"{me.Nick}: escaped={me.Escaped.Value} after {Time.time - t0:0.0} s, local z {GL(me.transform.position).z:0.0}");
             yield return new WaitForSeconds(2.5f);
             var spec = UnityEngine.Object.FindFirstObjectByType<SpectatorCamera>();
             ELog($"{me.Nick}: spectator={(spec != null ? "on" : "off")} watching={(spec != null && spec.Target != null ? spec.Target.Nick : "-")} pos={me.transform.position} input={me.InputReader.InputEnabled}");

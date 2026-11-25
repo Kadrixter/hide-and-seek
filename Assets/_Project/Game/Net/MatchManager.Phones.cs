@@ -99,8 +99,8 @@ namespace HideAndSeek.Game.Net
                 int players = 0, hiders = 0;
                 foreach (var p in NetPlayer.All) if (p != null) { players++; if (p.IsHider) hiders++; }
                 int forced = PhoneTuning.ForcedCount;
-                // Several seekers: never more phones than hiders (with one seeker n-1 = hiders, as before).
-                int count = forced > 0 ? forced : Mathf.Min(PhoneCountFor(players), Mathf.Max(1, hiders));
+                // 4-6 a round whatever the player count (2026-11-25; was one per hider at most).
+                int count = forced > 0 ? forced : UnityEngine.Random.Range(PhoneTuning.MinPhones, PhoneTuning.MaxPhones + 1);
                 SpawnPhones(count);
                 Debug.Log($"[Phone] {Phones.Count} phones for {players} players (wanted {count})");
             }

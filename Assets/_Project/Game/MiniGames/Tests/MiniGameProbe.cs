@@ -12,6 +12,7 @@ namespace HideAndSeek.Game.MiniGames
     /// promotion box, and the white player resigns with Esc's action. Logs "[ChessTest]".</para>
     /// <para>-testttt [-tttshots &lt;dir&gt;]: X wins with the diagonal, R for the next round (O starts), a draw, then
     /// the host gets up. Logs "[TttTest]".</para>
+    /// <para>-testpool &lt;dir&gt;: 8-ball at the lobby pool table (MiniGameProbe.Pool.cs). Logs "[PoolTest]".</para>
     /// <para>-chesswatch &lt;dir&gt;: a late joining spectator logs the board it got and photographs both tables.</para>
     /// Screens: fp_* = the player's real screen, side_* = a free camera next to the table (what others see).
     /// </summary>
@@ -24,7 +25,7 @@ namespace HideAndSeek.Game.MiniGames
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
-            if (!Has("-testchess") && !Has("-testttt") && !Has("-chesswatch")) return;
+            if (!Has("-testchess") && !Has("-testttt") && !Has("-chesswatch") && !Has("-testpool")) return;
             var g = new GameObject("MiniGameProbe");
             DontDestroyOnLoad(g);
             g.AddComponent<MiniGameProbe>();
@@ -71,6 +72,12 @@ namespace HideAndSeek.Game.MiniGames
                 _tag = "TttTest";
                 _dir = Arg("-tttshots");
                 yield return TttRun(mm);
+            }
+            if (Has("-testpool"))
+            {
+                _tag = "PoolTest";
+                _dir = Arg("-testpool");
+                yield return PoolRun();
             }
             _recording = false;
             Log("DONE");

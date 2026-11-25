@@ -24,8 +24,8 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public const float SlateT = 0.03f;
         /// <summary>The apron (frame) runs this far inside the rails' outer edge and this deep under the cloth.</summary>
         public const float FrameInset = 0.035f, FrameHX = OutX - FrameInset, FrameHZ = OutZ - FrameInset, ApronH = 0.18f;
-        /// <summary>Pocket baskets: rim below the cloth, depth of the net.</summary>
-        public const float BagRimY = -0.052f, CornerBagDepth = 0.15f, SideBagDepth = 0.13f;
+        /// <summary>Bottom of the pockets' leather throats below the cloth (the ball return's funnels hang from there).</summary>
+        public const float ThroatY = -0.052f;
         /// <summary>Sights: distance from the cushion nose to the middle of the inlay.</summary>
         public const float SightD = 0.1f;
         /// <summary>How far the castings reach along the rails past the throats.</summary>
@@ -42,7 +42,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
         /// <summary>Hole centres outside the nose lines (corner: along both axes).</summary>
         public static readonly float CornerOff = SolveCornerOff();
         public static readonly float SideOff = CushionW + Mathf.Sqrt(SideHoleR * SideHoleR - SideThroat * SideThroat);
-        /// <summary>Frame corners are cut at |x| + |z| = ChamferK (clear of the corner baskets); notches round the side baskets.</summary>
+        /// <summary>Frame corners are cut at |x| + |z| = ChamferK (clear of the corner drops); notches round the side drops.</summary>
         public static readonly float ChamferK = (HalfL + CornerOff) + (HalfW + CornerOff) - (CornerHoleR + 0.034f) * Mathf.Sqrt(2f);
         public static readonly float NotchR = SideHoleR + 0.034f;
 
@@ -157,7 +157,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
             return poly;
         }
 
-        /// <summary>Plan of the apron: inset rectangle, corners chamfered clear of the corner baskets, notches round the side ones.</summary>
+        /// <summary>Plan of the apron: inset rectangle, corners chamfered clear of the corner pocket drops, notches round the side ones.</summary>
         public static List<Vector2> FramePath()
         {
             float hx = FrameHX, hz = FrameHZ, k = ChamferK;

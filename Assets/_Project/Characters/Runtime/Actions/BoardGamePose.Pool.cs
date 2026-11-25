@@ -6,8 +6,8 @@ namespace HideAndSeek.Characters
     /// Player at the lobby pool table with a cue. The table moves the cue; both fists follow it (two-bone IK).
     /// Bend 0: standing, the cue upright at the right side (<see cref="Input.Reach"/> = right fist on it), the left
     /// arm hanging, steps while the table walks the player around (<see cref="Input.Walk"/>). Bend 1: the shooting
-    /// stance - feet apart with the left foot forward, hips back, the torso bent down over the cue (just as low as the
-    /// bridge hand needs to reach <see cref="Input.Bridge"/>), turned so the head is above the cue line, the left fist
+    /// stance - feet apart with the left foot forward, hips back, the torso bent over the cue (just as low as the
+    /// bridge hand needs to reach <see cref="Input.Bridge"/>, never so low that the head sinks under the cue), turned so the head is above the cue line, the left fist
     /// on the cloth beside the cue, the right fist on the butt with the elbow up, the head looking along the shot.
     /// </summary>
     public static partial class BoardGamePose
@@ -25,16 +25,22 @@ namespace HideAndSeek.Characters
 
             // Hips: relaxed standing (bobbing while walking) -> back and a little down in the stance.
             Vector3 pelUp = BlockyCharacter.PelvisRest + new Vector3(sway * 0.02f, -0.01f + breathe * 0.004f + bob * 0.022f - walk * 0.012f, 0f);
-            Vector3 pelBent = new Vector3(0.02f, BlockyCharacter.HipHeight - 0.05f + breathe * 0.003f, -0.08f);
+            Vector3 pelBent = new Vector3(0.02f, BlockyCharacter.HipHeight - 0.03f + breathe * 0.003f, -0.08f);
             p.PelvisPos = Vector3.Lerp(pelUp, pelBent, b);
 
-            // Torso: the smallest lean (from a proper low stance on) that brings the left shoulder within reach of the
-            // bridge, turned so the chin is above the cue line (the right fist holds the cue, so it is on that line).
+            // Torso: the smallest lean that brings the left shoulder within reach of the bridge, turned so the chin is
+            // above the cue line (the right fist holds the cue, so it is on that line). The hips are about as high as
+            // the table, so the lean stops where the neck would sink below a hand over the bridge: the big head and
+            // the chest stay above the cue and the rail instead of going into the table (a long reach straightens
+            // the arm instead).
             float lean = 2f + breathe * 0.8f + walk * 4f, twist = 0f;
             if (b > 0.001f)
             {
-                float bestL = 88f, bestT = 0f;
-                for (float l = 55f; l <= 88f; l += 3f)
+                float neckLen = BlockyCharacter.NeckRest.y;
+                float minNeck = Mathf.Max(inp.Bridge.y, 0.7f) + 0.2f;
+                float maxL = Mathf.Clamp(Mathf.Acos(Mathf.Clamp((minNeck - pelBent.y) / neckLen, 0f, 1f)) * Mathf.Rad2Deg, 30f, 80f);
+                float bestL = maxL, bestT = 0f;
+                for (float l = 30f; l <= maxL + 0.01f; l += 3f)
                 {
                     float r = l * Mathf.Deg2Rad;
                     float fwd = 0.69f * Mathf.Sin(r) + 0.2f * Mathf.Cos(r);

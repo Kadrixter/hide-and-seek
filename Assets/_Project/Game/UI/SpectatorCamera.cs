@@ -9,6 +9,8 @@ namespace HideAndSeek.Game
     public class SpectatorCamera : MonoBehaviour
     {
         public NetPlayer Target { get; private set; }
+        /// <summary>Test hook: switch to the next player (like the left mouse button).</summary>
+        public static bool TestNext;
 
         private Camera _cam;
         private NetPlayer _me;
@@ -86,6 +88,7 @@ namespace HideAndSeek.Game
         {
             var mouse = Mouse.current;
             if (Target == null || !Target.IsSpawned || Target.Life.Value == LifeState.Dead || Target.Escaped.Value) Cycle(1);
+            if (TestNext) { TestNext = false; Cycle(1); }
             if (mouse != null && !LocalPlayerController.MenuOpen)
             {
                 if (mouse.leftButton.wasPressedThisFrame) Cycle(1);

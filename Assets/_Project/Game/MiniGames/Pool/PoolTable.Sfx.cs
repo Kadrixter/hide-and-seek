@@ -6,9 +6,9 @@ namespace HideAndSeek.Game.MiniGames
 {
     /// <summary>
     /// Sounds of the table, each where it happens: a small pool of 3D voices placed at the event (ball clicks louder
-    /// with the impact speed, cushions, jaws, the cue tip, balls dropping into pockets and landing in the baskets),
-    /// at most a few per frame (the break makes dozens at once, the loudest win), and a rolling rumble that follows
-    /// the moving balls.
+    /// with the impact speed, cushions, jaws, the cue tip, balls dropping into pockets, landing on the return's rods
+    /// and knocking into the tray), at most a few per frame (the break makes dozens at once, the loudest win), a
+    /// rolling rumble that follows the moving balls and a lighter, higher one for balls running down the rods.
     /// </summary>
     public sealed partial class PoolTable
     {
@@ -16,7 +16,7 @@ namespace HideAndSeek.Game.MiniGames
 
         AudioSource[] _voices;
         int _nextVoice;
-        AudioSource _rollSrc;
+        AudioSource _rollSrc, _railSrc;
         readonly List<PoolEvent> _frameEvents = new();
         static readonly System.Comparison<PoolEvent> Louder = (a, b) => Weight(b).CompareTo(Weight(a));
 
@@ -44,6 +44,10 @@ namespace HideAndSeek.Game.MiniGames
             _rollSrc.clip = PoolSounds.RollLoop;
             _rollSrc.loop = true;
             _rollSrc.volume = 0f;
+            _railSrc = NewSource(transform, "PoolReturnRoll");
+            _railSrc.clip = PoolSounds.RollLoop;
+            _railSrc.loop = true;
+            _railSrc.volume = 0f;
         }
 
         /// <summary>Plays <paramref name="clip"/> at a world point (a free voice, else the oldest one).</summary>
@@ -104,14 +108,20 @@ namespace HideAndSeek.Game.MiniGames
             }
         }
 
-        /// <summary>A dropping ball reached its place in the basket.</summary>
-        void BagLanded(int i)
+        /// <summary>A falling ball hit the return's rods under its pocket: a metallic knock.</summary>
+        void ReturnLanded(int i)
         {
-            int p = _bag[i];
-            if (p < 0) return;
-            Vector3 w = transform.TransformPoint(SlotPos(p, _bagSlot[i]));
-            if (_bagSlot[i] > 0) PlayAt(PoolSounds.BagClack, w, 0.45f, Random.Range(0.95f, 1.05f));
-            else PlayAt(PoolSounds.BagThud, w, 0.5f, Random.Range(0.92f, 1.05f));
+            Vector3 w = transform.TransformPoint(ReturnPos(i));
+            PlayAt(PoolSounds.Jaw, w, 0.32f, Random.Range(1.25f, 1.4f));
+        }
+
+        /// <summary>A ball rolling down the return stopped: against the tray's rubber divider, or clacking into the balls before it.</summary>
+        void ReturnKnock(int i, bool divider, float speed)
+        {
+            Vector3 w = transform.TransformPoint(ReturnPos(i));
+            float v = Mathf.Clamp01(speed / RetV0);
+            if (divider) PlayAt(PoolSounds.Cushion, w, 0.2f + 0.3f * v, Random.Range(1.1f, 1.25f));
+            else PlayAt(PoolSounds.BagClack, w, 0.25f + 0.3f * v, Random.Range(0.95f, 1.08f));
         }
 
         void TickSfx(float dt)
@@ -126,6 +136,22 @@ namespace HideAndSeek.Game.MiniGames
                 if (!_rollSrc.isPlaying) _rollSrc.Play();
             }
             else if (_rollSrc.volume <= 0.002f && _rollSrc.isPlaying) _rollSrc.Stop();
+            TickRailSound(dt);
+        }
+
+        /// <summary>Balls running down the return's rods: the rolling loop, higher and quieter than on the cloth.</summary>
+        void TickRailSound(float dt)
+        {
+            if (_railSrc == null) return;
+            float target = Mathf.Clamp01(_retRollSpeed / 1.2f) * 0.16f;
+            _railSrc.volume = Mathf.MoveTowards(_railSrc.volume, target, dt * 1.2f);
+            if (target > 0.004f)
+            {
+                _railSrc.transform.position = transform.TransformPoint(_retRollAt);
+                _railSrc.pitch = 1.45f + 0.25f * Mathf.Clamp01(_retRollSpeed / 1.2f);
+                if (!_railSrc.isPlaying) _railSrc.Play();
+            }
+            else if (_railSrc.volume <= 0.002f && _railSrc.isPlaying) _railSrc.Stop();
         }
     }
 }

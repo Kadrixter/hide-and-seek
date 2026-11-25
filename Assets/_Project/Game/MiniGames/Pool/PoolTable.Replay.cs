@@ -8,7 +8,7 @@ namespace HideAndSeek.Game.MiniGames
     /// Replay of a stroke on every peer. The server sends the stroke with the exact balls before it
     /// (<see cref="PoolShotMsg"/>); the same deterministic <see cref="PoolSim.Run"/> runs here (the host reuses the
     /// server's result) and the frames are played back at 60 per second, interpolated. A ball whose pocketed bit comes
-    /// up drops into its pocket's basket, the events sound where they happen. When the frames are over the balls wait
+    /// up drops into its pocket and down the ball return, the events sound where they happen. When the frames are over the balls wait
     /// for the server's state with this shot's number (it is published <c>Duration + 0.3 s</c> after the stroke), then
     /// <see cref="Rolling"/> ends and the balls settle onto it. A newer shot / a new rack / a lost state ends the replay.
     /// </summary>
@@ -59,12 +59,12 @@ namespace HideAndSeek.Game.MiniGames
             {
                 if ((msg.Down & (1 << i)) != 0)
                 {
-                    if (_bag[i] < 0) PutInBag(i, NearestPocket(msg.Pos[i]), false, CurrentLocal(i));
+                    if (_ret[i] < 0) PutInReturn(i, NearestPocket(msg.Pos[i]), false, CurrentLocal(i), _retClock);
                     continue;
                 }
-                if (_bag[i] >= 0)
+                if (_ret[i] >= 0)
                 {
-                    TakeOutOfBag(i);
+                    TakeOutOfReturn(i);
                     _pop[i] = 1f;
                     _hasPlaced[i] = false;
                 }
@@ -115,10 +115,10 @@ namespace HideAndSeek.Game.MiniGames
             float speedSum = 0f;
             for (int i = 0; i < 16; i++)
             {
-                if (_bag[i] >= 0) continue;
+                if (_ret[i] >= 0) continue;
                 if ((mask & (1 << i)) != 0)
                 {
-                    PutInBag(i, PocketOf(i, a[i]), _hasPlaced[i], CurrentLocal(i));
+                    PutInReturn(i, PocketOf(i, a[i]), _hasPlaced[i], CurrentLocal(i), ReplayDropTime(i));
                     continue;
                 }
                 Vector2 p = Vector2.Lerp(a[i], b[i], k);
@@ -143,7 +143,7 @@ namespace HideAndSeek.Game.MiniGames
             return NearestPocket(at);
         }
 
-        /// <summary>Stops the replay; <paramref name="jump"/> = put every ball at the shot's end at once (pocketed ones into their baskets).</summary>
+        /// <summary>Stops the replay; <paramref name="jump"/> = put every ball at the shot's end at once (pocketed ones into the tray; those already in the return roll on).</summary>
         void EndReplay(bool jump)
         {
             if (jump && _rep != null)
@@ -151,8 +151,8 @@ namespace HideAndSeek.Game.MiniGames
                 var fin = _rep.FinalPos;
                 for (int i = 0; i < 16; i++)
                 {
-                    if (_bag[i] >= 0) { _fallT[i] = Mathf.Max(_fallT[i], _fallDur[i]); continue; }
-                    if ((_rep.FinalDown & (1 << i)) != 0) PutInBag(i, PocketOf(i, fin[i]), false, CurrentLocal(i));
+                    if (_ret[i] >= 0) continue;
+                    if ((_rep.FinalDown & (1 << i)) != 0) PutInReturn(i, PocketOf(i, fin[i]), false, CurrentLocal(i), _retClock);
                     else if (fin != null && i < fin.Length)
                     {
                         ShownPos[i] = fin[i];

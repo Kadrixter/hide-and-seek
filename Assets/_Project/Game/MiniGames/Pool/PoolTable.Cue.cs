@@ -140,6 +140,8 @@ namespace HideAndSeek.Game.MiniGames
             if (v.StrokeT >= 0f)
             {
                 v.StrokeT += dt;
+                // Own stroke waiting for the server: over once the shot started or was given up (no endless hold).
+                if (v.StrokeWait && v.StrokeLocal && !_awaitShot) v.StrokeWait = false;
                 if (v.StrokeWait) v.StrokeT = Mathf.Min(v.StrokeT, StrokeContactT(v));
                 if (v.StrokeT > StrokeEnd)
                 {

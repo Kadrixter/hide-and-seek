@@ -9,8 +9,8 @@ namespace HideAndSeek.Game.Net
     /// <summary>Tuning of the toy slime blaster and the goo.</summary>
     public static class ToyTuning
     {
-        public const int MinGuns = 1, MaxGuns = 2;      // per round, random, on different levels
-        public const byte Shots = 8;                    // per gun, then it is empty and thrown away
+        public const int MinGuns = 2, MaxGuns = 4;      // per round, random, on different levels first (2026-11-25: was 1-2)
+        public const byte Shots = 13;                   // per gun, then it is empty and thrown away (2026-11-25: was 8)
         public const float GooTime = 5f;                // seeker slowed / no melee for this long after a hit
         public const float GooSpeed = 0.3f;             // speed multiplier while gooed (last second recovers)
         public const float ShotSpeed = 17f, ShotGravity = 6.5f, ShotMaxTime = 2.6f, ShotRadius = 0.07f;

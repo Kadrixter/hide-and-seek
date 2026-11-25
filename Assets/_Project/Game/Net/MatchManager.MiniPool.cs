@@ -170,6 +170,7 @@ namespace HideAndSeek.Game.Net
             var before = (Vector2[])_pool.Pos.Clone();
             ushort down = _pool.Down;
             PoolSimResult r;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try { r = PoolSim.Run((Vector2[])before.Clone(), down, shot); }
             catch (System.Exception e)
             {
@@ -188,7 +189,7 @@ namespace HideAndSeek.Game.Net
                 ShotNo = _pool.ShotNo, Seat = (byte)seat, Angle = shot.Angle, Power = shot.Power, SpinX = shot.SpinX, SpinY = shot.SpinY,
                 Down = down, Pos = before,
             });
-            Debug.Log($"[Pool] shot {_pool.ShotNo} by {pl.Nick}: angle {shot.Angle * Mathf.Rad2Deg:0.0}, power {shot.Power:0.00}, spin ({shot.SpinX:0.00}; {shot.SpinY:0.00}), {dur:0.0} s");
+            Debug.Log($"[Pool] shot {_pool.ShotNo} by {pl.Nick}: angle {shot.Angle * Mathf.Rad2Deg:0.0}, power {shot.Power:0.00}, spin ({shot.SpinX:0.00}; {shot.SpinY:0.00}), {dur:0.0} s (simulated in {sw.ElapsedMilliseconds} ms)");
         }
 
         /// <summary>Applies the rolled-out shot: rules, next turn / game over, then (optionally) publishes.</summary>
@@ -224,7 +225,7 @@ namespace HideAndSeek.Game.Net
                 _pool.Phase = PoolState.Over;
                 _pool.EndReason = PoolState.EndLeft;
                 _pool.Winner = (byte)(1 - seat);
-                _pool.Note = disconnected ? $"{nick} rozłączył się" : $"{nick} odszedł od stołu";
+                _pool.Note = disconnected ? $"{nick} - utracono połączenie" : $"{nick} odchodzi od stołu";
             }
             if (seat == 0) _pool.A = PoolState.Nobody; else _pool.B = PoolState.Nobody;
             _pool.WinsA = _pool.WinsB = 0;

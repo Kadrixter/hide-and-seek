@@ -116,7 +116,7 @@ namespace HideAndSeek.Game
             _status.AddOutline();
 
             _spectate = UiKit.Label("Spectate", root, "", 30, TextAnchor.LowerCenter);
-            _spectate.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 40), new Vector2(900, 50));
+            _spectate.rectTransform.Place(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 172), new Vector2(900, 50));
             _spectate.AddOutline();
 
             // Prompt (world anchored)

@@ -54,6 +54,10 @@ namespace HideAndSeek.Game.Net
                     {
                         ItemPlacement.Count(why, "drop " + d.Kind, pos);
                         Vector3 floor = ItemPlacement.Scatter(feet, ItemPlacement.Small, null, "drop " + d.Kind, v.transform);
+                        // On stairs / a ramp Scatter works on the level's floor under the steps: the player's own step instead.
+                        if (Mathf.Abs(floor.y - feet.y) > 0.4f &&
+                            ItemPlacement.FirstHit(feet + Vector3.up * 0.5f, Vector3.down, 1.2f, 0f, out var step, v.transform))
+                            floor = step.point;
                         Debug.Log($"[Drops] {d.Kind} #{d.Id} came to rest at {pos} ({why}) - moved to {floor}");
                         pos = floor + Vector3.up * v.HalfHeight;
                         rot = Quaternion.Euler(0f, rot.eulerAngles.y, 0f);

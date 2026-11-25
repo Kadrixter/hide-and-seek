@@ -31,10 +31,17 @@ namespace HideAndSeek.Game.MiniGames.Pool
             Vector2 n = len > 1e-9f ? d / len : Vector2.right;
             float rel = Vector2.Dot(v[a] - v[b], n);
             if (rel <= 0f) return;
+            if (a == 0 && res.FirstHit < 0) res.FirstHit = b;
+            int cn = Cluster(a, b);
+            if (cn > 2)
+            {
+                // Touching balls (the rack, a frozen pair): the impact runs through all of them at once.
+                SolveCluster(cn, te);
+                return;
+            }
             float j = 0.5f * (1f + EBall) * rel;
             v[a] -= n * j;
             v[b] += n * j;
-            if (a == 0 && res.FirstHit < 0) res.FirstHit = b;
             int k = a * N + b;
             if (rel >= SoundMin && te - lastPair[k] >= SoundGap)
             {

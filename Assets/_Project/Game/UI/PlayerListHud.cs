@@ -14,6 +14,7 @@ namespace HideAndSeek.Game.UI
     /// hider's state (chowa się / zraniony / ranny / powalony / martwy). The speaking player is highlighted.
     /// A downed hider shows the bleed-out left (bar + time) to everybody who sees "powalony" - the same rows for every
     /// role and spectators - while the seeking phase runs (the server only lets players bleed out then).
+    /// Hiders carrying fuses get the fuse icon on the right (with the number from 2 up); seekers never see it.
     /// Narrow (360 px of 1920) and grows downwards only as far as needed, so it stays clear of the banner, the lever
     /// countdown and the toasts in the middle of the screen.
     /// </summary>
@@ -140,6 +141,9 @@ namespace HideAndSeek.Game.UI
                 }
                 return d;
             }
+            // Fuses carried (hiders; the seekers never see who carries them).
+            var who = NetPlayer.Local;
+            if (p.IsHider && p.Life.Value != LifeState.Dead && (who == null || !who.IsSeeker)) d.Fuses = p.FuseCount;
             if (p.IsSeeker)
             {
                 d.Seeker = true;

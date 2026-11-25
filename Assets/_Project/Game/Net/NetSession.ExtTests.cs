@@ -21,6 +21,7 @@ namespace HideAndSeek.Game.Net
         private void StartExtTests(Func<string, bool> has)
         {
             if (has("-testextinguisher")) StartCoroutine(ExtTest(has("-extframes")));
+            StartSawFuelTests(has); // saw fuel, saw off, drop safety, 4 RC cars (NetSession.SawFuelTests.cs)
         }
 
         private IEnumerator ExtAt(float sec)
@@ -94,6 +95,11 @@ namespace HideAndSeek.Game.Net
             yield return ExtAt(4.6f);
             if (role == "hider") Shot(dir, "e_pin_fpp");
             if (role == "seeker" && hiderP != null) ItemLitShot(dir, "e_pin_tpp", hiderP.transform.position + new Vector3(-1.2f, 1.6f, -1.3f), hiderP.transform.position + Vector3.up * 1.0f);
+            yield return ExtAt(5.6f);
+            {
+                var sk = role == "seeker" ? me : Other();
+                Debug.Log($"[ExtTest] {role} first hit check (0.6 s after the spray may start): foamed={sk?.Foamed} elapsed={sk?.FoamElapsed:0.00}");
+            }
             yield return ExtAt(6.2f);
             if (role == "hider") Shot(dir, "f_spray_fpp");
             if (role == "seeker" && hiderP != null) ItemLitShot(dir, "f_spray_tpp", hiderP.transform.position + new Vector3(-3.0f, 1.5f, -1.2f), hiderP.transform.position + new Vector3(0f, 1.0f, -1.5f));
@@ -128,20 +134,32 @@ namespace HideAndSeek.Game.Net
             yield return ExtAt(11.6f);
             if (role == "seeker") Shot(dir, "g_foam_fpp_4");
             yield return ExtAt(13.6f);
+            Debug.Log($"[ExtTest] {role} at 13.6 s (effect {ExtTuning.FoamTime} s, max {ExtTuning.FoamMax} s): foamed={seeker.Foamed} left={seeker.FoamLeft:0.00} blocks={seeker.FoamBlocksAttack}");
+            if (role == "seeker") Shot(dir, "g_foam_fpp_5_late");
+            float a = 6.2f + ExtTuning.FoamMax + 1.0f; // the first effect is surely over
+            yield return ExtAt(a);
             Debug.Log($"[ExtTest] {role} after the effect: foamed={seeker.Foamed} blocks={seeker.FoamBlocksAttack} speed={seeker.FoamSpeedScale:0.00}");
 
-            // ---- immunity, then empty the tank
+            // ---- no immunity: a fresh spray foams him again at once; then empty the tank
             if (role == "hider") LocalPlayerController.TestExtSpray = true;
-            yield return ExtAt(15f);
-            Debug.Log($"[ExtTest] {role} spraying during immunity: foamed={seeker.Foamed} {ExtState0(mm)}");
+            yield return ExtAt(a + 0.6f);
+            Debug.Log($"[ExtTest] {role} spray right after the effect (no immunity): foamed={seeker.Foamed} elapsed={seeker.FoamElapsed:0.00} {ExtState0(mm)}");
+            yield return ExtAt(a + 1.4f);
             if (role == "hider") me.Motor.SetLook(150f, -10f); // away from the seeker
-            yield return ExtAt(23f);
+            yield return ExtAt(a + 2f);
+            int c0 = mm.Extinguishers.Count > 0 ? mm.Extinguishers[0].Charge : 0;
+            yield return ExtAt(a + 8f);
+            int c1 = mm.Extinguishers.Count > 0 ? mm.Extinguishers[0].Charge : 0;
+            float rate = (c0 - c1) / 6f;
+            Debug.Log($"[ExtTest] {role} drain: {c0} -> {c1} in 6 s = full tank in {(rate > 0f ? ExtState.Full / rate : -1f):0.0} s (expected {ExtTuning.SprayTime})");
+            yield return ExtAt(a + 17f);
             if (role == "hider") { LocalPlayerController.TestExtSpray = false; Shot(dir, "h_empty_fpp"); }
             Debug.Log($"[ExtTest] {role} after emptying: {ExtState0(mm)} cloudAtSeeker={ExtinguisherSpray.Density(seeker.transform.position + Vector3.up * 1.5f):0.00}");
 
             // ---- put down on the floor, take it again, hang it back on its bracket
+            float b = a + 17f;
             if (role == "hider") LocalPlayerController.TestExtDrop = true;
-            yield return ExtAt(24.5f);
+            yield return ExtAt(b + 1.5f);
             Debug.Log($"[ExtTest] {role} after drop: {ExtState0(mm)}");
             if (role == "hider" && mm.Extinguishers.Count > 0)
             {
@@ -149,12 +167,12 @@ namespace HideAndSeek.Game.Net
                 ItemLitShot(dir, "i_floor", e.Pos + new Vector3(0.9f, 0.9f, 0.7f), e.Pos + Vector3.up * 0.1f);
                 me.RequestExtRpc(MatchManager.ExtTake, 0);
             }
-            yield return ExtAt(26f);
+            yield return ExtAt(b + 3f);
             Debug.Log($"[ExtTest] {role} after floor pickup: {ExtState0(mm)}");
             if (role == "hider") { me.TeleportLocal(new Vector3(hook0.x - 1.0f, 0.05f, hook0.z), 90f); }
-            yield return ExtAt(26.8f);
+            yield return ExtAt(b + 3.8f);
             if (role == "hider") LocalPlayerController.TestExtDrop = true;
-            yield return ExtAt(28f);
+            yield return ExtAt(b + 5f);
             Debug.Log($"[ExtTest] {role} after hang back: {ExtState0(mm)}");
             if (role == "hider") ItemLitShot(dir, "j_back_on_wall", hook0 + new Vector3(-1.1f, 0.75f, -0.7f), hook0 + Vector3.up * 0.35f);
             Debug.Log($"[ExtTest] {role} done");
