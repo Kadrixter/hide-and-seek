@@ -178,14 +178,35 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[Pool] shot {_pool.ShotNo} by {pl.Nick}: angle {shot.Angle * Mathf.Rad2Deg:0.0}, power {shot.Power:0.00}, spin ({shot.SpinX:0.00}; {shot.SpinY:0.00}), {dur:0.0} s (simulated in {sw.ElapsedMilliseconds} ms)");
         }
 
+        /// <summary>The only team with players when the other one is empty (a solo game, 2026-11-26), else -1.</summary>
+        private int PoolSoloTeam => _pool.Members(0) == 0 ? (_pool.Members(1) > 0 ? 1 : -1) : _pool.Members(1) == 0 ? 0 : -1;
+
+        /// <summary>
+        /// Solo game: the turn never goes to the empty team (a miss or a foul just passes the cue to the team's other
+        /// player, if it has two; a foul still gives ball in hand), the 8 potted early / with a foul is a loss.
+        /// </summary>
+        private void PoolSoloAfterShot(int solo)
+        {
+            if (_pool.Phase == PoolState.Over)
+            {
+                if (_pool.Winner != solo)
+                    _pool.Note = (_pool.EndReason == PoolState.EndEightScratch ? "8 wbita z faulem" : "8 wbita za wcześnie") + " - przegrana, spróbuj jeszcze raz";
+                return;
+            }
+            _pool.Turn = (byte)solo;
+        }
+
         /// <summary>Applies the rolled-out shot: rules, next turn / game over, then (optionally) publishes.</summary>
         private void FinishPoolShot(bool publish)
         {
             var r = _poolPending;
             if (r == null) return;
             _poolPending = null;
-            int before = _pool.Turn;
-            try { PoolRules.Apply(_pool, r, PoolNick(0), PoolNick(1)); }
+            int before = _pool.Turn, solo = PoolSoloTeam;
+            string nickA = PoolNick(0), nickB = PoolNick(1);
+            if (solo == 0) nickB = nickA;
+            else if (solo == 1) nickA = nickB;
+            try { PoolRules.Apply(_pool, r, nickA, nickB); }
             catch (System.Exception e)
             {
                 Debug.LogError($"[Pool] rules failed: {e}");
@@ -195,6 +216,7 @@ namespace HideAndSeek.Game.Net
             }
             // The team that leaves the table: its other player takes its next inning.
             if (_pool.Turn != before) _pool.Up ^= (byte)(1 << before);
+            if (solo >= 0) PoolSoloAfterShot(solo);
             if (_pool.Phase == PoolState.Over)
             {
                 _pool.Ready = 0;

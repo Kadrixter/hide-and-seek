@@ -45,15 +45,19 @@ namespace HideAndSeek.Game.Editor
             Sofa(root, LobbyLayout.SofaFront.pos, LobbyLayout.SofaFront.yaw, fabric, darkWood);
             Sofa(root, LobbyLayout.SofaSide.pos, LobbyLayout.SofaSide.yaw, fabric, darkWood);
             Vector3 tc = LobbyLayout.CoffeeTable;
-            Box("CoffeeTable", root, tc + new Vector3(0f, 0.42f, 0f), new Vector3(1.6f, 0.06f, 0.9f), darkWood);
-            foreach (var (x, z) in new[] { (-0.7f, -0.35f), (0.7f, -0.35f), (-0.7f, 0.35f), (0.7f, 0.35f) })
-                Box("TableLeg", root, tc + new Vector3(x, 0.2f, z), new Vector3(0.06f, 0.4f, 0.06f), darkWood);
+            if (LobbyLayout.Garage) GaragePalletTable(root, tc); // pallets + plywood (LobbyGarageMats.cs)
+            else
+            {
+                Box("CoffeeTable", root, tc + new Vector3(0f, 0.42f, 0f), new Vector3(1.6f, 0.06f, 0.9f), darkWood);
+                foreach (var (x, z) in new[] { (-0.7f, -0.35f), (0.7f, -0.35f), (-0.7f, 0.35f), (0.7f, 0.35f) })
+                    Box("TableLeg", root, tc + new Vector3(x, 0.2f, z), new Vector3(0.06f, 0.4f, 0.06f), darkWood);
+            }
             var pouf = Mat("LobbyPouf", new Color(0.45f, 0.32f, 0.12f), Tex("lobby_fabric", TexKind.Fabric), 0.05f, new Vector2(2, 1));
             foreach (var (pos, yaw) in LobbyLayout.Poufs) Pouf(root, pos, yaw, pouf);
 
             // ---- start lever (east wall), mirror (south wall), settings board (north wall)
             BuildLever(root, LobbyLayout.Lever, metal, trim);
-            LobbyMirror(root, LobbyLayout.Mirror, new Vector2(1.9f, 2.2f), MirrorStyle);
+            LobbyMirror(root, LobbyLayout.Mirror, new Vector2(1.9f, 2.2f), LobbyLayout.Garage ? MirrorFrame.Modern : MirrorStyle);
             const float boardX = 0.9f;
             var boardGo = Box("SettingsBoard", root, new Vector3(boardX, 1.85f, D / 2 - 0.05f), new Vector3(3.6f, 2.16f, 0.06f), board);
             Box("BoardFrame", root, new Vector3(boardX, 1.85f, D / 2 - 0.02f), new Vector3(3.8f, 2.36f, 0.04f), trim);
@@ -63,11 +67,14 @@ namespace HideAndSeek.Game.Editor
             sbo.ApplyModifiedPropertiesWithoutUndo();
 
             // ---- plants, paintings, neon
-            var pot = Mat("LobbyPot", new Color(0.22f, 0.12f, 0.08f), null, 0.3f, Vector2.one);
+            var pot = LobbyLayout.Garage
+                ? Mat("GarageBucket", new Color(0.56f, 0.58f, 0.57f), Tex("garage_ceiling", TexKind.Concrete), 0.5f, new Vector2(1f, 0.5f), 0.65f) // galvanised bucket
+                : Mat("LobbyPot", new Color(0.22f, 0.12f, 0.08f), null, 0.3f, Vector2.one);
             var leaf = Mat("LobbyLeaf", new Color(0.16f, 0.42f, 0.14f), Tex("lobby_fabric", TexKind.Fabric), 0.2f, new Vector2(0.5f, 0.5f));
             for (int i = 0; i < LobbyLayout.Plants.Length; i++)
                 if (!LobbyLayout.Garage || LobbyLayout.Plants[i].x < 7f) Plant(root, LobbyLayout.Plants[i], pot, leaf, i + 1); // garage: tyres in the SE corner
-            PaintingAt(root, new Vector3(LobbyLayout.RecordPlayer.x, 1.95f, -D / 2 + 0.003f), new Vector2(1.3f, 0.9f), "lobby_painting_city", 1, 0f);
+            if (LobbyLayout.Garage) GarageTinSign(root, new Vector3(LobbyLayout.RecordPlayer.x, 1.95f, -D / 2 + 0.003f), 0f); // LobbyGarageBits.cs
+            else PaintingAt(root, new Vector3(LobbyLayout.RecordPlayer.x, 1.95f, -D / 2 + 0.003f), new Vector2(1.3f, 0.9f), "lobby_painting_city", 1, 0f);
             if (!LobbyLayout.Garage) PaintingAt(root, new Vector3(-W / 2 + 0.003f, 1.95f, LobbyLayout.Globe.z), new Vector2(0.9f, 1.2f), "lobby_painting_moon", 2, 90f);
             else BuildGarageProps(root); // pegboard with tools instead of the moon, tyres, oil drum (LobbyGarageProps.cs)
             Neon(root, new Vector3(-W / 2 + 0.06f, 2.65f, LobbyLayout.SofaSide.pos.z), "HIDE & SEEK");

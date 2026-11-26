@@ -32,7 +32,7 @@ namespace HideAndSeek.Game.MiniGames
             var root = new GameObject("ChessLamp") { layer = parent.gameObject.layer }.transform;
             root.SetParent(parent, false);
             m.Root = root;
-            m._kit = new TableKit(template, root.gameObject.layer, 0);
+            m._kit = new TableKit(template, root.gameObject.layer, LobbyLayout.Garage ? TableKit.GarageStyle : 0); // garage: steel fittings
             var k = m._kit;
             var enamel = k.Mat(new Color(0.34f, 0.055f, 0.045f), 0.25f, 0.86f);
             m.Inner = k.Mat(new Color(0.92f, 0.9f, 0.85f), 0f, 0.8f);

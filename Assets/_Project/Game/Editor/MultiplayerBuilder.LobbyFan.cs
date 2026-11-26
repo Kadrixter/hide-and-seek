@@ -14,8 +14,11 @@ namespace HideAndSeek.Game.Editor
             var f = new GameObject("CeilingFan").transform;
             f.SetParent(parent, false);
             f.position = ceilingPoint;
+            bool garage = LobbyLayout.Garage; // garage: no plaster medallion, black steel body, galvanised blades
+            var Bronze = garage ? GarageBlackSteel : MultiplayerBuilder.Bronze;
+            var Brass = garage ? GarageSteel : MultiplayerBuilder.Brass;
             var plaster = Mat("LobbyCeilingMedallion", new Color(0.86f, 0.83f, 0.76f), null, 0.15f, Vector2.one);
-            MeshObj("Medallion", f, LatheSaved("FanMedallion", new[] { new Vector2(0.1f, -0.03f), new Vector2(0.16f, -0.03f), new Vector2(0.2f, -0.022f), new Vector2(0.3f, -0.02f), new Vector2(0.33f, -0.012f), new Vector2(0.38f, -0.012f), new Vector2(0.42f, -0.006f), new Vector2(0.42f, 0f) }, 48, true, false), plaster, Vector3.zero);
+            if (!garage) MeshObj("Medallion", f, LatheSaved("FanMedallion", new[] { new Vector2(0.1f, -0.03f), new Vector2(0.16f, -0.03f), new Vector2(0.2f, -0.022f), new Vector2(0.3f, -0.02f), new Vector2(0.33f, -0.012f), new Vector2(0.38f, -0.012f), new Vector2(0.42f, -0.006f), new Vector2(0.42f, 0f) }, 48, true, false), plaster, Vector3.zero);
             MeshObj("Canopy", f, LatheSaved("FanCanopy", new[] { new Vector2(0.02f, -0.09f), new Vector2(0.05f, -0.08f), new Vector2(0.085f, -0.04f), new Vector2(0.09f, 0f) }, 32, true, false), Bronze, new Vector3(0f, -0.03f, 0f));
             MeshObj("Downrod", f, LatheSaved("FanRod", new[] { new Vector2(0.014f, -0.32f), new Vector2(0.014f, 0f) }, 12, false, false), Bronze, new Vector3(0f, -0.11f, 0f));
             float my = -0.45f;
@@ -27,7 +30,9 @@ namespace HideAndSeek.Game.Editor
             rotor.SetParent(f, false);
             rotor.localPosition = new Vector3(0f, my - 0.12f, 0f);
             MeshObj("Hub", rotor, LatheSaved("FanHub", new[] { new Vector2(0.06f, -0.025f), new Vector2(0.1f, -0.025f), new Vector2(0.13f, -0.012f), new Vector2(0.13f, 0.012f) }, 40, true, true), Bronze, Vector3.zero);
-            var walnut = Mat("LobbyFanWalnut", new Color(0.5f, 0.33f, 0.2f), Tex("lobby_wood", TexKind.Wood), 0.55f, new Vector2(0.3f, 1.2f));
+            var walnut = garage
+                ? Mat("GarageFanBlade", new Color(0.6f, 0.62f, 0.62f), Tex("garage_ceiling", TexKind.Concrete), 0.5f, new Vector2(0.3f, 1f), 0.7f)
+                : Mat("LobbyFanWalnut", new Color(0.5f, 0.33f, 0.2f), Tex("lobby_wood", TexKind.Wood), 0.55f, new Vector2(0.3f, 1.2f));
             var paddle = LobbyMeshSaved("FanPaddle", () => LobbyMesh.Paddle(0.56f, 0.11f, 0.15f, 0.012f));
             for (int i = 0; i < 5; i++)
             {

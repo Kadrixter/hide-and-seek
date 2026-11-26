@@ -9,8 +9,8 @@ namespace HideAndSeek.Game.MiniGames
     /// <summary>
     /// Join panel of the pool table (between games, mouse): two teams with two places each - a nick ("gotowy" in
     /// green), the own place marked, a free place to click (moves the player there). "Gotowy" / "Nie gotowy" and
-    /// "Odejdź". A game starts when everybody at the table is ready and both teams have a player (1 na 1, 1 na 2,
-    /// 2 na 2); after a game the same panel shows the result and "Gotowy" starts the rematch (the losers break).
+    /// "Odejdź". A game starts when everybody at the table is ready (1 na 1, 1 na 2, 2 na 2, or solo with one team
+    /// empty); after a game the same panel shows the result and "Gotowy" starts the rematch (the losers break).
     /// </summary>
     public sealed partial class MiniGameHud
     {
@@ -112,8 +112,10 @@ namespace HideAndSeek.Game.MiniGames
             }
             bool meReady = place >= 0 && (s.Ready & (1 << place)) != 0;
             _readyText.text = meReady ? "Nie gotowy" : s.Phase == PoolState.Over ? "Gotowy - rewanż" : "Gotowy";
-            _lobbyStatus.text = s.Members(0) == 0 || s.Members(1) == 0 ? "Potrzebny gracz w każdej drużynie"
-                : meReady ? "Czekamy, aż wszyscy będą gotowi..." : "Kliknij Gotowy - gra rusza, gdy wszyscy są gotowi";
+            bool solo = s.Members(0) == 0 || s.Members(1) == 0;
+            _lobbyStatus.text = meReady ? "Czekamy, aż wszyscy będą gotowi..."
+                : solo ? "Kliknij Gotowy, żeby grać samemu, albo poczekaj na rywala"
+                : "Kliknij Gotowy - gra rusza, gdy wszyscy są gotowi";
         }
 
         /// <summary>Not at the pool table: the join panel is hidden, the hint line opaque again.</summary>

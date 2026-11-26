@@ -106,13 +106,23 @@ namespace HideAndSeek.Game.Editor
             AddProp(sw.gameObject, LobbyPropKind.LightSwitch, new Vector3(0f, 0f, 0.02f), 1.9f);
 
             // ---- floor lamps: weighted base, brass pole, linen drum shade
-            FloorLampModel(lt, new Vector3(LobbyLayout.SofaSide.pos.x, 0f, LobbyLayout.SofaFront.pos.z + 0.05f));
-            FloorLampModel(lt, LobbyLayout.SofaFront.pos + new Vector3(1.65f, 0f, -0.25f));
-
-            // ---- side table with a table lamp at the north end of the side sofa
+            Vector3 lampA = new Vector3(LobbyLayout.SofaSide.pos.x, 0f, LobbyLayout.SofaFront.pos.z + 0.05f), lampB = LobbyLayout.SofaFront.pos + new Vector3(1.65f, 0f, -0.25f);
             Vector3 st = LobbyLayout.SofaSide.pos + new Vector3(0f, 0f, 1.6f);
-            SideTable(lt, st, darkWood);
-            TableLampModel(lt, st + new Vector3(0f, 0.56f, 0f));
+            if (LobbyLayout.Garage)
+            {
+                // pipe lamp leaning over the sofa corner, halogen work light, tyre side table (LobbyGarageLamps.cs)
+                GaragePipeFloorLamp(lt, lampA, LobbyLayout.CoffeeTable);
+                GarageWorkLight(lt, lampB, LobbyLayout.CoffeeTable);
+                GarageTyreTable(lt, st);
+            }
+            else
+            {
+                FloorLampModel(lt, lampA);
+                FloorLampModel(lt, lampB);
+                // ---- side table with a table lamp at the north end of the side sofa
+                SideTable(lt, st, darkWood);
+                TableLampModel(lt, st + new Vector3(0f, 0.56f, 0f));
+            }
 
             // ---- wall sconces: both sides of the TV over the fireplace, both sides of the painting on the west wall
             float fx = LobbyLayout.Fireplace.x;
@@ -231,6 +241,7 @@ namespace HideAndSeek.Game.Editor
         /// <summary>Wall sconce: brass back plate, curved arm, tulip glass with a warm bulb, small light.</summary>
         private static void Sconce(Transform parent, Vector3 wallPos, float facingYaw)
         {
+            if (LobbyLayout.Garage) { GarageCageSconce(parent, wallPos, facingYaw); return; } // LobbyGarageLamps.cs
             var s = new GameObject("Sconce").transform;
             s.SetParent(parent, false);
             s.SetPositionAndRotation(wallPos, Quaternion.Euler(0f, facingYaw, 0f));

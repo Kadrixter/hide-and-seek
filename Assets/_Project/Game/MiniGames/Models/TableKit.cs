@@ -12,19 +12,24 @@ namespace HideAndSeek.Game.MiniGames
         public readonly Material Template;
         public Material TableWood, LegWood, Leather, Brass, Dark, PieceLight, PieceDark, PieceLightDetail, PieceDarkDetail;
         public readonly int Layer;
-        /// <summary>Style variant (0 = classic boxwood / ebony on walnut, 1 = maple / rosewood on dark oak).</summary>
+        /// <summary>Style variant (0 = classic boxwood / ebony on walnut, 1 = maple / rosewood on dark oak, 3 = garage).</summary>
         public readonly int Style;
+        /// <summary>Garage lobby look (2026-11-26): satin charcoal paint instead of wood, steel instead of brass, red vinyl.</summary>
+        public const int GarageStyle = 3;
+        public bool Garage => Style == GarageStyle;
 
         public TableKit(Material template, int layer, int style)
         {
             Template = template;
             Layer = layer;
             Style = style;
-            bool alt = style == 1;
-            TableWood = Mat(alt ? new Color(0.30f, 0.20f, 0.14f) : new Color(0.46f, 0.29f, 0.17f), 0.05f, 0.62f, BoardArt.GrainTable);
-            LegWood = Mat(alt ? new Color(0.26f, 0.17f, 0.12f) : new Color(0.40f, 0.25f, 0.15f), 0.05f, 0.55f, BoardArt.GrainTable);
-            Leather = Mat(alt ? new Color(0.12f, 0.20f, 0.14f) : new Color(0.36f, 0.09f, 0.07f), 0f, 0.42f, BoardArt.Leather);
-            Brass = Mat(new Color(0.78f, 0.62f, 0.32f), 0.9f, 0.72f);
+            bool alt = style == 1, garage = style == GarageStyle;
+            TableWood = garage ? Mat(new Color(0.085f, 0.085f, 0.09f), 0.12f, 0.42f, BoardArt.GrainTable)
+                : Mat(alt ? new Color(0.30f, 0.20f, 0.14f) : new Color(0.46f, 0.29f, 0.17f), 0.05f, 0.62f, BoardArt.GrainTable);
+            LegWood = garage ? Mat(new Color(0.07f, 0.07f, 0.075f), 0.15f, 0.38f, BoardArt.GrainTable)
+                : Mat(alt ? new Color(0.26f, 0.17f, 0.12f) : new Color(0.40f, 0.25f, 0.15f), 0.05f, 0.55f, BoardArt.GrainTable);
+            Leather = Mat(garage ? new Color(0.5f, 0.07f, 0.055f) : alt ? new Color(0.12f, 0.20f, 0.14f) : new Color(0.36f, 0.09f, 0.07f), 0f, garage ? 0.55f : 0.42f, BoardArt.Leather);
+            Brass = garage ? Mat(new Color(0.72f, 0.73f, 0.75f), 0.9f, 0.62f) : Mat(new Color(0.78f, 0.62f, 0.32f), 0.9f, 0.72f);
             Dark = Mat(new Color(0.04f, 0.035f, 0.03f), 0.1f, 0.5f);
             PieceLight = Mat(alt ? new Color(0.95f, 0.88f, 0.74f) : new Color(0.93f, 0.83f, 0.64f), 0f, 0.66f, BoardArt.GrainFine);
             PieceDark = Mat(alt ? new Color(0.36f, 0.12f, 0.08f) : new Color(0.075f, 0.055f, 0.045f), 0.05f, 0.74f, BoardArt.GrainFine);

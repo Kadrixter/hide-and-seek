@@ -14,6 +14,7 @@ namespace HideAndSeek.Game.Editor
     {
         private static void BuildLobbyRugs(Transform root)
         {
+            if (LobbyLayout.Garage) { BuildGarageMats(root); return; } // rubber mats (LobbyGarageMats.cs)
             var t = new GameObject("Rugs").transform;
             t.SetParent(root, false);
             Vector3 lounge = new Vector3(-4.15f, 0f, 3.1f);

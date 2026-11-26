@@ -60,7 +60,7 @@ namespace HideAndSeek.Game
             LobbyPropKind.Fireplace => LobbyPropBits.On(bits, kind) ? "E  zgaś kominek" : "E  rozpal kominek",
             LobbyPropKind.RecordPlayer => LobbyPropBits.On(bits, kind) ? "E  zatrzymaj płytę" : "E  puść płytę",
             LobbyPropKind.Aquarium => "E  nakarm rybki",
-            LobbyPropKind.Globe => "E  zakręć globusem",
+            LobbyPropKind.Globe => LobbyLayout.Garage ? "E  zakręć kołem" : "E  zakręć globusem",
             _ => "E  rzuć lotką",
         };
     }

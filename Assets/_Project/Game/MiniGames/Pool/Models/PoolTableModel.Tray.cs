@@ -14,7 +14,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
         /// <summary>
         /// The collection tray under the foot rail (a wooden trough lined with cloth, metal beads on its walls, a
         /// rubber-faced divider in the middle where the two gullies stop, saddles carrying the rods), hung from the foot
-        /// apron by two steel straps; and the gully supports: straps screwed to the inside of the long aprons, brackets
+        /// apron by two steel straps; and the gully supports: straps screwed to the outside of the long aprons, brackets
         /// on the legs and a threaded hanger from the foot rail holding each turn.
         /// </summary>
         void BuildTray()
@@ -104,20 +104,22 @@ namespace HideAndSeek.Game.MiniGames.Pool
         {
             if (PoolTableMesh.TryGet("pool_retbrackets", out var m)) return m;
             var b = new PoolTableMesh();
-            float apronIn = G.FrameHZ - 0.03f - 0.0016f, bottom = PoolDims.ClothY - G.ApronH;
+            float bottom = PoolDims.ClothY - G.ApronH;
             for (int side = 0; side < 2; side++)
             {
                 var l = T.Gully(side);
                 float sz = side == 0 ? -1f : 1f;
-                // Straps on the inside of the long apron.
-                foreach (float x in new[] { -0.58f, -0.25f, 0.25f, 0.58f })
+                // Straps on the outside of the long apron, where the gully runs outside the table (RunZ): down the
+                // apron's face and out under both rods, turned up past the outer one.
+                float apronOut = G.FrameHZ + 0.0016f;
+                foreach (float x in new[] { -0.64f, -0.4f, 0.4f, 0.6f })
                 {
                     var c = AtX(l, x);
-                    float ys = c.y - T.RodDrop - T.RodR - 0.0016f, zin = Mathf.Abs(c.z) - T.RodHalfGap - 0.012f;
-                    var pts = new[] { Z(x, bottom + 0.045f, sz * apronIn), Z(x, ys, sz * apronIn), Z(x, ys, sz * zin), Z(x, ys + 0.011f, sz * zin) };
+                    float ys = c.y - T.RodDrop - T.RodR - 0.0016f, zo = Mathf.Abs(c.z) + T.RodHalfGap + 0.012f;
+                    var pts = new[] { Z(x, bottom + 0.045f, sz * apronOut), Z(x, ys, sz * apronOut), Z(x, ys, sz * zo), Z(x, ys + 0.011f, sz * zo) };
                     PoolReturnMesh.Strap(b, pts, Vector3.right, 0.02f, 0.003f);
                     foreach (float y in new[] { bottom + 0.012f, bottom + 0.032f })
-                        PoolReturnMesh.Dome(b, Z(x, y, sz * (apronIn - 0.0015f)), new Vector3(0f, 0f, -sz), 0.0042f, 0.0016f);
+                        PoolReturnMesh.Dome(b, Z(x, y, sz * (apronOut + 0.0015f)), new Vector3(0f, 0f, sz), 0.0042f, 0.0016f);
                 }
                 // Brackets screwed to the legs' outer faces, the strap jogging out past the collar under the post.
                 foreach (int sx in new[] { -1, 1 })

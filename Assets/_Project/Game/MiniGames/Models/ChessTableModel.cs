@@ -45,7 +45,8 @@ namespace HideAndSeek.Game.MiniGames
             m.BoardPivot = new GameObject("BoardPivot") { layer = k.Layer }.transform;
             m.BoardPivot.SetParent(root, false);
             float bs = BoardArt.BoardSize;
-            var frameMat = k.Mat(style == 1 ? new Color(0.2f, 0.12f, 0.08f) : new Color(0.25f, 0.14f, 0.08f), 0f, 0.6f, BoardArt.GrainTable);
+            var frameMat = k.Garage ? k.Mat(new Color(0.05f, 0.05f, 0.055f), 0.2f, 0.5f)
+                : k.Mat(style == 1 ? new Color(0.2f, 0.12f, 0.08f) : new Color(0.25f, 0.14f, 0.08f), 0f, 0.6f, BoardArt.GrainTable);
             k.Part("BoardPlate", m.BoardPivot, BoardMeshes.RoundedBox(new Vector3(bs + 0.012f, 0.014f, bs + 0.012f), 0.005f, 3), frameMat, new Vector3(0f, TopY + 0.007f, 0f));
             var boardMat = k.Mat(Color.white, 0f, 0.72f, style == 1 ? BoardArt.BoardAlt : BoardArt.Board);
             k.Part("Board", m.BoardPivot, BoardMeshes.Slab("chessboard", bs, bs, 0.016f), boardMat, new Vector3(0f, TopY + 0.012f, 0f));
@@ -61,7 +62,8 @@ namespace HideAndSeek.Game.MiniGames
             var c = new GameObject("ChessClock") { layer = k.Layer }.transform;
             c.SetParent(Root, false);
             c.localPosition = new Vector3(0.5f, TopY, 0f);
-            var body = k.Mat(Kit.Style == 1 ? new Color(0.09f, 0.09f, 0.1f) : new Color(0.33f, 0.2f, 0.12f), 0.1f, 0.6f, Kit.Style == 1 ? null : BoardArt.GrainTable);
+            bool darkCase = Kit.Style == 1 || Kit.Garage;
+            var body = k.Mat(darkCase ? new Color(0.09f, 0.09f, 0.1f) : new Color(0.33f, 0.2f, 0.12f), 0.1f, 0.6f, darkCase ? null : BoardArt.GrainTable);
             // Wedge case seen from its end: d > 0 = towards the board (-X), the display slopes up away from the board.
             var profile = new System.Collections.Generic.List<Vector2>
             {

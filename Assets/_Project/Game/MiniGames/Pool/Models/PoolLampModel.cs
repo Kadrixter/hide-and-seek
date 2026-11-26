@@ -40,12 +40,13 @@ namespace HideAndSeek.Game.MiniGames.Pool
         /// <param name="lights">Add the three real spot lights.</param>
         public static PoolLampModel Build(Transform parent, Material template, int style, float ceilingY, bool lights)
         {
-            var lamp = new PoolLampModel { _style = style == 1 ? 1 : 0 };
+            // garage: the black metal shades of style 1 with steel fittings
+            var lamp = new PoolLampModel { _style = style == 1 || style == TableKit.GarageStyle ? 1 : 0 };
             var root = new GameObject("PoolLamp").transform;
             root.SetParent(parent, false);
             root.gameObject.layer = parent != null ? parent.gameObject.layer : 0;
             lamp.Root = root;
-            lamp._kit = new TableKit(template, root.gameObject.layer, 0);
+            lamp._kit = new TableKit(template, root.gameObject.layer, style == TableKit.GarageStyle ? style : 0);
             lamp.MakeMaterials();
 
             float barBottom = lamp.BuildBar(root);

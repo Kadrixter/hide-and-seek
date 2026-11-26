@@ -68,7 +68,9 @@ namespace HideAndSeek.Game.MiniGames
                 _poolNoteAt = Time.unscaledTime;
             }
             bool note = !rolling && !string.IsNullOrEmpty(s.Note) && Time.unscaledTime - _poolNoteAt < NoteShow;
-            _side.text = note ? s.Note : s.Groups == PoolState.Open ? "stół otwarty" : $"twoja drużyna: {GroupShort(s, team)}      rywale: {GroupShort(s, other)}";
+            bool solo = s.Members(0) == 0 || s.Members(1) == 0; // solo game: no rivals
+            _side.text = note ? s.Note : s.Groups == PoolState.Open ? "stół otwarty"
+                : solo ? $"grasz: {GroupShort(s, team)}" : $"twoja drużyna: {GroupShort(s, team)}      rywale: {GroupShort(s, other)}";
             PoolFlashes(t, place, team, rolling);
             _seenVersion = t.Version;
             // One controls line, only while it matters, fading out after a few seconds (ball in hand stays).
@@ -105,7 +107,10 @@ namespace HideAndSeek.Game.MiniGames
                 Flash(PoolEnd(s, team), 4.5f, Gold);
             }
             else if (s.Phase == PoolState.Playing && s.ShotNo != _poolShotSeen && s.BallInHand && !s.Break)
-                Flash(mineNext ? "Faul rywali - biała w ręce" : "Faul - rywale mają białą w ręce", 2.2f, mineNext ? Good : Bad);
+            {
+                bool solo = s.Members(0) == 0 || s.Members(1) == 0;
+                Flash(solo ? "Faul - biała w ręce" : mineNext ? "Faul rywali - biała w ręce" : "Faul - rywale mają białą w ręce", 2.2f, solo ? Bad : mineNext ? Good : Bad);
+            }
             _poolRound = s.Round;
             _poolShotSeen = s.ShotNo;
         }

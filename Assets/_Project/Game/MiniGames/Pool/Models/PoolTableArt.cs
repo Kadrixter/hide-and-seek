@@ -15,9 +15,10 @@ namespace HideAndSeek.Game.MiniGames.Pool
         static readonly Dictionary<int, Texture2D> Beds = new(), Naps = new();
         static Texture2D _along, _up, _pearl, _plate;
 
-        /// <summary>Cloth colour (sRGB): 0 green, 1 tournament blue, 2 burgundy.</summary>
+        /// <summary>Cloth colour (sRGB): 0 green, 1 tournament blue, 2 burgundy, 3 (garage) racing red.</summary>
         public static Color ClothColor(int style) => style switch
         {
+            3 => new Color(0.5f, 0.075f, 0.055f),
             1 => new Color(0.11f, 0.30f, 0.60f),
             2 => new Color(0.34f, 0.055f, 0.085f),
             _ => new Color(0.08f, 0.42f, 0.22f),

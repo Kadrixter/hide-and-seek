@@ -84,7 +84,7 @@ namespace HideAndSeek.Game.MiniGames
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(pos, rot);
             var t = go.AddComponent<PoolTable>();
-            t.Model = PoolTableModel.Build(go.transform, template, 0);
+            t.Model = PoolTableModel.Build(go.transform, template, LobbyLayout.Garage ? TableKit.GarageStyle : 0);
             t.BuildProps(template, pos.y);
             t.InitBalls(template);
             t.InitSfx();
@@ -94,7 +94,7 @@ namespace HideAndSeek.Game.MiniGames
         /// <summary>The lamp over the table (only the middle spot casts shadows) and two cubes of chalk on the long rails.</summary>
         void BuildProps(Material template, float floorY)
         {
-            Lamp = PoolLampModel.Build(transform, template, 0, LobbyLayout.H - floorY, true);
+            Lamp = PoolLampModel.Build(transform, template, LobbyLayout.Garage ? TableKit.GarageStyle : 0, LobbyLayout.H - floorY, true);
             if (Lamp.Lights != null)
                 for (int i = 0; i < Lamp.Lights.Length; i++)
                 {

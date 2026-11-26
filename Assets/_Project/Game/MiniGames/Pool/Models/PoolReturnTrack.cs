@@ -8,8 +8,9 @@ namespace HideAndSeek.Game.MiniGames.Pool
     /// Ball return under the pool table (2026-11-25), shared by the model and the view. Every pocket drops its balls
     /// through a metal funnel and a short rod cage onto a gully of two parallel rods; there are two gullies, one per
     /// long side (side 0 = -Z: pockets 0, 1, 2; side 1 = +Z: pockets 3, 4, 5). A gully starts under the head corner
-    /// pocket, runs along its long side under the apron with a gentle slope towards the foot, passes under the side
-    /// and the foot corner pocket, turns round the foot leg and ends in the collection tray hung under the foot rail.
+    /// pocket, runs along its long side with a gentle slope towards the foot (between the drops out past the apron and
+    /// the rails, <see cref="RunZ"/>, so the balls can be seen rolling), passes under the side and the foot corner
+    /// pocket, turns round the foot leg and ends in the collection tray hung under the foot rail.
     /// Both gullies run into the same tray from opposite ends and stop at a rubber-faced divider in its middle.
     /// Everything here is the BALL-CENTRE line in table space; the rods lie <see cref="RodDrop"/> under it,
     /// <see cref="RodHalfGap"/> to each side. U = distance along a gully from its upstream end.
@@ -21,6 +22,13 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public static readonly float RodDrop = Mathf.Sqrt((PoolDims.BallR + RodR) * (PoolDims.BallR + RodR) - RodHalfGap * RodHalfGap);
         /// <summary>|z| of the straight gully, ball height at the head drop and at the divider, x of the tray's middle line.</summary>
         public const float GullyZ = 0.565f, StartY = 0.515f, EndY = 0.468f, TrayX = 1.19f;
+        /// <summary>
+        /// |z| of the gully between the drops (2026-11-26): out past the apron (0.62) and the rails' edge (0.656), so
+        /// the rolling balls show; it swings out after each drop and back in before the next one (and the foot turn).
+        /// </summary>
+        public const float RunZ = 0.745f;
+        /// <summary>Level stretch kept under each drop (either side of it) and the length of the swing out / in.</summary>
+        const float DropFlat = 0.07f, Swing = 0.26f;
         /// <summary>Half the divider's thickness (rubber faces): the first ball of each side stops this far plus a radius from z = 0.</summary>
         public const float DividerHalf = 0.006f;
         public const float StopZ = PoolDims.BallR + DividerHalf;
@@ -107,11 +115,14 @@ namespace HideAndSeek.Game.MiniGames.Pool
             Vector2 head = G.Centre(sz < 0 ? 0 : 3);
             float x0 = head.x - Tail, z0 = Mathf.Abs(head.y);
             float r = TurnRadius(), xt = TrayX - r, cz = GullyZ - r;
-            // Straight part: eases from the head pocket's line out to GullyZ over the first 35 cm.
+            // Long part: eases from the head pocket's line out to GullyZ over the first 35 cm; between the drops it
+            // swings out to RunZ (outside the table) and back in under the side drop and before the foot turn.
+            float side = G.Centre(sz < 0 ? 1 : 4).x;
             for (float x = x0; x < xt; x += 0.012f)
             {
                 float k = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(head.x, head.x + 0.35f, x));
-                plan.Add(new Vector2(x, sz * Mathf.Lerp(z0, GullyZ, k)));
+                float o = Mathf.Max(Out(x, head.x, side), Out(x, side, xt + DropFlat));
+                plan.Add(new Vector2(x, sz * (Mathf.Lerp(z0, GullyZ, k) + (RunZ - GullyZ) * o)));
             }
             int turn0 = plan.Count;
             const int arcN = 36;
@@ -145,6 +156,13 @@ namespace HideAndSeek.Game.MiniGames.Pool
             int[] pockets = sz < 0 ? new[] { 0, 1, 2 } : new[] { 3, 4, 5 };
             for (int k = 0; k < 3; k++) l.Land[k] = Closest(l, plan, G.Centre(pockets[k]));
             return l;
+        }
+
+        /// <summary>0 within <see cref="DropFlat"/> of the drops at <paramref name="a"/> and <paramref name="b"/>, 1 between them (smooth swings).</summary>
+        static float Out(float x, float a, float b)
+        {
+            float k = Mathf.Min(Mathf.InverseLerp(a + DropFlat, a + DropFlat + Swing, x), Mathf.InverseLerp(b - DropFlat, b - DropFlat - Swing, x));
+            return k * k * (3f - 2f * k);
         }
 
         /// <summary>U of the gully point nearest (in plan) to <paramref name="p"/>.</summary>

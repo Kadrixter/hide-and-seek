@@ -18,9 +18,11 @@ namespace HideAndSeek.Game.Editor
             var f = new GameObject("Furniture").transform;
             f.SetParent(root, false);
             Fireplace(f, LobbyLayout.Fireplace, darkWood);
-            Aquarium(f, LobbyLayout.Aquarium, darkWood);
+            // garage: the aquarium stands on a red tool cabinet, a wheel balancer in place of the globe (LobbyGarageBits.cs)
+            Aquarium(f, LobbyLayout.Aquarium, LobbyLayout.Garage ? Mat("GarageChestRed", new Color(0.55f, 0.07f, 0.05f), Tex("garage_ceiling", TexKind.Concrete), 0.55f, new Vector2(0.5f, 0.5f), 0.35f) : darkWood);
             RecordCabinet(f, LobbyLayout.RecordPlayer, darkWood);
-            FloorGlobe(f, LobbyLayout.Globe, darkWood);
+            if (LobbyLayout.Garage) GarageWheelBalancer(f, LobbyLayout.Globe);
+            else FloorGlobe(f, LobbyLayout.Globe, darkWood);
             CoatRack(f, LobbyLayout.CoatRack, darkWood);
             // Dartboard(f, darkWood); - shelved 2026-11-24, see Editor/Shelved/MultiplayerBuilder.Darts.cs
             Bookshelf(f, LobbyLayout.Bookshelf, darkWood);
@@ -81,7 +83,12 @@ namespace HideAndSeek.Game.Editor
         private static void Fireplace(Transform parent, Vector3 wallPos, Material darkWood)
         {
             var t = Frame(parent, "Fireplace", wallPos, 180f);
-            var stone = Mat("LobbyFireStone", new Color(0.82f, 0.78f, 0.7f), Tex("lobby_concrete", TexKind.Concrete), 0.25f, new Vector2(1f, 1f));
+            bool garage = LobbyLayout.Garage;
+            var stone = garage
+                ? Mat("GarageFireConcrete", new Color(0.36f, 0.36f, 0.35f), null, 0.12f, Vector2.one) // plain: the noise stretched on the narrow pilasters read as wood grain
+                : Mat("LobbyFireStone", new Color(0.82f, 0.78f, 0.7f), Tex("lobby_concrete", TexKind.Concrete), 0.25f, new Vector2(1f, 1f));
+            if (garage) darkWood = GarageSteel;
+            var knobMetal = garage ? GarageSteel : Brass;
             var black = Mat("LobbyFireBlack", new Color(0.04f, 0.04f, 0.045f), null, 0.45f, Vector2.one, 0.4f);
             // surround: plinth, two pilasters, frieze, mantel shelf
             RBox(t, "Plinth", new Vector3(0f, 0.04f, 0.2f), new Vector3(1.76f, 0.08f, 0.4f), stone, 0.012f);
@@ -149,17 +156,18 @@ namespace HideAndSeek.Game.Editor
             var knobPiv = new GameObject("Knob").transform;
             knobPiv.SetParent(t, false);
             knobPiv.localPosition = new Vector3(0.73f, 0.5f, 0.35f);
-            MeshObj("KnobRose", knobPiv, LatheSaved("FireKnobRose", new[] { new Vector2(0.035f, 0f), new Vector2(0.03f, 0.006f), new Vector2(0.0f, 0.008f) }, 24, false, false), Brass, Vector3.zero, Quaternion.Euler(90f, 0f, 0f));
-            MeshObj("KnobCap", knobPiv, LatheSaved("FireKnobCap", new[] { new Vector2(0.022f, 0f), new Vector2(0.022f, 0.022f), new Vector2(0.016f, 0.03f), new Vector2(0f, 0.03f) }, 20, false, true), Brass, Vector3.zero, Quaternion.Euler(90f, 0f, 0f));
+            MeshObj("KnobRose", knobPiv, LatheSaved("FireKnobRose", new[] { new Vector2(0.035f, 0f), new Vector2(0.03f, 0.006f), new Vector2(0.0f, 0.008f) }, 24, false, false), knobMetal, Vector3.zero, Quaternion.Euler(90f, 0f, 0f));
+            MeshObj("KnobCap", knobPiv, LatheSaved("FireKnobCap", new[] { new Vector2(0.022f, 0f), new Vector2(0.022f, 0.022f), new Vector2(0.016f, 0.03f), new Vector2(0f, 0.03f) }, 20, false, true), knobMetal, Vector3.zero, Quaternion.Euler(90f, 0f, 0f));
             LocalBox(knobPiv, "KnobMark", new Vector3(0f, 0.012f, 0.031f), new Vector3(0.004f, 0.014f, 0.002f), black);
             // mantel decor: two candles in brass holders, a small vase
             var wax = Emissive("LobbyCandle", new Color(0.95f, 0.92f, 0.84f), new Color(0.25f, 0.18f, 0.1f));
-            foreach (float sx in new[] { -0.7f, 0.7f })
+            if (garage) GarageMantelBits(t); // trophy, spark plugs, oil can (LobbyGarageBits.cs)
+            else foreach (float sx in new[] { -0.7f, 0.7f })
             {
                 MeshObj("CandleHolder", t, LatheSaved("CandleHolder", new[] { new Vector2(0.045f, 0f), new Vector2(0.04f, 0.01f), new Vector2(0.012f, 0.03f), new Vector2(0.01f, 0.1f), new Vector2(0.03f, 0.12f), new Vector2(0.03f, 0.13f) }, 20, true, true), Brass, new Vector3(sx, 1.06f, 0.2f));
                 MeshObj("Candle", t, LatheSaved("Candle", new[] { new Vector2(0.018f, 0f), new Vector2(0.018f, 0.16f), new Vector2(0.012f, 0.17f) }, 16, false, true), wax, new Vector3(sx, 1.19f, 0.2f));
             }
-            MeshObj("Vase", t, LatheSaved("MantelVase", new[] { new Vector2(0.04f, 0f), new Vector2(0.06f, 0.05f), new Vector2(0.055f, 0.12f), new Vector2(0.025f, 0.18f), new Vector2(0.03f, 0.21f) }, 24, true, false),
+            if (!garage) MeshObj("Vase", t, LatheSaved("MantelVase", new[] { new Vector2(0.04f, 0f), new Vector2(0.06f, 0.05f), new Vector2(0.055f, 0.12f), new Vector2(0.025f, 0.18f), new Vector2(0.03f, 0.21f) }, 24, true, false),
                 Mat("LobbyVase", new Color(0.15f, 0.35f, 0.55f), null, 0.8f, Vector2.one), new Vector3(0.45f, 1.06f, 0.22f));
             BoxCollider(t, new Vector3(0f, 0.55f, 0.2f), new Vector3(1.9f, 1.1f, 0.42f));
             var glow = new GameObject("FireGlow").AddComponent<Light>();

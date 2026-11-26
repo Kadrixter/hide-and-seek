@@ -54,7 +54,7 @@ namespace HideAndSeek.Game.MiniGames
             go.transform.SetParent(parent, false);
             go.transform.SetPositionAndRotation(pos, rot);
             var t = go.AddComponent<ChessTable>();
-            t.Model = ChessTableModel.Build(go.transform, template, 0);
+            t.Model = ChessTableModel.Build(go.transform, template, LobbyLayout.Garage ? TableKit.GarageStyle : 0);
             t.InitMarks();
             t.InitCheckersMarks();
             t.Target.SetFen(ChessBoard.StartFen);

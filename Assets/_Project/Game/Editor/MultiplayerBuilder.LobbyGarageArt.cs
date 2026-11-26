@@ -4,14 +4,13 @@ using UnityEngine;
 namespace HideAndSeek.Game.Editor
 {
     /// <summary>
-    /// Garage lobby textures and materials (<see cref="LobbyLayout.Garage"/>): concrete floor with control joints and oil
-    /// stains (1 repeat = 4 m), painted concrete block walls (1 repeat = 1.6 m x the full 3.6 m height: dark lower
+    /// Garage lobby textures and materials (<see cref="LobbyLayout.Garage"/>): the floor: LobbyGarageFloor; painted concrete block walls (1 repeat = 1.6 m x the full 3.6 m height: dark lower
     /// band, yellow stripe, light upper part, dirt at the bottom, streaks from the top) with a mortar normal map, the
     /// sectional door panel, hazard stripes and the pegboard. The upholstery: LobbyGarageFabric.
     /// </summary>
     public static partial class MultiplayerBuilder
     {
-        public const float GarageWallRepeat = 1.6f, GarageFloorRepeat = 8f;
+        public const float GarageWallRepeat = 1.6f;
 
         // ================================================================ textures
 
@@ -51,51 +50,6 @@ namespace HideAndSeek.Game.Editor
             float d = Mathf.Sqrt(dx * dx + dy * dy) / (r * wob);
             return Mathf.Clamp01(1f - Step01(0.55f, 1.15f, d));
         }
-
-        /// <summary>Concrete slab, 2048 px = 8 m: saw-cut joints every 4 m, mottling, trowel marks, a few soaked-in oil stains, a drip trail and faint tyre marks.</summary>
-        private static Texture2D GarageFloorTex() => SmoothTex("garage_floor8", 2048, 2048, (x, y) =>
-        {
-            float u = x / 2048f, v = y / 2048f;
-            float mott = Fbm(u * 10f, v * 10f) * 0.16f + Fbm(u * 60f + 3f, v * 60f) * 0.07f;
-            float trowel = Mathf.Sin((u * 1.3f + Fbm(u * 6f, v * 6f, 2) * 0.6f) * 90f) * 0.012f;
-            float speck = Hash01(x * 7919 + y * 104729) > 0.988f ? 0.82f : 1f;
-            float g = (0.4f + mott + trowel) * speck;
-            var c = new Color(g, g * 0.99f, g * 0.965f);
-            // saw-cut control joints on the 4 m grid
-            float jx = Mathf.Min(Mathf.Min(x, 2047 - x), Mathf.Abs(x - 1024)), jy = Mathf.Min(Mathf.Min(y, 2047 - y), Mathf.Abs(y - 1024));
-            float j = Mathf.Min(jx, jy);
-            if (j < 2f) c *= 0.5f;
-            else if (j < 3.5f) c *= 0.85f;
-            var oil = new Color(0.1f, 0.085f, 0.07f);
-            // big soaked-in stains (u, v, radius in texture units = 8 m)
-            var stains = new (float x, float y, float r, float k)[] { (0.22f, 0.3f, 0.06f, 0.8f), (0.68f, 0.64f, 0.075f, 0.72f), (0.83f, 0.17f, 0.035f, 0.85f), (0.37f, 0.82f, 0.045f, 0.7f), (0.08f, 0.6f, 0.03f, 0.8f), (0.55f, 0.08f, 0.05f, 0.65f) };
-            for (int i = 0; i < stains.Length; i++)
-            {
-                var s = stains[i];
-                float b = Soak(u - s.x, v - s.y, s.r, i * 3.7f);
-                if (b <= 0f) continue;
-                float dens = 0.55f + Fbm(u * 35f + i * 5f, v * 35f, 3) * 0.7f;
-                float core = Soak(u - s.x - 0.01f, v - s.y + 0.006f, s.r * 0.45f, i * 5.1f + 2f);
-                c = Color.Lerp(c, oil, Mathf.Clamp01(b * s.k * dens + core * 0.25f));
-            }
-            // drip trail: a car that leaked on its way in
-            for (int i = 0; i < 16; i++)
-            {
-                float t = i / 15f;
-                float px = Mathf.Lerp(0.52f, 0.9f, t) + (Hash01(i * 13 + 1) - 0.5f) * 0.01f, py = Mathf.Lerp(0.42f, 0.5f, t) + Mathf.Sin(t * 5f) * 0.02f;
-                float pr = 0.0025f + Hash01(i * 7 + 3) * 0.004f;
-                c = Color.Lerp(c, oil, Soak(u - px, v - py, pr, i) * 0.7f);
-            }
-            // faint tyre marks: two bands along a gentle curve
-            float curve = 0.12f + Mathf.Sin(u * 3.1f + 0.4f) * 0.05f;
-            foreach (float off in new[] { 0f, 0.19f })
-            {
-                float dv = Mathf.Abs(v - curve - off);
-                if (dv < 0.011f) c = Color.Lerp(c, oil, (1f - dv / 0.011f) * 0.16f * (0.6f + Fbm(u * 80f, v * 8f, 2) * 0.8f));
-            }
-            c.a = 1f;
-            return c;
-        });
 
         // wall: 512 px = 1.6 m, 1152 px = 3.6 m (320 px/m); blocks 0.4 x 0.2 m = 128 x 64 px
         private const int GwW = 512, GwH = 1152;
@@ -192,9 +146,6 @@ namespace HideAndSeek.Game.Editor
         });
 
         // ================================================================ materials
-
-        private static Material GarageFloorMat() =>
-            Mat("GarageFloor", Color.white, GarageFloorTex(), 0.22f, new Vector2(LobbyLayout.W / GarageFloorRepeat, LobbyLayout.D / GarageFloorRepeat));
 
         /// <summary>Block wall material tiled for a wall face <paramref name="length"/> m long.</summary>
         private static Material GarageWallMat(string name, float length)

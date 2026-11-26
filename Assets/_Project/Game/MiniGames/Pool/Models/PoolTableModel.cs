@@ -9,7 +9,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
     /// net baskets with a fringe, a moulded apron with a maker's plate and four turned legs on levelling feet.
     /// Table space as in <see cref="PoolDims"/>: origin on the floor under the middle of the cloth, long axis X (head at
     /// -X, foot at +X), +Y up. Styles: 0 = walnut, green cloth, brass; 1 = ebonised oak, blue cloth, chrome;
-    /// 2 = ebonised oak, burgundy cloth, brass. One box collider for the whole table (no ball physics).
+    /// 2 = ebonised oak, burgundy cloth, brass; 3 = garage: charcoal paint, red cloth, steel. One box collider for the whole table (no ball physics).
     /// </summary>
     public sealed partial class PoolTableModel
     {
@@ -51,10 +51,11 @@ namespace HideAndSeek.Game.MiniGames.Pool
         void InitMaterials()
         {
             var k = Kit;
-            bool dark = Style != 0, chrome = Style == 1;
-            Color wood = dark ? new Color(0.19f, 0.12f, 0.085f) : new Color(0.46f, 0.28f, 0.17f);
-            _wood = k.Mat(wood, 0f, 0.74f, PoolTableArt.GrainAlong);
-            _legWood = k.Mat(wood * 0.96f, 0f, 0.72f, PoolTableArt.GrainUp);
+            bool garage = Style == TableKit.GarageStyle, dark = Style != 0, chrome = Style == 1 || garage;
+            // garage: satin charcoal paint over the wood, steel castings, red cloth
+            Color wood = garage ? new Color(0.075f, 0.075f, 0.08f) : dark ? new Color(0.19f, 0.12f, 0.085f) : new Color(0.46f, 0.28f, 0.17f);
+            _wood = k.Mat(wood, garage ? 0.12f : 0f, garage ? 0.45f : 0.74f, PoolTableArt.GrainAlong);
+            _legWood = k.Mat(wood * 0.96f, garage ? 0.12f : 0f, garage ? 0.42f : 0.72f, PoolTableArt.GrainUp);
             _cloth = k.Mat(Color.white, 0f, 0.05f, PoolTableArt.Bed(Style));
             _cushion = k.Mat(Color.white, 0f, 0.05f, PoolTableArt.Nap(Style));
             _slate = k.Mat(new Color(0.17f, 0.18f, 0.19f), 0f, 0.25f);

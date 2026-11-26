@@ -31,6 +31,7 @@ namespace HideAndSeek.Game.Editor
             {
                 floor.name = "ConcreteFloor";
                 floor.GetComponent<MeshRenderer>().sharedMaterial = GarageFloorMat();
+                GarageFloorUv(floor); // one texture over the whole floor (LobbyGarageFloor.cs)
                 floor.GetComponent<FootstepSurface>().Type = SurfaceType.Concrete;
             }
             var ceiling = root.Find("Ceiling");

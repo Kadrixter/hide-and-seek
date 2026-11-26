@@ -7,8 +7,8 @@ namespace HideAndSeek.Game.Net
     /// <summary>
     /// Places at the lobby pool table (server): two teams of one or two players (places 0 = A1, 1 = B1, 2 = A2,
     /// 3 = B2, see <see cref="PoolState"/>). A player takes a free place from the join menu (and may switch to
-    /// another free one between games), presses "Gotowy"; a game starts when every seated player is ready and both
-    /// teams have somebody. During a game a free place can still be taken (the newcomer joins his team's rotation).
+    /// another free one between games), presses "Gotowy"; a game starts when every seated player is ready (with one
+    /// team empty it is a solo game: the turn stays with the seated team). During a game a free place can still be taken (the newcomer joins his team's rotation).
     /// Leaving: the team plays on with its other player; a team left with nobody loses the game (EndLeft).
     /// </summary>
     public partial class MatchManager
@@ -62,18 +62,22 @@ namespace HideAndSeek.Game.Net
             TryStartPool();
         }
 
-        /// <summary>Starts a game once every seated player is ready and both teams have a player; else just publishes.</summary>
+        /// <summary>
+        /// Starts a game once every seated player is ready (one team alone plays solo, see PoolSoloAfterShot); else
+        /// just publishes.
+        /// </summary>
         private void TryStartPool()
         {
             byte occ = _pool.Occupied;
             _pool.Ready &= occ;
-            bool go = _pool.Phase != PoolState.Playing && _pool.Members(0) > 0 && _pool.Members(1) > 0 && (_pool.Ready & occ) == occ;
+            bool go = _pool.Phase != PoolState.Playing && _pool.Seated > 0 && (_pool.Ready & occ) == occ;
             if (!go)
             {
                 PublishPool();
                 return;
             }
-            int breaker = _poolNextBreaker is 0 or 1 ? _poolNextBreaker : Random.Range(0, 2);
+            int solo = PoolSoloTeam;
+            int breaker = solo >= 0 ? solo : _poolNextBreaker is 0 or 1 ? _poolNextBreaker : Random.Range(0, 2);
             StartPool(breaker);
         }
 

@@ -21,6 +21,7 @@ namespace HideAndSeek.Game.Editor
             Pegboard(g, GaragePegboard);
             TyreStack(g, GarageTyres);
             OilDrum(g, GarageDrum);
+            GarageJerrycan(g, new Vector3(LobbyLayout.HalfW - 0.38f, 0f, 4.7f), -100f); // LobbyGarageBits.cs
         }
 
         /// <summary>Pegboard (1.0 x 0.8 m) on battens, tools hanging on pegs. Built facing +Z, turned to face the room (+X).</summary>
@@ -104,11 +105,7 @@ namespace HideAndSeek.Game.Editor
                 var off = new Vector3((Hash01(i * 7 + 1) - 0.5f) * 0.07f, 0.11f + i * 0.205f, (Hash01(i * 13 + 2) - 0.5f) * 0.07f);
                 var rot = Quaternion.Euler((Hash01(i * 3) - 0.5f) * 4f, Hash01(i * 5) * 90f, (Hash01(i * 11) - 0.5f) * 4f);
                 // squared-off torus: tread + sidewalls via a lathe profile
-                m.At(off, rot).Lathe(new[]
-                {
-                    new Vector2(0.21f, -0.09f), new Vector2(0.27f, -0.1f), new Vector2(0.32f, -0.085f), new Vector2(0.335f, -0.05f),
-                    new Vector2(0.335f, 0.05f), new Vector2(0.32f, 0.085f), new Vector2(0.27f, 0.1f), new Vector2(0.21f, 0.09f), new Vector2(0.2f, 0f), new Vector2(0.21f, -0.09f),
-                }, 36, 50f);
+                m.At(off, rot).Lathe(GarageTyreProfile, 36, 50f);
             }
             var go = new GameObject("Tyres");
             go.transform.SetParent(t, false);

@@ -18,13 +18,15 @@ namespace HideAndSeek.Game.Editor
         private static void Bookshelf(Transform parent, Vector3 pos, Material darkWood)
         {
             var t = Frame(parent, "Bookshelf", pos, 90f); // west wall, faces +X
+            bool garage = LobbyLayout.Garage; // garage: grey steel rack, no back panel, paint cans instead of plants and vases
+            if (garage) darkWood = Mat("GarageRackSteel", new Color(0.3f, 0.34f, 0.38f), Tex("garage_ceiling", TexKind.Concrete), 0.45f, new Vector2(0.5f, 0.5f), 0.5f);
             const float w = 2.2f, h = 2.2f, d = 0.38f, side = 0.04f;
             RBox(t, "SideL", new Vector3(-w * 0.5f + side * 0.5f, h * 0.5f, 0f), new Vector3(side, h, d), darkWood, 0.008f);
             RBox(t, "SideR", new Vector3(w * 0.5f - side * 0.5f, h * 0.5f, 0f), new Vector3(side, h, d), darkWood, 0.008f);
             RBox(t, "Top", new Vector3(0f, h - 0.02f, 0.005f), new Vector3(w + 0.06f, 0.04f, d + 0.03f), darkWood, 0.01f);
             RBox(t, "Crown", new Vector3(0f, h + 0.02f, 0.01f), new Vector3(w + 0.1f, 0.04f, d + 0.05f), darkWood, 0.012f);
             RBox(t, "Plinth", new Vector3(0f, 0.05f, 0.01f), new Vector3(w, 0.1f, d - 0.02f), darkWood, 0.008f);
-            LocalBox(t, "Back", new Vector3(0f, h * 0.5f, -d * 0.5f + 0.005f), new Vector3(w - 0.02f, h - 0.02f, 0.01f), Mat("LobbyShelfBack", new Color(0.3f, 0.2f, 0.13f), Tex("lobby_wood", TexKind.Wood), 0.3f, new Vector2(1f, 1f)));
+            if (!garage) LocalBox(t, "Back", new Vector3(0f, h * 0.5f, -d * 0.5f + 0.005f), new Vector3(w - 0.02f, h - 0.02f, 0.01f), Mat("LobbyShelfBack", new Color(0.3f, 0.2f, 0.13f), Tex("lobby_wood", TexKind.Wood), 0.3f, new Vector2(1f, 1f)));
             float[] shelves = { 0.1f, 0.62f, 1.12f, 1.62f };
             foreach (float y in shelves)
                 RBox(t, "Shelf", new Vector3(0f, y + 0.012f, 0.01f), new Vector3(w - side * 2f, 0.024f, d - 0.03f), darkWood, 0.006f);
@@ -47,7 +49,8 @@ namespace HideAndSeek.Game.Editor
                         // ornament in the gap: plant, vase, photo frame or a box
                         float cx = x + gap * 0.5f;
                         int k = rnd.Next(4);
-                        if (k == 0) Plantlet(t, new Vector3(cx, y, 0.02f));
+                        if (garage && k < 2) GaragePaintCan(t, new Vector3(cx, y, 0.02f), s * 5 + k);
+                        else if (k == 0) Plantlet(t, new Vector3(cx, y, 0.02f));
                         else if (k == 1) MeshObj("Vase", t, LatheSaved("ShelfVase", new[] { new Vector2(0.035f, 0f), new Vector2(0.05f, 0.06f), new Vector2(0.03f, 0.16f), new Vector2(0.035f, 0.19f) }, 20, true, false), Mat("LobbyVaseCream", new Color(0.9f, 0.86f, 0.76f), null, 0.75f, Vector2.one), new Vector3(cx, y, 0.03f));
                         else if (k == 2)
                         {
@@ -93,8 +96,13 @@ namespace HideAndSeek.Game.Editor
                 }
             }
             // top: a big plant and a globe-ish lamp? -> two stacked boxes and a trailing plant
-            Plantlet(t, new Vector3(0.75f, h + 0.04f, 0.02f));
-            RBox(t, "TopBox", new Vector3(-0.6f, h + 0.1f, 0.0f), new Vector3(0.36f, 0.12f, 0.26f), Mat("LobbyBoxRed", new Color(0.55f, 0.12f, 0.1f), null, 0.2f, Vector2.one), 0.01f);
+            if (garage)
+            {
+                GaragePaintCan(t, new Vector3(0.68f, h + 0.04f, 0.02f), 11);
+                GaragePaintCan(t, new Vector3(0.84f, h + 0.04f, -0.04f), 12);
+            }
+            else Plantlet(t, new Vector3(0.75f, h + 0.04f, 0.02f));
+            RBox(t, "TopBox", new Vector3(-0.6f, h + 0.1f, 0.0f), new Vector3(0.36f, 0.12f, 0.26f), garage ? Mat("GarageCardboard", new Color(0.62f, 0.47f, 0.3f), null, 0.1f, Vector2.one) : Mat("LobbyBoxRed", new Color(0.55f, 0.12f, 0.1f), null, 0.2f, Vector2.one), 0.01f);
             RBox(t, "TopBox2", new Vector3(-0.58f, h + 0.205f, 0.0f), new Vector3(0.28f, 0.09f, 0.22f), Mat("LobbyBoxTeal", new Color(0.15f, 0.4f, 0.42f), null, 0.2f, Vector2.one), 0.01f);
             BoxCollider(t, new Vector3(0f, h * 0.5f, 0f), new Vector3(w, h, d));
         }

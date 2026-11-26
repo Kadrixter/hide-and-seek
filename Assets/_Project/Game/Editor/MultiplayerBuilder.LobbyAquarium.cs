@@ -14,7 +14,9 @@ namespace HideAndSeek.Game.Editor
         private static void RecordCabinet(Transform parent, Vector3 pos, Material darkWood)
         {
             var t = Frame(parent, "RecordCabinet", pos, 0f);
-            var teak = Mat("LobbyTeak", new Color(0.62f, 0.4f, 0.24f), Tex("lobby_wood", TexKind.Wood), 0.45f, new Vector2(1f, 0.5f));
+            var teak = LobbyLayout.Garage // garage: an olive steel cabinet
+                ? Mat("GarageLockerOlive", new Color(0.25f, 0.29f, 0.18f), Tex("garage_ceiling", TexKind.Concrete), 0.45f, new Vector2(0.5f, 0.5f), 0.35f)
+                : Mat("LobbyTeak", new Color(0.62f, 0.4f, 0.24f), Tex("lobby_wood", TexKind.Wood), 0.45f, new Vector2(1f, 0.5f));
             var black = Mat("LobbyFireBlack", new Color(0.04f, 0.04f, 0.045f), null, 0.45f, Vector2.one, 0.4f);
             const float w = 1.0f, d = 0.45f, y0 = 0.16f, h = 0.44f;
             RBox(t, "Body", new Vector3(0f, y0 + h * 0.5f, 0f), new Vector3(w, h, d), teak, 0.012f);

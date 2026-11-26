@@ -63,6 +63,9 @@ namespace HideAndSeek.Game.Editor
         private static void CoatRack(Transform parent, Vector3 pos, Material darkWood)
         {
             var t = Frame(parent, "CoatRack", pos, 200f);
+            bool garage = LobbyLayout.Garage;
+            if (garage) darkWood = GarageBlackSteel;
+            var Brass = garage ? GarageSteel : MultiplayerBuilder.Brass;
             MeshObj("Base", t, LatheSaved("RackBase", new[] { new Vector2(0.21f, 0f), new Vector2(0.21f, 0.02f), new Vector2(0.17f, 0.05f), new Vector2(0.06f, 0.08f), new Vector2(0.04f, 0.1f) }, 32, true, true), darkWood, Vector3.zero);
             MeshObj("Pole", t, LatheSaved("RackPole", new[] { new Vector2(0.03f, 0f), new Vector2(0.022f, 1.6f), new Vector2(0.03f, 1.66f), new Vector2(0.032f, 1.7f), new Vector2(0.012f, 1.76f) }, 20, false, true), darkWood, new Vector3(0f, 0.1f, 0f));
             for (int i = 0; i < 6; i++)
@@ -77,7 +80,7 @@ namespace HideAndSeek.Game.Editor
                 MeshObj("Knob", hook, LatheSaved("RackKnob", new[] { new Vector2(0f, -0.01f), new Vector2(0.012f, 0f), new Vector2(0f, 0.012f) }, 10, false, false), Brass, new Vector3(0f, 0.085f, 0.15f));
             }
             // jacket on the front hook, a scarf on another, a hat on top
-            var jacket = Mat("LobbyJacket", new Color(0.18f, 0.24f, 0.17f), Tex("lobby_fabric", TexKind.Fabric), 0.1f, new Vector2(2f, 3f));
+            var jacket = garage ? GrimyFabric("GarageWorkJacket", new Color(0.12f, 0.16f, 0.3f), 2, 44, Vector2.one) : Mat("LobbyJacket", new Color(0.18f, 0.24f, 0.17f), Tex("lobby_fabric", TexKind.Fabric), 0.1f, new Vector2(2f, 3f));
             RBox(t, "Jacket", new Vector3(0f, 1.12f, 0.17f), new Vector3(0.42f, 0.78f, 0.1f), jacket, 0.04f, 0.02f).transform.localRotation = Quaternion.Euler(4f, 0f, 0f);
             RBox(t, "Collar", new Vector3(0f, 1.52f, 0.16f), new Vector3(0.24f, 0.08f, 0.09f), jacket, 0.03f, 0.01f);
             foreach (float sx in new[] { -0.2f, 0.2f })
@@ -89,7 +92,18 @@ namespace HideAndSeek.Game.Editor
             RBox(hs, "ScarfA", new Vector3(0.03f, 1.28f, 0.16f), new Vector3(0.12f, 0.6f, 0.025f), scarf, 0.01f).transform.localRotation = Quaternion.Euler(3f, 0f, 3f);
             RBox(hs, "ScarfB", new Vector3(-0.04f, 1.24f, 0.18f), new Vector3(0.12f, 0.66f, 0.025f), scarf, 0.01f).transform.localRotation = Quaternion.Euler(5f, 0f, -4f);
             var felt = Mat("LobbyHat", new Color(0.12f, 0.1f, 0.09f), null, 0.15f, Vector2.one);
-            MeshObj("Hat", t, LatheSaved("Hat", new[] { new Vector2(0f, 0f), new Vector2(0.15f, 0f), new Vector2(0.155f, 0.01f), new Vector2(0.09f, 0.015f), new Vector2(0.085f, 0.1f), new Vector2(0.06f, 0.115f), new Vector2(0f, 0.11f) }, 32, false, false),
+            if (garage)
+            {
+                // a red cap: crown + peak
+                var capRed = Mat("GarageCapRed", new Color(0.6f, 0.08f, 0.07f), Tex("lobby_fabric", TexKind.Fabric), 0.1f, Vector2.one);
+                var cap = new GameObject("Cap").transform;
+                cap.SetParent(t, false);
+                cap.localPosition = new Vector3(0f, 1.78f, 0f);
+                cap.localRotation = Quaternion.Euler(10f, 30f, -6f);
+                MeshObj("Crown", cap, LatheSaved("GarageCapCrown", new[] { new Vector2(0.095f, 0f), new Vector2(0.092f, 0.04f), new Vector2(0.07f, 0.08f), new Vector2(0.03f, 0.098f), new Vector2(0f, 0.1f) }, 24, false, false), capRed, Vector3.zero);
+                RBox(cap, "Peak", new Vector3(0f, 0.005f, 0.13f), new Vector3(0.15f, 0.008f, 0.09f), capRed, 0.003f);
+            }
+            else MeshObj("Hat", t, LatheSaved("Hat", new[] { new Vector2(0f, 0f), new Vector2(0.15f, 0f), new Vector2(0.155f, 0.01f), new Vector2(0.09f, 0.015f), new Vector2(0.085f, 0.1f), new Vector2(0.06f, 0.115f), new Vector2(0f, 0.11f) }, 32, false, false),
                 felt, new Vector3(0f, 1.84f, 0f), Quaternion.Euler(8f, 0f, -5f));
             var col = t.gameObject.AddComponent<CapsuleCollider>();
             col.radius = 0.22f;
