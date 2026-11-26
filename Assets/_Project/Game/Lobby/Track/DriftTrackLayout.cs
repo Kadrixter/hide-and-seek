@@ -15,6 +15,15 @@ namespace HideAndSeek.Game
         public const float ArchZ = 2.25f, ArchWidth = 1.4f, ArchSpring = 2.05f;
         public static float ArchRadius => ArchWidth * 0.5f;
         public static float ArchTop => ArchSpring + ArchRadius;
+        /// <summary>
+        /// Garage look (<see cref="LobbyLayout.Garage"/>): a square opening instead of the arch, closed by a sectional
+        /// garage door that stays half open - its bottom edge hangs at <see cref="GateDoorBottom"/> (head room for the
+        /// 1.8 m player).
+        /// </summary>
+        public const float GateWidth = 2.0f, GateHeight = 2.6f, GateDoorBottom = 2.02f;
+        /// <summary>Top of the opening in the current lobby style.</summary>
+        public static float OpeningTop => LobbyLayout.Garage ? GateHeight : ArchTop;
+        public static float OpeningWidth => LobbyLayout.Garage ? GateWidth : ArchWidth;
         public const float WallThick = 0.2f;
         public const float PassageWidth = 2.2f, PassageHeight = 3.0f;
         public static float PassageStart => -LobbyLayout.HalfW - WallThick;   // outer face of the lobby wall
@@ -44,6 +53,6 @@ namespace HideAndSeek.Game
         public static bool OnTrackSide(Vector3 p) => p.x < -LobbyLayout.HalfW + 0.05f;
 
         /// <summary>The arch opening seen from the lobby (for the visibility test).</summary>
-        public static Bounds ArchBounds => new(new Vector3(-LobbyLayout.HalfW - WallThick * 0.5f, ArchTop * 0.5f, ArchZ), new Vector3(WallThick + 0.1f, ArchTop, ArchWidth));
+        public static Bounds ArchBounds => new(new Vector3(-LobbyLayout.HalfW - WallThick * 0.5f, OpeningTop * 0.5f, ArchZ), new Vector3(WallThick + 0.1f, OpeningTop, OpeningWidth));
     }
 }

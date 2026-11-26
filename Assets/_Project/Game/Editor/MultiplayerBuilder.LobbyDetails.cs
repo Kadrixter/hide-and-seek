@@ -16,23 +16,32 @@ namespace HideAndSeek.Game.Editor
             var white = Mat("LobbyPlastic", new Color(0.9f, 0.9f, 0.86f), null, 0.35f, Vector2.one);
             var black = Mat("LobbyPlasticBlack", new Color(0.05f, 0.05f, 0.06f), null, 0.4f, Vector2.one);
             var doorWood = Mat("LobbyDoorWood", new Color(0.42f, 0.28f, 0.18f), Tex("lobby_wood", TexKind.Wood), 0.3f, new Vector2(0.6f, 1.2f));
+            var doorPanel = darkWood;
+            var doorFrame = trim;
+            if (LobbyLayout.Garage) // painted steel door in a steel frame
+            {
+                doorWood = Mat("GarageSteelDoor", new Color(0.36f, 0.42f, 0.4f), Tex("garage_ceiling", TexKind.Concrete), 0.35f, new Vector2(1f, 2f), 0.35f);
+                doorPanel = Mat("GarageSteelDoorPanel", new Color(0.3f, 0.35f, 0.33f), Tex("garage_ceiling", TexKind.Concrete), 0.35f, new Vector2(1f, 1f), 0.35f);
+                doorFrame = Mat("GarageGateFrame", new Color(0.2f, 0.21f, 0.22f), null, 0.4f, Vector2.one, 0.5f);
+            }
             var bandWood = Mat("LobbyCrateBand", new Color(0.4f, 0.28f, 0.16f), Tex("lobby_wood", TexKind.Wood), 0.15f, new Vector2(0.3f, 0.3f));
 
             // ---- exit door on the south wall (x 4.3): a real opening with a hinged door (opens into the room, easter egg
             // LobbyExitDoor), white nothingness behind it and an invisible blocker - nobody ever leaves.
             float dz = -LobbyLayout.HalfD + 0.015f, dx = LobbyLayout.ExitDoorX;
             CutExitOpening(root, dx);
+            if (LobbyLayout.Garage) GarageWorldUv(root, new[] { "WallS_L", "WallS_R", "WallS_Top" }, LobbyLayout.W + 0.4f); // blocks keep their size on the cut pieces
             var hinge = new GameObject("ExitDoorHinge").transform;
             hinge.SetParent(d, false);
             hinge.position = new Vector3(dx - 0.475f, 0f, dz);
             Deco("DoorSlab", hinge, new Vector3(dx, 1.05f, dz), new Vector3(0.95f, 2.1f, 0.03f), doorWood);
-            Deco("DoorPanelTop", hinge, new Vector3(dx, 1.5f, dz + 0.018f), new Vector3(0.7f, 0.75f, 0.01f), darkWood);
-            Deco("DoorPanelBottom", hinge, new Vector3(dx, 0.5f, dz + 0.018f), new Vector3(0.7f, 0.6f, 0.01f), darkWood);
-            Deco("DoorPanelTopOut", hinge, new Vector3(dx, 1.5f, dz - 0.018f), new Vector3(0.7f, 0.75f, 0.01f), darkWood);
-            Deco("DoorPanelBottomOut", hinge, new Vector3(dx, 0.5f, dz - 0.018f), new Vector3(0.7f, 0.6f, 0.01f), darkWood);
-            Deco("DoorFrameL", d, new Vector3(dx - 0.52f, 1.08f, dz + 0.01f), new Vector3(0.09f, 2.18f, 0.05f), trim);
-            Deco("DoorFrameR", d, new Vector3(dx + 0.52f, 1.08f, dz + 0.01f), new Vector3(0.09f, 2.18f, 0.05f), trim);
-            Deco("DoorFrameTop", d, new Vector3(dx, 2.15f, dz + 0.01f), new Vector3(1.13f, 0.09f, 0.05f), trim);
+            Deco("DoorPanelTop", hinge, new Vector3(dx, 1.5f, dz + 0.018f), new Vector3(0.7f, 0.75f, 0.01f), doorPanel);
+            Deco("DoorPanelBottom", hinge, new Vector3(dx, 0.5f, dz + 0.018f), new Vector3(0.7f, 0.6f, 0.01f), doorPanel);
+            Deco("DoorPanelTopOut", hinge, new Vector3(dx, 1.5f, dz - 0.018f), new Vector3(0.7f, 0.75f, 0.01f), doorPanel);
+            Deco("DoorPanelBottomOut", hinge, new Vector3(dx, 0.5f, dz - 0.018f), new Vector3(0.7f, 0.6f, 0.01f), doorPanel);
+            Deco("DoorFrameL", d, new Vector3(dx - 0.52f, 1.08f, dz + 0.01f), new Vector3(0.09f, 2.18f, 0.05f), doorFrame);
+            Deco("DoorFrameR", d, new Vector3(dx + 0.52f, 1.08f, dz + 0.01f), new Vector3(0.09f, 2.18f, 0.05f), doorFrame);
+            Deco("DoorFrameTop", d, new Vector3(dx, 2.15f, dz + 0.01f), new Vector3(1.13f, 0.09f, 0.05f), doorFrame);
             Cyl("Handle", hinge, new Vector3(dx + 0.36f, 1.0f, dz + 0.05f), 0.05f, 0.06f, metalSilver.Value, Quaternion.Euler(90, 0, 0));
             Deco("HandleLever", hinge, new Vector3(dx + 0.3f, 1.0f, dz + 0.08f), new Vector3(0.14f, 0.025f, 0.025f), metalSilver.Value).name = "HandleLever";
             Deco("KeyPlate", hinge, new Vector3(dx + 0.36f, 0.88f, dz + 0.02f), new Vector3(0.05f, 0.1f, 0.01f), metalSilver.Value);

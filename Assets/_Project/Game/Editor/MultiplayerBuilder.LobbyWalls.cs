@@ -121,6 +121,7 @@ namespace HideAndSeek.Game.Editor
                     Gaps = new[] { (DriftTrackLayout.ArchZ + hd - DriftTrackLayout.ArchRadius - 0.12f, DriftTrackLayout.ArchZ + hd + DriftTrackLayout.ArchRadius + 0.12f) },
                     SkirtGaps = new[] { (DriftTrackLayout.ArchZ + hd - DriftTrackLayout.ArchRadius - 0.11f, DriftTrackLayout.ArchZ + hd + DriftTrackLayout.ArchRadius + 0.11f) } },
             };
+            if (LobbyLayout.Garage) spans = new WallSpan[0]; // bare block walls: no wainscot, rail, skirting or crown
             var skirtProf = LobbyMesh.MouldingProfile(0.022f, 0.14f, 0.008f);
             var railProf = RailProfile();
             var crownProf = CrownProfile();
@@ -156,6 +157,7 @@ namespace HideAndSeek.Game.Editor
             for (int i = 0; i < LobbyLayout.Outlets.Length; i++)
             {
                 Vector3 n = LobbyLayout.OutletNormals[i];
+                if (LobbyLayout.Garage) GarageOutletBox(fin, LobbyLayout.Outlets[i], n);
                 var o = Deco("Outlet", fin, LobbyLayout.Outlets[i], new Vector3(0.08f, 0.08f, 0.012f), white, Quaternion.LookRotation(-n));
                 RoundCube(o.transform, 0.006f, 0f);
                 foreach (int k in new[] { -1, 1 })

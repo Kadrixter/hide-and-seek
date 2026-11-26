@@ -13,6 +13,15 @@ namespace HideAndSeek.Game
     /// </summary>
     public static class LobbyLayout
     {
+        /// <summary>
+        /// Look of the lobby room. Garage (26.11): bare concrete floor with oil stains, painted block walls, steel
+        /// beams, shop lights, a half-open sectional garage door to the drift track, greasy torn sofas
+        /// (MultiplayerBuilder.LobbyGarage*.cs). Classic: the old lounge (wallpaper, wainscoting, wood floor, the
+        /// round arch to the track) - still fully in the code, switch back here and rebuild the scenes.
+        /// </summary>
+        public static readonly LobbyStyle Style = LobbyStyle.Garage;
+        public static bool Garage => Style == LobbyStyle.Garage;
+
         public const float W = 16f, D = 12f, H = 3.6f;
         public const float HalfW = W * 0.5f, HalfD = D * 0.5f;
 
@@ -97,7 +106,7 @@ namespace HideAndSeek.Game
         // ---- wall sockets (plate centre, facing into the room) - the fork easter egg works with every one
         public static readonly Vector3[] Outlets =
         {
-            new(-1.4f, 0.22f, HalfD - 0.019f), new(-HalfW + 0.019f, 0.22f, 1.3f), new(HalfW - 0.019f, 0.22f, 1.8f), new(-1.7f, 0.22f, -HalfD + 0.019f),
+            new(-1.4f, 0.22f, HalfD - 0.019f), new(-HalfW + 0.019f, 0.22f, Garage ? 0.6f : 1.3f), new(HalfW - 0.019f, 0.22f, 1.8f), new(-1.7f, 0.22f, -HalfD + 0.019f),
         };
         public static readonly Vector3[] OutletNormals = { Vector3.back, Vector3.right, Vector3.left, Vector3.forward };
 
@@ -123,4 +132,6 @@ namespace HideAndSeek.Game
             }
         }
     }
+
+    public enum LobbyStyle { Classic, Garage }
 }

@@ -39,6 +39,7 @@ namespace HideAndSeek.Game.Editor
             Box("WallW", root, new Vector3(-W / 2 - 0.1f, H / 2, 0), new Vector3(0.2f, H, D), wall);
             // wallpaper runs 1 m wide strips: per wall tiling so the pattern keeps its size
             BuildLobbyWalls(root, darkWood, trim);
+            if (LobbyLayout.Garage) BuildGarageShell(root); // concrete, block walls, beams, conduit (LobbyGarage.cs)
 
             // ---- lounge: L of two sofas, the coffee table 0.58 m in front of the north-facing one, poufs on the east side
             Sofa(root, LobbyLayout.SofaFront.pos, LobbyLayout.SofaFront.yaw, fabric, darkWood);
@@ -64,9 +65,11 @@ namespace HideAndSeek.Game.Editor
             // ---- plants, paintings, neon
             var pot = Mat("LobbyPot", new Color(0.22f, 0.12f, 0.08f), null, 0.3f, Vector2.one);
             var leaf = Mat("LobbyLeaf", new Color(0.16f, 0.42f, 0.14f), Tex("lobby_fabric", TexKind.Fabric), 0.2f, new Vector2(0.5f, 0.5f));
-            for (int i = 0; i < LobbyLayout.Plants.Length; i++) Plant(root, LobbyLayout.Plants[i], pot, leaf, i + 1);
+            for (int i = 0; i < LobbyLayout.Plants.Length; i++)
+                if (!LobbyLayout.Garage || LobbyLayout.Plants[i].x < 7f) Plant(root, LobbyLayout.Plants[i], pot, leaf, i + 1); // garage: tyres in the SE corner
             PaintingAt(root, new Vector3(LobbyLayout.RecordPlayer.x, 1.95f, -D / 2 + 0.003f), new Vector2(1.3f, 0.9f), "lobby_painting_city", 1, 0f);
-            PaintingAt(root, new Vector3(-W / 2 + 0.003f, 1.95f, LobbyLayout.Globe.z), new Vector2(0.9f, 1.2f), "lobby_painting_moon", 2, 90f);
+            if (!LobbyLayout.Garage) PaintingAt(root, new Vector3(-W / 2 + 0.003f, 1.95f, LobbyLayout.Globe.z), new Vector2(0.9f, 1.2f), "lobby_painting_moon", 2, 90f);
+            else BuildGarageProps(root); // pegboard with tools instead of the moon, tyres, oil drum (LobbyGarageProps.cs)
             Neon(root, new Vector3(-W / 2 + 0.06f, 2.65f, LobbyLayout.SofaSide.pos.z), "HIDE & SEEK");
 
             BuildLobbyLights(root, darkWood, metal);

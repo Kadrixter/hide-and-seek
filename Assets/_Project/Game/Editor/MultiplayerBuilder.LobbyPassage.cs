@@ -40,7 +40,7 @@ namespace HideAndSeek.Game.Editor
             return m;
         }
 
-        private static void BuildPassage(Transform root, Material brick, Material concrete, Material steel)
+        private static void BuildPassage(Transform root, Material brick, Material concrete, Material steel, Vector2? lampXZ = null)
         {
             var p = new GameObject("TrackPassage").transform;
             p.SetParent(root, false);
@@ -72,21 +72,22 @@ namespace HideAndSeek.Game.Editor
             // Lintel over the shutter (the track's wall goes on above it at runtime).
             Box("PassageLintel", p, new Vector3(x1 - 0.15f, h + 0.25f, z), new Vector3(0.3f, 0.5f, w + 0.4f), concrete);
 
-            // Cage lamp on the ceiling.
+            // Cage lamp on the ceiling (the garage look moves it clear of the open door and its opener rail).
+            float lx = lampXZ?.x ?? xm, lz = lampXZ?.y ?? z;
             var lampMat = Mat("TrackLampGlass", new Color(1f, 0.9f, 0.7f), null, 0.6f, Vector2.one);
             lampMat.EnableKeyword("_EMISSION");
             lampMat.SetColor("_EmissionColor", new Color(1.6f, 1.25f, 0.8f));
             EditorUtility.SetDirty(lampMat);
-            Deco("PassageLampBase", p, new Vector3(xm, h - 0.03f, z), new Vector3(0.22f, 0.05f, 0.22f), steel);
-            Deco("PassageLampGlass", p, new Vector3(xm, h - 0.13f, z), new Vector3(0.14f, 0.16f, 0.14f), lampMat);
+            Deco("PassageLampBase", p, new Vector3(lx, h - 0.03f, lz), new Vector3(0.22f, 0.05f, 0.22f), steel);
+            Deco("PassageLampGlass", p, new Vector3(lx, h - 0.13f, lz), new Vector3(0.14f, 0.16f, 0.14f), lampMat);
             for (int i = 0; i < 4; i++)
             {
                 float a = i * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
-                Deco("PassageLampCage", p, new Vector3(xm + Mathf.Cos(a) * 0.08f, h - 0.13f, z + Mathf.Sin(a) * 0.08f), new Vector3(0.012f, 0.18f, 0.012f), steel);
+                Deco("PassageLampCage", p, new Vector3(lx + Mathf.Cos(a) * 0.08f, h - 0.13f, lz + Mathf.Sin(a) * 0.08f), new Vector3(0.012f, 0.18f, 0.012f), steel);
             }
             var l = new GameObject("PassageLight").AddComponent<Light>();
             l.transform.SetParent(p, false);
-            l.transform.position = new Vector3(xm, h - 0.3f, z);
+            l.transform.position = new Vector3(lx, h - 0.3f, lz);
             l.type = LightType.Point;
             l.color = new Color(1f, 0.82f, 0.6f);
             l.range = 5f;

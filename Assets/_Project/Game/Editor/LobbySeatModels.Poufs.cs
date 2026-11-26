@@ -52,7 +52,14 @@ namespace HideAndSeek.Game.Editor
             var velvet = SeatMat("PoufVelvetMustard", new Color(0.78f, 0.52f, 0.1f), VelvetTex(), 0.25f, new Vector2(6f, 3f));
             var dark = SeatMat("PoufPipingMustard", new Color(0.36f, 0.22f, 0.06f), VelvetTex(), 0.3f, new Vector2(4f, 1f));
             var wood = SeatMat("SeatWalnut", new Color(0.32f, 0.2f, 0.12f), Tex("lobby_wood", TexKind.Wood), 0.55f, new Vector2(0.3f, 0.3f));
-            Piece(p, "Body", M.Revolve(prof, Push, 96, 64, 6f, 3f), velvet, "PoufA_Body");
+            if (LobbyLayout.Garage) // greasy, torn (LobbyGarageArt.cs); the body mesh UVs run 6 x 3
+            {
+                velvet = GrimyFabric("GaragePouf", new Color(0.66f, 0.44f, 0.1f), 14, 21, Vector2.one);
+                dark = GrimyFabric("GaragePoufPiping", new Color(0.3f, 0.18f, 0.05f), 0, 23, Vector2.one);
+            }
+            var body = M.Revolve(prof, Push, 96, 64, 6f, 3f);
+            if (LobbyLayout.Garage) GarageBoxUv(body, 1.4f, new Vector2(p.position.x * 0.37f, p.position.z * 0.29f)); // each pouf its own patch of stains
+            Piece(p, "Body", body, velvet, LobbyLayout.Garage ? "PoufA_Body_" + Mathf.Abs(Mathf.RoundToInt(p.position.z * 10f)) : "PoufA_Body");
             // Buttons sit in the dimples.
             var parts = new List<Mesh>();
             foreach (var t in tufts)

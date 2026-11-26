@@ -20,6 +20,12 @@ namespace HideAndSeek.Game.Editor
             var deep = SeatMat("SofaVelvetDeep", new Color(0.3f, 0.055f, 0.05f), VelvetTex(), 0.28f, new Vector2(4f, 2f));
             var pipe = SeatMat("SofaPiping", new Color(0.2f, 0.035f, 0.03f), VelvetTex(), 0.25f, new Vector2(4f, 1f));
             var wood = SeatMat("SeatWalnut", new Color(0.32f, 0.2f, 0.12f), Tex("lobby_wood", TexKind.Wood), 0.55f, new Vector2(0.3f, 0.3f));
+            if (LobbyLayout.Garage) // greasy, torn upholstery (LobbyGarageArt.cs); seed per sofa so the two differ
+            {
+                int seed = Mathf.Abs(Mathf.RoundToInt(s.position.x * 10f + s.position.z * 7f)) % 5 + 1;
+                velvet = GrimyFabric("GarageSofa" + seed, new Color(0.44f, 0.1f, 0.08f), 7, seed, Vector2.one);
+                pipe = GrimyFabric("GarageSofaPiping", new Color(0.17f, 0.035f, 0.03f), 0, 9, Vector2.one);
+            }
 
             const float legH = SeatShape.SofaLegH, baseTop = SeatShape.SofaBaseTopY, seatTop = SeatShape.SofaSeatTopY;
             const float armX = SeatShape.SofaArmX, armTop = SeatShape.SofaArmTopY, armR = SeatShape.SofaArmRoll;
@@ -36,7 +42,7 @@ namespace HideAndSeek.Game.Editor
             foreach (float side in new[] { -1f, 1f })
                 frame.Add(M.Moved(M.SoftBox(new Vector3(0.17f, armTop - armR - legH + 0.03f, 0.9f), 0.03f, 0.008f),
                     new Vector3(side * armX, (legH + armTop - armR + 0.03f) * 0.5f, 0f), Quaternion.identity, Vector3.one));
-            Piece(s, "Frame", M.Combine(frame), velvet, "Sofa_Frame");
+            Piece(s, "Frame", GarageUv(M.Combine(frame)), velvet, "Sofa_Frame");
 
             // Rolls: arm tops (along Z) and the back top (along X), with scroll caps at the front.
             var rolls = new List<Mesh>();
@@ -49,7 +55,7 @@ namespace HideAndSeek.Game.Editor
             rolls.Add(M.Tube(t => new Vector3(Mathf.Lerp(-1.2f + 0.02f, 1.2f - 0.02f, t), backTop - backR, backZ + 0.07f), _ => backR, 48, 24, false));
             foreach (float side in new[] { -1f, 1f })
                 rolls.Add(Disc(new Vector3(side * (1.2f - 0.02f), backTop - backR, backZ + 0.07f), Vector3.right * side, backR, -0.006f));
-            Piece(s, "Rolls", M.Combine(rolls), velvet, "Sofa_Rolls");
+            Piece(s, "Rolls", GarageUv(M.Combine(rolls)), velvet, "Sofa_Rolls");
 
             // Seat cushions: puffy, piping round the top.
             var cushions = new List<Mesh>();
@@ -89,9 +95,9 @@ namespace HideAndSeek.Game.Editor
                     buttons.Add(M.Moved(M.Ellipsoid(0.014f, 0.006f), c + tilt * new Vector3(t.x, t.y, z), tilt * Quaternion.Euler(-90f, 0f, 0f), Vector3.one));
                 }
             }
-            Piece(s, "Cushions", M.Combine(cushions), velvet, "Sofa_Cushions");
+            Piece(s, "Cushions", GarageUv(M.Combine(cushions)), velvet, "Sofa_Cushions");
             piping.AddRange(buttons);
-            Piece(s, "Piping", M.Combine(piping), pipe, "Sofa_Piping");
+            Piece(s, "Piping", GarageUv(M.Combine(piping)), pipe, "Sofa_Piping");
 
             // Legs: tapered walnut.
             var legs = new List<Mesh>();
@@ -107,6 +113,9 @@ namespace HideAndSeek.Game.Editor
                 BoxCol(s, new Vector3(side * armX, armTop * 0.5f, 0f), new Vector3(0.2f, armTop, 0.9f));
             _ = deep;
         }
+
+        /// <summary>Garage look: one stained texture over the whole sofa (box-projected, 1 repeat = 2.6 m); classic: the part UVs.</summary>
+        private static Mesh GarageUv(Mesh m) => LobbyLayout.Garage ? GarageBoxUv(m, 2.6f) : m;
 
         /// <summary>Flat round cap facing <paramref name="normal"/>, slightly dished (scroll end of a roll).</summary>
         private static Mesh Disc(Vector3 c, Vector3 normal, float r, float dish)

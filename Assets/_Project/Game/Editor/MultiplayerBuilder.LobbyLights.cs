@@ -78,14 +78,18 @@ namespace HideAndSeek.Game.Editor
                 var c = new GameObject("CeilingLight").transform;
                 c.SetParent(lt, false);
                 c.position = new Vector3(x, H, z);
-                MeshObj("Ring", c, ring, Brass, Vector3.zero);
-                glows.Add(MeshObj("Dome", c, dome, glass, new Vector3(0f, -0.03f, 0f), null, false).GetComponent<Renderer>());
-                MeshObj("Finial", c, finial, Brass, new Vector3(0f, -0.172f, 0f));
+                if (LobbyLayout.Garage) GarageShopLight(c, glows); // hanging twin-tube shop light (LobbyGarage.cs)
+                else
+                {
+                    MeshObj("Ring", c, ring, Brass, Vector3.zero);
+                    glows.Add(MeshObj("Dome", c, dome, glass, new Vector3(0f, -0.03f, 0f), null, false).GetComponent<Renderer>());
+                    MeshObj("Finial", c, finial, Brass, new Vector3(0f, -0.172f, 0f));
+                }
                 var l = new GameObject("LampLight").AddComponent<Light>();
                 l.transform.SetParent(c, false);
-                l.transform.localPosition = new Vector3(0f, -0.35f, 0f);
+                l.transform.localPosition = new Vector3(0f, LobbyLayout.Garage ? -0.6f : -0.35f, 0f);
                 l.type = LightType.Point;
-                l.color = WarmLight;
+                l.color = LobbyLayout.Garage ? new Color(1f, 0.88f, 0.72f) : WarmLight;
                 l.range = 7.5f;
                 l.intensity = 1.2f;
                 l.shadows = Mathf.Approximately(x, 0.5f) ? LightShadows.Soft : LightShadows.None;
@@ -114,8 +118,10 @@ namespace HideAndSeek.Game.Editor
             float fx = LobbyLayout.Fireplace.x;
             Sconce(lt, new Vector3(fx - LobbyLayout.TvSconceDx, 2.05f, hd), 180f);
             Sconce(lt, new Vector3(fx + LobbyLayout.TvSconceDx, 2.05f, hd), 180f);
-            Sconce(lt, new Vector3(-LobbyLayout.HalfW, 2.0f, LobbyLayout.Globe.z - 0.95f), 90f);
-            Sconce(lt, new Vector3(-LobbyLayout.HalfW, 2.0f, LobbyLayout.Globe.z + 0.95f), 90f);
+            // west wall: either side of the painting (classic) / the pegboard (garage, clear of the door frame)
+            float wz = LobbyLayout.Garage ? GaragePegboard.z : LobbyLayout.Globe.z, wdz = LobbyLayout.Garage ? 0.7f : 0.95f;
+            Sconce(lt, new Vector3(-LobbyLayout.HalfW, 2.0f, wz - wdz), 90f);
+            Sconce(lt, new Vector3(-LobbyLayout.HalfW, 2.0f, wz + wdz), 90f);
 
             // ---- ceiling fan over the coffee table + its switch next to the fireplace
             CeilingFanModel(lt, new Vector3(LobbyLayout.CoffeeTable.x, H, LobbyLayout.CoffeeTable.z), darkWood);

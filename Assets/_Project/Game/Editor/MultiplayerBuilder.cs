@@ -292,7 +292,10 @@ namespace HideAndSeek.Game.Editor
             RenderSettings.fog = false;
 
             var root = BuildLobbyRoom(); // MultiplayerBuilder.LobbyRoom.cs, floor plan: Game/Lobby/LobbyLayout.cs
-            BuildLobbyArch(root); // arch in the west wall + passage to the drift track (MultiplayerBuilder.LobbyArch.cs)
+            // way to the drift track in the west wall + the passage: a half-open garage door (LobbyGarageDoor.cs) or the
+            // classic arch (LobbyArch.cs), see LobbyLayout.Style
+            if (LobbyLayout.Garage) BuildLobbyGarageDoor(root);
+            else BuildLobbyArch(root);
             BuildLobbyModels(root);
             ZFightCheck.FixOpenScene(); // no flickering coplanar faces
             EditorSceneManager.SaveScene(scene, LobbyScenePath);
