@@ -16,6 +16,7 @@ namespace HideAndSeek.Game.DotLink
         static bool _hooked, _on;
         static float _w, _zoom = 1f, _last = -1f;
         static NetPlayer _p;
+        static IDotLinkTarget _target;
         static Vector3 _savedPos;
         static Quaternion _savedRot;
         static int _savedMask;
@@ -24,11 +25,12 @@ namespace HideAndSeek.Game.DotLink
         /// <summary>Blend 0..1 (1 = fully in front of the screen).</summary>
         public static float Weight => _w;
 
-        /// <summary>Every frame from <see cref="DotLinkLocal"/> (on = the local player uses the panel).</summary>
-        public static void Attach(NetPlayer p, bool on)
+        /// <summary>Every frame from <see cref="DotLinkLocal"/> (on = the local player uses <paramref name="target"/>; off = glide back from the last one).</summary>
+        public static void Attach(NetPlayer p, bool on, IDotLinkTarget target)
         {
             _p = p;
             _on = on;
+            if (target != null) _target = target;
             if (!_hooked)
             {
                 _hooked = true;
@@ -55,9 +57,9 @@ namespace HideAndSeek.Game.DotLink
         {
             pos = default;
             rot = default;
-            if (!DotLinkLayout.TryGet(out var lay)) return false;
-            lay.CameraPose(cam.fieldOfView, _zoom, out pos, out rot);
-            return true;
+            var t = _target;
+            if (t == null || (t is Object o && o == null)) return false;
+            return t.CameraPose(cam.fieldOfView, _zoom, out pos, out rot);
         }
 
         static void PreCull(Camera cam)

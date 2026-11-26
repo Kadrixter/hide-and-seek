@@ -16,6 +16,7 @@ namespace HideAndSeek.Game.DotLink
         Image _panel;
         float _flashUntil;
         bool _wasSolved;
+        string _flashText = "";
 
         public static DotLinkHud Create(Transform parent)
         {
@@ -59,16 +60,20 @@ namespace HideAndSeek.Game.DotLink
         /// <summary>Last status line shown (tests log it).</summary>
         public static string LastStatus { get; private set; } = "";
 
-        public void Tick(bool active, DotLinkPanel panel, MatchManager mm)
+        public void Tick(bool active, IDotLinkTarget panel, MatchManager mm)
         {
             Show(active);
             var board = DotLinkLocal.Draft ?? (panel != null ? panel.NetBoard : null);
             bool solved = panel != null && panel.NetBoard != null && panel.NetBoard.SolvedFlag;
-            if (solved && !_wasSolved && active) _flashUntil = Time.unscaledTime + 2.2f;
+            if (solved && !_wasSolved && active)
+            {
+                _flashUntil = Time.unscaledTime + 2.2f;
+                _flashText = panel.SolvedFlash;
+            }
             _wasSolved = solved;
-            _flash.text = Time.unscaledTime < _flashUntil ? "Połączono - brama się otwiera" : "";
+            _flash.text = Time.unscaledTime < _flashUntil ? _flashText : "";
             if (!active) return;
-            LastStatus = StatusLine(board);
+            LastStatus = StatusLine(board) + (panel != null ? panel.StatusExtra : "");
             _status.text = LastStatus;
         }
     }

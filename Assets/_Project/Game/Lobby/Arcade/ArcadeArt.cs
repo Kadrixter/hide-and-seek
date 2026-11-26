@@ -7,7 +7,7 @@ namespace HideAndSeek.Game
     /// title, the side panels (a big snake winding up between apples and stars) and the control panel overlay
     /// (joystick ring with arrows, button rings, 1P / 2P START stickers, stripes).
     /// </summary>
-    public static class ArcadeArt
+    public static partial class ArcadeArt
     {
         private static readonly Color32 Green = new(110, 255, 120, 255), DarkGreen = new(20, 110, 50, 255), Yellow = new(255, 222, 70, 255);
         private static readonly Color32 Magenta = new(235, 60, 170, 255), Cyan = new(60, 200, 255, 255), Red = new(232, 40, 64, 255);

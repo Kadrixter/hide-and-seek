@@ -12,8 +12,8 @@ namespace HideAndSeek.Core
     /// </summary>
     public static class Drunkenness
     {
-        /// <summary>One can wears off in this many seconds.</summary>
-        public const float SecondsPerCan = 60f;
+        /// <summary>One can wears off in this many seconds (2.3 min).</summary>
+        public const float SecondsPerCan = 138f;
         /// <summary>
         /// The level holds this long after the last can before it starts wearing off (still being absorbed). One purchase
         /// takes ~9 s, so without it cans drunk in a row could never add up to <see cref="CollapseCans"/>.

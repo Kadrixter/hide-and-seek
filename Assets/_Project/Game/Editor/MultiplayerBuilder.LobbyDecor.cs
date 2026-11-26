@@ -31,6 +31,7 @@ namespace HideAndSeek.Game.Editor
             deco.Find("TableSnacks").position = LobbyLayout.TableShift; // built for the old table centre
             for (int i = 0; i < LobbyLayout.Arcades.Length; i++)
                 Arcade(deco, LobbyLayout.Arcades[i].pos, LobbyLayout.Arcades[i].yaw, i, metal);
+            Arcade(deco, LobbyLayout.LinkArcade.pos, LobbyLayout.LinkArcade.yaw, -1, metal); // KABELKI: the dot link puzzle
             // CCTV TV over the fireplace (built facing +Z, turned to face the room from the north wall)
             var tvPos = new Vector3(LobbyLayout.Fireplace.x, LobbyLayout.TvCenterY, -LobbyLayout.HalfD + 0.06f);
             WallTv(deco, tvPos, cctv, cctvLabels, darkWood, false, LobbyLayout.TvScale);
@@ -241,9 +242,11 @@ namespace HideAndSeek.Game.Editor
 
         // ================================================================ arcade
 
+        /// <param name="cab">SNAKE cabinet index, or -1 for the KABELKI cabinet (HideAndSeek.Game.DotLink.DotLinkArcade).</param>
         private static void Arcade(Transform p, Vector3 pos, float yaw, int cab, Material metal)
         {
-            var a = new GameObject(cab == 0 ? "ArcadeCabinet" : "ArcadeCabinet" + (cab + 1)).transform;
+            bool link = cab < 0;
+            var a = new GameObject(link ? "ArcadeCabinetLink" : cab == 0 ? "ArcadeCabinet" : "ArcadeCabinet" + (cab + 1)).transform;
             a.SetParent(p, false);
             a.position = pos;
             // Front faces -Z (into the room).
@@ -266,12 +269,22 @@ namespace HideAndSeek.Game.Editor
             ArcadeControls(a, pos, metal);   // panel with art, joystick, buttons (MultiplayerBuilder.LobbyArcade.cs)
             ArcadeTrim(a, pos, metal, body); // coin door, bevels, kick plate, marquee frame
 
-            var glow = PointLight("ArcadeGlow", a, pos + new Vector3(0, 1.35f, -0.8f), cab == 0 ? new Color(0.45f, 0.6f, 1f) : new Color(1f, 0.45f, 0.75f), 0.7f, 2.4f);
+            var glowColor = link ? new Color(0.5f, 0.9f, 0.62f) : cab == 0 ? new Color(0.45f, 0.6f, 1f) : new Color(1f, 0.45f, 0.75f);
+            var glow = PointLight("ArcadeGlow", a, pos + new Vector3(0, 1.35f, -0.8f), glowColor, 0.7f, 2.4f);
             ArcadeDetails(a, pos, metal);
-            var arc = a.gameObject.AddComponent<LobbyArcade>();
-            arc.screen = screen.GetComponent<Renderer>();
-            arc.glow = glow;
-            arc.cab = cab;
+            if (link)
+            {
+                var dl = a.gameObject.AddComponent<HideAndSeek.Game.DotLink.DotLinkArcade>();
+                dl.screen = screen.GetComponent<Renderer>();
+                dl.glow = glow;
+            }
+            else
+            {
+                var arc = a.gameObject.AddComponent<LobbyArcade>();
+                arc.screen = screen.GetComponent<Renderer>();
+                arc.glow = glow;
+                arc.cab = cab;
+            }
             a.rotation = Quaternion.Euler(0f, yaw, 0f); // built facing -Z around its origin
         }
 

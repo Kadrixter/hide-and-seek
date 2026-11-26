@@ -11,7 +11,8 @@ namespace HideAndSeek.Game.Net
     ///  -testemotes (host, -emoteshots dir, a second copy with -autoconsent joined): K wheel on both pages with a shot
     ///      per highlighted slice, every solo emote started from the wheel code path with a shot from the emote camera
     ///      and a side shot, then every pair emote asked of the other player (who accepts by itself), shots at the
-    ///      contact moment, the dance stopped by the test. -emoteonly Wave,Hug limits the list.
+    ///      contact moment, the dance stopped by the test. -emoteonly Wave,Hug limits the list, -emotedist D sets how
+    ///      far apart (m) the two stand when asking for a pair emote (default 1.7).
     ///  -autoconsent: answers every consent question with yes after ~1.2 s (any copy).
     /// </summary>
     public partial class NetSession
@@ -187,8 +188,11 @@ namespace HideAndSeek.Game.Net
                 foreach (var id in Emotes.Pair)
                 {
                     if (!Want(id)) continue;
-                    Face(me, other, 1.7f);
+                    // -emotedist D: how far apart the two stand when asking (default 1.7 m; up to Emotes.AskRange).
+                    float.TryParse(ArgOr("-emotedist", "1.7"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float askDist);
+                    Face(me, other, askDist > 0.3f ? askDist : 1.7f);
                     yield return new WaitForSeconds(0.8f);
+                    Debug.Log($"[EmoteTest] {id}: asking from {Vector3.Distance(me.transform.position, other.transform.position):0.00} m (range {Emotes.AskRange:0.0})");
                     bool asked = me.AskPairEmote(id, other);
                     float t0 = Time.time;
                     while (!me.PairVar.Value.Active && Time.time - t0 < 6f) yield return null;

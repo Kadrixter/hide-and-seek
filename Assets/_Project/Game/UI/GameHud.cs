@@ -30,6 +30,8 @@ namespace HideAndSeek.Game
         private Text _dustText;
         private RectTransform _prompt;
         private Text _promptText;
+        /// <summary>Lobby prompt: one line "E  usiądź" over the thing, bold white with an outline (the dead lobby's look, DeadLobbyHud).</summary>
+        private Text _lobbyPrompt;
         private Image _promptFill;
         private RectTransform _bannerRoot;
         private Text _bannerTitle, _bannerSub;
@@ -136,6 +138,11 @@ namespace HideAndSeek.Game
             _promptText.rectTransform.Place(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(0, 0.5f), new Vector2(8, 0), new Vector2(420, 50));
             _promptText.AddOutline();
             _prompt.gameObject.SetActive(false);
+            _lobbyPrompt = UiKit.Label("LobbyPrompt", root, "", 28, TextAnchor.MiddleCenter, Color.white, FontStyle.Bold);
+            _lobbyPrompt.rectTransform.sizeDelta = new Vector2(900f, 44f);
+            _lobbyPrompt.AddOutline(2f);
+            _lobbyPrompt.raycastTarget = false;
+            _lobbyPrompt.gameObject.SetActive(false);
 
             ReviveBars.Create(root);
 
@@ -587,17 +594,31 @@ namespace HideAndSeek.Game
             if (lpc == null || cam == null || lpc.Prompt == PromptKind.None)
             {
                 _prompt.gameObject.SetActive(false);
+                _lobbyPrompt.gameObject.SetActive(false);
                 return;
             }
             Vector3 sp = cam.WorldToScreenPoint(lpc.PromptWorld);
             if (sp.z <= 0f)
             {
                 _prompt.gameObject.SetActive(false);
+                _lobbyPrompt.gameObject.SetActive(false);
                 return;
             }
-            _prompt.gameObject.SetActive(true);
             var canvasRt = (RectTransform)_canvas.transform;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, sp, null, out Vector2 local);
+            // In the lobby the prompts are plain text like in the dead lobby ("E  usiądź", 30 px over the thing); a hold
+            // prompt still uses the key box (its fill shows the progress).
+            var mm = MatchManager.Instance;
+            bool lobby = mm != null && mm.Phase.Value == MatchPhase.Lobby && lpc.HoldProgress <= 0f;
+            _lobbyPrompt.gameObject.SetActive(lobby);
+            _prompt.gameObject.SetActive(!lobby);
+            if (lobby)
+            {
+                _lobbyPrompt.rectTransform.anchorMin = _lobbyPrompt.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+                _lobbyPrompt.rectTransform.anchoredPosition = local + new Vector2(0f, 30f);
+                _lobbyPrompt.text = lpc.PromptText;
+                return;
+            }
             _prompt.anchoredPosition = local;
             _prompt.anchorMin = _prompt.anchorMax = new Vector2(0.5f, 0.5f);
             string txt = lpc.PromptText;

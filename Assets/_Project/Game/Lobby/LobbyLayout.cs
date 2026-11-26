@@ -43,6 +43,8 @@ namespace HideAndSeek.Game
             (new Vector3(4.3f, 0f, HalfD - 0.5f), 0f),
             (new Vector3(5.3f, 0f, HalfD - 0.5f), 0f),
         };
+        /// <summary>Third cabinet, west of the two SNAKE ones: the dot link puzzle (DotLinkArcade, MatchManager.ArcLink).</summary>
+        public static readonly (Vector3 pos, float yaw) LinkArcade = (new Vector3(3.3f, 0f, HalfD - 0.5f), 0f);
 
         // ---- mini games (agent "minigames" finds the anchors by name)
         /// <summary>MiniGameSpot_Chess: floor centre of the 1.2 x 0.96 m chess / checkers table (pendant lamp above it), players at local +-X (0.75 m).</summary>

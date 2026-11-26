@@ -21,8 +21,10 @@ namespace HideAndSeek.Game.DotLink
     {
         static DotLinkLocal _inst;
 
-        /// <summary>The local player works on the panel (camera, cursor, input belong to it).</summary>
+        /// <summary>The local player works on a dot link screen (camera, cursor, input belong to it).</summary>
         public static bool Active { get; private set; }
+        /// <summary>The screen the local player works on: the exit-gate panel or the lobby arcade (null = none).</summary>
+        public static IDotLinkTarget Target { get; private set; }
         /// <summary>The board as the local user sees it while dragging (null = show the server's).</summary>
         public static DotLinkBoard Draft { get; private set; }
         public static int DraftVersion { get; private set; }
@@ -57,10 +59,15 @@ namespace HideAndSeek.Game.DotLink
         void Update()
         {
             var me = NetPlayer.Local;
-            var panel = DotLinkPanel.Instance;
             var mm = MatchManager.Instance;
-            Active = me != null && panel != null && mm != null && me.AtDotLink;
-            DotLinkCamera.Attach(me, Active);
+            IDotLinkTarget panel = me == null || mm == null ? null
+                : me.AtDotLink && DotLinkPanel.Instance != null ? (IDotLinkTarget)DotLinkPanel.Instance
+                : me.AtArcLink && DotLinkArcade.Instance != null ? (IDotLinkTarget)DotLinkArcade.Instance
+                : null;
+            if (panel != Target && _dragging) EndDrag(me, false);
+            Target = panel;
+            Active = panel != null;
+            DotLinkCamera.Attach(me, Active, panel);
             _hud.Tick(Active, panel, mm);
             if (!Active)
             {
@@ -79,7 +86,7 @@ namespace HideAndSeek.Game.DotLink
             {
                 _escFrame = Time.frameCount;
                 if (_dragging) EndDrag(me, true);
-                me.DotLinkUseRpc(false);
+                panel.SendLeave(me);
                 return;
             }
             if (ConfirmDialog.IsOpen || LocalPlayerController.MenuOpen || DotLinkCamera.Weight < 0.8f) return;
@@ -116,7 +123,7 @@ namespace HideAndSeek.Game.DotLink
             if (rmbDown && !_dragging && cell >= 0)
             {
                 int c = shown.ColorAt(cell);
-                if (c >= 0 && shown.Path(c).Count > 0) me.DotLinkClearRpc((byte)c);
+                if (c >= 0 && shown.Path(c).Count > 0) panel.SendClear(me, (byte)c);
             }
             if (_dragging && _dirty && Time.unscaledTime >= _nextSend) Send(me, false);
         }
@@ -186,7 +193,7 @@ namespace HideAndSeek.Game.DotLink
                 if (!done && Time.unscaledTime >= _nextDeny)
                 {
                     _nextDeny = Time.unscaledTime + 0.4f;
-                    DotLinkPanel.Instance?.Play(DotLinkSounds.Deny, 0.3f);
+                    Target?.Play(DotLinkSounds.Deny, 0.3f);
                 }
                 return false;
             }
@@ -208,7 +215,7 @@ namespace HideAndSeek.Game.DotLink
         {
             if (send && me != null) Send(me, true);
             _dragging = false;
-            var net = DotLinkPanel.Instance != null ? DotLinkPanel.Instance.NetBoard : null;
+            var net = Target != null ? Target.NetBoard : null;
             _draftSeq = net != null ? net.Seq : 0;
             _draftUntil = Time.unscaledTime + 0.6f;
             if (!send) Draft = null;
@@ -218,7 +225,7 @@ namespace HideAndSeek.Game.DotLink
         {
             _dirty = false;
             _nextSend = Time.unscaledTime + 0.08f;
-            me.DotLinkPathRpc((byte)_color, new FixedString512Bytes(DotLinkBoard.EncodeCells(_cur)), _dragId, final);
+            Target?.SendPath(me, (byte)_color, new FixedString512Bytes(DotLinkBoard.EncodeCells(_cur)), _dragId, final);
         }
     }
 }

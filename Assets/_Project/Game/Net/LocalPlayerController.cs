@@ -57,6 +57,7 @@ namespace HideAndSeek.Game.Net
         SawWrest,       // E next to a knocked-out / blinded seeker with the chainsaw: take it (LocalPlayerController.SawWrest.cs)
         Kart,           // E at the free lobby go-kart: get in (LocalPlayerController.Kart.cs)
         LobbyTv,        // E looking at the lobby wall TV: the YouTube panel (LocalPlayerController.LobbyTv.cs)
+        ArcLink,        // E at the KABELKI arcade cabinet in the lobby: the dot link puzzle (LocalPlayerController.DotLink.cs)
     }
 
     /// <summary>
@@ -847,6 +848,7 @@ namespace HideAndSeek.Game.Net
                 Offer(PromptKind.FlashBox, fbPos, fbText, fbD);
             if (phase == MatchPhase.Lobby && MiniGamePrompt(eye, fwd, out var mgPos, out var mgText, out float mgD)) Offer(PromptKind.MiniGame, mgPos, mgText, mgD);
             if (TryKartPrompt(eye, fwd, phase, out var kaPos, out var kaText, out float kaD)) Offer(PromptKind.Kart, kaPos, kaText, kaD); // lobby go-kart
+            if (phase == MatchPhase.Lobby && TryArcLinkPrompt(eye, fwd, out var alPos, out var alText, out float alD)) Offer(PromptKind.ArcLink, alPos, alText, alD); // KABELKI cabinet
 
             // Toy slime blasters (hiders): MatchManager.ToyGuns.
             if ((phase == MatchPhase.Seeking || phase == MatchPhase.Hiding) && _p.IsAliveHider && MatchManager.Instance != null &&
@@ -1152,6 +1154,9 @@ namespace HideAndSeek.Game.Net
                 case PromptKind.WirePull:
                     if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) WirePromptE();
                     TestPressE = false;
+                    break;
+                case PromptKind.ArcLink:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ArcLinkPromptE();
                     break;
                 case PromptKind.DotLink:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) DotLinkPromptE();

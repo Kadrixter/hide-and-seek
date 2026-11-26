@@ -74,7 +74,7 @@ namespace HideAndSeek.Game.Net
             spotB.y = b.y;
             float walk = Mathf.Max(Vector3.Distance(spotA, a), Vector3.Distance(spotB, b));
             float yaw = Mathf.Atan2(axis.x, axis.z) * Mathf.Rad2Deg;
-            double start = Now + Mathf.Clamp(walk / 1.4f + 0.7f, 0.8f, 2.4f);
+            double start = Now + Mathf.Clamp(walk / 1.4f + 0.7f, 0.8f, 4f); // up to ~2.5 m each from AskRange 5 m
             PairVar.Value = new PairEmotePack { Id = (byte)id, Role = 0, Partner = other.NetworkObjectId, StartAt = start, Spot = spotA, Yaw = yaw };
             other.PairVar.Value = new PairEmotePack { Id = (byte)id, Role = 1, Partner = NetworkObjectId, StartAt = start, Spot = spotB, Yaw = yaw + 180f };
             _pairPhase = other._pairPhase = MatchManager.Instance.Phase.Value;
@@ -118,7 +118,8 @@ namespace HideAndSeek.Game.Net
             if (!EmoteRules.Free(this, out _) || !EmoteRules.Free(other, out _)) { ServerEndPair("busy"); return; }
             double t = Now - pv.StartAt;
             Vector3 d = other.transform.position - transform.position;
-            float far = info != null ? info.PairDistance + (t > 0.8 ? 0.9f : 2.6f) : 3f;
+            // Before the start the two still walk in from up to AskRange (+ the 1 m slack of the ask).
+            float far = info != null ? info.PairDistance + (t > 0.8 ? 0.9f : Emotes.AskRange + 1.5f) : Emotes.AskRange + 1.5f;
             if (new Vector2(d.x, d.z).magnitude > far && !Cinematics.OutroDirector.Neighbours(this, other)) { ServerEndPair("apart"); return; }
             if (info == null || (!info.Loops && t >= info.Duration)) ServerEndPair("done");
         }

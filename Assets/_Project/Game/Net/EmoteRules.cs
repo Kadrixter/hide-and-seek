@@ -81,6 +81,30 @@ namespace HideAndSeek.Game.Net
             if (Cinematics.OutroDirector.Neighbours(me, other)) return true; // outro row: figures side by side, bodies anywhere
             Vector3 d = other.transform.position - me.transform.position;
             if (Mathf.Abs(d.y) > 0.8f || new Vector2(d.x, d.z).magnitude > Emotes.AskRange + slack) { why = "Podejdź bliżej."; return false; }
+            if (!WalkClear(me, other)) { why = "Coś stoi między wami - podejdź bliżej."; return false; }
+            return true;
+        }
+
+        /// <summary>
+        /// The two can walk up to each other: no table, sofa or wall between them at leg / hip height (a capsule swept
+        /// from one to the other, players ignored). Matters since the ask range is 5 m - they meet in the middle on foot.
+        /// </summary>
+        public static bool WalkClear(NetPlayer me, NetPlayer other)
+        {
+            Vector3 a = me.transform.position, b = other.transform.position;
+            Vector3 flat = new Vector3(b.x - a.x, 0f, b.z - a.z);
+            float len = flat.magnitude;
+            if (len < 1.2f) return true; // standing close already: nothing to walk around
+            Vector3 dir = flat / len;
+            const float r = 0.22f;
+            Vector3 p1 = a + Vector3.up * (0.25f + r), p2 = a + Vector3.up * 1.2f;
+            var hits = Physics.CapsuleCastAll(p1, p2, r, dir, len - 0.35f, SightMask, QueryTriggerInteraction.Ignore);
+            foreach (var h in hits)
+            {
+                if (h.collider == null || h.distance <= 0f) continue; // starts inside: own body / floor seam
+                if (h.collider.GetComponentInParent<NetPlayer>() != null) continue;
+                return false;
+            }
             return true;
         }
 

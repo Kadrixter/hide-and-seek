@@ -23,8 +23,14 @@ namespace HideAndSeek.Game
             rb.angularDamping = 0.4f;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             foreach (var c in player.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(col, c);
-            rb.linearVelocity = -tr.forward * 4.2f + Vector3.up * 2.6f + tr.right * 0.5f;
-            rb.angularVelocity = tr.right * 14f + tr.up * 5f;
+            // A real toss over the shoulder, never the same twice: backwards within a cone, a little more often to the right
+            // (the throwing hand; a negative yaw turns "back" to the player's right), 24-46 degrees up, 3.6-5.6 m/s, random
+            // tumble. The old fixed toss was ~7 degrees right, 31 up, 5 m/s.
+            float yaw = Random.Range(-26f, 14f), pitch = Random.Range(24f, 46f), speed = Random.Range(3.6f, 5.6f);
+            Vector3 back = Quaternion.AngleAxis(yaw, Vector3.up) * -tr.forward;
+            rb.linearVelocity = (back * Mathf.Cos(pitch * Mathf.Deg2Rad) + Vector3.up * Mathf.Sin(pitch * Mathf.Deg2Rad)) * speed;
+            rb.angularVelocity = tr.right * Random.Range(8f, 18f) + tr.up * Random.Range(-7f, 7f) + tr.forward * Random.Range(-4f, 4f);
+            Debug.Log($"[Vending] {player.Nick} tosses the can: yaw {-yaw:0} (right +), up {pitch:0} deg, {speed:0.0} m/s");
             can.gameObject.AddComponent<CanImpact>();
             bodies[s.Id] = rb;
             s.Stage = 1;
@@ -49,7 +55,14 @@ namespace HideAndSeek.Game
             if (grounded && rb.linearVelocity.sqrMagnitude < 0.05f)
             {
                 if (!restSince.ContainsKey(s.Id)) restSince[s.Id] = mm.Now;
-                if (mm.Now - restSince[s.Id] > 0.5) { rb.isKinematic = true; s.Stage = 2; s.Expires = mm.Now + 30; changed = true; }
+                if (mm.Now - restSince[s.Id] > 0.5)
+                {
+                    rb.isKinematic = true;
+                    s.Stage = 2;
+                    s.Expires = mm.Now + 30;
+                    changed = true;
+                    Debug.Log($"[Vending] can {s.Id} came to rest at {can.transform.position} after {s.Bounces} bounces");
+                }
             }
             else restSince.Remove(s.Id);
             s.Position = can.transform.position;

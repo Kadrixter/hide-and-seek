@@ -1,5 +1,6 @@
 using HideAndSeek.Game.Cinematics;
 using HideAndSeek.Game.Net;
+using Unity.Collections;
 using UnityEngine;
 
 namespace HideAndSeek.Game.DotLink
@@ -11,7 +12,7 @@ namespace HideAndSeek.Game.DotLink
     /// draft while he drags), repaints the texture only on a change, a dim light of the screen on the wall, 3D sounds
     /// (ticks while lines grow / shrink, a beep per joined pair, the solved chime with two bright flashes).
     /// </summary>
-    public sealed class DotLinkPanel : MonoBehaviour
+    public sealed class DotLinkPanel : MonoBehaviour, IDotLinkTarget
     {
         public static DotLinkPanel Instance { get; private set; }
 
@@ -94,6 +95,21 @@ namespace HideAndSeek.Game.DotLink
                 if (part != null) part.SetParent(_hinge, true);
             }
         }
+
+        public bool CameraPose(float fov, float zoom, out Vector3 pos, out Quaternion rot)
+        {
+            pos = default;
+            rot = default;
+            if (!DotLinkLayout.TryGet(out var lay)) return false;
+            lay.CameraPose(fov, zoom, out pos, out rot);
+            return true;
+        }
+
+        public string SolvedFlash => "Połączono - brama się otwiera";
+        public string StatusExtra => "";
+        public void SendPath(NetPlayer me, byte color, FixedString512Bytes cells, byte dragId, bool final) => me.DotLinkPathRpc(color, cells, dragId, final);
+        public void SendClear(NetPlayer me, byte color) => me.DotLinkClearRpc(color);
+        public void SendLeave(NetPlayer me) => me.DotLinkUseRpc(false);
 
         public void Play(AudioClip clip, float volume, float pitch = 1f)
         {
@@ -193,9 +209,11 @@ namespace HideAndSeek.Game.DotLink
                 }
                 return;
             }
-            var show = DotLinkLocal.Draft ?? _net;
-            int hover = DotLinkLocal.Draft != null || DotLinkLocal.Active ? DotLinkLocal.Hover : -1;
-            string key = $"{(DotLinkLocal.Draft != null ? "d" + DotLinkLocal.DraftVersion : "n" + _net.Seq)}|{hover}|{lit}";
+            bool mine = ReferenceEquals(DotLinkLocal.Target, this); // the local user's draft belongs to this screen
+            var draft = mine ? DotLinkLocal.Draft : null;
+            var show = draft ?? _net;
+            int hover = mine && (draft != null || DotLinkLocal.Active) ? DotLinkLocal.Hover : -1;
+            string key = $"{(draft != null ? "d" + DotLinkLocal.DraftVersion : "n" + _net.Seq)}|{hover}|{lit}";
             if (key == _drawnKey) return;
             _drawnKey = key;
             Feedback(show);

@@ -76,7 +76,7 @@ namespace HideAndSeek.Characters
         };
 
         /// <summary>Furthest a partner may stand when asking (eye to eye, metres).</summary>
-        public const float AskRange = 2.5f;
+        public const float AskRange = 5f;
 
         public static bool IsPair(EmoteId id) => (byte)id >= 32;
 

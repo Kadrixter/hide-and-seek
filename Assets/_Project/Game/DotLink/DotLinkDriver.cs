@@ -26,7 +26,11 @@ namespace HideAndSeek.Game.DotLink
             try
             {
                 var mm = MatchManager.Instance;
-                if (mm != null && mm.IsSpawned) mm.UpdateDotLink();
+                if (mm != null && mm.IsSpawned)
+                {
+                    mm.UpdateDotLink();
+                    mm.UpdateArcLink(); // the KABELKI cabinet in the lobby
+                }
                 DotLinkPanel.Ensure();
                 if (NetPlayer.Local != null) DotLinkLocal.Ensure();
             }
