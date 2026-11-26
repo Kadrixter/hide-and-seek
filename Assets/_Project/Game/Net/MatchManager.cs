@@ -137,6 +137,7 @@ namespace HideAndSeek.Game.Net
             var local = NetPlayer.Local;
             Debug.Log($"[Match] phase {prev} -> {phase}, players {NetPlayer.All.Count}, me {(local != null ? local.Role.Value.ToString() : "-")}");
             OnPhaseLobbyReturn(prev, phase);
+            NotifyPhaseLocal(prev, phase); // loading screen (MatchManager.Readiness.cs)
             switch (phase)
             {
                 case MatchPhase.Hiding:
@@ -510,6 +511,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepKart ??= UpdateLobbyKart, "lobby kart"); // lobby go-kart (MatchManager.LobbyKart.cs)
             Step(_stepSceneProps ??= UpdateSceneProps, "scene props");
             Step(_stepCinematics ??= UpdateCinematics, "cinematics");
+            MarkReadyFrames(); // the lobby / map parts above ran in the current scene (MatchManager.Readiness.cs)
             if (!IsServer) return;
             Step(_stepServerProps ??= UpdateServerProps, "server props");
             UpdateServerTimeline();

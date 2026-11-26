@@ -209,6 +209,14 @@ namespace HideAndSeek.Game.UI
                 _connecting.gameObject.SetActive(false);
             }, 34).Align(TextAnchor.MiddleCenter);
             cancel.GetComponent<RectTransform>().Place(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0, -50), new Vector2(300, 64));
+            if (LoadingScreen.Available)
+            {
+                // The loading screen shows the connection; this overlay only keeps the menu's timeout logic going.
+                var g = dim.gameObject.AddComponent<CanvasGroup>();
+                g.alpha = 0f;
+                g.blocksRaycasts = false;
+                g.interactable = false;
+            }
             dim.gameObject.SetActive(false);
             return dim.rectTransform;
         }

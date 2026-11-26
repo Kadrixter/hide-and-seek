@@ -245,7 +245,8 @@ namespace HideAndSeek.Game.Net
             bool dead = _p.Life.Value == LifeState.Dead || _p.Escaped.Value; // escaped: out of the round, watching (NetPlayer.Escape.cs)
             bool blind = _p.IsSeeker && (phase == MatchPhase.Hiding || phase == MatchPhase.Loading);
             bool locked = MenuOpen || _p.Busy.Value || blind || dead || phase == MatchPhase.Loading || phase == MatchPhase.Race || KillCam.Active
-                          || (phase == MatchPhase.Hiding && mm != null && mm.IntroHoldsStart); // round intro (Cinematics)
+                          || (phase == MatchPhase.Hiding && mm != null && mm.IntroHoldsStart) // round intro (Cinematics)
+                          || HideAndSeek.Game.UI.LoadingScreen.Blocking; // loading screen up (UI/LoadingScreen.cs)
             if (_p.Life.Value != LifeState.Alive || phase != _lastPhase || _p.Seat.Value >= 0 || _p.Busy.Value) _p.InputReader.ResetStance();
             _lastPhase = phase;
             _p.InputReader.InputEnabled = !locked;

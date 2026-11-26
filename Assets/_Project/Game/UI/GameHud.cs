@@ -307,7 +307,8 @@ namespace HideAndSeek.Game
             bool padEsc = PadUi.Pause || (PadUi.Back && (Boombox.PanelOpen || LobbyTvVideo.PanelOpen || LobbyClaude.SurveyOpen || _settingsPanel != null || _escMenu != null));
             if (((kb != null && kb.escapeKey.wasPressedThisFrame) || padEsc) && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape
                 && !HideAndSeek.Game.DotLink.DotLinkLocal.ConsumesEscape // Esc at the dot link panel = leave it
-                && !LockpickUi.ConsumesEscape) // Esc in the bonnet lockpick = stop it
+                && !LockpickUi.ConsumesEscape // Esc in the bonnet lockpick = stop it
+                && !LoadingScreen.Blocking) // the loading screen owns Esc ("Anuluj")
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
                 else if (LobbyTvVideo.PanelOpen) LobbyTvVideo.ClosePanel();

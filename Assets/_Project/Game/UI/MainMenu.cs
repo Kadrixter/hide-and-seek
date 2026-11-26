@@ -30,6 +30,7 @@ namespace HideAndSeek.Game.UI
         /// <summary>Shows a message on the main menu (e.g. a failed Steam join from an invite).</summary>
         public static void ShowMessage(string text)
         {
+            LoadingScreen.Hide("menu message");
             if (_instance == null) return;
             _instance._connecting.gameObject.SetActive(false);
             _instance._message.text = text ?? "";
@@ -38,6 +39,7 @@ namespace HideAndSeek.Game.UI
         /// <summary>Shows the "connecting" overlay (Steam joins started outside the menu buttons).</summary>
         public static void ShowConnecting()
         {
+            LoadingScreen.Begin(LoadingStage.Connect, "Steam");
             if (_instance == null) return;
             _instance._connecting.gameObject.SetActive(true);
             _instance._connectingText.text = "Łączenie przez Steam...";
@@ -126,11 +128,16 @@ namespace HideAndSeek.Game.UI
         {
             SaveNick();
             LanDiscovery.StopSearch();
-            if (!NetSession.Instance.Host())
+            // The loading screen first: the lobby load right after the start freezes the frame on it.
+            LoadingScreen.Begin(LoadingStage.CreateServer, "Serwer LAN / UDP", true);
+            LoadingScreen.RunWhenDrawn(() =>
             {
+                if (NetSession.Instance.Host()) return;
+                LoadingScreen.Hide("host failed", true);
+                if (this == null) return;
                 _message.text = NetSession.LastMessage;
                 NetSession.LastMessage = null;
-            }
+            });
         }
 
         private static string SteamStatusText() => SteamService.Ready
@@ -141,20 +148,34 @@ namespace HideAndSeek.Game.UI
         {
             SaveNick();
             LanDiscovery.StopSearch();
-            _connecting.gameObject.SetActive(true);
-            _connectingText.text = "Tworzenie lobby Steam...";
-            _connectStarted = Time.unscaledTime;
-            NetSession.Instance.HostSteam();
+            LoadingScreen.Begin(LoadingStage.CreateServer, "Steam", true);
+            LoadingScreen.RunWhenDrawn(() =>
+            {
+                if (this != null)
+                {
+                    _connecting.gameObject.SetActive(true);
+                    _connectingText.text = "Tworzenie lobby Steam...";
+                    _connectStarted = Time.unscaledTime;
+                }
+                NetSession.Instance.HostSteam();
+            });
         }
 
         private void JoinSteam(ulong lobbyId, string name)
         {
             SaveNick();
             LanDiscovery.StopSearch();
-            _connecting.gameObject.SetActive(true);
-            _connectingText.text = $"Łączenie z {name} przez Steam...";
-            _connectStarted = Time.unscaledTime;
-            NetSession.Instance.JoinSteamLobby(lobbyId);
+            LoadingScreen.Begin(LoadingStage.Connect, $"{(string.IsNullOrEmpty(name) ? "?" : name)}   ·   Steam", true);
+            LoadingScreen.RunWhenDrawn(() =>
+            {
+                if (this != null)
+                {
+                    _connecting.gameObject.SetActive(true);
+                    _connectingText.text = $"Łączenie z {name} przez Steam...";
+                    _connectStarted = Time.unscaledTime;
+                }
+                NetSession.Instance.JoinSteamLobby(lobbyId);
+            });
         }
 
         private async void SearchSteam()
@@ -175,14 +196,20 @@ namespace HideAndSeek.Game.UI
         {
             SaveNick();
             LanDiscovery.StopSearch();
-            _connecting.gameObject.SetActive(true);
-            _connectingText.text = $"Łączenie z {address}...";
-            _connectStarted = Time.unscaledTime;
-            if (!NetSession.Instance.Join(address))
+            LoadingScreen.Begin(LoadingStage.Connect, string.IsNullOrWhiteSpace(address) ? "127.0.0.1" : address.Trim(), true);
+            LoadingScreen.RunWhenDrawn(() =>
             {
-                _connecting.gameObject.SetActive(false);
-                _message.text = NetSession.LastMessage;
-            }
+                if (this == null) return;
+                _connecting.gameObject.SetActive(true);
+                _connectingText.text = $"Łączenie z {address}...";
+                _connectStarted = Time.unscaledTime;
+                if (!NetSession.Instance.Join(address))
+                {
+                    LoadingScreen.Hide("join failed", true);
+                    _connecting.gameObject.SetActive(false);
+                    _message.text = NetSession.LastMessage;
+                }
+            });
         }
 
         private void FetchMcSkin(string nick)

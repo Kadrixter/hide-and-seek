@@ -32,7 +32,8 @@ namespace HideAndSeek.Game
         /// <summary>A menu, panel or dialog that needs the mouse pointer is open.</summary>
         public static bool WantsFree =>
             LocalPlayerController.MenuOpen || UI.ConfirmDialog.IsOpen || Boombox.PanelOpen || LobbyTvVideo.PanelOpen
-            || HideAndSeek.Game.MiniGames.BoardGameView.WantsCursor; // lobby chess / tic-tac-toe (mouse picks squares)
+            || HideAndSeek.Game.MiniGames.BoardGameView.WantsCursor // lobby chess / tic-tac-toe (mouse picks squares)
+            || UI.LoadingScreen.WantsCursor; // "Anuluj" on the loading screen
 
         /// <summary>The policy is in charge (in a session with a local player, outside the main menu).</summary>
         public static bool Active => NetPlayer.Local != null && SceneManager.GetActiveScene().name != NetSession.MenuScene;

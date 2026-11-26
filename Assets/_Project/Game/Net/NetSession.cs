@@ -1250,6 +1250,7 @@ namespace HideAndSeek.Game.Net
         public async void JoinSteamLobby(ulong lobbyId)
         {
             if (SteamBusy || Manager.IsListening) return;
+            LoadingScreen.Begin(LoadingStage.Connect, "Steam"); // UI only (invites / +connect_lobby too)
             SteamBusy = true;
             try
             {
