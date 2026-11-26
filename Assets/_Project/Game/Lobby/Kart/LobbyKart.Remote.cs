@@ -7,7 +7,8 @@ namespace HideAndSeek.Game
     /// The lobby go-kart as the other players see it: the driver's last pose extrapolated along its velocity and yaw
     /// rate (by the time since it arrived, at most 0.25 s) and smoothed, so a 30 Hz stream drifts smoothly; a pose
     /// from an older epoch (before a reset) or a stale one far away right after the driver got in is ignored. Also
-    /// hangs the driver's seated pose (<see cref="KartRider"/>) on whoever drives, on every client.
+    /// hangs the driver's seated pose (<see cref="KartRider"/>) on whoever drives, on every client. The pack carries
+    /// the heading only, so remote and parked karts lean with the ground under them here (climbs, banked corners).
     /// </summary>
     public partial class LobbyKart
     {
@@ -15,6 +16,9 @@ namespace HideAndSeek.Game
         private float _packAt, _remoteSince;
         private KartRider _rider;
         private NetPlayer _riderPlayer;
+        private Quaternion _lean = Quaternion.identity;
+        private Vector3 _leanAt = new(float.NaN, 0f, 0f);
+        private float _leanYaw;
 
         private void TickRemote(NetPlayer driver, KartState st, float dt)
         {
@@ -41,7 +45,7 @@ namespace HideAndSeek.Game
             float k = snap ? 1f : 1f - Mathf.Exp(-16f * dt);
             Vector3 pos = Vector3.Lerp(before, target, k);
             _yaw = snap ? targetYaw : Mathf.LerpAngle(_yaw, targetYaw, k);
-            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, _yaw, 0f));
+            transform.SetPositionAndRotation(pos, OnGround(pos, _yaw, dt, snap));
 
             float prev = ShownSpeed;
             Vector3 vel = pk.Velocity;
@@ -58,6 +62,37 @@ namespace HideAndSeek.Game
             SlidingNow = (pk.Flags & KartPack.FlagSliding) != 0;
             float sp = new Vector2(vel.x, vel.z).magnitude;
             SlipAngleShown = sp > 0.3f ? Vector3.SignedAngle(transform.forward, vel, Vector3.up) : 0f;
+        }
+
+        /// <summary>
+        /// Heading <paramref name="yaw"/> tilted to the ground under the kart (the plane through the ground below the
+        /// front axle and both rear wheels), smoothed; level when the rays miss or the ground is too steep.
+        /// </summary>
+        private Quaternion OnGround(Vector3 pos, float yaw, float dt, bool snap)
+        {
+            var flat = Quaternion.Euler(0f, yaw, 0f);
+            if ((pos - _leanAt).sqrMagnitude > 1e-6f || Mathf.Abs(Mathf.DeltaAngle(yaw, _leanYaw)) > 0.05f)
+            {
+                _leanAt = pos;
+                _leanYaw = yaw;
+                Quaternion want = Quaternion.identity;
+                if (Floor(pos + flat * new Vector3(0f, 0f, KartPhysics.FrontAxle), out Vector3 f) &&
+                    Floor(pos + flat * new Vector3(-KartModel.RearTrack, 0f, -KartPhysics.RearAxle), out Vector3 l) &&
+                    Floor(pos + flat * new Vector3(KartModel.RearTrack, 0f, -KartPhysics.RearAxle), out Vector3 r))
+                {
+                    Vector3 n = Vector3.Cross(f - l, r - l).normalized;
+                    if (n.y > 0.7f) want = Quaternion.FromToRotation(Vector3.up, n);
+                }
+                _lean = snap ? want : Quaternion.Slerp(_lean, want, 1f - Mathf.Exp(-12f * dt));
+            }
+            return _lean * flat;
+        }
+
+        private static bool Floor(Vector3 p, out Vector3 hit)
+        {
+            bool ok = Physics.Raycast(p + Vector3.up * 0.8f, Vector3.down, out RaycastHit h, 2f, KartCollide.LevelMask, QueryTriggerInteraction.Ignore);
+            hit = ok ? h.point : p;
+            return ok;
         }
 
         /// <summary>Puts the seated pose on the current driver (and lets the previous one stand up).</summary>

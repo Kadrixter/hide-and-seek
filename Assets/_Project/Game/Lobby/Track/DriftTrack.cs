@@ -5,8 +5,10 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// The drift track behind the lobby (layout: <see cref="DriftTrackLayout"/>), built at runtime in the real lobby
-    /// scene only (the dead-lobby copy keeps its passage shutter closed): the asphalt pad (<see cref="DriftTrackPad"/>),
-    /// barriers, fence and the entrance wall (<see cref="DriftTrackBounds"/>), the painted course, kerbs, cones and tyres
+    /// scene only (the dead-lobby copy keeps its passage shutter closed): the paddock asphalt and the grass
+    /// (<see cref="DriftTrackPad"/>), the kart circuit with its climb, bridge and barriers (<see cref="DriftTrackCircuit"/>,
+    /// <see cref="DriftTrackRoad"/>), the tunnel and the start gantry (<see cref="DriftTrackTunnel"/>), the perimeter
+    /// barriers, fence and the entrance wall (<see cref="DriftTrackBounds"/>), the paddock paint, donut and cones
     /// (<see cref="DriftTrackCourse"/>), floodlight towers and the night sky (<see cref="DriftTrackLights"/>). The asphalt
     /// maps follow the graphics profile (<see cref="AsphaltMaps"/>). Seen from the lobby room the whole track (renderers
     /// and lights, not the colliders) is switched off unless the arch is in the camera's view.
@@ -47,6 +49,8 @@ namespace HideAndSeek.Game
             var brick = wallSrc != null ? new Material(wallSrc.GetComponent<MeshRenderer>().sharedMaterial) { mainTextureScale = new Vector2(0.5f, 0.5f) } : TrackMats.Get("TrackBrickPlain", new Color(0.5f, 0.32f, 0.26f), 0.1f);
 
             DriftTrackPad.Build(transform, Asphalt);
+            DriftTrackRoad.Build(transform, Asphalt);
+            DriftTrackTunnel.Build(transform);
             DriftTrackBounds.Build(transform, brick);
             DriftTrackCourse.Build(transform);
             DriftTrackLights.Build(transform);
@@ -58,7 +62,7 @@ namespace HideAndSeek.Game
 
             GetComponentsInChildren(true, _renderers);
             GetComponentsInChildren(true, _lights);
-            Debug.Log($"[Track] built in {(Time.realtimeSinceStartup - t0) * 1000f:0} ms: {_renderers.Count} renderers, {_lights.Count} lights, asphalt {AsphaltMaps.SizeForSettings()} px wanted");
+            Debug.Log($"[Track] built in {(Time.realtimeSinceStartup - t0) * 1000f:0} ms: {_renderers.Count} renderers, {_lights.Count} lights, asphalt {AsphaltMaps.SizeForSettings()} px wanted; circuit {DriftTrackCircuit.Length:0} m, {DriftTrackCircuit.CornerCount} corners, {DriftTrackCircuit.Count} rows");
         }
 
         private static System.Collections.Generic.Dictionary<string, GameObject> _found;

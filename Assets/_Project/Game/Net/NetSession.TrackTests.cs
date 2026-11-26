@@ -105,7 +105,7 @@ namespace HideAndSeek.Game.Net
             KLog("host done");
         }
 
-        /// <summary>-testtracklight (one instance): the lobby by the arch, then a drive at full speed with shots from the driver's seat.</summary>
+        /// <summary>-testtracklight (one instance): the lobby by the arch, then 9 s on the circuit (autopilot, from the start straight) with shots from the driver's seat.</summary>
         private IEnumerator TrackLightTest(string dir)
         {
             yield return WaitKartLobby(1);
@@ -123,14 +123,17 @@ namespace HideAndSeek.Game.Net
             Shot(dir, "light_01_lobby_room");
             yield return EnterKart(me, 0, dir, null);
             var kart = LobbyKart.Get(0);
+            // The paddock is too small for 9 s flat out: drive the circuit from the start of the straight on the autopilot.
+            int row = DriftTrackCircuit.Wrap(DriftTrackCircuit.StartRow - 100);
+            PlaceKart(kart, row);
+            yield return new WaitForSeconds(0.6f);
             LocalPlayerController.TestKartActive = true;
             float t = 0f, top = 0f;
             int shots = 0;
             while (t < 9f)
             {
-                LocalPlayerController.TestKartThrottle = 1f;
-                LocalPlayerController.TestKartSteer = t < 0.9f ? -0.35f : 0f;
-                LocalPlayerController.TestKartHandbrake = false;
+                row = DriftTrackCircuit.Nearest(kart.Phys.Pos, row, 25);
+                AutoDrive(kart, row, 30f);
                 top = Mathf.Max(top, kart.Phys.Speed * 3.6f);
                 if ((shots == 0 && t > 2.5f) || (shots == 1 && t > 6.5f)) { Shot(dir, $"light_02_driver_{shots}"); shots++; }
                 t += Time.deltaTime;
@@ -157,21 +160,24 @@ namespace HideAndSeek.Game.Net
             result(t * 1000f / Mathf.Max(1, n));
         }
 
-        /// <summary>Accelerate west, handbrake kick to the left, hold the drift with counter-steer, straighten, brake; logs 10 Hz.</summary>
+        /// <summary>
+        /// Accelerate west, handbrake kick to the left, hands off the steering (the countersteer assist, KartDrift, holds
+        /// the drift: counted from the front wheel angle), straighten, brake; logs 10 Hz.
+        /// </summary>
         private IEnumerator TrackDriftRun(string dir, LobbyKart kart)
         {
             var ph = kart.Phys;
             float t = 0f, nextLog = 0f, prevCourse = float.NaN, nextShot = 0f;
             int drift = 0, counter = 0, samples = 0, shots = 0;
             float maxBeta = 0f, driftTime = 0f;
-            const float target = 25f, turn = -1f, kick = 2.4f;
+            const float turn = -1f, kick = 2.4f;
             while (t < kick + 4.4f)
             {
                 float thr = 1f, steer = 0f;
                 bool hb = false;
                 if (t < kick) steer = 0f;
                 else if (t < kick + 0.3f) { steer = turn; hb = true; }
-                else if (t < kick + 2.6f) steer = Mathf.Clamp((ph.SlipAngle - (-turn * target)) / 12f - 0.004f * ph.YawRate, -1f, 1f);
+                else if (t < kick + 2.6f) steer = 0f; // the assist countersteers
                 else if (t < kick + 3.2f) { steer = 0f; thr = 0.3f; }
                 else thr = -1f;
                 if (t > kick + 3.2f && ph.ForwardSpeed < 0.3f) thr = 0f;
@@ -189,7 +195,7 @@ namespace HideAndSeek.Game.Net
                     prevCourse = course;
                     nextLog = t + 0.1f;
                     bool drifting = Mathf.Abs(ph.SlipAngle) > 12f && speed > 2f;
-                    bool cs = drifting && Mathf.Abs(steer) > 0.05f && Mathf.Sign(steer) != Mathf.Sign(ph.YawRate);
+                    bool cs = drifting && Mathf.Abs(ph.Steer) > 2f && Mathf.Sign(ph.Steer) != Mathf.Sign(ph.YawRate);
                     samples++;
                     if (drifting) { drift++; driftTime += 0.1f; }
                     if (cs) counter++;

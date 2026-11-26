@@ -138,7 +138,7 @@ namespace HideAndSeek.Game
             if (was == Mode.Local)
             {
                 Phys.SetDriven(false);
-                transform.rotation = Quaternion.Euler(0f, _yaw, 0f); // parked / remote karts stand level
+                transform.rotation = Quaternion.Euler(0f, _yaw, 0f); // parked / remote karts: heading only, then leaning with the ground (OnGround)
                 EndLocalDrive(true);
             }
             if (want == Mode.Local)
@@ -160,7 +160,7 @@ namespace HideAndSeek.Game
             Vector3 before = transform.position;
             Vector3 pos = Vector3.Lerp(before, target, k);
             _yaw = Mathf.LerpAngle(_yaw, targetYaw, k);
-            transform.SetPositionAndRotation(pos, Quaternion.Euler(0f, _yaw, 0f));
+            transform.SetPositionAndRotation(pos, OnGround(pos, _yaw, dt, snap));
             Vector3 v = (pos - before) / dt;
             ShownSpeed = Mathf.Lerp(ShownSpeed, Vector3.Dot(v, transform.forward), 1f - Mathf.Exp(-8f * dt));
             ShownVelocity = v;

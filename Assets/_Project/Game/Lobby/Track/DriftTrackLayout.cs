@@ -7,7 +7,8 @@ namespace HideAndSeek.Game
     /// passage, the shutter: MultiplayerBuilder.LobbyArch.cs) and the runtime track (<see cref="DriftTrack"/>) and karts
     /// (<see cref="LobbyKart"/>). The arch is in the lobby's west wall at z = <see cref="ArchZ"/> (between the moon
     /// painting's sconce and the sofa); a 4 m passage runs west to the track's east wall at <see cref="PadEast"/>; the
-    /// asphalt pad (300 x 200 m for ~100 km/h karts, night, floodlights) lies west of it, centred on the passage line. North = +Z.
+    /// pad (300 x 200 m, night, floodlights) lies west of it, centred on the passage line: the paddock by the gate and the
+    /// kart circuit (<see cref="DriftTrackCircuit"/>) round it. North = +Z.
     /// </summary>
     public static class DriftTrackLayout
     {
@@ -44,10 +45,10 @@ namespace HideAndSeek.Game
         public const float KartSlotYaw = 270f;
         public static Vector3 KartSlot(int i) => new(PadEast - 4.2f, 0f, ArchZ + 3.8f + i * 2.4f);
 
-        /// <summary>Inside the barriers (karts outside are put back on their slot).</summary>
+        /// <summary>Inside the barriers, from the ground up to the circuit's bridge (karts outside are put back on their slot).</summary>
         public static bool InsidePad(Vector3 p, float margin = 0.4f) =>
             p.x < PadEast - margin && p.x > PadWest + BarrierInset + margin && p.z < PadNorth - BarrierInset - margin && p.z > PadSouth + BarrierInset + margin
-            && p.y > -0.5f && p.y < 1.5f && !float.IsNaN(p.x) && !float.IsNaN(p.z);
+            && p.y > -0.5f && p.y < DriftTrackCircuit.MaxHeight + 2f && !float.IsNaN(p.x) && !float.IsNaN(p.z);
 
         /// <summary>On the track side of the gate or in the passage (the track is drawn from here).</summary>
         public static bool OnTrackSide(Vector3 p) => p.x < -LobbyLayout.HalfW + 0.05f;

@@ -6,13 +6,18 @@ namespace HideAndSeek.Game
     /// Go-kart settings for the third-party <see cref="ArcadeCar"/> controller (ThirdParty/ArcadeCarPhysics): 160 kg
     /// (kart + driver), centre of mass low behind the seat, raycast suspension sized for the small wheels, rear-wheel
     /// drive, a speed curve that reaches ~100 km/h in about 5.5 s and tops out at ~108 km/h, steering lock falling from
-    /// 30 deg at a crawl to 7 deg flat out, and slippery tyres after the handbrake (the rear more than the front) for
-    /// drifts that the throttle and counter-steer can hold. Values are the demo car's, scaled to the kart's mass.
+    /// 30 deg at a crawl to 7 deg flat out. Values are the demo car's, scaled to the kart's mass. 2026-11-26: tyres
+    /// with a grip limit (friction coefficient x load; the rear a bit grippier, so plain cornering stays planted) and
+    /// the drift model / countersteer assist of <see cref="KartDrift"/> (numbers in KartTuning.Drift.cs) in place of
+    /// the controller's own handbrake slide; the handbrake works on the rear wheels only; more downforce from mid
+    /// speed so crests and climbs keep the wheels on the ground.
     /// </summary>
-    public static class KartTuning
+    public static partial class KartTuning
     {
         public const float Mass = 160f;
         public const float TopSpeedKmh = 170f; // 2026-11-25: user asked for 170 km/h (was 108)
+        /// <summary>Tyre grip limits (friction coefficient: max sideways force / wheel load).</summary>
+        public const float FrontGripLimit = 1.9f, RearGripLimit = 2.1f;
 
         public static void Apply(ArcadeCar car, Rigidbody rb)
         {
@@ -29,18 +34,20 @@ namespace HideAndSeek.Game
             car.steeringResetSpeed = Lines((0f, 90f), (110f, 60f), (170f, 50f));
             car.steeringSpeed = Lines((0f, 3.2f), (40f, 1.7f), (110f, 0.75f), (170f, 0.5f));
             car.handBrakeSlipperyTime = 1.4f;
-            car.downForceCurve = Lines((0f, 0f), (200f, 100f), (300f, 160f));
-            car.downForce = 5f;
+            car.downForceCurve = Lines((0f, 0f), (60f, 40f), (170f, 100f), (300f, 140f));
+            car.downForce = 6f;
+            car.externalSteering = true; // KartDrift sets the front wheels (countersteer assist)
+            car.handBrakeFront = false;
             car.flightStabilizationForce = 6f;
             car.flightStabilizationDamping = 0.7f;
             car.axles = new[]
             {
-                Axle("Front", KartModel.FrontTrack * 2f, KartPhysics.FrontAxle, 0.28f, KartPhysics.FrontRadius, 2400f, 0.3f, 12f, false),
-                Axle("Rear", KartModel.RearTrack * 2f, -KartPhysics.RearAxle, 0.287f, KartPhysics.RearRadius, 1900f, 0.15f, 4f, true),
+                Axle("Front", KartModel.FrontTrack * 2f, KartPhysics.FrontAxle, 0.28f, KartPhysics.FrontRadius, 2400f, FrontGripLimit, 12f, false),
+                Axle("Rear", KartModel.RearTrack * 2f, -KartPhysics.RearAxle, 0.287f, KartPhysics.RearRadius, 1900f, RearGripLimit, 4f, true),
             };
         }
 
-        private static ArcadeCar.Axle Axle(string name, float width, float z, float y, float radius, float stiffness, float handBrakeK, float brake, bool powered) => new()
+        private static ArcadeCar.Axle Axle(string name, float width, float z, float y, float radius, float stiffness, float gripLimit, float brake, bool powered) => new()
         {
             debugName = name,
             width = width,
@@ -54,9 +61,10 @@ namespace HideAndSeek.Game
             lengthRelaxed = 0.18f,
             antiRollForce = 1100f,
             isPowered = powered,
-            afterFlightSlipperyK = 0.02f,
+            afterFlightSlipperyK = 0.3f,
             brakeSlipperyK = 0.5f,
-            handBrakeSlipperyK = handBrakeK,
+            handBrakeSlipperyK = 1f, // the drift model lowers the rear grip itself (KartDrift)
+            gripLimit = gripLimit,
         };
 
         /// <summary>Speed (km/h) over time (s): top * (1 - e^(-t / tau)), sampled with matching tangents (monotonic).</summary>

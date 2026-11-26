@@ -148,6 +148,13 @@ public class ArcadeCar : MonoBehaviour
         [Tooltip("Hand brake slippery coefficent (0 - no friction)")]
         public float handBrakeSlipperyK = 0.01f;
 
+        // [Hide and Seek] Tyre grip limit: the lateral friction force of a wheel is capped at gripLimit x its
+        // suspension load (a friction coefficient; 0 = no cap, the original "perfect static friction"), times
+        // gripScale (set by the game every physics step: drift model, see KartDrift.cs).
+        [Tooltip("Lateral grip limit (friction coefficient x wheel load, 0 = unlimited)")]
+        public float gripLimit = 0.0f;
+        [NonSerialized] public float gripScale = 1.0f;
+
     }
 
 
@@ -210,6 +217,19 @@ public class ArcadeCar : MonoBehaviour
     // [Hide and Seek] Layers the wheel rays hit, and the on-screen debug text (off).
     public int raycastMask = Physics.DefaultRaycastLayers;
     public bool showDebugGui = false;
+    // [Hide and Seek] Hooks for the game's drift model (KartDrift.cs via KartPhysics.cs):
+    //  - beforeForces runs every FixedUpdate after the controls are read and before any force is worked out;
+    //  - externalSteering: the player's rate-limited steering goes to playerSteerAngle and the game writes the
+    //    front axle's steerAngle itself (countersteer assist);
+    //  - engineScale / brakeScale multiply the engine and brake forces; handBrakeFront = false brakes the rear only;
+    //  - the slippery tyres after a flight scale with the time in the air (a hop over a crest is not a jump).
+    [NonSerialized] public Action<float> beforeForces;
+    public bool externalSteering = false;
+    [NonSerialized] public float playerSteerAngle = 0.0f;
+    [NonSerialized] public float engineScale = 1.0f;
+    [NonSerialized] public float brakeScale = 1.0f;
+    public bool handBrakeFront = true;
+    float airTime = 0.0f;
 
     // x - speed in km/h
     // y - Downforce percentage
@@ -543,8 +563,8 @@ public class ArcadeCar : MonoBehaviour
         axles[1].brakeLeft = isBrake;
         axles[1].brakeRight = isBrake;
 
-        axles[0].handBrakeLeft = isHandBrake;
-        axles[0].handBrakeRight = isHandBrake;
+        axles[0].handBrakeLeft = isHandBrake && handBrakeFront;
+        axles[0].handBrakeRight = isHandBrake && handBrakeFront;
         axles[1].handBrakeLeft = isHandBrake;
         axles[1].handBrakeRight = isHandBrake;
 
@@ -560,14 +580,14 @@ public class ArcadeCar : MonoBehaviour
 
             float steerSpeed = steeringSpeed.Evaluate(speedKmH);
 
-            float newSteerAngle = axles[0].steerAngle + (h * steerSpeed);
+            float newSteerAngle = SteerState + (h * steerSpeed);
             float sgn = Mathf.Sign(newSteerAngle);
 
             float steerLimit = GetSteerAngleLimitInDeg(speed);
 
             newSteerAngle = Mathf.Min(Math.Abs(newSteerAngle), steerLimit) * sgn;
 
-            axles[0].steerAngle = newSteerAngle;
+            SteerState = newSteerAngle;
         }
         else
         {
@@ -578,7 +598,7 @@ public class ArcadeCar : MonoBehaviour
             angleReturnSpeedDegPerSec = Mathf.Lerp(0.0f, angleReturnSpeedDegPerSec, Mathf.Clamp01(speedKmH / 2.0f));
 
 
-            float ang = axles[0].steerAngle;
+            float ang = SteerState;
             float sgn = Mathf.Sign(ang);
 
             ang = Mathf.Abs(ang);
@@ -586,8 +606,15 @@ public class ArcadeCar : MonoBehaviour
             ang -= angleReturnSpeedDegPerSec * Time.fixedDeltaTime;
             ang = Mathf.Max(ang, 0.0f) * sgn;
 
-            axles[0].steerAngle = ang;
+            SteerState = ang;
         }
+    }
+
+    // [Hide and Seek] The player's steering angle: the front axle's own, or playerSteerAngle with externalSteering.
+    float SteerState
+    {
+        get { return externalSteering ? playerSteerAngle : axles[0].steerAngle; }
+        set { if (externalSteering) playerSteerAngle = value; else axles[0].steerAngle = value; }
     }
 
     void Update()
@@ -599,7 +626,12 @@ public class ArcadeCar : MonoBehaviour
     {
         UpdateInput();
 
-        accelerationForceMagnitude = CalcAccelerationForceMagnitude();
+        if (beforeForces != null)
+        {
+            beforeForces(Time.fixedDeltaTime);
+        }
+
+        accelerationForceMagnitude = CalcAccelerationForceMagnitude() * engineScale;
 
         // 0.8 - pressed
         // 1.0 - not pressed
@@ -637,7 +669,9 @@ public class ArcadeCar : MonoBehaviour
         if (allWheelIsOnAir)
         {
             // set after flight tire slippery time (1 sec)
-            afterFlightSlipperyTiresTime = 1.0f;
+            // [Hide and Seek] ... after a second in the air; a short hop gets a short slide
+            airTime += Time.fixedDeltaTime;
+            afterFlightSlipperyTiresTime = Mathf.Max(afterFlightSlipperyTiresTime, Mathf.Clamp01(airTime));
 
             // Try to keep vehicle parallel to the ground while jumping
             Vector3 carUp = transform.TransformDirection(new Vector3(0.0f, 1.0f, 0.0f));
@@ -670,6 +704,8 @@ public class ArcadeCar : MonoBehaviour
             rb.AddTorque(axis * flightStabilizationForce * mass);
         } else
         {
+            airTime = 0.0f;
+
             // downforce
             Vector3 carDown = transform.TransformDirection(new Vector3(0.0f, -1.0f, 0.0f));
 
@@ -1051,7 +1087,7 @@ public class ArcadeCar : MonoBehaviour
         bool isHandBrakeEnabled = (wheelIndex == WHEEL_LEFT_INDEX) ? axle.handBrakeLeft : axle.handBrakeRight;
         if (isBrakeEnabled || isHandBrakeEnabled)
         {
-            float clampedMag = Mathf.Clamp(axle.brakeForceMag * rb.mass, 0.0f, longitudinalForce.magnitude);
+            float clampedMag = Mathf.Clamp(axle.brakeForceMag * rb.mass * brakeScale, 0.0f, longitudinalForce.magnitude);
             Vector3 brakeForce = longitudinalForce.normalized * clampedMag;
 
             if (isHandBrakeEnabled)
@@ -1074,6 +1110,21 @@ public class ArcadeCar : MonoBehaviour
         }
 
         frictionForce -= longitudinalForce;
+
+        // [Hide and Seek] Grip limit: cap the sideways part at gripLimit x load (x gripScale). Below the limit the
+        // tyre holds as before; above it, it slides with a constant force (smooth, no snap).
+        if (axle.gripLimit > 0.0f)
+        {
+            Vector3 along = Vector3.Dot(frictionForce, c_fwd) * c_fwd;
+            Vector3 sideways = frictionForce - along;
+            float load = Mathf.Max(0.0f, -suspForceMag);
+            float cap = axle.gripLimit * load * Mathf.Max(0.0f, axle.gripScale);
+            if (sideways.sqrMagnitude > cap * cap)
+            {
+                sideways = sideways.normalized * cap;
+            }
+            frictionForce = along + sideways;
+        }
 
         if (debugDraw)
         {

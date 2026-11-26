@@ -73,7 +73,10 @@ namespace HideAndSeek.Game.Net
             Debug.Log($"[Kart] {p.Nick} gets into kart {kart} at {s.Pos}");
         }
 
-        /// <summary>The driver (or anybody, when it stands free) puts kart <paramref name="kart"/> back in its slot.</summary>
+        /// <summary>
+        /// The driver (or anybody, when it stands free) puts kart <paramref name="kart"/> back in its slot - or, driven
+        /// and on the kart circuit, back onto the road a few metres behind (<see cref="DriftTrackCircuit.Respawn"/>).
+        /// </summary>
         [Rpc(SendTo.Server)]
         public void KartResetRpc(byte kart, RpcParams rpc = default)
         {
@@ -81,6 +84,22 @@ namespace HideAndSeek.Game.Net
             if (p == null || kart >= DriftTrackLayout.KartCount) return;
             var s = KartsVar.Value.Get(kart);
             if (s.Driven && s.Driver != p.NetworkObjectId) return;
+            // While driven, s.Pos is where the drive began: the kart's live pose is in its driver's pack.
+            var drv = s.Driven ? NetPlayer.Find(s.Driver) : null;
+            var pk = drv != null ? drv.KartDrive.Value : default;
+            bool live = pk.Valid && pk.Index == kart && pk.Epoch == s.Epoch;
+            if (live && DriftTrackCircuit.Respawn(pk.Pos, out var at, out float yaw))
+            {
+                // On the circuit: back onto the road where it went wrong, not all the way to the paddock.
+                var all = KartsVar.Value;
+                var put = KartState.AtSlot(kart, (byte)(s.Epoch + 1));
+                put.Driver = s.Driver;
+                put.Pos = at;
+                put.Yaw = Mathf.Repeat(yaw, 360f);
+                KartsVar.Value = all.With(kart, put);
+                Debug.Log($"[Kart] kart {kart} back on the circuit at {at} (asked by {p.Nick}), epoch {put.Epoch}");
+                return;
+            }
             ServerKartToSlot(kart, s.Driver, "asked by " + p.Nick);
         }
 
