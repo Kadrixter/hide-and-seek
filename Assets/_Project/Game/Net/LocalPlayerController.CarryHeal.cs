@@ -3,6 +3,7 @@ using HideAndSeek.Core;
 using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -36,7 +37,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>Returns true while treating (the input belongs to it).</summary>
         private bool CarryHealTick(Keyboard kb)
         {
-            bool held = kb.hKey.isPressed || TestCarryHeal;
+            bool held = KeyOrPad.Held(Key.H) || TestCarryHeal;
             if (_p.HealingCarried)
             {
                 var patient = NetPlayer.Find(_p.CarryHealTarget.Value);

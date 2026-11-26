@@ -5,6 +5,7 @@ using Unity.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.DotLink
 {
@@ -80,7 +81,7 @@ namespace HideAndSeek.Game.DotLink
             // The draft stays until the server has the released line (or a moment passed).
             if (!_dragging && Draft != null && (panel.NetBoard == null || panel.NetBoard.Seq > _draftSeq || Time.unscaledTime > _draftUntil)) Draft = null;
             var kb = Keyboard.current;
-            bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape) || TestEsc;
+            bool esc = ((KeyOrPad.Down(Key.Escape) || PadInput.Cancel) && !ConfirmDialog.ConsumesEscape) || TestEsc; // pad: Options / Circle
             TestEsc = false;
             if (esc && !LocalPlayerController.MenuOpen)
             {

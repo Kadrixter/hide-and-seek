@@ -46,6 +46,7 @@ namespace HideAndSeek.Game
             }
             bool free = WantsFree;
             var mode = free ? CursorLockMode.None : CursorLockMode.Locked;
+            bool visible = free && !UI.PadCursor.Active; // the pad cursor draws its own pointer
 
             if (_haveLast && (Cursor.lockState != _lastMode || Cursor.visible != _lastVisible) && Time.unscaledTime >= _nextOutsideLog)
             {
@@ -55,11 +56,11 @@ namespace HideAndSeek.Game
                           $"focused {Application.isFocused}, players {NetPlayer.All.Count}) - {(free ? "free" : "locked")} again");
             }
             if (Cursor.lockState != mode) Cursor.lockState = mode;
-            if (Cursor.visible != free) Cursor.visible = free;
+            if (Cursor.visible != visible) Cursor.visible = visible;
             if (!_haveLast || _lastMode != mode) Debug.Log($"[Cursor] {(free ? "free (menu / panel open)" : "locked (playing)")}, players {NetPlayer.All.Count}");
             _haveLast = true;
             _lastMode = mode;
-            _lastVisible = free;
+            _lastVisible = visible;
         }
     }
 }

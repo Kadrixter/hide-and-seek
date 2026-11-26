@@ -3,6 +3,7 @@ using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -149,7 +150,7 @@ namespace HideAndSeek.Game
             // Let go of E, walk or jump = stop (the piece stays in the fence).
             var input = _p.InputReader;
             var kb = Keyboard.current;
-            bool holding = TestHoldE || (kb != null && kb.eKey.isPressed);
+            bool holding = TestHoldE || (kb != null && KeyOrPad.Held(Key.E));
             bool moved = input != null && (input.Move.sqrMagnitude > 0.2f || input.JumpHeld);
             if (!_cancelSent && t > 0.15f && t < WirePullTimeline.Snap && (!holding || moved))
             {

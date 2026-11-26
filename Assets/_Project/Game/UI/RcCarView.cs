@@ -1,6 +1,7 @@
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -82,9 +83,10 @@ namespace HideAndSeek.Game
             if (_car == null || _me == null) { End(); return; }
             _age += Time.deltaTime;
             var mouse = Mouse.current;
-            if (mouse != null && !LocalPlayerController.MenuOpen && Cursor.lockState == CursorLockMode.Locked)
+            if (mouse != null && !LocalPlayerController.MenuOpen && (Cursor.lockState == CursorLockMode.Locked || PadInput.Look != Vector2.zero))
             {
-                Vector2 d = mouse.delta.ReadValue() * 0.1f * Mathf.Max(0.2f, LocalProfile.MouseSensitivity);
+                float scale = 0.1f * Mathf.Max(0.2f, LocalProfile.MouseSensitivity);
+                Vector2 d = KeyOrPad.MouseDelta(scale) * scale; // + right stick
                 _lookYaw = Mathf.Clamp(_lookYaw + d.x, -120f, 120f);
                 _lookPitch = Mathf.Clamp(_lookPitch - d.y, -35f, 40f);
                 _idleLook = d.sqrMagnitude > 0.01f ? 0f : _idleLook + Time.deltaTime;

@@ -88,6 +88,7 @@ namespace HideAndSeek.Game
         private void OnGUI()
         {
             if (_panelOwner != this) return;
+            if (UI.PadCursor.ImguiPass(OnGUI)) return; // pad cursor: hover + clicks
             var mm = MatchManager.Instance;
             var me = NetPlayer.Local;
             var ch = Channel;
@@ -139,6 +140,7 @@ namespace HideAndSeek.Game
             RadioUi.Fill(new Rect(field.x + 1.5f * s, field.y + 1.5f * s, field.width - 3 * s, field.height - 3 * s), RadioUi.Card, 13 * s);
             bool enter = Event.current.type == EventType.KeyDown && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
             GUI.SetNextControlName("RadioUrl");
+            _urlField = UI.PadKeyboard.Field("RadioUrl", field, _urlField, 200, "Link z YouTube"); // pad: on-screen keyboard
             _urlField = GUI.TextField(field, _urlField ?? "", 200, _field);
             if (string.IsNullOrEmpty(_urlField) && !focused)
                 GUI.Label(new Rect(field.x + 16 * s, field.y, field.width - 32 * s, field.height), "Wklej link z YouTube (Ctrl+V) i naciśnij Enter", _small);

@@ -81,6 +81,7 @@ namespace HideAndSeek.Game
         private void OnGUI()
         {
             if (_surveyOwner != this) return;
+            if (UI.PadCursor.ImguiPass(OnGUI)) return; // pad cursor: hover + clicks
             var mm = MatchManager.Instance;
             if (mm == null || NetPlayer.Local == null || mm.Phase.Value != MatchPhase.Lobby) { CloseSurvey(); return; }
             float s = Mathf.Min(Screen.height / 1080f, Screen.width / 1340f);
@@ -116,6 +117,7 @@ namespace HideAndSeek.Game
                 var f = new Rect(x + p, top + 86 * s, iw, 60 * s);
                 FieldFrame(f, "ClaudeQ1", s);
                 GUI.SetNextControlName("ClaudeQ1");
+                _a1 = UI.PadKeyboard.Field("ClaudeQ1", f, _a1, 120, "Twoja propozycja nazwy"); // pad: on-screen keyboard
                 _a1 = GUI.TextField(f, _a1 ?? "", 120, _field);
                 if (fresh) _a1 = "";
                 if (string.IsNullOrEmpty(_a1) && GUI.GetNameOfFocusedControl() != "ClaudeQ1")
@@ -136,6 +138,7 @@ namespace HideAndSeek.Game
                 var f = new Rect(x + p, top + 72 * s, iw, 190 * s);
                 FieldFrame(f, "ClaudeQ2", s);
                 GUI.SetNextControlName("ClaudeQ2");
+                _a2 = UI.PadKeyboard.Field("ClaudeQ2", f, _a2, MaxAnswer, "Co dodać albo poprawić w grze?"); // pad: on-screen keyboard
                 _a2 = GUI.TextArea(f, _a2 ?? "", MaxAnswer, _area);
                 if (string.IsNullOrEmpty(_a2) && GUI.GetNameOfFocusedControl() != "ClaudeQ2")
                     GUI.Label(new Rect(f.x + 16 * s, f.y + 12 * s, f.width - 32 * s, 30 * s), "Np. nowa mapa, poprawki, błędy, pomysły...", _small);

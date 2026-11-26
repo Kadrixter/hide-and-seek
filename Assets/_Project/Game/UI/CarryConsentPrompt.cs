@@ -5,6 +5,7 @@ using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.UI
 {
@@ -113,8 +114,8 @@ namespace HideAndSeek.Game.UI
                 var kb = Keyboard.current;
                 bool menu = LocalPlayerController.MenuOpen;
                 if (_autoAt > 0f && Time.unscaledTime >= _autoAt) Close(true);
-                else if (kb != null && !menu && kb.yKey.wasPressedThisFrame) Close(true);
-                else if (kb != null && !menu && kb.nKey.wasPressedThisFrame) Close(false);
+                else if (kb != null && !menu && KeyOrPad.Down(Key.Y)) Close(true);
+                else if (kb != null && !menu && KeyOrPad.Down(Key.N)) Close(false);
                 else if (left <= 0f || NetPlayer.Local == null) Close(false);
             }
 

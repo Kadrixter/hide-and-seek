@@ -3,6 +3,7 @@ using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.MiniGames
 {
@@ -42,7 +43,9 @@ namespace HideAndSeek.Game.MiniGames
             var kb = Keyboard.current;
             var mouse = Mouse.current;
             bool dialog = ConfirmDialog.IsOpen || LocalPlayerController.MenuOpen;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape)
+            // Pad at a table (the menu cursor owns Cross / Square / Triangle / sticks): Options or Circle = Esc, D-pad up = R,
+            // D-pad right = C, D-pad down = G, R2 = click as well as Cross.
+            if ((KeyOrPad.Down(Key.Escape) || PadInput.Cancel) && !ConfirmDialog.ConsumesEscape)
             {
                 if (table is PoolTable pt)
                 {
@@ -58,9 +61,9 @@ namespace HideAndSeek.Game.MiniGames
                 return;
             }
             if (dialog) return;
-            if (kb != null && kb.rKey.wasPressedThisFrame && !table.Playing) me.MiniRematchRpc();
-            if (kb != null && kb.cKey.wasPressedThisFrame && table is ChessTable ct && !ct.Playing) me.ChessClockRpc();
-            if (kb != null && kb.gKey.wasPressedThisFrame && table is ChessTable bt && bt.State.Phase == ChessState.Over)
+            if (((kb != null && kb.rKey.wasPressedThisFrame) || PadInput.ButtonDown(PadButton.DpadUp)) && !table.Playing) me.MiniRematchRpc();
+            if (((kb != null && kb.cKey.wasPressedThisFrame) || PadInput.ButtonDown(PadButton.DpadRight)) && table is ChessTable ct && !ct.Playing) me.ChessClockRpc();
+            if (((kb != null && kb.gKey.wasPressedThisFrame) || PadInput.ButtonDown(PadButton.DpadDown)) && table is ChessTable bt && bt.State.Phase == ChessState.Over)
             {
                 // G after a game: propose (or take back) a rematch in the other game of the table.
                 bool proposed = (bt.State.Rematch & ChessState.RematchSwitch) != 0 && (bt.State.Rematch & (1 << seat)) != 0;
@@ -68,7 +71,7 @@ namespace HideAndSeek.Game.MiniGames
             }
             if (!MiniGameCamera.MouseRay(out var ray) || mouse == null) return;
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            bool click = mouse.leftButton.wasPressedThisFrame && !overUi && MiniGameCamera.Weight > 0.8f;
+            bool click = (mouse.leftButton.wasPressedThisFrame || PadInput.Down(PadAction.Attack)) && !overUi && MiniGameCamera.Weight > 0.8f;
             if (table is ChessTable chess) chess.LocalPointer(me, ray, click);
             else if (table is TttTable ttt) ttt.LocalPointer(me, ray, click);
             else if (table is PoolTable pool) pool.LocalPointer(me, ray, click);

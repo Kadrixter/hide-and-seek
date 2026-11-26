@@ -4,6 +4,7 @@ using HideAndSeek.Game.Net;
 using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -273,17 +274,19 @@ namespace HideAndSeek.Game
                 StopBuildingLocal();
                 return false;
             }
-            if (kb.eKey.wasPressedThisFrame && !ignoreE) { StopBuildingLocal(); return true; }
+            if (KeyOrPad.Down(Key.E) && !ignoreE) { StopBuildingLocal(); return true; }
 
             // Colour: 1-5 or the wheel.
             int sel = SelectedColor;
-            if (kb.digit1Key.wasPressedThisFrame) sel = 0;
-            if (kb.digit2Key.wasPressedThisFrame) sel = 1;
-            if (kb.digit3Key.wasPressedThisFrame) sel = 2;
-            if (kb.digit4Key.wasPressedThisFrame) sel = 3;
-            if (kb.digit5Key.wasPressedThisFrame) sel = 4;
+            if (KeyOrPad.Down(Key.Digit1)) sel = 0;
+            if (KeyOrPad.Down(Key.Digit2)) sel = 1;
+            if (KeyOrPad.Down(Key.Digit3)) sel = 2;
+            if (KeyOrPad.Down(Key.Digit4)) sel = 3;
+            if (KeyOrPad.Down(Key.Digit5)) sel = 4;
             if (TestColor >= 0) { sel = TestColor; TestColor = -1; }
-            float wheel = mouse.scroll.ReadValue().y;
+            float wheel = KeyOrPad.ScrollY;
+            if (PadInput.Down(PadAction.SlotPrev)) wheel += 1f; // pad: D-pad left / right = colour
+            if (PadInput.Down(PadAction.SlotNext)) wheel -= 1f;
             if (wheel > 0.01f) sel = (sel + Colors.Length - 1) % Colors.Length;
             else if (wheel < -0.01f) sel = (sel + 1) % Colors.Length;
             if (sel != SelectedColor)
@@ -294,14 +297,14 @@ namespace HideAndSeek.Game
             }
 
             inst.Aim(me);
-            if ((mouse.leftButton.wasPressedThisFrame && me.InputReader.CursorLocked) || TestClick)
+            if ((mouse != null && mouse.leftButton.wasPressedThisFrame && me.InputReader.CursorLocked) || PadInput.Down(PadAction.Attack) || TestClick)
             {
                 if (TestClick) Debug.Log($"[BrickTest] click target={inst._hasTarget} valid={inst._targetValid} cell=({inst._tx},{inst._ty},{inst._tz})");
                 TestClick = false;
                 if (inst._hasTarget && inst._targetValid) me.RequestPlaceBrickRpc(Pack(inst._tx, inst._ty, inst._tz, SelectedColor));
                 else HideAndSeek.Audio.GameAudio.Play2D(HideAndSeek.Audio.GameSfx.UiError, 0.4f);
             }
-            if ((mouse.rightButton.wasPressedThisFrame && me.InputReader.CursorLocked) || kb.zKey.wasPressedThisFrame || TestUndo)
+            if ((mouse != null && mouse.rightButton.wasPressedThisFrame && me.InputReader.CursorLocked) || PadInput.Down(PadAction.Aim) || KeyOrPad.Down(Key.Z) || TestUndo)
             {
                 TestUndo = false;
                 me.RequestUndoBrickRpc();

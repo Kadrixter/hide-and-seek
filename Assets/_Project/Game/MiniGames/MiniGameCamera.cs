@@ -1,6 +1,7 @@
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.MiniGames
 {
@@ -43,8 +44,7 @@ namespace HideAndSeek.Game.MiniGames
             _w = Mathf.MoveTowards(_w, table != null ? 1f : 0f, dt / 0.7f);
             if (table != null)
             {
-                var mouse = Mouse.current;
-                float wheel = mouse != null ? mouse.scroll.ReadValue().y : 0f;
+                float wheel = KeyOrPad.ScrollY; // the pad cursor scrolls the virtual mouse (L2 / R2), L1 + D-pad up / down too
                 if (Mathf.Abs(wheel) > 0.01f) _zoom = Mathf.Clamp(_zoom - Mathf.Sign(wheel) * 0.06f, 0.78f, 1.3f);
             }
             _seat = table != null ? seat : _seat;

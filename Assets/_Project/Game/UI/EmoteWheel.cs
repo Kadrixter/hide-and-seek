@@ -174,7 +174,7 @@ namespace HideAndSeek.Game.UI
 
             if (!_open)
             {
-                if (can && ((kb != null && kb.kKey.wasPressedThisFrame) || testPress)) Open(me);
+                if (can && ((kb != null && kb.kKey.wasPressedThisFrame) || PadUi.WheelDown || testPress)) Open(me);
             }
             else if (!can) Close();
             else StepOpen(me, kb, mouse);
@@ -201,8 +201,8 @@ namespace HideAndSeek.Game.UI
             // Page: mouse wheel (or test).
             if (TestPage >= 0) { SetPage(TestPage); TestPage = -1; }
             float wheel = mouse != null ? mouse.scroll.ReadValue().y : 0f;
-            if (wheel < -0.01f) SetPage(1);
-            else if (wheel > 0.01f) SetPage(0);
+            if (wheel < -0.01f || PadUiInput.R1) SetPage(1); // pad: L1 / R1
+            else if (wheel > 0.01f || PadUiInput.L1) SetPage(0);
 
             if (Time.unscaledTime >= _targetCheck)
             {
@@ -225,6 +225,8 @@ namespace HideAndSeek.Game.UI
             }
             int n = _slices.Count;
             int hl = -1;
+            var padStick = PadUi.WheelStick; // pad: the stick points at a slice (the last direction stays)
+            if (padStick.HasValue) _cursor = padStick.Value;
             if (TestCursor.HasValue) _cursor = TestCursor.Value / CursorPx;
             int tab = TabUnder(_cursor * CursorPx);
             if (tab != _tabHover) { _tabHover = tab; _tabHoverT = 0f; }
@@ -263,13 +265,13 @@ namespace HideAndSeek.Game.UI
             UpdateTexts(me);
             UpdatePointer();
 
-            bool esc = kb != null && kb.escapeKey.wasPressedThisFrame;
-            bool rmb = (mouse != null && mouse.rightButton.wasPressedThisFrame) || TestCancel;
+            bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame) || PadUi.Pause;
+            bool rmb = (mouse != null && mouse.rightButton.wasPressedThisFrame) || TestCancel || PadUi.Back; // pad: Circle = cancel
             TestCancel = false;
-            bool lmb = (mouse != null && mouse.leftButton.wasPressedThisFrame) || TestClick;
+            bool lmb = (mouse != null && mouse.leftButton.wasPressedThisFrame) || TestClick || PadUi.Confirm; // pad: Cross = play
             TestClick = false;
-            bool held = (kb != null && kb.kKey.isPressed) || TestHold;
-            bool again = kb != null && kb.kKey.wasPressedThisFrame && _toggle;
+            bool held = (kb != null && kb.kKey.isPressed) || TestHold || PadUi.WheelHeld;
+            bool again = ((kb != null && kb.kKey.wasPressedThisFrame) || PadUi.WheelDown) && _toggle;
             if (esc || rmb)
             {
                 Close();

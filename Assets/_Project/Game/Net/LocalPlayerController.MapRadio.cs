@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -22,8 +23,8 @@ namespace HideAndSeek.Game.Net
             var mm = MatchManager.Instance;
             int i = mm != null ? mm.MapRadioOf(_p) : -1;
             if (i < 0) return false;
-            bool q = kb.qKey.wasPressedThisFrame || TestMapRadioQ;
-            bool r = kb.rKey.wasPressedThisFrame || TestMapRadioR;
+            bool q = KeyOrPad.Down(Key.Q) || TestMapRadioQ;
+            bool r = KeyOrPad.Down(Key.R) || TestMapRadioR;
             TestMapRadioQ = TestMapRadioR = false;
             if (q && Time.time >= _mapRadioNextRequest)
             {
@@ -31,7 +32,7 @@ namespace HideAndSeek.Game.Net
                 _p.RequestMapRadioPutRpc();
             }
             if (r) OpenMapRadioPanel(i);
-            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
+            if (KeyOrPad.Down(Key.T) && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
             return true;
         }
 
@@ -70,13 +71,13 @@ namespace HideAndSeek.Game.Net
         private void MapRadioPromptKeys(Keyboard kb)
         {
             if (_mapRadioPrompt < 0) return;
-            if (((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestMapRadioE) && Time.time >= _mapRadioNextRequest)
+            if (((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestMapRadioE) && Time.time >= _mapRadioNextRequest)
             {
                 _mapRadioNextRequest = Time.time + 0.4f;
                 _ignoreEThisFrame = true;
                 _p.RequestMapRadioPickRpc((byte)_mapRadioPrompt);
             }
-            if (kb.rKey.wasPressedThisFrame || TestMapRadioR) OpenMapRadioPanel(_mapRadioPrompt);
+            if (KeyOrPad.Down(Key.R) || TestMapRadioR) OpenMapRadioPanel(_mapRadioPrompt);
             TestMapRadioE = TestMapRadioR = false;
         }
     }

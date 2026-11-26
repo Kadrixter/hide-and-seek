@@ -201,6 +201,11 @@ namespace HideAndSeek.Game.Net
                 PlaceKart(kart, row);
                 yield return new WaitForSeconds(0.8f);
                 LocalPlayerController.TestKartActive = true;
+                kart.ResetRide();
+                // A hitch (another game / editor busy on the machine) would run up to ~17 physics steps on one stale
+                // autopilot input and steer the kart into a barrier: game time slows down in a hitch instead.
+                float maxDt = Time.maximumDeltaTime;
+                Time.maximumDeltaTime = 0.05f;
                 float t = 0f, progress = 0f, nextLog = 0f, maxLat = 0f, maxDy = 0f, top = 0f, prevS = DriftTrackCircuit.S[row];
                 int resets = 0, offRoad = 0, idx = row, shot = 0;
                 Vector3 last = kart.Phys.Pos;
@@ -259,12 +264,15 @@ namespace HideAndSeek.Game.Net
                     yield return null;
                     t += Time.deltaTime;
                 }
+                string ride = kart.RideReport(); // the lap only (not the stop after it)
+                Time.maximumDeltaTime = maxDt;
                 LocalPlayerController.TestKartThrottle = -1f;
                 LocalPlayerController.TestKartSteer = 0f;
                 yield return new WaitForSeconds(2f);
                 LocalPlayerController.TestKartActive = false;
                 bool lap = progress >= L - 2f;
                 TLog($"lap: {progress:0} / {L:0} m in {t:0.0} s (avg {progress / Mathf.Max(1f, t) * 3.6f:0} km/h, top {top * 3.6f:0} km/h), resets {resets}, max |lateral| {maxLat:0.00} m, max off-surface {maxDy:0.00} m, off-road samples {offRoad} -> {Cf(lap && resets == 0 && offRoad == 0 && maxLat < DriftTrackCircuit.BarrierLat)}");
+                TLog($"ride{(KartTuning.OldRide ? " (-kartoldride: old suspension)" : "")}: {ride} (info: suspension jitter, lower = smoother)");
                 float ms = 0f;
                 yield return FrameMs(v => ms = v);
                 TLog($"frame time after the lap: {ms:0.0} ms");

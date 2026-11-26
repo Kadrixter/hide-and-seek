@@ -212,7 +212,7 @@ namespace HideAndSeek.Game
 
             // stop: walking, jumping or clicking (after the first moment, so the E press itself does not count)
             var input = _p.InputReader;
-            bool click = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+            bool click = KeyOrPad.LmbDown;
             if (!_cancelSent && tl > 0.35f && tl < RodPullTimeline.Rip && input != null && (input.Move.sqrMagnitude > 0.2f || input.JumpHeld || click))
             {
                 _cancelSent = true;

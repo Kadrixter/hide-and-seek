@@ -2,6 +2,7 @@ using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -102,9 +103,10 @@ namespace HideAndSeek.Game
             if (TestNext) { TestNext = false; Cycle(1); }
             if (mouse != null && !LocalPlayerController.MenuOpen)
             {
-                if (mouse.leftButton.wasPressedThisFrame) Cycle(1);
-                if (mouse.rightButton.wasPressedThisFrame) Cycle(-1);
-                Vector2 d = mouse.delta.ReadValue() * 0.15f;
+                // Pad: R2 / L2 (or D-pad right / left) switch the watched player, right stick orbits.
+                if (mouse.leftButton.wasPressedThisFrame || PadInput.Down(PadAction.Attack) || PadInput.Down(PadAction.SlotNext)) Cycle(1);
+                if (mouse.rightButton.wasPressedThisFrame || PadInput.Down(PadAction.Aim) || PadInput.Down(PadAction.SlotPrev)) Cycle(-1);
+                Vector2 d = KeyOrPad.MouseDelta(0.15f) * 0.15f;
                 _yaw += d.x;
                 _pitch = Mathf.Clamp(_pitch - d.y, -10f, 70f);
                 Cursor.lockState = CursorLockMode.Locked;

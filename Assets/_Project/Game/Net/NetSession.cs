@@ -152,6 +152,7 @@ namespace HideAndSeek.Game.Net
             StartSparkleTests();
             if (Arg("-testheroes") is string heroDir) StartCoroutine(HeroCarTour(heroDir));
             if (Arg("-testwreck") is string wreckDir) StartCoroutine(WreckTour(wreckDir));
+            if (Arg("-testpad") is string padDir) StartCoroutine(PadTest(padDir)); // pad-only play (NetSession.PadTests.cs)
         }
 
         private System.Collections.IEnumerator Shots(string dir)
@@ -168,7 +169,7 @@ namespace HideAndSeek.Game.Net
         private System.Collections.IEnumerator AutoStart()
         {
             int need = int.TryParse(ArgOr("-autostartplayers", "2"), out int np) ? np : 2; // -autostartplayers N: wait for N
-            while (MatchManager.Instance == null || NetPlayer.All.Count < need) yield return new WaitForSeconds(0.5f);
+            while (MatchManager.Instance == null || NetPlayer.All.Count < need || HoldAutoStart) yield return new WaitForSeconds(0.5f); // HoldAutoStart: a lobby test still runs
             yield return new WaitForSeconds(3f);
             Debug.Log("[NetSession] autostart");
             foreach (var p in NetPlayer.All) if (p != null) p.Ready.Value = true; // test helper: everyone ready

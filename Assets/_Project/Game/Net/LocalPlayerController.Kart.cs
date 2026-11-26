@@ -1,13 +1,14 @@
 using HideAndSeek.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
     /// <summary>
     /// Track go-karts on the local player (<see cref="LobbyKart"/>): the "E  wsiądź do gokarta" prompt at a free kart,
     /// and while driving: W / S (arrows) gas and brake / reverse, A / D steer, Space handbrake, R back to the parking
-    /// spot, E get out; no walking, looking or other actions meanwhile (the chase camera has the mouse).
+    /// spot, E get out (pad: <see cref="KeyOrPad.Drive"/>, Cross handbrake, Square out, Triangle reset); no walking, looking or other actions meanwhile (the chase camera has the mouse).
     /// </summary>
     public partial class LocalPlayerController
     {
@@ -63,9 +64,9 @@ namespace HideAndSeek.Game.Net
             var cc = _p.GetComponent<CharacterController>();
             if (cc != null && cc.enabled) cc.enabled = false;
 
-            float throttle = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1f : 0f);
-            float steer = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1f : 0f);
-            bool handbrake = kb.spaceKey.isPressed;
+            // Pad: R2 gas, L2 brake / reverse (analog), left stick steers, Cross handbrake, Square out, Triangle reset.
+            KeyOrPad.Drive(out float throttle, out float steer);
+            bool handbrake = KeyOrPad.Held(Key.Space);
             if (TestKartActive)
             {
                 throttle = TestKartThrottle;
@@ -74,13 +75,13 @@ namespace HideAndSeek.Game.Net
             }
             LobbyKart.SetInput(throttle, steer, handbrake);
 
-            if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestKartE)
+            if ((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestKartE)
             {
                 TestKartE = false;
                 _ignoreEThisFrame = true;
                 kart.RequestExit();
             }
-            else if (kb.rKey.wasPressedThisFrame && Time.time >= _kartNextRequest)
+            else if (KeyOrPad.Down(Key.R) && Time.time >= _kartNextRequest)
             {
                 _kartNextRequest = Time.time + 1f;
                 kart.RequestReset("R");

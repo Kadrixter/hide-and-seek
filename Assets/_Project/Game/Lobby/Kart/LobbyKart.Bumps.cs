@@ -16,10 +16,53 @@ namespace HideAndSeek.Game
         private readonly Dictionary<int, float> _lastPush = new();
         private float _flipT;
 
+        // ---- ride quality (tests): the chassis' acceleration along its up axis and its pitch / roll rate, per physics step
+        private double _rideAccSq, _rideRateSq;
+        private float _rideAccMax, _rideRateMax;
+        private int _rideN;
+        private Vector3 _rideV;
+        private bool _rideHave;
+
+        /// <summary>Starts a new ride-quality sample (tests).</summary>
+        public void ResetRide()
+        {
+            _rideAccSq = _rideRateSq = 0;
+            _rideAccMax = _rideRateMax = 0f;
+            _rideN = 0;
+            _rideHave = false;
+        }
+
+        /// <summary>Ride quality since <see cref="ResetRide"/>: RMS / max of the vertical (body-up) acceleration (m/s^2, gravity
+        /// held by the springs = 0) and of the pitch / roll rate (deg/s); lower = smoother.</summary>
+        public string RideReport()
+        {
+            int n = Mathf.Max(1, _rideN);
+            return $"vertical accel rms {System.Math.Sqrt(_rideAccSq / n):0.00} max {_rideAccMax:0.0} m/s^2, pitch/roll rate rms {System.Math.Sqrt(_rideRateSq / n):0.0} max {_rideRateMax:0} deg/s over {_rideN} steps";
+        }
+
+        private void SampleRide(Rigidbody rb)
+        {
+            Vector3 v = rb.linearVelocity;
+            if (_rideHave)
+            {
+                float a = Vector3.Dot(v - _rideV, rb.transform.up) / Time.fixedDeltaTime;
+                Vector3 wl = rb.transform.InverseTransformDirection(rb.angularVelocity) * Mathf.Rad2Deg;
+                float rate = new Vector2(wl.x, wl.z).magnitude;
+                _rideAccSq += a * a;
+                _rideRateSq += rate * rate;
+                _rideAccMax = Mathf.Max(_rideAccMax, Mathf.Abs(a));
+                _rideRateMax = Mathf.Max(_rideRateMax, rate);
+                _rideN++;
+            }
+            _rideV = v;
+            _rideHave = true;
+        }
+
         private void FixedUpdate()
         {
-            if (View != Mode.Local || Phys.Body == null || Phys.Body.isKinematic) return;
+            if (View != Mode.Local || Phys.Body == null || Phys.Body.isKinematic) { _rideHave = false; return; }
             var rb = Phys.Body;
+            SampleRide(rb);
             Phys.Collide.Players(rb);
             Vector3 v = rb.linearVelocity;
             if (v.y > 2.5f) { v.y = 2.5f; rb.linearVelocity = v; }

@@ -217,9 +217,9 @@ namespace HideAndSeek.Game.Net
             // The body decides where the eyes look: level the own look first, then only a little head movement.
             Motor.SetLook(Motor.LookYaw, Mathf.MoveTowards(Motor.LookPitch, 0f, dt * 90f));
             var mouse = Mouse.current;
-            if (mouse != null && InputReader != null && !LocalPlayerController.MenuOpen && Cursor.lockState == CursorLockMode.Locked)
+            if (mouse != null && InputReader != null && !LocalPlayerController.MenuOpen && (Cursor.lockState == CursorLockMode.Locked || PadInput.Look != Vector2.zero))
             {
-                Vector2 d = mouse.delta.ReadValue() * InputReader.MouseSensitivity;
+                Vector2 d = KeyOrPad.MouseDelta(InputReader.MouseSensitivity) * InputReader.MouseSensitivity; // + right stick
                 if (InputReader.InvertY) d.y = -d.y;
                 float free = od < OverdoseTimeline.FallEnd ? 0.25f : 1f;
                 _odPeek += d * free;

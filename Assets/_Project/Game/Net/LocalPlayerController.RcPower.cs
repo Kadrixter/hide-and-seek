@@ -1,6 +1,7 @@
 using HideAndSeek.Audio;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -12,7 +13,7 @@ namespace HideAndSeek.Game.Net
 
         private void RcChargeKey(Keyboard kb, int slot)
         {
-            bool r = (kb != null && kb.rKey.wasPressedThisFrame) || TestRcCharge;
+            bool r = (kb != null && KeyOrPad.Down(Key.R)) || TestRcCharge;
             TestRcCharge = false;
             if (!r || Time.time < _rcChargeNextTry) return;
             _rcChargeNextTry = Time.time + 0.3f;

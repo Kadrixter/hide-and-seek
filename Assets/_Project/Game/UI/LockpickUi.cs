@@ -3,6 +3,7 @@ using HideAndSeek.Map;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.UI
 {
@@ -144,7 +145,7 @@ namespace HideAndSeek.Game.UI
             _failFlash = Mathf.Max(0f, _failFlash - dt);
             _setFlash = Mathf.Max(0f, _setFlash - dt);
 
-            bool esc = kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape;
+            bool esc = (KeyOrPad.Down(Key.Escape) || PadInput.Cancel) && !ConfirmDialog.ConsumesEscape; // pad: Options / Circle
             if (esc)
             {
                 _escFrame = Time.frameCount;
@@ -158,8 +159,8 @@ namespace HideAndSeek.Game.UI
                 if (_pos > 1f) { _pos = 2f - _pos; _dir = -1f; }
                 if (_pos < 0f) { _pos = -_pos; _dir = 1f; }
                 bool inZone = Mathf.Abs(_pos - _zoneAt[_pin]) <= _width * 0.5f;
-                bool press = Time.unscaledTime - _openedAt > 0.3f && ((kb != null && (kb.spaceKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame)) ||
-                                                                      (mouse != null && mouse.leftButton.wasPressedThisFrame));
+                bool press = Time.unscaledTime - _openedAt > 0.3f && (KeyOrPad.Down(Key.Space) || KeyOrPad.Down(Key.E) || // pad: Cross / Square / R2
+                                                                      KeyOrPad.LmbDown);
                 if (TestFailNext && !inZone && Time.unscaledTime - _openedAt > 0.4f) { press = true; TestFailNext = false; }
                 else if (TestAuto && inZone && Time.unscaledTime - _openedAt > 0.35f + _pin * 0.2f) press = true;
                 if (press) Press(me, inZone);

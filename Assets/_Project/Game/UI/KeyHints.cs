@@ -57,6 +57,7 @@ namespace HideAndSeek.Game.UI
             }
 
             string want = Situation(me, phase);
+            if (_current != null && PadHints.Active != _padShown) Fill(_current, me); // keyboard <-> pad: relabel
             if (want != null && want != _current && !_shown.Contains(want))
             {
                 _shown.Add(want);
@@ -98,8 +99,11 @@ namespace HideAndSeek.Game.UI
 
         private static readonly List<(string key, string text)> _tmp = new();
 
+        private bool _padShown;
+
         private void Fill(string set, NetPlayer me)
         {
+            _padShown = PadHints.Active;
             _tmp.Clear();
             bool ptt = LocalProfile.VoiceEnabled && !LocalProfile.VoiceOpenMic;
             switch (set)
@@ -165,7 +169,7 @@ namespace HideAndSeek.Game.UI
                 cap.gameObject.SetActive(on);
                 text.gameObject.SetActive(on);
                 if (!on) continue;
-                key.text = _tmp[i].key;
+                key.text = PadHints.Cap(_tmp[i].key); // pad: button names
                 text.text = _tmp[i].text;
                 float capW = Mathf.Max(30f, key.preferredWidth + 16f);
                 float y = -pad - i * rowH;

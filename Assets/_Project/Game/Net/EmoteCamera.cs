@@ -1,6 +1,7 @@
 using HideAndSeek.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -90,10 +91,10 @@ namespace HideAndSeek.Game.Net
 
             // Mouse orbits; without input the camera drifts round to the three-quarter front view.
             var mouse = Mouse.current;
-            if (mouse != null && _p.InputReader != null && !LocalPlayerController.MenuOpen && Cursor.lockState == CursorLockMode.Locked
+            if (mouse != null && _p.InputReader != null && !LocalPlayerController.MenuOpen && (Cursor.lockState == CursorLockMode.Locked || PadInput.Look != Vector2.zero)
                 && !UI.EmoteWheel.IsOpen)
             {
-                Vector2 d = mouse.delta.ReadValue() * _p.InputReader.MouseSensitivity;
+                Vector2 d = KeyOrPad.MouseDelta(_p.InputReader.MouseSensitivity) * _p.InputReader.MouseSensitivity; // + right stick
                 if (_p.InputReader.InvertY) d.y = -d.y;
                 if (d.sqrMagnitude > 0.01f) _userT = 2.5f;
                 _yaw += d.x;

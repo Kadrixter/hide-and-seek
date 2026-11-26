@@ -170,6 +170,7 @@ namespace HideAndSeek.Game.UI
             UiKit.Button("Audio", page, "Dźwięk", () => Show(_audio), 34).Height(58);
             UiKit.Button("Voice", page, "Czat głosowy", () => Show(_voicePage), 34).Height(58);
             UiKit.Button("Graphics", page, "Grafika", () => Show(_graphics), 34).Height(58);
+            UiKit.Button("Pad", page, "Pad (PS4 / PS5)", () => Show(_padPage), 34).Height(58); // MainMenu.PadSettings.cs
             UiKit.Button("Back", page, "Wróć", () => { Prefs.Save(); Show(_main); }, 34).Height(58);
             return page;
         }

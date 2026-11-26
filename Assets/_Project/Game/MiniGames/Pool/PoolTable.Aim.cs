@@ -4,6 +4,7 @@ using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.MiniGames
 {
@@ -73,7 +74,7 @@ namespace HideAndSeek.Game.MiniGames
                 return;
             }
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            bool click = mouse.leftButton.wasPressedThisFrame && !overUi && MiniGameCamera.Weight > 0.8f;
+            bool click = (mouse.leftButton.wasPressedThisFrame || PadInput.Down(PadAction.Attack)) && !overUi && MiniGameCamera.Weight > 0.8f;
             _ptrFrame = Time.frameCount;
             LocalInput(me, ray, click);
         }
@@ -99,8 +100,10 @@ namespace HideAndSeek.Game.MiniGames
             }
             float dt = Time.unscaledDeltaTime;
             Vector2 delta = mouse.delta.ReadValue() * (1080f / Mathf.Max(200f, Screen.height));
-            bool shift = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
-            if (kb != null && kb.spaceKey.wasPressedThisFrame)
+            // Pad (cursor locked: behind-the-ball view, pulling, spin): the right stick moves like the mouse.
+            if (Cursor.lockState == CursorLockMode.Locked) delta += PadInput.Look * (700f * dt);
+            bool shift = kb != null && (KeyOrPad.Held(Key.LeftShift) || KeyOrPad.Held(Key.RightShift));
+            if ((kb != null && kb.spaceKey.wasPressedThisFrame) || PadInput.ButtonDown(PadButton.DpadUp)) // pad: D-pad up
             {
                 _topView = !_topView;
                 _ptrOffset = 0f;
@@ -126,11 +129,11 @@ namespace HideAndSeek.Game.MiniGames
                     }
                     return;
                 }
-                if (kb != null && kb.bKey.wasPressedThisFrame && !_dragging) { _handMode = 1; _sendNow = true; return; }
+                if (((kb != null && kb.bKey.wasPressedThisFrame) || PadInput.ButtonDown(PadButton.DpadLeft)) && !_dragging) { _handMode = 1; _sendNow = true; return; } // pad: D-pad left
             }
             EnsureAimInit();
 
-            bool rmb = mouse.rightButton.isPressed;
+            bool rmb = mouse.rightButton.isPressed || PadInput.Held(PadAction.Aim); // pad: L2 + right stick = spin
             // Top view: the pointer moved while setting the spin; carry on from the current aim, no jump.
             if (_rmbWas && !rmb && _topView && HitCloth(ray, out var rp))
             {
@@ -145,6 +148,7 @@ namespace HideAndSeek.Game.MiniGames
                 else _aimAngle -= delta.x * TurnPerPx * (shift ? FineK : 1f);
                 if (kb != null)
                 {
+                    // Keyboard only: on the pad the sticks / cursor turn the cue and L2 + stick sets the spin.
                     float q = (kb.qKey.isPressed ? 1f : 0f) - (kb.eKey.isPressed ? 1f : 0f);
                     _aimAngle += q * dt * (shift ? 0.017f : 0.1f);
                     float sx = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1f : 0f);
@@ -164,8 +168,8 @@ namespace HideAndSeek.Game.MiniGames
             {
                 _dragPx = Mathf.Clamp(_dragPx - delta.y, 0f, DragFull);
                 _pull = _dragPx / DragFull;
-                if (mouse.rightButton.wasPressedThisFrame) CancelDrag(); // RMB = cancel
-                else if (!mouse.leftButton.isPressed && !_testLmb)
+                if (mouse.rightButton.wasPressedThisFrame || PadInput.Down(PadAction.Aim)) CancelDrag(); // RMB (pad L2) = cancel
+                else if (!mouse.leftButton.isPressed && !PadInput.Held(PadAction.Attack) && !_testLmb) // pad: hold R2, pull the right stick back, let go
                 {
                     float pull = _pull;
                     CancelDrag();
@@ -226,7 +230,7 @@ namespace HideAndSeek.Game.MiniGames
         void TickCursor()
         {
             var mouse = Mouse.current;
-            bool busy = _dragging || (mouse != null && mouse.rightButton.isPressed);
+            bool busy = _dragging || (mouse != null && mouse.rightButton.isPressed) || PadInput.Held(PadAction.Aim);
             bool hide = LocalSeat >= 0 && LocalTurn && !_awaitShot && !LocalHolding && (!_topView || busy)
                         && !ConfirmDialog.IsOpen && !LocalPlayerController.MenuOpen && MiniGameCamera.Weight > 0.8f;
             bool was = CursorHidden;

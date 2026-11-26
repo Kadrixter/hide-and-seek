@@ -1,6 +1,7 @@
 using HideAndSeek.Core;
 using HideAndSeek.Map;
 using UnityEngine;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -29,7 +30,7 @@ namespace HideAndSeek.Game.Net
                     PromptWorld = h.FrontWorld + Vector3.up * 0.25f;
                     PromptText = "E  puść maskę";
                 }
-                if (kb != null && kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.HoodStopRpc();
+                if (kb != null && KeyOrPad.Down(UnityEngine.InputSystem.Key.E) && !_ignoreEThisFrame) _p.HoodStopRpc();
             }
             return true;
         }

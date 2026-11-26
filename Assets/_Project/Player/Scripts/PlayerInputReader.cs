@@ -73,16 +73,20 @@ namespace HideAndSeek.Player
         public bool CrouchToggleMode { get => crouchToggle; set { crouchToggle = value; _crouchToggled = false; } }
 
         /// <summary>Movement input, magnitude clamped to 1 (x = strafe, y = forward).</summary>
-        public Vector2 Move => _inputEnabled && _move != null ? Vector2.ClampMagnitude(_move.ReadValue<Vector2>(), 1f) : Vector2.zero;
+        public Vector2 Move => _inputEnabled && _move != null ? Vector2.ClampMagnitude(_move.ReadValue<Vector2>() + PadInput.Move, 1f) : Vector2.zero;
 
         /// <summary>Look delta in degrees for this frame (x = yaw, y = pitch, up positive).</summary>
         public Vector2 LookDelta { get; private set; }
 
-        public bool RunHeld => _inputEnabled && _run != null && _run.IsPressed();
+        public bool RunHeld => _inputEnabled && ((_run != null && _run.IsPressed()) || PadRunHeld);
+
+        // Pad sprint: L3 is clicked (not held) on most pads, so a click keeps running until the stick is released.
+        private bool _padRun;
+        private bool PadRunHeld => _padRun || PadInput.Held(PadAction.Sprint);
 
         /// <summary>True while the player wants to crouch (hold or toggle mode).</summary>
         /// Toggled stances survive short input locks (menu, cutscenes); call <see cref="ResetStance"/> to stand up.
-        public bool CrouchActive => crouchToggle ? _crouchToggled : (_inputEnabled && _crouch != null && _crouch.IsPressed());
+        public bool CrouchActive => crouchToggle ? _crouchToggled : (_inputEnabled && ((_crouch != null && _crouch.IsPressed()) || PadInput.Held(PadAction.Crouch)));
 
         /// <summary>Crawl (prone) toggle: Z switches it, crouch / jump leave it.</summary>
         public bool ProneActive => _proneToggled;
@@ -97,7 +101,7 @@ namespace HideAndSeek.Player
         /// <summary>Clears the crawl toggle (e.g. no room to lie down, or the player became busy).</summary>
         public void CancelProne() => _proneToggled = false;
 
-        public bool JumpHeld => _inputEnabled && _jump != null && _jump.IsPressed();
+        public bool JumpHeld => _inputEnabled && ((_jump != null && _jump.IsPressed()) || PadInput.Held(PadAction.Jump));
 
         /// <summary>True if jump was pressed within the buffer window and not consumed yet.</summary>
         public bool JumpBuffered => _inputEnabled && Time.time - _jumpPressedTime <= jumpBufferTime;
@@ -141,39 +145,66 @@ namespace HideAndSeek.Player
             _flashlight = new InputAction("Flashlight", InputActionType.Button, "<Mouse>/leftButton");
             _release = new InputAction("ReleaseCursor", InputActionType.Button, "<Keyboard>/escape");
 
-            _crouch.performed += _ =>
-            {
-                if (!_inputEnabled) return;
-                if (_proneToggled)
-                {
-                    // Crouch key while crawling: get up into a crouch.
-                    _proneToggled = false;
-                    if (crouchToggle) _crouchToggled = true;
-                    return;
-                }
-                if (crouchToggle) _crouchToggled = !_crouchToggled;
-            };
-            _prone.performed += _ =>
-            {
-                if (!_inputEnabled) return;
-                _proneToggled = !_proneToggled;
-                if (_proneToggled) _crouchToggled = false;
-            };
-            _jump.performed += _ =>
-            {
-                if (!_inputEnabled) return;
-                if (_proneToggled)
-                {
-                    // Space while crawling stands up instead of jumping.
-                    _proneToggled = false;
-                    _crouchToggled = false;
-                    return;
-                }
-                _jumpPressedTime = Time.time;
-                JumpPressed?.Invoke();
-            };
+            _crouch.performed += _ => OnCrouchPressed();
+            _prone.performed += _ => OnPronePressed();
+            _jump.performed += _ => OnJumpPressed();
             _flashlight.performed += _ => OnFlashlightClick();
             _release.performed += _ => { if (manageCursor) SetCursorLocked(false); };
+        }
+
+        private void OnCrouchPressed()
+        {
+            if (!_inputEnabled) return;
+            if (_proneToggled)
+            {
+                // Crouch key while crawling: get up into a crouch.
+                _proneToggled = false;
+                if (crouchToggle) _crouchToggled = true;
+                return;
+            }
+            if (crouchToggle) _crouchToggled = !_crouchToggled;
+        }
+
+        private void OnPronePressed()
+        {
+            if (!_inputEnabled) return;
+            _proneToggled = !_proneToggled;
+            if (_proneToggled) _crouchToggled = false;
+        }
+
+        private void OnJumpPressed()
+        {
+            if (!_inputEnabled) return;
+            if (_proneToggled)
+            {
+                // Space while crawling stands up instead of jumping.
+                _proneToggled = false;
+                _crouchToggled = false;
+                return;
+            }
+            _jumpPressedTime = Time.time;
+            JumpPressed?.Invoke();
+        }
+
+        /// <summary>
+        /// Set by the game: true while pad presses belong to an overlay (emote / pose wheel open or just closed: Cross picks a
+        /// slice and must not jump as well).
+        /// </summary>
+        public static Func<bool> PadGameplayBlocked;
+
+        /// <summary>Pad: the same press events as the keyboard actions (PadInput, rebindable), look on the right stick.</summary>
+        private void PollPad()
+        {
+            if (!PadInput.Connected) { _padRun = false; return; }
+            if (PadGameplayBlocked != null && PadGameplayBlocked()) return;
+            if (PadInput.Down(PadAction.Crouch)) OnCrouchPressed();
+            if (PadInput.Down(PadAction.Prone)) OnPronePressed();
+            if (PadInput.Down(PadAction.Jump)) OnJumpPressed();
+            if (PadInput.Down(PadAction.Sprint)) _padRun = true;
+            else if (PadInput.Move.sqrMagnitude < 0.04f) _padRun = false;
+            // A pad press while playing takes the cursor back (like the click that re-locks it).
+            if (manageCursor && !CursorLocked && Application.isFocused && (PadInput.Down(PadAction.Attack) || PadInput.Down(PadAction.Jump)))
+                SetCursorLocked(true);
         }
 
         private void OnFlashlightClick()
@@ -212,13 +243,19 @@ namespace HideAndSeek.Player
         private void Update()
         {
             float dt = Time.unscaledDeltaTime;
+            PollPad();
             Vector2 raw = Vector2.zero;
             bool lookActive = _inputEnabled && (!manageCursor || CursorLocked);
             if (lookActive && _look != null)
             {
-                raw = _look.ReadValue<Vector2>() * mouseSensitivity;
+                // The pad menu cursor's virtual mouse ("PadVirtualMouse") is not a hand on a mouse: no look from it.
+                var src = _look.activeControl?.device;
+                raw = src != null && PadInput.IsVirtual(src) ? Vector2.zero : _look.ReadValue<Vector2>() * mouseSensitivity;
                 if (invertY) raw.y = -raw.y;
             }
+            // Right stick: no locked cursor needed (only "playing", i.e. the reader manages the cursor); own sensitivity,
+            // invert and acceleration (PadInput settings), not smoothed further below the stick curve.
+            if (_inputEnabled && manageCursor) raw += PadInput.LookDegrees;
 
             if (lookSmoothing <= 0.0001f || dt <= 0f)
             {

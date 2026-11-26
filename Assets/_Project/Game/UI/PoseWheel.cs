@@ -352,7 +352,7 @@ namespace HideAndSeek.Game.UI
 
             if (!_open)
             {
-                if (can && ((kb != null && kb.kKey.wasPressedThisFrame) || testPress)) Open(me);
+                if (can && ((kb != null && kb.kKey.wasPressedThisFrame) || PadUi.WheelDown || testPress)) Open(me);
             }
             else if (!can || me.Seat.Value != _seat)
             {
@@ -393,6 +393,8 @@ namespace HideAndSeek.Game.UI
                 Vector2 d = mouse.delta.ReadValue() * (1080f / Mathf.Max(1, Screen.height));
                 _cursor = Vector2.ClampMagnitude(_cursor + d / TravelPx, 1f);
             }
+            var padStick = PadUi.WheelStick; // pad: the stick points at a slice (the last direction stays)
+            if (padStick.HasValue) _cursor = padStick.Value;
             int n = _slices.Count;
             int hl = -1;
             if (TestHighlight >= 0 && TestHighlight < n)
@@ -428,12 +430,12 @@ namespace HideAndSeek.Game.UI
             pc.a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, DeadZone + 0.05f, m));
             _pointer.color = pc;
 
-            bool esc = kb != null && kb.escapeKey.wasPressedThisFrame;
-            bool rmb = mouse != null && mouse.rightButton.wasPressedThisFrame;
-            bool lmb = (mouse != null && mouse.leftButton.wasPressedThisFrame) || TestClick;
+            bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame) || PadUi.Pause;
+            bool rmb = (mouse != null && mouse.rightButton.wasPressedThisFrame) || PadUi.Back; // pad: Circle = cancel
+            bool lmb = (mouse != null && mouse.leftButton.wasPressedThisFrame) || TestClick || PadUi.Confirm; // pad: Cross = pick
             TestClick = false;
-            bool gHeld = (kb != null && kb.kKey.isPressed) || TestHold;
-            bool gAgain = kb != null && kb.kKey.wasPressedThisFrame && _toggle;
+            bool gHeld = (kb != null && kb.kKey.isPressed) || TestHold || PadUi.WheelHeld;
+            bool gAgain = ((kb != null && kb.kKey.wasPressedThisFrame) || PadUi.WheelDown) && _toggle;
 
             if (esc || rmb)
             {

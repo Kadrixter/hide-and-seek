@@ -1,6 +1,7 @@
 using HideAndSeek.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -60,7 +61,7 @@ namespace HideAndSeek.Game.Net
             Prompt = PromptKind.SawWrest;
             PromptWorld = pos;
             PromptText = text;
-            SawWrestPromptE(kb.eKey.wasPressedThisFrame || TestWrestE);
+            SawWrestPromptE(KeyOrPad.Down(Key.E) || TestWrestE);
             TestWrestE = false;
         }
     }

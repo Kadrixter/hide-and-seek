@@ -1,5 +1,6 @@
 using HideAndSeek.Core;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -25,7 +26,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>Called by the controller before the prompts; true = E was used for the phone this frame.</summary>
         public static bool TakeE(NetPlayer p, Keyboard kb)
         {
-            bool e = TestE || (kb != null && kb.eKey.wasPressedThisFrame);
+            bool e = TestE || (kb != null && KeyOrPad.Down(Key.E));
             TestE = false;
             if (!e || !SmashOffered(p)) return false;
             Smash(p);

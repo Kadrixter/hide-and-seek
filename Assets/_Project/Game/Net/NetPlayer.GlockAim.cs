@@ -41,6 +41,7 @@ namespace HideAndSeek.Game.Net
             if (Actions is BlockyCharacterActions b && b.IsBusy) return false; // reloading
             if (TestAim) return true;
             var mouse = Mouse.current;
+            if (InputReader != null && InputReader.InputEnabled && PadInput.Held(PadAction.Aim)) return true; // pad: L2
             return mouse != null && InputReader != null && InputReader.InputEnabled && InputReader.CursorLocked && mouse.rightButton.isPressed;
         }
 

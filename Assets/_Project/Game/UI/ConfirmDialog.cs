@@ -14,6 +14,8 @@ namespace HideAndSeek.Game.UI
         private static ConfirmDialog _open;
         private static int _closedFrame = -1;
         private Action _onYes;
+        private float _shownAt;
+        private bool _padPlaced;
 
         public static bool IsOpen => _open != null;
 
@@ -27,6 +29,7 @@ namespace HideAndSeek.Game.UI
             var canvas = UiKit.CreateCanvas("ConfirmDialog", 500);
             var d = canvas.gameObject.AddComponent<ConfirmDialog>();
             d._onYes = onYes;
+            d._shownAt = Time.unscaledTime;
             _open = d;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
@@ -68,6 +71,20 @@ namespace HideAndSeek.Game.UI
         {
             var kb = Keyboard.current;
             if (kb != null && kb.escapeKey.wasPressedThisFrame) Close();
+            else if (PadUi.Back) Close(); // pad: Circle = no
+            else if (!_padPlaced && PadCursor.Active)
+            {
+                // Pad: the cursor starts on "no" (a second Cross after the one that opened the dialog must not say yes).
+                _padPlaced = true;
+                var no = transform.Find("Dim/Panel/ButtonsRow/Buttons/No");
+                if (no != null) PadCursor.Position = PadCursor.ScreenRect(no).center;
+            }
+            else if (PadUi.ConfirmOffControls && Time.unscaledTime - _shownAt > 0.4f) // pad: Cross off the buttons = yes (on a button it clicks it)
+            {
+                var a = _onYes;
+                Close();
+                a?.Invoke();
+            }
         }
 
         private void Close()

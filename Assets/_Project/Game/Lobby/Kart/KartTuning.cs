@@ -30,17 +30,64 @@ namespace HideAndSeek.Game
             car.steeringSpeed = Lines((0f, 3.2f), (40f, 1.7f), (110f, 0.75f), (170f, 0.5f));
             car.handBrakeSlipperyTime = 1.4f;
             car.downForceCurve = Lines((0f, 0f), (200f, 100f), (300f, 160f));
-            car.downForce = 5f;
+            // Downforce (along the kart's down axis, only while a wheel touches): downForce * curve% m/s^2.
+            // 2026-11-26: 5 -> 8 (100 km/h: 0.25 g -> 0.41 g extra, 170 km/h: 0.43 g -> 0.69 g) so the kart stays
+            // planted over crests and banked corners. Grip in ArcadeCar does not depend on the wheel load, so this does
+            // not change the cornering balance; it only keeps the wheels on the road (and compresses the springs).
+            car.downForce = OldRide ? 5f : 8f;
+            // A short hop (crest, step) no longer gives the full second of slippery tyres: that much airtime does.
+            car.afterFlightFullAirTime = OldRide ? 0f : 0.35f;
+            car.wideWheelContact = !OldRide;
             car.flightStabilizationForce = 6f;
             car.flightStabilizationDamping = 0.7f;
             car.axles = new[]
             {
-                Axle("Front", KartModel.FrontTrack * 2f, KartPhysics.FrontAxle, 0.28f, KartPhysics.FrontRadius, 2400f, 0.3f, 12f, false),
-                Axle("Rear", KartModel.RearTrack * 2f, -KartPhysics.RearAxle, 0.287f, KartPhysics.RearRadius, 1900f, 0.15f, 4f, true),
+                Axle("Front", KartModel.FrontTrack * 2f, KartPhysics.FrontAxle, 0.28f, KartPhysics.FrontRadius, FrontSpring, 0.3f, 12f, false),
+                Axle("Rear", KartModel.RearTrack * 2f, -KartPhysics.RearAxle, 0.287f, KartPhysics.RearRadius, RearSpring, 0.15f, 4f, true),
             };
+            if (OldRide)
+            {
+                // Before 2026-11-26 (comparison runs only): stiff springs, the strong damper, no blow-off.
+                foreach (var a in car.axles)
+                {
+                    a.lengthRelaxed = 0.18f;
+                    a.damping = 400f;
+                    a.antiRollForce = 1100f;
+                    a.bumpKneeSpeed = 0f;
+                }
+                car.axles[0].stiffness = 2400f;
+                car.axles[1].stiffness = 1900f;
+            }
         }
 
-        private static ArcadeCar.Axle Axle(string name, float width, float z, float y, float radius, float stiffness, float handBrakeK, float brake, bool powered) => new()
+        /// <summary>
+        /// Command line -kartoldride: the suspension / downforce / wheel contact from before 2026-11-26, for before / after
+        /// comparisons of the ride (e.g. the circuit test's "ride:" line). Not for play.
+        /// </summary>
+        public static readonly bool OldRide = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-kartoldride") >= 0;
+
+        // ---- suspension (per wheel, physical units; ArcadeCar wants them per unit of compression, i.e. times the length)
+        // 2026-11-26 (it shook on bumps): the old damper (400 per unit / 0.18 m = 2220 N s/m per wheel) was too strong
+        // for the 20 ms physics step - with the kart's small roll inertia (~20-25 kg m^2) the explicit damper overshot
+        // every step (roll mode unstable, pitch / heave flip-flopping), so any unevenness set the chassis chattering,
+        // and a 1 cm step became a ~1 m/s kick. Now: slightly softer springs (heave ~2.2 Hz, was ~2.75 Hz), damping
+        // just under critical (no bounce) and stable at 50 Hz, blow-off for sharp steps, same static ride height.
+        /// <summary>Relaxed length (m); was 0.18 - a little longer so the softer springs keep the old ride height.</summary>
+        public const float SuspLength = 0.19f;
+        /// <summary>Spring rate per wheel (N/m): front 13 300 -> 7 500, rear 10 600 -> 8 000 (static sag ~2.4 / 2.6 cm).</summary>
+        public const float FrontSpring = 7500f, RearSpring = 8000f;
+        /// <summary>Damper per wheel (N s/m): 2 220 -> 1 100 (heave damping ~0.95 of critical, roll ~0.8).</summary>
+        public const float Damper = 1100f;
+        /// <summary>Bump (compression) speed above which only <see cref="DamperBlowOffK"/> of the damping acts (m/s).</summary>
+        public const float DamperKnee = 0.35f, DamperBlowOffK = 0.35f;
+        /// <summary>Anti-roll bar per axle (N per m of left / right travel difference), as before (1100 / 0.18 m).</summary>
+        public const float AntiRoll = 6100f;
+
+        // ---- visual body (own kart): follows the chassis' height / tilt with a short lag (LobbyKart.BodyLag)
+        /// <summary>Follow rate (1/s; 20 = ~50 ms lag), the most it may lag in height (m) and tilt (degrees).</summary>
+        public const float BodyFollow = 20f, BodyLagMaxY = 0.03f, BodyLagMaxDeg = 2.5f;
+
+        private static ArcadeCar.Axle Axle(string name, float width, float z, float y, float radius, float spring, float handBrakeK, float brake, bool powered) => new()
         {
             debugName = name,
             width = width,
@@ -49,10 +96,12 @@ namespace HideAndSeek.Game
             laterialFriction = 0.6f,
             rollingFriction = 0.02f,
             brakeForceMag = brake,
-            stiffness = stiffness,
-            damping = 400f,
-            lengthRelaxed = 0.18f,
-            antiRollForce = 1100f,
+            stiffness = spring * SuspLength,
+            damping = Damper * SuspLength,
+            lengthRelaxed = SuspLength,
+            antiRollForce = AntiRoll * SuspLength,
+            bumpKneeSpeed = DamperKnee,
+            bumpHighSpeedK = DamperBlowOffK,
             isPowered = powered,
             afterFlightSlipperyK = 0.02f,
             brakeSlipperyK = 0.5f,

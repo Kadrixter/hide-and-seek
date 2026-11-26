@@ -3,6 +3,7 @@ using HideAndSeek.Game.Net;
 using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -78,7 +79,7 @@ namespace HideAndSeek.Game
 
             DeadLobbyHud.SetPrompt(text, world);
             var kb = Keyboard.current;
-            if (kb == null || !kb.eKey.wasPressedThisFrame || _kind == Kind.None) return;
+            if (kb == null || !KeyOrPad.Down(Key.E) || _kind == Kind.None) return;
             switch (_kind)
             {
                 case Kind.Seat:

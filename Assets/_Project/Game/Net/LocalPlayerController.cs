@@ -5,6 +5,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -262,8 +263,8 @@ namespace HideAndSeek.Game.Net
             if (seated)
             {
                 var kbs = Keyboard.current;
-                bool standKey = kbs != null && !MenuOpen && (kbs.eKey.wasPressedThisFrame || kbs.spaceKey.wasPressedThisFrame ||
-                                kbs.wKey.wasPressedThisFrame || kbs.sKey.wasPressedThisFrame || kbs.aKey.wasPressedThisFrame || kbs.dKey.wasPressedThisFrame);
+                bool standKey = kbs != null && !MenuOpen && (KeyOrPad.Down(Key.E) || KeyOrPad.Down(Key.Space) ||
+                                KeyOrPad.Down(Key.W) || KeyOrPad.Down(Key.S) || KeyOrPad.Down(Key.A) || KeyOrPad.Down(Key.D));
                 if (standKey || phase != MatchPhase.Lobby || dead)
                 {
                     StandUp();
@@ -280,11 +281,11 @@ namespace HideAndSeek.Game.Net
                 if (!_wasArcade) _p.Motor.SetLook(ArcadeCabs.Yaw(arcadeCab), -26f); // eye -> centre of the arcade screen
                 if (kba != null && !MenuOpen)
                 {
-                    if (kba.wKey.wasPressedThisFrame || kba.upArrowKey.wasPressedThisFrame) _p.ArcadeDirRpc(0);
-                    else if (kba.dKey.wasPressedThisFrame || kba.rightArrowKey.wasPressedThisFrame) _p.ArcadeDirRpc(1);
-                    else if (kba.sKey.wasPressedThisFrame || kba.downArrowKey.wasPressedThisFrame) _p.ArcadeDirRpc(2);
-                    else if (kba.aKey.wasPressedThisFrame || kba.leftArrowKey.wasPressedThisFrame) _p.ArcadeDirRpc(3);
-                    if ((kba.eKey.wasPressedThisFrame || kba.spaceKey.wasPressedThisFrame) && !_ignoreEThisFrame)
+                    if (KeyOrPad.Down(Key.W) || KeyOrPad.Down(Key.UpArrow)) _p.ArcadeDirRpc(0);
+                    else if (KeyOrPad.Down(Key.D) || KeyOrPad.Down(Key.RightArrow)) _p.ArcadeDirRpc(1);
+                    else if (KeyOrPad.Down(Key.S) || KeyOrPad.Down(Key.DownArrow)) _p.ArcadeDirRpc(2);
+                    else if (KeyOrPad.Down(Key.A) || KeyOrPad.Down(Key.LeftArrow)) _p.ArcadeDirRpc(3);
+                    if ((KeyOrPad.Down(Key.E) || KeyOrPad.Down(Key.Space)) && !_ignoreEThisFrame)
                     {
                         _p.RequestArcadeRpc(false, (byte)arcadeCab);
                         _ignoreEThisFrame = true;
@@ -316,7 +317,8 @@ namespace HideAndSeek.Game.Net
             }
 
             Prompt = PromptKind.None;
-            if (locked || kb == null || mouse == null)
+            // A pad-only player has no real keyboard / mouse: PadInput adds idle ones, but never depend on them here.
+            if (locked)
             {
                 CancelHold();
                 return;
@@ -360,7 +362,7 @@ namespace HideAndSeek.Game.Net
             if (UpdateRc(kb, phase)) { CancelHold(); return; }
 
             // ---- T toggles the flashlight always (LMB is the gun while the Glock is out)
-            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.Life.Value != LifeState.Downed)
+            if (KeyOrPad.Down(Key.T) && _p.Flashlight != null && _p.Life.Value != LifeState.Downed)
             {
                 if (_p.HasFlashlight) _p.Flashlight.Toggle();
                 else if (phase == MatchPhase.Lobby) GameHud.Toast("Nie masz latarki. Weź ją z pudełka przy lustrze (E).", 2.5f);
@@ -369,7 +371,7 @@ namespace HideAndSeek.Game.Net
             // ---- seeker: flashlight focus with the mouse wheel
             if (_p.IsSeeker && _p.Flashlight != null)
             {
-                float wheel = mouse.scroll.ReadValue().y;
+                float wheel = KeyOrPad.ScrollY; // pad: L1 + D-pad up / down
                 if (Mathf.Abs(wheel) > 0.01f)
                 {
                     float before = _focus;
@@ -387,7 +389,7 @@ namespace HideAndSeek.Game.Net
 
             // ---- hider: X = throw dust into the seeker's eyes
             if (_p.IsHider && phase == MatchPhase.Seeking && _p.Life.Value == LifeState.Alive && !_p.Busy.Value &&
-                _p.InputReader.InputEnabled && kb.xKey.wasPressedThisFrame && Time.time >= _nextDustTry)
+                _p.InputReader.InputEnabled && KeyOrPad.Down(Key.X) && Time.time >= _nextDustTry)
             {
                 _nextDustTry = Time.time + 0.6f;
                 _p.RequestDustRpc();
@@ -395,17 +397,17 @@ namespace HideAndSeek.Game.Net
 
             // ---- seeker: chainsaw (hold F = full throttle, walk into a hider = kill)
             bool sawRev = _p.IsSeeker && phase == MatchPhase.Seeking && _p.Held.Value == HeldItem.Chainsaw &&
-                          _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev) &&
+                          _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (KeyOrPad.Held(Key.F) || TestSawRev) &&
                           _p.SawFuel.Value > 0f && // an empty saw does not start (MatchManager.SawFuel.cs)
                           _p.SawReady;             // pulled and caught; not stalled by dust / goo / foam / a knock-out (NetPlayer.SawNerf.cs)
             // F on an empty tank: a dry pull of the cord (the server plays it for everybody; no cutting).
             if (_p.SawInHands && phase == MatchPhase.Seeking && _p.SawDry && !_p.SawStalled && !_p.Busy.Value && _p.InputReader.InputEnabled &&
-                kb.fKey.wasPressedThisFrame && Time.time >= _nextSawDryTry)
+                KeyOrPad.Down(Key.F) && Time.time >= _nextSawDryTry)
             {
                 _nextSawDryTry = Time.time + SawTuning.DryPullGap;
                 _p.RequestSawDryPullRpc();
             }
-            if (_p.SawInHands && phase == MatchPhase.Seeking && kb.rKey.wasPressedThisFrame && _p.FuelCans.Value > 0 && Time.time >= _nextSawTry)
+            if (_p.SawInHands && phase == MatchPhase.Seeking && KeyOrPad.Down(Key.R) && _p.FuelCans.Value > 0 && Time.time >= _nextSawTry)
             {
                 _nextSawTry = Time.time + 0.6f;
                 _p.RequestRefuelHandsRpc(); // R: fill the saw from the canister in the inventory
@@ -426,10 +428,10 @@ namespace HideAndSeek.Game.Net
             {
                 if (_p.Held.Value == HeldItem.Glock)
                 {
-                    if (kb.rKey.wasPressedThisFrame) _p.RequestReloadRpc();
+                    if (KeyOrPad.Down(Key.R)) _p.RequestReloadRpc();
                     bool testShot = TestShoot;
                     TestShoot = false;
-                    if (((mouse.leftButton.wasPressedThisFrame && _p.InputReader.CursorLocked) || testShot) && Time.time >= _nextShot)
+                    if (((mouse != null && mouse.leftButton.wasPressedThisFrame && _p.InputReader.CursorLocked) || PadInput.Down(PadAction.Attack) || testShot) && Time.time >= _nextShot)
                     {
                         _nextShot = Time.time + Tuning.FireInterval;
                         Shoot();
@@ -455,7 +457,7 @@ namespace HideAndSeek.Game.Net
         private bool UpdateRc(Keyboard kb, MatchPhase phase)
         {
             var mm = MatchManager.Instance;
-            bool six = kb.digit6Key.wasPressedThisFrame || kb.numpad6Key.wasPressedThisFrame || TestSix || HotbarInput.Six;
+            bool six = KeyOrPad.Down(Key.Digit6) || KeyOrPad.Down(Key.Numpad6) || TestSix || HotbarInput.Six;
             TestSix = false;
             int slot = mm != null ? mm.RcSlotOf(_p) : -1;
             bool roundPhase = phase == MatchPhase.Hiding || phase == MatchPhase.Seeking;
@@ -465,14 +467,13 @@ namespace HideAndSeek.Game.Net
                 var car = RcCar.Peek(slot);
                 if (car != null)
                 {
-                    float throttle = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1f : 0f);
-                    float steer = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1f : 0f);
+                    KeyOrPad.Drive(out float throttle, out float steer); // WASD / arrows, pad: R2 / L2 + left stick
                     if (TestRcActive) { throttle = TestRcInput.y; steer = TestRcInput.x; }
                     car.Throttle = throttle;
                     car.SteerInput = steer;
-                    car.Boost = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || TestRcBoost;
-                    car.Horn = kb.hKey.isPressed || TestRcHorn;
-                    if (kb.tKey.wasPressedThisFrame)
+                    car.Boost = KeyOrPad.Held(Key.LeftShift) || KeyOrPad.Held(Key.RightShift) || PadInput.Held(PadAction.Jump) || TestRcBoost; // pad: L3 or Cross
+                    car.Horn = KeyOrPad.Held(Key.H) || TestRcHorn;
+                    if (KeyOrPad.Down(Key.T))
                     {
                         _rcLights = !_rcLights;
                         GameAudio.Play2D(GameSfx.FlashlightAdjust, 0.5f);
@@ -1057,180 +1058,180 @@ namespace HideAndSeek.Game.Net
             switch (Prompt)
             {
                 case PromptKind.Knife:
-                    if (kb.fKey.wasPressedThisFrame && PromptText == "F")
+                    if (KeyOrPad.Down(Key.F) && PromptText == "F")
                     {
                         var target = Nearest(o => o.IsAliveHider);
                         if (target != null) _p.RequestKnifeRpc(target.NetworkObjectId);
                     }
                     break;
                 case PromptKind.Pickup:
-                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupRpc(_pickupId);
+                    if (KeyOrPad.Down(Key.E)) _p.RequestPickupRpc(_pickupId);
                     break;
                 case PromptKind.PickupSyringe:
-                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupSyringeRpc(_syringeId);
+                    if (KeyOrPad.Down(Key.E)) _p.RequestPickupSyringeRpc(_syringeId);
                     break;
                 case PromptKind.RodPickup:
-                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupRodRpc(_rodId);
+                    if (KeyOrPad.Down(Key.E)) _p.RequestPickupRodRpc(_rodId);
                     break;
                 case PromptKind.ToyGunPickup:
-                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupToyGunRpc(_toyGunId);
+                    if (KeyOrPad.Down(Key.E)) _p.RequestPickupToyGunRpc(_toyGunId);
                     break;
                 case PromptKind.FlashBox:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestFlashBoxRpc(!_p.Ready.Value);
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) _p.RequestFlashBoxRpc(!_p.Ready.Value);
                     break;
                 case PromptKind.ChainsawPickup:
-                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupChainsawRpc();
+                    if (KeyOrPad.Down(Key.E)) _p.RequestPickupChainsawRpc();
                     break;
                 case PromptKind.DropPickup:
-                    if (kb.eKey.wasPressedThisFrame) _p.RequestPickupDropRpc(_dropId);
+                    if (KeyOrPad.Down(Key.E)) _p.RequestPickupDropRpc(_dropId);
                     break;
                 case PromptKind.SecurityCrate:
-                    if (_crateAct == CrateAction.Saw ? kb.fKey.wasPressedThisFrame : kb.eKey.wasPressedThisFrame)
+                    if (_crateAct == CrateAction.Saw ? KeyOrPad.Down(Key.F) : KeyOrPad.Down(Key.E))
                         _p.RequestCrateActionRpc((byte)_crateLevel, (byte)_crateAct);
                     break;
                 case PromptKind.SecurityButton:
-                    if (kb.eKey.wasPressedThisFrame && SecurityRooms.Instance != null) _p.RequestSecurityFloorRpc((byte)_secFloor);
+                    if (KeyOrPad.Down(Key.E) && SecurityRooms.Instance != null) _p.RequestSecurityFloorRpc((byte)_secFloor);
                     break;
                 case PromptKind.Button:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) LobbyButton.Instance.Press();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) LobbyButton.Instance.Press();
                     break;
                 case PromptKind.ElevatorCall:
                 case PromptKind.ElevatorPanel:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame && MatchManager.Instance != null)
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame && MatchManager.Instance != null)
                     {
                         GameAudio.PlayAt(GameSfx.ElevatorButton, PromptWorld, 0.8f);
                         MatchManager.Instance.ElevatorRequestRpc((byte)_elevCar, (sbyte)_elevFloor);
                     }
                     break;
                 case PromptKind.Seat:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) SitNearest();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) SitNearest();
                     break;
                 case PromptKind.ForkPickup:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestForkPickupRpc();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) _p.RequestForkPickupRpc();
                     break;
                 case PromptKind.ForkOutlet:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestForkOutletRpc((byte)_outletIdx);
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) _p.RequestForkOutletRpc((byte)_outletIdx);
                     break;
                 case PromptKind.Arcade:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame)
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame)
                     {
                         _p.RequestArcadeRpc(true, (byte)_arcadeCab);
                         _ignoreEThisFrame = true;
                     }
                     break;
                 case PromptKind.Settings:
-                    if (kb.eKey.wasPressedThisFrame) GameHud.OpenSettingsPanel();
+                    if (KeyOrPad.Down(Key.E)) GameHud.OpenSettingsPanel();
                     break;
                 case PromptKind.LobbyProp:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame && MatchManager.Instance != null) MatchManager.Instance.UsePropRpc((byte)_propId);
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame && MatchManager.Instance != null) MatchManager.Instance.UsePropRpc((byte)_propId);
                     break;
                 case PromptKind.Vending:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestVendingRpc();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) _p.RequestVendingRpc();
                     break;
                 case PromptKind.Radio:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) Boombox.OpenPanel();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) Boombox.OpenPanel();
                     break;
                 case PromptKind.LobbyTv:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) LobbyTvVideo.OpenPanel();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) LobbyTvVideo.OpenPanel();
                     break;
                 case PromptKind.Claude:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame)
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame)
                     {
                         LobbyClaude.OpenSurvey();
                         _ignoreEThisFrame = true;
                     }
                     break;
                 case PromptKind.ExitDoor:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestExitDoorRpc();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) _p.RequestExitDoorRpc();
                     break;
                 case PromptKind.Bricks:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame)
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame)
                     {
                         LobbyBricks.BeginBuilding();
                         _ignoreEThisFrame = true;
                     }
                     break;
                 case PromptKind.RcPickup:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestRcPickupRpc((byte)_rcSlotPrompt);
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) _p.RequestRcPickupRpc((byte)_rcSlotPrompt);
                     break;
                 case PromptKind.RcCargo:
-                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) _p.RequestRcCargoTakeRpc((byte)_rcCargoPrompt);
+                    if ((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestPressE) _p.RequestRcCargoTakeRpc((byte)_rcCargoPrompt);
                     TestPressE = false;
                     break;
                 case PromptKind.RcStomp:
-                    if (kb.fKey.wasPressedThisFrame) _p.RequestRcStompRpc((byte)_rcSlotPrompt);
+                    if (KeyOrPad.Down(Key.F)) _p.RequestRcStompRpc((byte)_rcSlotPrompt);
                     break;
                 case PromptKind.PhonePickup:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestPickupPhoneRpc(_phoneId);
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) _p.RequestPickupPhoneRpc(_phoneId);
                     break;
                 case PromptKind.PhoneStomp:
-                    if (kb.fKey.wasPressedThisFrame) _p.RequestPhoneStompRpc(_phoneId);
+                    if (KeyOrPad.Down(Key.F)) _p.RequestPhoneStompRpc(_phoneId);
                     break;
                 case PromptKind.MiniGame:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) { MiniGamePromptE(); _ignoreEThisFrame = true; }
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) { MiniGamePromptE(); _ignoreEThisFrame = true; }
                     break;
                 case PromptKind.PaMic:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) PaPromptE();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) PaPromptE();
                     break;
                 case PromptKind.MapRadio:
                     MapRadioPromptKeys(kb);
                     break;
                 case PromptKind.Extinguisher:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ExtPromptE();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) ExtPromptE();
                     break;
                 case PromptKind.SecurityChair:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ChairPromptE();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) ChairPromptE();
                     break;
                 case PromptKind.WirePull:
-                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) WirePromptE();
+                    if ((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestPressE) WirePromptE();
                     TestPressE = false;
                     break;
                 case PromptKind.ArcLink:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) ArcLinkPromptE();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) ArcLinkPromptE();
                     break;
                 case PromptKind.DotLink:
-                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) DotLinkPromptE();
+                    if (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) DotLinkPromptE();
                     break;
                 case PromptKind.FuseInsert:
                 case PromptKind.FuseRemove:
-                    FusePromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE);
+                    FusePromptE((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestPressE);
                     TestPressE = false;
                     break;
                 case PromptKind.Kart:
-                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestKartE) { TestKartE = false; KartPromptE(); }
+                    if ((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestKartE) { TestKartE = false; KartPromptE(); }
                     break;
                 case PromptKind.CarHood:
-                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) HoodPromptE();
+                    if ((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestPressE) HoodPromptE();
                     TestPressE = false;
                     break;
                 case PromptKind.CarBatteryTake:
-                    if (((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) && _hoodPrompt >= 0) _p.RequestBatteryTakeRpc((byte)_hoodPrompt);
+                    if (((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestPressE) && _hoodPrompt >= 0) _p.RequestBatteryTakeRpc((byte)_hoodPrompt);
                     TestPressE = false;
                     break;
                 case PromptKind.CamBattery:
-                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) CamBatteryPromptE();
+                    if ((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestPressE) CamBatteryPromptE();
                     TestPressE = false;
                     break;
                 case PromptKind.CamSwitch:
-                    if (((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) && _camRoom >= 0) _p.RequestCamSwitchRpc((byte)_camRoom);
+                    if (((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestPressE) && _camRoom >= 0) _p.RequestCamSwitchRpc((byte)_camRoom);
                     TestPressE = false;
                     break;
                 case PromptKind.SawWrest:
-                    SawWrestPromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestWrestE);
+                    SawWrestPromptE((KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || TestWrestE);
                     TestWrestE = false;
                     break;
             }
 
             // Hold H (rescue / heal other), hold G (heal self). Seated in the lobby G opens the pose wheel instead.
-            bool gHeld = kb.gKey.isPressed, gDown = kb.gKey.wasPressedThisFrame; // G = medkit only (the pose wheel is on K)
+            bool gHeld = KeyOrPad.Held(Key.G), gDown = KeyOrPad.Down(Key.G); // G = medkit only (the pose wheel is on K)
             PromptKind wantHold = PromptKind.None;
             NetPlayer target2 = null;
-            if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && (kb.hKey.isPressed || TestHoldH || HotbarInput.HoldH))
+            if ((Prompt == PromptKind.Rescue || Prompt == PromptKind.Heal) && (KeyOrPad.Held(Key.H) || TestHoldH || HotbarInput.HoldH))
             {
                 wantHold = Prompt;
                 target2 = Nearest(o => o.IsHider && (Prompt == PromptKind.Rescue ? o.Life.Value == LifeState.Downed : (o.Wounded.Value || o.Limping.Value)));
             }
-            else if (Prompt == PromptKind.Resurrect && (kb.hKey.isPressed || HotbarInput.HoldH))
+            else if (Prompt == PromptKind.Resurrect && (KeyOrPad.Held(Key.H) || HotbarInput.HoldH))
             {
                 wantHold = PromptKind.Resurrect;
                 target2 = Nearest(o => o.IsHider && o.Life.Value == LifeState.Dead);

@@ -6,6 +6,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -86,7 +87,7 @@ namespace HideAndSeek.Game
                 return;
             }
             var kb = Keyboard.current;
-            bool f = TestToggleWatch || (kb != null && kb.fKey.wasPressedThisFrame && !LocalPlayerController.MenuOpen);
+            bool f = TestToggleWatch || (kb != null && KeyOrPad.Down(Key.F) && !LocalPlayerController.MenuOpen);
             TestToggleWatch = false;
             switch (_stage)
             {

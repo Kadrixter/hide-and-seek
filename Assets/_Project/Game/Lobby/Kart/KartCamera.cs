@@ -1,6 +1,7 @@
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -87,7 +88,7 @@ namespace HideAndSeek.Game
             if (_me.Camera != null && _me.Camera.enabled) _me.Camera.enabled = false; // one view, one listener
             var mouse = Mouse.current;
             var kb = Keyboard.current;
-            if (kb != null && kb.vKey.wasPressedThisFrame && !LocalPlayerController.MenuOpen)
+            if (((kb != null && kb.vKey.wasPressedThisFrame) || PadInput.Down(PadAction.Camera)) && !LocalPlayerController.MenuOpen)
             {
                 FirstPerson = !FirstPerson;
                 _orbitYaw = 0f;
@@ -95,9 +96,11 @@ namespace HideAndSeek.Game
             }
             if (_cam != null)
                 _cam.cullingMask = FirstPerson ? ~((1 << 9) | (1 << PlayerAvatarBinder.LocalBodyLayer)) : ~(1 << 9); // own body hidden in first person
-            if (mouse != null && !LocalPlayerController.MenuOpen && Cursor.lockState == CursorLockMode.Locked)
+            bool padLook = PadInput.Look.sqrMagnitude > 0f; // right stick orbits without a locked cursor
+            if (mouse != null && !LocalPlayerController.MenuOpen && (Cursor.lockState == CursorLockMode.Locked || padLook))
             {
-                Vector2 d = mouse.delta.ReadValue() * 0.1f * Mathf.Max(0.2f, LocalProfile.MouseSensitivity);
+                float scale = 0.1f * Mathf.Max(0.2f, LocalProfile.MouseSensitivity);
+                Vector2 d = KeyOrPad.MouseDelta(scale) * scale;
                 _orbitYaw = Mathf.Clamp(_orbitYaw + d.x, FirstPerson ? -110f : -170f, FirstPerson ? 110f : 170f);
                 _orbitPitch = Mathf.Clamp(_orbitPitch - d.y, FirstPerson ? -30f : -2f, FirstPerson ? 35f : 50f);
                 _idle = d.sqrMagnitude > 0.01f ? 0f : _idle + dt;

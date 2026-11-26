@@ -183,8 +183,8 @@ namespace HideAndSeek.Game
             _pitch = Mathf.Lerp(_pitch, Mathf.Clamp(-_accel * 0.55f, -3.5f, 3.5f), 1f - Mathf.Exp(-7f * dt));
             _roll = Mathf.Lerp(_roll, Mathf.Clamp(lat * 0.45f, -4f, 4f), 1f - Mathf.Exp(-7f * dt));
             float buzz = Rpm01 > 0.05f ? 0.0012f * Mathf.Sin(Time.time * (60f + 90f * Rpm01)) * (0.4f + Rpm01) : 0f;
-            Parts.Body.localRotation = Quaternion.Euler(_pitch, 0f, _roll);
-            Parts.Body.localPosition = new Vector3(0f, buzz, 0f);
+            Parts.Body.localRotation = BodyLag(dt, out Vector3 lagPos) * Quaternion.Euler(_pitch, 0f, _roll);
+            Parts.Body.localPosition = new Vector3(0f, buzz, 0f) + lagPos;
 
             bool locked = HandbrakeOn;
             float rear = locked ? 0f : ShownSpeed + (SlidingNow && Throttle > 0.05f ? 2.8f * Throttle : 0f);
@@ -216,6 +216,42 @@ namespace HideAndSeek.Game
             _hitsSeen = hits;
             Phys.Collide.Impact = 0f;
             Bump = Mathf.MoveTowards(Bump, 0f, dt * 3f);
+        }
+
+        private Vector3 _visUp;
+        private float _visY, _visPrevY, _visVy;
+        private bool _visOn;
+
+        /// <summary>
+        /// Own kart: the visible body (and the driver on it) follows the chassis' height and tilt with a short lag
+        /// (<see cref="KartTuning.BodyFollow"/>, a few cm / degrees at most) - a light visual suspension that takes the
+        /// edge off small physics jolts. The height follows a predicted path (smoothed vertical speed), so a steady climb
+        /// or descent is not offset. Remote / parked karts are already smoothed (LobbyKart.Remote.cs): no lag.
+        /// </summary>
+        private Quaternion BodyLag(float dt, out Vector3 offset)
+        {
+            offset = Vector3.zero;
+            if (View != Mode.Local) { _visOn = false; return Quaternion.identity; }
+            var t = transform;
+            Vector3 up = t.up;
+            float y = t.position.y;
+            if (!_visOn || dt > 0.1f || Mathf.Abs(y - _visPrevY) > 0.5f) // first frame, a hitch or a reset / teleport
+            {
+                _visUp = up;
+                _visY = _visPrevY = y;
+                _visVy = 0f;
+                _visOn = true;
+            }
+            float k = 1f - Mathf.Exp(-KartTuning.BodyFollow * dt);
+            _visVy = Mathf.Lerp(_visVy, (y - _visPrevY) / dt, k);
+            _visPrevY = y;
+            _visY = Mathf.Clamp(Mathf.Lerp(_visY + _visVy * dt, y, k), y - KartTuning.BodyLagMaxY, y + KartTuning.BodyLagMaxY);
+            _visUp = Vector3.Slerp(_visUp, up, k);
+            if (Vector3.Angle(_visUp, up) > KartTuning.BodyLagMaxDeg)
+                _visUp = Vector3.RotateTowards(up, _visUp, KartTuning.BodyLagMaxDeg * Mathf.Deg2Rad, 0f);
+            Quaternion rot = t.rotation;
+            offset = t.InverseTransformDirection(new Vector3(0f, _visY - y, 0f));
+            return Quaternion.Inverse(rot) * Quaternion.FromToRotation(up, _visUp) * rot;
         }
 
         /// <summary>Other players' kart hits (seen as a sudden stop in the remote pose).</summary>

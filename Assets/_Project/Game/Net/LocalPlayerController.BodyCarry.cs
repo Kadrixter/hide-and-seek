@@ -2,6 +2,7 @@ using HideAndSeek.Core;
 using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -36,8 +37,8 @@ namespace HideAndSeek.Game.Net
             CarryConsentPrompt.Ensure();
             CarryConsentPrompt.Hint = "";
             CarryConsentPrompt.HintProgress = 0f;
-            bool b = kb.bKey.wasPressedThisFrame || TestCarryB;
-            bool space = kb.spaceKey.wasPressedThisFrame || TestCarrySpace;
+            bool b = KeyOrPad.Down(Key.B) || TestCarryB;
+            bool space = KeyOrPad.Down(Key.Space) || TestCarrySpace;
             TestCarryB = TestCarrySpace = false;
 
             if ((_p.IsCarryingBody || _p.BodyCarriedNow) && _p.HealingCarried) StopCarryHeal();
@@ -71,7 +72,7 @@ namespace HideAndSeek.Game.Net
             // B held on an injured hider: ask him.
             _carryCandidate = FindCarryCandidate(phase);
             if (_carryCandidate == null) { _carryHold = 0f; _carrySent = false; return false; }
-            bool held = kb.bKey.isPressed;
+            bool held = KeyOrPad.Held(Key.B);
             if (b && !held) { _carryHold = CarryHoldTime; } // test press
             else if (held) _carryHold += Time.deltaTime;
             else { _carryHold = 0f; _carrySent = false; }
@@ -93,7 +94,7 @@ namespace HideAndSeek.Game.Net
 
         private void FlashlightKey(Keyboard kb)
         {
-            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
+            if (KeyOrPad.Down(Key.T) && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
         }
 
         /// <summary>Injured hider in front of the crosshair, close enough to be picked up.</summary>

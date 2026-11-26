@@ -2,6 +2,7 @@ using HideAndSeek.Characters;
 using HideAndSeek.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -52,7 +53,7 @@ namespace HideAndSeek.Game.Net
                 return true;
             }
             if (_p.AntennaSwapAt.Value >= 0d) return true;
-            bool u = TestKeyU || (kb != null && kb.uKey.wasPressedThisFrame);
+            bool u = TestKeyU || (kb != null && KeyOrPad.Down(Key.U));
             TestKeyU = false;
             if (u && !MenuOpen && mm.AntennaSwapBlock(_p) == null)
             {

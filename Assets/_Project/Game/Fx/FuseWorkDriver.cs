@@ -3,6 +3,7 @@ using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -143,7 +144,7 @@ namespace HideAndSeek.Game
             {
                 var kb = Keyboard.current;
                 var input = _p.InputReader;
-                bool holding = TestHoldE || (kb != null && kb.eKey.isPressed);
+                bool holding = TestHoldE || (kb != null && KeyOrPad.Held(Key.E));
                 bool moved = input != null && (input.Move.sqrMagnitude > 0.2f || input.JumpHeld);
                 if (!holding || moved)
                 {

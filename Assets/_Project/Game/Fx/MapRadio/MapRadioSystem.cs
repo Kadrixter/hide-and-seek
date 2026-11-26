@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -177,7 +178,7 @@ namespace HideAndSeek.Game
                 if (s.Mode == MapRadioState.Carried && s.Carrier == me.NetworkObjectId)
                 {
                     var kb = Keyboard.current;
-                    bool run = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
+                    bool run = kb != null && (KeyOrPad.Held(Key.LeftShift) || KeyOrPad.Held(Key.RightShift));
                     scale = since < ShoulderRadioRig.LiftTime ? 0f : run ? RunScale : WalkScale;
                     if (me.ToyGunOut.Value) me.ToyGunOut.Value = false;
                 }

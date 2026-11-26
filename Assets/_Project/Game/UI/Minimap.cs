@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -199,7 +200,7 @@ namespace HideAndSeek.Game
             var kb = Keyboard.current;
             var me = NetPlayer.Local;
             if (kb == null || me == null || me.InputReader == null || !me.InputReader.InputEnabled) return;
-            if (kb.mKey.wasPressedThisFrame)
+            if (KeyOrPad.Down(Key.M))
             {
                 _zoomIndex = (_zoomIndex + 1) % Zooms.Length;
                 _viewMetres = Zooms[_zoomIndex];

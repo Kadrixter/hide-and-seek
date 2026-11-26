@@ -3,6 +3,7 @@ using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -135,22 +136,30 @@ namespace HideAndSeek.Game
             }
             if (!control || mouse == null) return;
             float sens = LocalProfile.MouseSensitivity;
-            Vector2 d = mouse.delta.ReadValue() * sens;
+            Vector2 d = KeyOrPad.MouseDelta(sens) * sens; // + right stick
             bool invert = _me != null && _me.InputReader != null && _me.InputReader.InvertY;
             _yaw += d.x;
             _pitch = Mathf.Clamp(_pitch + (invert ? -d.y : d.y), -85f, 85f);
         }
+
+        private bool _padRun;
 
         private void Move(bool control, float dt)
         {
             var kb = Keyboard.current;
             Vector2 input = Vector2.zero;
             bool run = false;
-            if (control && kb != null)
+            if (control)
             {
-                input.x = (kb.dKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed ? 1f : 0f);
-                input.y = (kb.wKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed ? 1f : 0f);
-                run = kb.leftShiftKey.isPressed;
+                if (kb != null)
+                {
+                    input.x = (kb.dKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed ? 1f : 0f);
+                    input.y = (kb.wKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed ? 1f : 0f);
+                }
+                input += PadInput.Move; // left stick (analog)
+                run = KeyOrPad.Held(Key.LeftShift) || (PadInput.Move.sqrMagnitude > 0.5f && _padRun);
+                if (PadInput.Down(PadAction.Sprint)) _padRun = true; // L3 click: run until the stick is released
+                else if (PadInput.Move.sqrMagnitude < 0.04f) _padRun = false;
             }
             input = Vector2.ClampMagnitude(input, 1f);
             Quaternion yawRot = Quaternion.Euler(0f, _yaw, 0f);
@@ -198,7 +207,7 @@ namespace HideAndSeek.Game
             var kb = Keyboard.current;
             _yaw = _seatYaw + Mathf.Clamp(Mathf.DeltaAngle(_seatYaw, _yaw), -110f, 110f);
             PoseCamera(0f);
-            if (control && kb != null && (kb.spaceKey.wasPressedThisFrame || kb.eKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame)) StandUp(true);
+            if (control && kb != null && (KeyOrPad.Down(Key.Space) || KeyOrPad.Down(Key.E) || KeyOrPad.Down(Key.W))) StandUp(true);
         }
 
         public void StandUp(bool sound)

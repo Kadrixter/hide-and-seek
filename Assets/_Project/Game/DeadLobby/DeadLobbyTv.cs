@@ -4,6 +4,7 @@ using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -183,10 +184,10 @@ namespace HideAndSeek.Game
             InReach = to.magnitude <= Reach && Vector3.Dot(eye - Center, Normal) > 0.4f && Vector3.Angle(body.Forward, to) < 28f;
             if (!InReach || LocalPlayerController.MenuOpen) return;
             var mouse = Mouse.current;
-            if (TestNext || (mouse != null && mouse.leftButton.wasPressedThisFrame)) Cycle(1);
-            if (mouse != null && mouse.rightButton.wasPressedThisFrame) Cycle(-1);
+            if (TestNext || (mouse != null && mouse.leftButton.wasPressedThisFrame) || PadInput.Down(PadAction.Attack)) Cycle(1); // pad R2 / L2
+            if ((mouse != null && mouse.rightButton.wasPressedThisFrame) || PadInput.Down(PadAction.Aim)) Cycle(-1);
             TestNext = false;
-            float wheel = mouse != null ? mouse.scroll.ReadValue().y : 0f;
+            float wheel = KeyOrPad.ScrollY; // pad: L1 + D-pad up / down = volume
             if (Mathf.Abs(wheel) > 0.01f)
             {
                 Volume = Mathf.Round((Volume + Mathf.Sign(wheel) * 0.05f) * 20f) / 20f;

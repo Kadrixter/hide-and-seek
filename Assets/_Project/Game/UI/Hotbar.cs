@@ -5,6 +5,7 @@ using HideAndSeek.Game.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -84,7 +85,7 @@ namespace HideAndSeek.Game
             FollowHeld(p);
             var kb = Keyboard.current;
             var mouse = Mouse.current;
-            if (kb == null || mouse == null || LocalPlayerController.MenuOpen || p.Busy.Value || p.RcControlling || p.RcAnimating) return;
+            if (LocalPlayerController.MenuOpen || p.Busy.Value || p.RcControlling || p.RcAnimating) return;
             if (p.HoldsPaMic || p.CarriesMapRadio) return; // the hand holds the public-address microphone (LMB = its talk bar) / a radio
             if (p.ExtBlocksHands) return; // fire extinguisher in both hands / foam being wiped off the face
             if (HideAndSeek.Game.MiniGames.BoardGameView.WantsCursor) return; // at the chess / tic-tac-toe table: keys and wheel belong to the board
@@ -93,16 +94,19 @@ namespace HideAndSeek.Game
             int pick = TestSelect;
             TestSelect = -1;
             for (int i = 0; i < Slots; i++)
-                if (kb[Key.Digit1 + i].wasPressedThisFrame || kb[Key.Numpad1 + i].wasPressedThisFrame) pick = i;
+                if (kb != null && (kb[Key.Digit1 + i].wasPressedThisFrame || kb[Key.Numpad1 + i].wasPressedThisFrame)) pick = i;
+            // Pad: D-pad left / right step through the slots (wrapping).
+            if (PadInput.Down(PadAction.SlotNext)) pick = (_sel + 1) % Slots;
+            if (PadInput.Down(PadAction.SlotPrev)) pick = (_sel + Slots - 1) % Slots;
             if (pick >= 0) Select(p, pick);
 
-            bool drop = kb.qKey.wasPressedThisFrame || TestDrop;
+            bool drop = KeyOrPad.Down(Key.Q) || TestDrop;
             TestDrop = false;
             if (drop) Drop(p);
 
             bool locked = p.InputReader == null || p.InputReader.CursorLocked;
-            bool click = (mouse.leftButton.wasPressedThisFrame && locked) || TestClick;
-            bool hold = (mouse.leftButton.isPressed && locked) || TestHold || TestClick;
+            bool click = (mouse != null && mouse.leftButton.wasPressedThisFrame && locked) || PadInput.Down(PadAction.Attack) || TestClick;
+            bool hold = (mouse != null && mouse.leftButton.isPressed && locked) || PadInput.Held(PadAction.Attack) || TestHold || TestClick;
             TestClick = false;
             Use(p, ItemAt(p, _sel), click, hold);
         }

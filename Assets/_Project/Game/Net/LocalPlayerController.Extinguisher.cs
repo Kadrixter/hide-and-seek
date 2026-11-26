@@ -2,6 +2,7 @@ using HideAndSeek.Characters;
 using HideAndSeek.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -28,7 +29,7 @@ namespace HideAndSeek.Game.Net
             if (_p.IsSeeker && _p.Foamed)
             {
                 if (_p.SawRev.Value) _p.SawRev.Value = false;
-                if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
+                if (KeyOrPad.Down(Key.T) && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
                 return true;
             }
             int idx = mm.ExtHeldBy(_p);
@@ -39,8 +40,8 @@ namespace HideAndSeek.Game.Net
                 return false;
             }
             var st = mm.Extinguishers[idx];
-            bool trigger = (mouse.leftButton.isPressed && _p.InputReader.CursorLocked) || TestExtSpray;
-            bool click = (mouse.leftButton.wasPressedThisFrame && _p.InputReader.CursorLocked) || (TestExtSpray && !_p.ExtSpray.Value);
+            bool trigger = (mouse != null && mouse.leftButton.isPressed && _p.InputReader.CursorLocked) || PadInput.Held(PadAction.Attack) || TestExtSpray;
+            bool click = (mouse != null && mouse.leftButton.wasPressedThisFrame && _p.InputReader.CursorLocked) || PadInput.Down(PadAction.Attack) || (TestExtSpray && !_p.ExtSpray.Value);
             if (!st.Unlocked && click && Time.time >= _extNextRequest)
             {
                 _extNextRequest = Time.time + 0.6f;
@@ -64,19 +65,19 @@ namespace HideAndSeek.Game.Net
                 _extEmptyToast = Time.time + 2.5f;
                 GameHud.Toast("Gaśnica jest pusta - Q, żeby ją odłożyć.", 2.2f);
             }
-            if ((kb.qKey.wasPressedThisFrame || TestExtDrop) && Time.time >= _extNextRequest)
+            if ((KeyOrPad.Down(Key.Q) || TestExtDrop) && Time.time >= _extNextRequest)
             {
                 TestExtDrop = false;
                 _extNextRequest = Time.time + 0.5f;
                 _p.RequestExtRpc(MatchManager.ExtPutDown, (byte)idx);
             }
             for (int i = 0; i < 5; i++)
-                if (kb[Key.Digit1 + i].wasPressedThisFrame && Time.time >= _extEmptyToast)
+                if (kb != null && kb[Key.Digit1 + i].wasPressedThisFrame && Time.time >= _extEmptyToast)
                 {
                     _extEmptyToast = Time.time + 2f;
                     GameHud.Toast("Gaśnica nie mieści się do ekwipunku - trzymasz ją w rękach. Q - odłóż.", 2.5f);
                 }
-            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
+            if (KeyOrPad.Down(Key.T) && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
             SawWrestWithExt(kb, mm.Phase.Value); // E: grab the saw of the seeker just foamed (LocalPlayerController.SawWrest.cs)
             return true;
         }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -21,7 +22,7 @@ namespace HideAndSeek.Game.Net
         {
             var mm = MatchManager.Instance;
             if (mm == null || !_p.HoldsPaMic) return false;
-            bool leave = (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || _p.Motor.IsProne;
+            bool leave = (KeyOrPad.Down(Key.E) && !_ignoreEThisFrame) || _p.Motor.IsProne;
             Vector3 chest = transform.position + Vector3.up * 1.2f;
             if (Vector3.Distance(chest, PaLayout.GlandPos(mm.PaStation.Value)) > PaLayout.MaxReach) leave = true;
             if (leave)
@@ -33,7 +34,7 @@ namespace HideAndSeek.Game.Net
                     _p.RequestPaRpc(false, mm.PaStation.Value);
                 }
             }
-            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
+            if (KeyOrPad.Down(Key.T) && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
             return true;
         }
 

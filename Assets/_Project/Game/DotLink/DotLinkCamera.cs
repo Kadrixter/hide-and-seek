@@ -1,6 +1,7 @@
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.DotLink
 {
@@ -44,8 +45,7 @@ namespace HideAndSeek.Game.DotLink
             if (!on && p != null && (p.Busy.Value || p.Life.Value != HideAndSeek.Core.LifeState.Alive)) _w = 0f;
             if (on)
             {
-                var mouse = Mouse.current;
-                float wheel = mouse != null ? mouse.scroll.ReadValue().y : 0f;
+                float wheel = KeyOrPad.ScrollY; // pad: L1 + D-pad up / down
                 if (Mathf.Abs(wheel) > 0.01f) _zoom = Mathf.Clamp(_zoom - Mathf.Sign(wheel) * 0.06f, 0.8f, 1.35f);
             }
             else if (_w <= 0f) _zoom = 1f;

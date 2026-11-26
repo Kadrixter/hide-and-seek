@@ -73,6 +73,7 @@ namespace HideAndSeek.Game
         private void OnGUI()
         {
             if (_panelOwner != this) return;
+            if (UI.PadCursor.ImguiPass(OnGUI)) return; // pad cursor: hover + clicks
             var mm = MatchManager.Instance;
             var me = NetPlayer.Local;
             var ch = Channel;
@@ -244,6 +245,7 @@ namespace HideAndSeek.Game
             RadioUi.Fill(new Rect(field.x + 1.5f * s, field.y + 1.5f * s, field.width - 3 * s, field.height - 3 * s), RadioUi.Card, 13 * s);
             bool enter = Event.current.type == EventType.KeyDown && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter);
             GUI.SetNextControlName("TvUrl");
+            _urlField = UI.PadKeyboard.Field("TvUrl", field, _urlField, 200, "Link z YouTube"); // pad: on-screen keyboard
             _urlField = GUI.TextField(field, _urlField ?? "", 200, _field);
             // A valid link in the field already starts downloading here (the start is faster for whoever pasted it).
             if (_urlField != _prefetched && TvLink.TryNormalize(_urlField, out string pre, out _))

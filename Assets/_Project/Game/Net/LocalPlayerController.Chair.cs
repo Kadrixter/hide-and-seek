@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -17,14 +18,14 @@ namespace HideAndSeek.Game.Net
         private bool ChairTick(Keyboard kb)
         {
             if (SecurityChairDriver.LocalChair < 0) return false;
-            bool stand = !_ignoreEThisFrame && (kb.eKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame ||
-                         kb.wKey.wasPressedThisFrame || kb.sKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame);
+            bool stand = !_ignoreEThisFrame && (KeyOrPad.Down(Key.E) || KeyOrPad.Down(Key.Space) ||
+                         KeyOrPad.Down(Key.W) || KeyOrPad.Down(Key.S) || KeyOrPad.Down(Key.A) || KeyOrPad.Down(Key.D));
             if (stand)
             {
                 _ignoreEThisFrame = true;
                 SecurityChairDriver.LeaveLocal();
             }
-            if (kb.tKey.wasPressedThisFrame && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
+            if (KeyOrPad.Down(Key.T) && _p.Flashlight != null && _p.HasFlashlight) _p.Flashlight.Toggle();
             return true;
         }
 

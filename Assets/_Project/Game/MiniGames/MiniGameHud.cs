@@ -94,6 +94,7 @@ namespace HideAndSeek.Game.MiniGames
             if (table is ChessTable chess) TickChess(me, chess, seat);
             else if (table is TttTable ttt) TickTtt(ttt, seat);
             else if (table is PoolTable pool) TickPool(pool, seat);
+            _hints.text = UI.PadHints.Board(_hints.text); // pad: button names (no-op with keyboard / mouse)
             float left = _flashUntil - Time.unscaledTime;
             _flash.text = left > 0f ? _flashText : "";
             var c = _flash.color;

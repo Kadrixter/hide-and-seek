@@ -16,6 +16,7 @@ namespace HideAndSeek.Game.UI
 
         private Canvas _canvas;
         private RectTransform _main, _character, _browser, _options, _audio, _voicePage, _graphics, _connecting, _column;
+        private RectTransform _padPage, _padBindPage; // MainMenu.PadSettings.cs
         private Text _message, _skinLabel, _serverList, _connectingText;
         private InputField _nick, _ip, _mcNick;
         private Text _mcStatus;
@@ -68,6 +69,7 @@ namespace HideAndSeek.Game.UI
             _audio = BuildAudio(_column);
             _voicePage = BuildVoice(_column);
             _graphics = BuildGraphics(_column); // MainMenu.Graphics.cs
+            BuildPadPages(_column); // MainMenu.PadSettings.cs
             _connecting = BuildConnecting(root);
             Show(_main);
             MenuWeaponPicker.Create(root, this); // bottom right: weapon of the menu character
@@ -105,11 +107,11 @@ namespace HideAndSeek.Game.UI
 
         private void Show(RectTransform page)
         {
-            foreach (var p in new[] { _main, _character, _browser, _options, _audio, _voicePage, _graphics }) p.gameObject.SetActive(p == page);
+            foreach (var p in new[] { _main, _character, _browser, _options, _audio, _voicePage, _graphics, _padPage, _padBindPage }) if (p != null) p.gameObject.SetActive(p == page);
             if (page == _browser) LanDiscovery.StartSearch();
             else LanDiscovery.StopSearch();
             OnButtonHovered(null);
-            if (_footer != null) _footer.gameObject.SetActive(page != _audio && page != _voicePage && page != _graphics);
+            if (_footer != null) _footer.gameObject.SetActive(page != _audio && page != _voicePage && page != _graphics && page != _padPage && page != _padBindPage);
         }
 
         // ================================================================ actions

@@ -4,6 +4,7 @@ using HideAndSeek.Core;
 using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game
 {
@@ -173,14 +174,13 @@ namespace HideAndSeek.Game
             {
                 if (canDrive)
                 {
-                    throttle = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1f : 0f) - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1f : 0f);
-                    steer = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1f : 0f) - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1f : 0f);
+                    KeyOrPad.Drive(out throttle, out steer); // pad: R2 / L2 + left stick
                 }
                 if (TestAutopilot && canDrive) Autopilot(out throttle, out steer);
-                _mine.Boost = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed || (TestAutopilot && canDrive);
-                _mine.Horn = kb.hKey.isPressed;
-                if (kb.cKey.wasPressedThisFrame) _bumper = !_bumper;
-                if (kb.rKey.wasPressedThisFrame && canDrive) RespawnAtCheckpoint("Powrót na ostatni checkpoint.");
+                _mine.Boost = KeyOrPad.Held(Key.LeftShift) || KeyOrPad.Held(Key.RightShift) || PadInput.Held(PadAction.Jump) || (TestAutopilot && canDrive); // pad: L3 / Cross
+                _mine.Horn = KeyOrPad.Held(Key.H);
+                if (KeyOrPad.Down(Key.C)) _bumper = !_bumper;
+                if (KeyOrPad.Down(Key.R) && canDrive) RespawnAtCheckpoint("Powrót na ostatni checkpoint.");
             }
             _mine.Throttle = throttle;
             _mine.SteerInput = steer;

@@ -1,6 +1,7 @@
 using HideAndSeek.Core;
 using Unity.Netcode;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Net
 {
@@ -21,6 +22,7 @@ namespace HideAndSeek.Game.Net
                 if (!IsOwner || !HoldsPaMic || Life.Value != LifeState.Alive) return false;
                 if (TestPaTalk) return true;
                 var mouse = Mouse.current;
+                if (PadInput.Held(PadAction.Attack) && !LocalPlayerController.MenuOpen && InputReader != null && InputReader.InputEnabled) return true; // pad: R2
                 return mouse != null && mouse.leftButton.isPressed && !LocalPlayerController.MenuOpen &&
                        InputReader != null && InputReader.InputEnabled && InputReader.CursorLocked;
             }

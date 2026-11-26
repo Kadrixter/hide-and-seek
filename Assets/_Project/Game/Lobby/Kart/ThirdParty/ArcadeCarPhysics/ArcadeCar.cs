@@ -118,6 +118,11 @@ public class ArcadeCar : MonoBehaviour
         [Tooltip("Stabilizer bar anti-roll force")]
         public float antiRollForce = 10000.0f;
 
+        // [Hide and Seek] Digressive bump damping (a damper's blow-off valve): above this compression speed (m/s) only
+        // bumpHighSpeedK of the damping acts, so a sharp step in the ground is not turned into a kick. 0 = linear (original).
+        public float bumpKneeSpeed = 0.0f;
+        public float bumpHighSpeedK = 1.0f;
+
         [HideInInspector]
         public WheelData wheelDataL = new WheelData();
 
@@ -218,6 +223,14 @@ public class ArcadeCar : MonoBehaviour
 
     [Tooltip("Downforce")]
     public float downForce = 5.0f;
+
+    // [Hide and Seek] Airtime (s) that gives the full after-flight tyre slip; shorter hops (a crest, a seam) give a
+    // proportionally shorter / weaker one. 0 = original (any frame with all wheels off the ground = the full second).
+    public float afterFlightFullAirTime = 0.0f;
+    // [Hide and Seek] Wheel stands on the highest of its 3 ray samples and touches when any hits (false = original:
+    // centre ray only, and all 3 must hit).
+    public bool wideWheelContact = false;
+    float airTime = 0.0f;
 
     [Header("Axles")]
 
@@ -407,15 +420,17 @@ public class ArcadeCar : MonoBehaviour
         float speed = GetSpeed();
         float dt = Time.fixedDeltaTime;
 
+        // [Hide and Seek] analog throttle: the force follows how far the trigger is pressed (keyboard = 1, full force)
+        float amount = Mathf.Clamp01(Mathf.Abs(inputVertical));
         if (isAcceleration)
         {
             float forceMag = GetAccelerationForceMagnitude(accelerationCurve, speed, dt);
-            return forceMag;
+            return forceMag * amount;
         }
         else
         {
             float forceMag = GetAccelerationForceMagnitude(accelerationCurveReverse, -speed, dt);
-            return -forceMag;
+            return -forceMag * amount;
         }
 
     }
@@ -498,7 +513,8 @@ public class ArcadeCar : MonoBehaviour
         float speed = GetSpeed();
         isAcceleration = false;
         isReverseAcceleration = false;
-        if (v > 0.4f)
+        // [Hide and Seek] analog throttle: a light trigger press already drives (the force is scaled by it)
+        if (v > 0.05f)
         {
             if (speed < -0.5f)
             {
@@ -509,7 +525,7 @@ public class ArcadeCar : MonoBehaviour
                 isAcceleration = true;
             }
         }
-        else if (v < -0.4f)
+        else if (v < -0.05f)
         {
             if (speed > 0.5f)
             {
@@ -560,12 +576,12 @@ public class ArcadeCar : MonoBehaviour
 
             float steerSpeed = steeringSpeed.Evaluate(speedKmH);
 
-            float newSteerAngle = axles[0].steerAngle + (h * steerSpeed);
-            float sgn = Mathf.Sign(newSteerAngle);
-
+            // [Hide and Seek] analog steering: the wheels turn towards h * the steering limit (a half-tilted stick
+            // steers half as far); the keyboard (h = +-1) behaves as before (full limit at the same turning speed).
             float steerLimit = GetSteerAngleLimitInDeg(speed);
-
-            newSteerAngle = Mathf.Min(Math.Abs(newSteerAngle), steerLimit) * sgn;
+            float target = Mathf.Clamp(h, -1f, 1f) * steerLimit;
+            float newSteerAngle = Mathf.MoveTowards(axles[0].steerAngle, target, steerSpeed);
+            newSteerAngle = Mathf.Clamp(newSteerAngle, -steerLimit, steerLimit);
 
             axles[0].steerAngle = newSteerAngle;
         }
@@ -637,7 +653,9 @@ public class ArcadeCar : MonoBehaviour
         if (allWheelIsOnAir)
         {
             // set after flight tire slippery time (1 sec)
-            afterFlightSlipperyTiresTime = 1.0f;
+            airTime += Time.fixedDeltaTime;
+            float slipT = afterFlightFullAirTime > 0.0f ? Mathf.Clamp01(airTime / afterFlightFullAirTime) : 1.0f;
+            afterFlightSlipperyTiresTime = Mathf.Max(afterFlightSlipperyTiresTime, slipT);
 
             // Try to keep vehicle parallel to the ground while jumping
             Vector3 carUp = transform.TransformDirection(new Vector3(0.0f, 1.0f, 0.0f));
@@ -670,6 +688,8 @@ public class ArcadeCar : MonoBehaviour
             rb.AddTorque(axis * flightStabilizationForce * mass);
         } else
         {
+            airTime = 0.0f;
+
             // downforce
             Vector3 carDown = transform.TransformDirection(new Vector3(0.0f, -1.0f, 0.0f));
 
@@ -921,6 +941,18 @@ public class ArcadeCar : MonoBehaviour
         wheelRay.origin = wsAttachPoint;
         bool isCollided = RayCast(wheelRay, traceLen, ref wheelData.touchPoint);
 
+        // [Hide and Seek] The tyre is wide: it stands on the highest of its three samples (centre, both edges) and
+        // counts as touching when any of them hits, instead of losing contact (and the spring) whenever one edge ray
+        // misses at a road edge or a step - that on / off flicker shook the kart.
+        if (wideWheelContact)
+        {
+            if (b1 && (!isCollided || s1.distance < wheelData.touchPoint.distance)) { wheelData.touchPoint = s1; isCollided = true; }
+            if (b2 && (!isCollided || s2.distance < wheelData.touchPoint.distance)) { wheelData.touchPoint = s2; isCollided = true; }
+            if (!b1) s1.point = wheelData.touchPoint.point + wsAxleLeft * wheelWidth;
+            if (!b2) s2.point = wheelData.touchPoint.point - wsAxleLeft * wheelWidth;
+            b1 = b2 = true;
+        }
+
         // No wheel contant found
         if (!isCollided || !b1 || !b2)
         {
@@ -966,6 +998,14 @@ public class ArcadeCar : MonoBehaviour
         // Damping force (try to reset velocity to 0)
         float suspCompressionVelocity = (wheelData.compression - wheelData.compressionPrev) / dt;
         wheelData.compressionPrev = wheelData.compression;
+
+        // [Hide and Seek] Digressive bump damping (blow-off): fast compression (a step hit in one physics step) is
+        // damped less, rebound stays linear.
+        float knee = axle.bumpKneeSpeed / Mathf.Max(0.01f, axle.lengthRelaxed);
+        if (knee > 0.0f && suspCompressionVelocity > knee)
+        {
+            suspCompressionVelocity = knee + (suspCompressionVelocity - knee) * axle.bumpHighSpeedK;
+        }
 
         float damperForce = -suspCompressionVelocity * axle.damping;
         suspForceMag += damperForce;

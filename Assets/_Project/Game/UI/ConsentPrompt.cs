@@ -3,6 +3,7 @@ using HideAndSeek.Game.Net;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.UI
 {
@@ -149,8 +150,8 @@ namespace HideAndSeek.Game.UI
             {
                 var kb = Keyboard.current;
                 bool free = !LocalPlayerController.MenuOpen;
-                bool yes = free && kb != null && kb.yKey.wasPressedThisFrame;
-                bool no = free && kb != null && kb.nKey.wasPressedThisFrame;
+                bool yes = free && kb != null && KeyOrPad.Down(UnityEngine.InputSystem.Key.Y);
+                bool no = free && kb != null && KeyOrPad.Down(UnityEngine.InputSystem.Key.N);
                 if (AutoAccept && now - _askStart > 1.2f) yes = true;
                 if (yes || no)
                 {

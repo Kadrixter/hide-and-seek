@@ -207,7 +207,7 @@ namespace HideAndSeek.Game
         public static void Toast(string text, float seconds)
         {
             if (_instance == null) return;
-            _instance._toast.text = text;
+            _instance._toast.text = PadHints.Line(text); // pad: "(E)" -> "(□)"
             _instance._toastUntil = Time.unscaledTime + seconds;
         }
 
@@ -303,7 +303,9 @@ namespace HideAndSeek.Game
 
             // ---- Esc menu
             var kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape
+            // Pad: Options = Esc; Circle = Esc only while something here is open (in play it is a game button).
+            bool padEsc = PadUi.Pause || (PadUi.Back && (Boombox.PanelOpen || LobbyTvVideo.PanelOpen || LobbyClaude.SurveyOpen || _settingsPanel != null || _escMenu != null));
+            if (((kb != null && kb.escapeKey.wasPressedThisFrame) || padEsc) && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape
                 && !HideAndSeek.Game.DotLink.DotLinkLocal.ConsumesEscape // Esc at the dot link panel = leave it
                 && !LockpickUi.ConsumesEscape) // Esc in the bonnet lockpick = stop it
             {
@@ -608,26 +610,26 @@ namespace HideAndSeek.Game
             }
             var canvasRt = (RectTransform)_canvas.transform;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRt, sp, null, out Vector2 local);
-            // In the lobby the prompts are plain text like in the dead lobby ("E  usiądź", 30 px over the thing); a hold
-            // prompt still uses the key box (its fill shows the progress).
-            var mm = MatchManager.Instance;
-            bool lobby = mm != null && mm.Phase.Value == MatchPhase.Lobby && lpc.HoldProgress <= 0f;
+            // Everywhere (lobby and round) the prompts are plain text like in the dead lobby ("E  usiądź", 30 px over the
+            // thing); a hold prompt still uses the key box (its fill shows the progress).
+            bool lobby = lpc.HoldProgress <= 0f;
             _lobbyPrompt.gameObject.SetActive(lobby);
             _prompt.gameObject.SetActive(!lobby);
             if (lobby)
             {
                 _lobbyPrompt.rectTransform.anchorMin = _lobbyPrompt.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
                 _lobbyPrompt.rectTransform.anchoredPosition = local + new Vector2(0f, 30f);
-                _lobbyPrompt.text = lpc.PromptText;
+                _lobbyPrompt.text = PadHints.Prompt(lpc.PromptText); // pad: "□  usiądź"
                 return;
             }
             _prompt.anchoredPosition = local;
             _prompt.anchorMin = _prompt.anchorMax = new Vector2(0.5f, 0.5f);
-            string txt = lpc.PromptText;
-            string letter = txt.Length > 0 ? txt.Substring(0, 1) : "";
+            string txt = PadHints.Prompt(lpc.PromptText); // pad: the key becomes the pad button ("L1+□")
+            string letter = PadHints.Active ? PadHints.PromptKey(txt) : txt.Length > 0 ? txt.Substring(0, 1) : "";
             var letterText = _prompt.Find("Key/Letter").GetComponent<Text>();
             letterText.text = letter;
-            _promptText.text = txt.Length > 1 ? txt.Substring(1).Trim() : "";
+            letterText.horizontalOverflow = HorizontalWrapMode.Overflow; // "L1+□" is wider than the key box
+            _promptText.text = txt.Length > letter.Length ? txt.Substring(letter.Length).Trim() : "";
             _promptFill.fillAmount = lpc.HoldProgress;
             bool far = txt.Contains("bliżej");
             letterText.color = far ? new Color(0f, 0f, 0f, 0.4f) : Color.black;

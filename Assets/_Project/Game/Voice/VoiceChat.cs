@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using HideAndSeek.Player;
 
 namespace HideAndSeek.Game.Voice
 {
@@ -173,7 +174,7 @@ namespace HideAndSeek.Game.Voice
             else
             {
                 var kb = Keyboard.current;
-                send = kb != null && kb.vKey.isPressed && !menu;
+                send = kb != null && KeyOrPad.Held(Key.V) && !menu;
             }
             if (forceSend) send = true;
             // Public address: the talk bar of the wall microphone sends (also without V / below the open-mic threshold).

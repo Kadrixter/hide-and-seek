@@ -191,7 +191,7 @@ namespace HideAndSeek.Game
                 return;
             }
             _name.text = cur == HotbarItem.None ? "" : Hotbar.Name(cur);
-            _hint.text = cur == HotbarItem.None ? "" : Hotbar.Hint(me, cur);
+            _hint.text = cur == HotbarItem.None ? "" : PadHints.Line(Hotbar.Hint(me, cur));
         }
     }
 }
