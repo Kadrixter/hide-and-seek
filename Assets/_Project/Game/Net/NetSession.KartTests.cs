@@ -15,7 +15,6 @@ namespace HideAndSeek.Game.Net
     ///      drift from its kart, then drives into the host's parked kart (kart-to-kart bump), gets out.
     ///  -testtracklate &lt;dir&gt; (late client): every kart is shown where the server says.
     ///  -testcircuit &lt;dir&gt; (host alone): the kart circuit's geometry, pictures and one autopilot lap (NetSession.CircuitTests.cs, [TrackTest]).
-    ///  -testkart &lt;dir&gt; (one instance): drift model + countersteer assist (NetSession.KartDriftTests.cs).
     /// Logs: [KartTest] ... PASS / FAIL.
     /// </summary>
     public partial class NetSession
@@ -29,7 +28,6 @@ namespace HideAndSeek.Game.Net
             if (has("-testtracklate")) StartCoroutine(TrackLateTest(ArgOr("-testtracklate", "")));
             if (has("-testtracklight")) StartCoroutine(TrackLightTest(ArgOr("-testtracklight", ""))); // NetSession.TrackTests.cs
             if (has("-testcircuit")) StartCoroutine(CircuitTest(ArgOr("-testcircuit", ""))); // NetSession.CircuitTests.cs
-            if (has("-testkart")) StartCoroutine(KartDriftTest(ArgOr("-testkart", ""))); // drift + countersteer assist: NetSession.KartDriftTests.cs
         }
 
         private static IEnumerator WaitKartLobby(int players)
