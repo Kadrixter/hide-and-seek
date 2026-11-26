@@ -176,13 +176,24 @@ namespace HideAndSeek.Game.MiniGames
             int lastTeam = -1, lastShot = int.MinValue, round = -1;
             var lastOf = new[] { -1, -1 };
             var membersAt = new[] { 0, 0 };
+            var lastBreak = new[] { -1, -1 };
             while (true)
             {
                 var s = pool.State;
                 if (s.Phase == PoolState.Playing && !pool.Rolling && s.ShotNo != lastShot)
                 {
                     lastShot = s.ShotNo;
-                    if (s.Round != round) { round = s.Round; lastTeam = -1; lastOf[0] = lastOf[1] = -1; }
+                    if (s.Round != round)
+                    {
+                        round = s.Round;
+                        lastTeam = -1;
+                        lastOf[0] = lastOf[1] = -1;
+                        // The break goes round inside a team of two: never the same player twice in a row.
+                        int bt = s.Turn, bp = s.Shooter;
+                        bool bok = !(s.Members(bt) == 2 && lastBreak[bt] == bp);
+                        Log($"break: game {s.Round} team {(bt == 0 ? 'A' : 'B')} breaks with place {bp} ({pool.SeatNick(bp)}), last break of the team place {lastBreak[bt]} => {(bok ? "OK" : "FAIL")}");
+                        lastBreak[bt] = bp;
+                    }
                     int team = s.Turn, shooter = s.Shooter, members = s.Members(team);
                     if (team != lastTeam)
                     {

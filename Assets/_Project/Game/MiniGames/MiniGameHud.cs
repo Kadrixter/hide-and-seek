@@ -35,6 +35,9 @@ namespace HideAndSeek.Game.MiniGames
             var root = _canvas.transform;
             _panel = UiStyle.Panel("Panel", root, new Color(0.05f, 0.055f, 0.06f, 0.82f));
             _panel.rectTransform.Place(new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(760f, 118f));
+            // No green accent strip on this panel: it ran right through the team names / score line.
+            var accent = _panel.transform.Find("Accent");
+            if (accent != null) Destroy(accent.gameObject);
             _title = UiKit.Label("Title", _panel.transform, "", 22, TextAnchor.UpperCenter, UiKit.TextDim);
             _title.rectTransform.Place(new Vector2(0, 1), new Vector2(1, 1), new Vector2(0.5f, 1), new Vector2(0, -10), new Vector2(-30, 30));
             _status = UiKit.Label("Status", _panel.transform, "", 34, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);

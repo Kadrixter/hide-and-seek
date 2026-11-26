@@ -63,6 +63,7 @@ namespace HideAndSeek.Game.MiniGames
             for (float w = 0f; w < 30f && pool.State.Phase != PoolState.Playing; w += Time.deltaTime) yield return null;
             Log($"game 1: phase={pool.State.Phase} breaker team={pool.State.Turn} shooter place={pool.State.Shooter} seated={pool.State.Seated} note='{pool.State.Note}' => {(pool.State.Phase == PoolState.Playing ? "OK" : "FAIL")}");
             yield return new WaitForSeconds(1.5f);
+            Log($"lamp while playing: level {pool.LampLevel:0.00} => {(pool.LampLevel > 0.95f ? "OK" : "FAIL")}");
             Shot(Prefix() + "02_playing");
             _poolGame = 1;
             yield return PoolGame(pool, place, shots1, leaveAt);
@@ -104,6 +105,8 @@ namespace HideAndSeek.Game.MiniGames
             yield return new WaitForSeconds(2f);
             Log($"host left: seated={pool.State.Seated} phase={pool.State.Phase} => {(pool.State.Seated == 0 && pool.State.Phase == PoolState.Waiting ? "OK" : "FAIL")}");
             yield return PoolAfterLeave(pool);
+            yield return new WaitForSeconds(2f);
+            Log($"lamp after everybody left: level {pool.LampLevel:0.00} => {(pool.LampLevel < 0.01f ? "OK" : "FAIL")}");
             RenderTable(pool, "61_table_reset", new Vector3(1.6f, 1.9f, -1.7f), 55f);
         }
 

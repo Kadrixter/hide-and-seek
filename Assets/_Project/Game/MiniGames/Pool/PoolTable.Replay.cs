@@ -81,7 +81,8 @@ namespace HideAndSeek.Game.MiniGames
             _shownShot = msg.ShotNo;
             ReplaySeat = msg.Seat;
             Rolling = true;
-            StrikeSound(msg.Power, msg.Pos[0]);
+            // The state still is the one before this shot (the result is published after it): Break = this is the break.
+            StrikeSound(msg.Power, msg.Pos[0], _hasState && State.Break && msg.Down == 0);
             OnShotStarted(msg.Seat, msg.Shot);
         }
 

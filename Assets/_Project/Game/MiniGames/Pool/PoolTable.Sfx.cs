@@ -41,11 +41,11 @@ namespace HideAndSeek.Game.MiniGames
             _voices = new AudioSource[Voices];
             for (int i = 0; i < Voices; i++) _voices[i] = NewSource(transform, "PoolSfx" + i);
             _rollSrc = NewSource(transform, "PoolRoll");
-            _rollSrc.clip = PoolSounds.RollLoop;
+            _rollSrc.clip = PoolSounds.Loop("roll", PoolSounds.RollLoop);
             _rollSrc.loop = true;
             _rollSrc.volume = 0f;
             _railSrc = NewSource(transform, "PoolReturnRoll");
-            _railSrc.clip = PoolSounds.RollLoop;
+            _railSrc.clip = PoolSounds.Loop("railroll", PoolSounds.RollLoop);
             _railSrc.loop = true;
             _railSrc.volume = 0f;
         }
@@ -70,8 +70,17 @@ namespace HideAndSeek.Game.MiniGames
             s.Play();
         }
 
-        void StrikeSound(float power, Vector2 cue) =>
-            PlayAt(PoolSounds.Strike, ToWorld(cue), 0.3f + 0.65f * Mathf.Clamp01(power), 0.95f + 0.12f * Mathf.Clamp01(power));
+        /// <summary>The shot being replayed is the break: its first ball contact plays the recorded rack burst.</summary>
+        bool _breakSfx;
+        /// <summary>Replay time until which single clicks stay quiet (the break recording already has them).</summary>
+        float _clicksQuietUntil = -1f;
+
+        void StrikeSound(float power, Vector2 cue, bool isBreak)
+        {
+            _breakSfx = isBreak && PoolSounds.HasRecorded("break");
+            _clicksQuietUntil = -1f;
+            PlayAt(PoolSounds.Pick("strike", PoolSounds.Strike), ToWorld(cue), 0.3f + 0.65f * Mathf.Clamp01(power), 0.95f + 0.12f * Mathf.Clamp01(power));
+        }
 
         /// <summary>Events of the replayed shot up to time <paramref name="t"/> (the loudest few of this frame).</summary>
         void PlayEventsUpTo(float t)
@@ -92,10 +101,18 @@ namespace HideAndSeek.Game.MiniGames
             switch (e.Kind)
             {
                 case PoolEvent.BallBall:
-                    PlayAt(PoolSounds.Click, at, Mathf.Pow(Mathf.Clamp01(sp / 3f), 0.7f) * 0.9f, Random.Range(0.94f, 1.08f));
+                    if (_breakSfx)
+                    {
+                        _breakSfx = false;
+                        _clicksQuietUntil = e.T + 0.7f;
+                        PlayAt(PoolSounds.Pick("break", null), at, 0.75f + 0.25f * Mathf.Clamp01(sp / 6f), Random.Range(0.96f, 1.04f));
+                        break;
+                    }
+                    if (e.T < _clicksQuietUntil) break;
+                    PlayAt(PoolSounds.Pick("click", PoolSounds.Click), at, Mathf.Pow(Mathf.Clamp01(sp / 3f), 0.7f) * 0.9f, Random.Range(0.94f, 1.08f));
                     break;
                 case PoolEvent.Cushion:
-                    PlayAt(PoolSounds.Cushion, at, Mathf.Pow(Mathf.Clamp01(sp / 2.5f), 0.8f) * 0.8f, Random.Range(0.9f, 1.1f));
+                    PlayAt(PoolSounds.Pick("cushion", PoolSounds.Cushion), at, Mathf.Pow(Mathf.Clamp01(sp / 2.5f), 0.8f) * 0.8f, Random.Range(0.9f, 1.1f));
                     break;
                 case PoolEvent.Jaw:
                     PlayAt(PoolSounds.Jaw, at, Mathf.Pow(Mathf.Clamp01(sp / 2.5f), 0.8f) * 0.75f, Random.Range(0.92f, 1.08f));
@@ -103,7 +120,7 @@ namespace HideAndSeek.Game.MiniGames
                 case PoolEvent.Pocket:
                     int p = e.B >= 0 && e.B < 6 ? e.B : NearestPocket(e.At);
                     var c = PoolTableModel.PocketCentre(p);
-                    PlayAt(PoolSounds.PocketDrop, transform.TransformPoint(c), 0.55f + 0.35f * Mathf.Clamp01(sp / 2f), Random.Range(0.92f, 1.06f));
+                    PlayAt(PoolSounds.Pick("pocket", PoolSounds.PocketDrop), transform.TransformPoint(c), 0.55f + 0.35f * Mathf.Clamp01(sp / 2f), Random.Range(0.92f, 1.06f));
                     break;
             }
         }
@@ -112,7 +129,8 @@ namespace HideAndSeek.Game.MiniGames
         void ReturnLanded(int i)
         {
             Vector3 w = transform.TransformPoint(ReturnPos(i));
-            PlayAt(PoolSounds.Jaw, w, 0.32f, Random.Range(1.25f, 1.4f));
+            if (PoolSounds.HasRecorded("clink")) PlayAt(PoolSounds.Pick("clink", null), w, 0.4f, Random.Range(0.92f, 1.1f));
+            else PlayAt(PoolSounds.Jaw, w, 0.32f, Random.Range(1.25f, 1.4f));
         }
 
         /// <summary>A ball rolling down the return stopped: against the tray's rubber divider, or clacking into the balls before it.</summary>
@@ -121,7 +139,7 @@ namespace HideAndSeek.Game.MiniGames
             Vector3 w = transform.TransformPoint(ReturnPos(i));
             float v = Mathf.Clamp01(speed / RetV0);
             if (divider) PlayAt(PoolSounds.Cushion, w, 0.2f + 0.3f * v, Random.Range(1.1f, 1.25f));
-            else PlayAt(PoolSounds.BagClack, w, 0.25f + 0.3f * v, Random.Range(0.95f, 1.08f));
+            else PlayAt(PoolSounds.Pick("tray", PoolSounds.BagClack), w, 0.25f + 0.3f * v, Random.Range(0.95f, 1.08f));
         }
 
         void TickSfx(float dt)
@@ -143,12 +161,13 @@ namespace HideAndSeek.Game.MiniGames
         void TickRailSound(float dt)
         {
             if (_railSrc == null) return;
-            float target = Mathf.Clamp01(_retRollSpeed / 1.2f) * 0.16f;
+            float target = Mathf.Clamp01(_retRollSpeed / 1.2f) * (PoolSounds.HasRecorded("railroll") ? 0.32f : 0.16f);
             _railSrc.volume = Mathf.MoveTowards(_railSrc.volume, target, dt * 1.2f);
             if (target > 0.004f)
             {
                 _railSrc.transform.position = transform.TransformPoint(_retRollAt);
-                _railSrc.pitch = 1.45f + 0.25f * Mathf.Clamp01(_retRollSpeed / 1.2f);
+                // The synthesised loop is the cloth rumble pitched up; a recorded metal-rail loop plays near its own pitch.
+                _railSrc.pitch = (PoolSounds.HasRecorded("railroll") ? 0.9f : 1.45f) + 0.25f * Mathf.Clamp01(_retRollSpeed / 1.2f);
                 if (!_railSrc.isPlaying) _railSrc.Play();
             }
             else if (_railSrc.volume <= 0.002f && _railSrc.isPlaying) _railSrc.Stop();

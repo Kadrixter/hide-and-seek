@@ -15,6 +15,11 @@ namespace HideAndSeek.Game.Net
     {
         /// <summary>The loser of the last game breaks the next one (-1 = nobody yet: random).</summary>
         private int _poolNextBreaker = -1;
+        /// <summary>
+        /// Bit t = team t's next break is played by its second place (flips after every break of that team), so in a
+        /// team of two the players take turns breaking. Same for the first inning of the team that does not break.
+        /// </summary>
+        private byte _poolBreakUp, _poolOpenUp;
 
         /// <summary>ServerMiniSit, pool branch: takes a free place (false = taken / not allowed).</summary>
         private bool PoolSit(NetPlayer pl, byte place)

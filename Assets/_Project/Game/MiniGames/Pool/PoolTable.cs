@@ -140,6 +140,7 @@ namespace HideAndSeek.Game.MiniGames
             PlaceBalls(dt);
             TickSfx(dt);
             DrivePoses();
+            TickLamp(dt);
         }
 
         void ReceiveState(string net)

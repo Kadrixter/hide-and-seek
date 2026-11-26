@@ -8,7 +8,7 @@ namespace HideAndSeek.Game.MiniGames
     /// dropping through a leather pocket into the net, balls knocking together in the basket, and a loopable low
     /// rumble of balls rolling on cloth.
     /// </summary>
-    public static class PoolSounds
+    public static partial class PoolSounds
     {
         const int Rate = 44100;
         static AudioClip _click, _strike, _cushion, _jaw, _drop, _bag, _bagClack, _roll;

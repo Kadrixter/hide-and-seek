@@ -89,6 +89,7 @@ namespace HideAndSeek.Game.Net
                 for (int p = 0; p < PoolState.Places; p++) _pool.SetPlace(p, PoolState.Nobody);
                 _pool.WinsA = _pool.WinsB = 0;
                 _poolNextBreaker = -1;
+                _poolBreakUp = _poolOpenUp = 0;
             }
             _pool.Phase = PoolState.Waiting;
             RackPool(); // a tidy table for the next players
@@ -101,9 +102,14 @@ namespace HideAndSeek.Game.Net
             RackPool();
             _pool.Phase = PoolState.Playing;
             _pool.Turn = (byte)breaker;
+            // Who of the two breaks / opens for the other team: alternates game by game inside each team.
+            int other = 1 - breaker;
+            _pool.Up = (byte)((_poolBreakUp & (1 << breaker)) | (_poolOpenUp & (1 << other)));
+            _poolBreakUp ^= (byte)(1 << breaker);
+            _poolOpenUp ^= (byte)(1 << other);
             _pool.Note = $"Rozbija {PoolNick(breaker)}";
             PublishPool();
-            Debug.Log($"[Pool] game {_pool.Round}: A={NickOf(_pool.A)}+{NickOf(_pool.A2)} B={NickOf(_pool.B)}+{NickOf(_pool.B2)}, breaks {(breaker == 0 ? 'A' : 'B')}, series {_pool.WinsA}:{_pool.WinsB}");
+            Debug.Log($"[Pool] game {_pool.Round}: A={NickOf(_pool.A)}+{NickOf(_pool.A2)} B={NickOf(_pool.B)}+{NickOf(_pool.B2)}, breaks {(breaker == 0 ? 'A' : 'B')} ({PoolNick(breaker)}), series {_pool.WinsA}:{_pool.WinsB}");
         }
 
         /// <summary>Nick of the player who plays team <paramref name="team"/>'s next inning.</summary>

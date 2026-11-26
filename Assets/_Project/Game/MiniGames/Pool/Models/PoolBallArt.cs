@@ -17,7 +17,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
         /// <summary>Angular radius of the white number circle (about 24 mm across on a 57 mm ball).</summary>
         public const float CircleR = 0.42f;
         /// <summary>Half width of the stripe as latitude (radians).</summary>
-        public const float StripeLat = 0.60f;
+        public const float StripeLat = 0.46f; // narrower band, bigger white caps: a stripe never reads as a solid from above
         /// <summary>Angular radius of a cue-ball dot (about 6 mm across).</summary>
         public const float DotR = 0.105f;
         /// <summary>Glyph height (radians) for one and two digits.</summary>

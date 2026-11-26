@@ -26,7 +26,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public const float BulbAboveRim = 0.062f;
 
         static readonly Color LightColor = new Color(1f, 0.86f, 0.68f);
-        public const float LightIntensity = 2.4f, LightRange = 3.2f;
+        public const float LightIntensity = 2.1f, LightRange = 3.2f;
 
         TableKit _kit;
         Material _bulb, _inner, _glass;
@@ -81,14 +81,31 @@ namespace HideAndSeek.Game.MiniGames.Pool
         }
 
         /// <summary>Switches the spot lights and the glow of the bulbs / shades.</summary>
-        public void SetOn(bool on)
+        public void SetOn(bool on) => SetLevel(on ? 1f : 0f);
+
+        /// <summary>
+        /// Brightness 0..1 (fades): spot intensity and the glow of bulbs / shades; the bulbs turn orange as they dim,
+        /// the lights are disabled when dark.
+        /// </summary>
+        public void SetLevel(float level)
         {
-            _on = on;
-            if (Lights != null) foreach (var l in Lights) if (l != null) l.enabled = on;
-            SetGlow(_bulb, on ? new Color(1f, 0.82f, 0.56f) * 2.3f : Color.black);
-            SetGlow(_inner, on ? new Color(1f, 0.9f, 0.74f) * 0.95f : Color.black);
-            SetGlow(_glass, on && _style == 0 ? new Color(0.03f, 0.16f, 0.06f) : Color.black);
-            if (_bulb != null) _bulb.color = on ? new Color(1f, 0.95f, 0.85f) : new Color(0.75f, 0.74f, 0.7f);
+            level = Mathf.Clamp01(level);
+            _on = level > 0.002f;
+            float warm = Mathf.Clamp01(level * 1.4f);
+            var lc = Color.Lerp(new Color(1f, 0.6f, 0.35f), LightColor, warm);
+            if (Lights != null)
+                foreach (var l in Lights)
+                    if (l != null)
+                    {
+                        l.enabled = _on;
+                        l.intensity = LightIntensity * level;
+                        l.color = lc;
+                    }
+            var tint = Color.Lerp(new Color(1f, 0.38f, 0.1f), new Color(1f, 0.82f, 0.56f), warm);
+            SetGlow(_bulb, tint * (2.3f * level));
+            SetGlow(_inner, new Color(1f, 0.9f, 0.74f) * (0.95f * level));
+            SetGlow(_glass, _style == 0 ? new Color(0.03f, 0.16f, 0.06f) * level : Color.black);
+            if (_bulb != null) _bulb.color = Color.Lerp(new Color(0.75f, 0.74f, 0.7f), new Color(1f, 0.95f, 0.85f), level);
         }
 
         public bool IsOn => _on;

@@ -127,7 +127,10 @@ namespace HideAndSeek.Game.MiniGames.Pool
             m.SetTexture("_BumpMap", null);
             m.DisableKeyword("_NORMALMAP");
             m.SetFloat("_Metallic", 0f);
-            m.SetFloat("_Glossiness", number == 8 ? 0.95f : 0.93f);
+            // Satin rather than mirror: at 0.93 the lamp spots and the room showed up as big white blots on every ball
+            // (a solid then looked like a stripe and the colours washed out). Softer, dimmer highlight, blurred reflection.
+            // (No _GLOSSYREFLECTIONS_OFF keyword: runtime-only Standard variants may be stripped from the build.)
+            m.SetFloat("_Glossiness", number == 8 ? 0.68f : 0.62f);
             m.SetFloat("_SpecularHighlights", 1f);
             m.SetFloat("_GlossyReflections", 1f);
             return m;
