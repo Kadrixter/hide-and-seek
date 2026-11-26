@@ -304,10 +304,12 @@ namespace HideAndSeek.Game
             // ---- Esc menu
             var kb = Keyboard.current;
             if (kb != null && kb.escapeKey.wasPressedThisFrame && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape
-                && !HideAndSeek.Game.DotLink.DotLinkLocal.ConsumesEscape) // Esc at the dot link panel = leave it
+                && !HideAndSeek.Game.DotLink.DotLinkLocal.ConsumesEscape // Esc at the dot link panel = leave it
+                && !LockpickUi.ConsumesEscape) // Esc in the bonnet lockpick = stop it
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
                 else if (LobbyTvVideo.PanelOpen) LobbyTvVideo.ClosePanel();
+                else if (LobbyClaude.SurveyOpen) LobbyClaude.CloseSurvey();
                 else if (_settingsPanel != null || _escMenu != null) CloseMenus();
                 else ShowEscMenu();
             }

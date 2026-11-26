@@ -17,31 +17,54 @@ namespace HideAndSeek.Game.Net
         public int FuelCansDealt { get; private set; }
         public int SawWrests { get; private set; }
 
-        private readonly Dictionary<ulong, (bool inHands, bool stalled)> _sawStartWatch = new();
+        private readonly Dictionary<ulong, (bool inHands, bool stalled, bool dry)> _sawStartWatch = new();
+        private readonly Dictionary<ulong, float> _sawDryPullAt = new();
 
         /// <summary>
-        /// Server, every frame: a new pull-start every time the saw comes into the hands or the stall is over; the number
-        /// of tries is rolled here (25% two, 10% four, else one) and synced, so every peer animates the same yanks.
+        /// Server, every frame: a new pull-start every time the saw comes into the hands, the stall is over or the empty
+        /// tank was filled up (2026-11-26: an empty saw is dead - no start until refuelled); the number of tries is rolled
+        /// here (25% two, 10% four, else one) and synced, so every peer animates the same yanks.
         /// </summary>
         private void UpdateSawStarts()
         {
             foreach (var p in NetPlayer.All)
             {
                 if (p == null || !p.IsSpawned) continue;
-                bool inHands = p.SawInHands, stalled = p.SawStalled;
+                bool inHands = p.SawInHands, dry = p.SawDry, stalled = p.SawStalled || dry;
                 _sawStartWatch.TryGetValue(p.NetworkObjectId, out var was);
-                _sawStartWatch[p.NetworkObjectId] = (inHands, stalled);
+                _sawStartWatch[p.NetworkObjectId] = (inHands, stalled, dry);
                 if (!inHands)
                 {
                     if (p.SawStartAt.Value != SawTuning.NotStarted) p.SawStartAt.Value = SawTuning.NotStarted;
                     continue;
                 }
-                if (stalled || (was.inHands && !was.stalled)) continue;
+                if (stalled)
+                {
+                    // Dead engine: no start under way (a refuel or the end of the stall starts a fresh one).
+                    if (p.SawStartAt.Value != SawTuning.NotStarted) p.SawStartAt.Value = SawTuning.NotStarted;
+                    continue;
+                }
+                if (was.inHands && !was.stalled) continue;
                 byte tries = ForcedSawTries > 0 ? (byte)ForcedSawTries : RollSawTries(Random.value);
                 p.SawAttempts.Value = tries;
-                p.SawStartAt.Value = Now + (was.inHands ? 0d : SawTuning.PullDelay);
-                Debug.Log($"[Saw] {p.Nick}: pull-start, {tries} tries{(was.inHands ? " (after the stall)" : "")}");
+                p.SawStartAt.Value = Now + (!was.inHands ? SawTuning.PullDelay : was.dry ? SawTuning.RefuelPullDelay : 0d);
+                Debug.Log($"[Saw] {p.Nick}: pull-start, {tries} tries{(!was.inHands ? "" : was.dry ? " (after the refuel)" : " (after the stall)")}");
             }
+        }
+
+        /// <summary>
+        /// F of a seeker holding the saw with an empty tank: a pull of the cord that does not catch, heard by everybody
+        /// (no cutting; at most one every <see cref="SawTuning.DryPullGap"/> s).
+        /// </summary>
+        public void ServerSawDryPull(NetPlayer p)
+        {
+            if (!Seeking || p == null || !p.SawInHands || !p.SawDry || p.SawStalled || p.Busy.Value) return;
+            _sawDryPullAt.TryGetValue(p.NetworkObjectId, out float last);
+            if (last > 0f && Time.time - last < SawTuning.DryPullGap) return;
+            _sawDryPullAt[p.NetworkObjectId] = Time.time;
+            p.SawDryPullRpc();
+            p.ToastRpc(p.FuelCans.Value > 0 ? "Piła: pusty bak - nie odpali. R - zatankuj z kanistra." : "Piła: pusty bak - nie odpali. Znajdź kanister z paliwem.", 2.5f);
+            Debug.Log($"[Saw] {p.Nick}: dry pull (empty tank)");
         }
 
         /// <summary>Tries a pull-start needs for a random <paramref name="r"/> in 0..1: 10% four, 25% two, else one.</summary>
@@ -91,7 +114,8 @@ namespace HideAndSeek.Game.Net
             p.FuelCans.Value--;
             SetSawFuel(p, SawFuel.Full);
             p.SfxRpc(GameSfx.MedkitPickup, 0.8f);
-            p.SfxRpc(GameSfx.ChainsawStart, 0.5f);
+            // No start sound here: a saw in the hands gets a fresh synced pull-start after the refuel (UpdateSawStarts,
+            // NetPlayer.SawStart.cs plays its sounds), one in the inventory does it when it is drawn.
             p.ToastRpc($"Zatankowane: paliwo {SawFuel.Full:0}/{SawFuel.Full:0}.", 2.5f);
             Debug.Log($"[Saw] {p.Nick} refuelled the chainsaw ({before:0.0} -> {SawFuel.Full:0})");
         }

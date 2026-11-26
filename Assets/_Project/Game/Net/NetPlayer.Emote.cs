@@ -1,3 +1,4 @@
+using HideAndSeek.Audio;
 using HideAndSeek.Characters;
 using HideAndSeek.Core;
 using HideAndSeek.Game.UI;
@@ -26,6 +27,9 @@ namespace HideAndSeek.Game.Net
         private EmoteCamera _emoteCam;
         private System.Func<MotorCommand> _approachCmd;
         private float _approachLog;
+        private AudioSource _laughVoice;
+        private AudioClip _laughClip;
+        private double _laughStart = -1d;
 
         private BlockyCharacterActions EmoteBody => Actions as BlockyCharacterActions;
 
@@ -121,6 +125,7 @@ namespace HideAndSeek.Game.Net
                 body.PlayEmote(id, (float)(Now - start));
             }
             else if (body.Emote != EmoteId.None) body.StopEmote();
+            UpdateEmoteVoice(body, sv);
 
             if (IsOwner)
             {
@@ -203,6 +208,43 @@ namespace HideAndSeek.Game.Net
             Vector3 local = transform.InverseTransformDirection(to / d);
             float speed = Mathf.Clamp01(d / 0.3f) * 0.55f;
             return new MotorCommand { Move = new Vector2(local.x, local.z).normalized * speed };
+        }
+
+        /// <summary>
+        /// Every peer: the laughing emote's recorded laugh at the head, started with the body (late joiners seek into
+        /// it at the shared clock) and faded out the moment the body stops laughing (walked away, hurt, any action
+        /// took the body, a new emote).
+        /// </summary>
+        private void UpdateEmoteVoice(BlockyCharacterActions body, in SoloEmotePack sv)
+        {
+            bool laughing = sv.Id == (byte)EmoteId.Laugh && body.Emote == EmoteId.Laugh;
+            if (laughing && _laughStart != sv.StartAt)
+            {
+                StopEmoteVoice(0.12f);
+                _laughStart = sv.StartAt;
+                float t = (float)(Now - sv.StartAt);
+                var head = Character != null && Character.Head != null ? Character.Head : transform;
+                var src = t < EmoteTimeline.LaughEnd - 0.3f ? GameAudio.PlayAttached(GameSfx.EmoteLaugh, head, IsOwner ? 0.85f : 1f) : null;
+                if (src != null)
+                {
+                    if (t > 0.1f && src.clip != null) src.time = Mathf.Min(t, src.clip.length - 0.05f);
+                    _laughVoice = src;
+                    _laughClip = src.clip;
+                }
+            }
+            else if (!laughing && _laughVoice != null)
+            {
+                StopEmoteVoice(0.25f);
+                _laughStart = -1d;
+            }
+        }
+
+        private void StopEmoteVoice(float fade)
+        {
+            // Pooled source: only if it is still our laugh (it may have finished and been reused).
+            if (_laughVoice != null && _laughVoice.isPlaying && _laughVoice.clip == _laughClip) GameAudio.StopLoop(_laughVoice, fade);
+            _laughVoice = null;
+            _laughClip = null;
         }
 
         private void OnEmoteBeat(EmoteId id, EmoteBeat kind, int index)

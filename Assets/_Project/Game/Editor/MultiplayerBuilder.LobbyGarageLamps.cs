@@ -18,6 +18,33 @@ namespace HideAndSeek.Game.Editor
             new(0.335f, 0.05f), new(0.32f, 0.085f), new(0.27f, 0.1f), new(0.21f, 0.09f), new(0.2f, 0f), new(0.21f, -0.09f),
         };
 
+        /// <summary>
+        /// Tyre (lathe of <see cref="GarageTyreProfile"/>, axis = local Y) with tread blocks: two staggered centre rows
+        /// angled into a chevron, a centre groove between them and shoulder lugs on the rounded edges.
+        /// </summary>
+        private static ProcMesh TyreWithTread(ProcMesh m, Vector3 off, Quaternion rot, int sides)
+        {
+            m.At(off, rot).Lathe(GarageTyreProfile, sides, 50f);
+            const int n = 44;
+            for (int i = 0; i < n; i++)
+            {
+                foreach (int side in new[] { -1, 1 })
+                {
+                    // centre rows: half a pitch apart, tilted opposite ways (chevron)
+                    float a = (i + (side > 0 ? 0.5f : 0f)) / n * 360f;
+                    Vector3 dir = new Vector3(Mathf.Cos(a * Mathf.Deg2Rad), 0f, Mathf.Sin(a * Mathf.Deg2Rad));
+                    m.At(off + rot * (dir * 0.339f + Vector3.up * (side * 0.024f)), rot * Quaternion.Euler(0f, -a, 0f) * Quaternion.Euler(side * 16f, 0f, 0f))
+                        .Box(Vector3.zero, new Vector3(0.012f, 0.03f, 0.034f));
+                    // shoulder lugs, following the curve of the sidewall
+                    float b = (i + 0.25f) / n * 360f;
+                    Vector3 d2 = new Vector3(Mathf.Cos(b * Mathf.Deg2Rad), 0f, Mathf.Sin(b * Mathf.Deg2Rad));
+                    m.At(off + rot * (d2 * 0.332f + Vector3.up * (side * 0.062f)), rot * Quaternion.Euler(0f, -b, 0f) * Quaternion.Euler(0f, 0f, side * 28f))
+                        .Box(Vector3.zero, new Vector3(0.012f, 0.024f, 0.026f));
+                }
+            }
+            return m;
+        }
+
         private static Material GarageBlackSteel => Mat("GarageBlackSteel", new Color(0.06f, 0.06f, 0.065f), null, 0.42f, Vector2.one, 0.55f);
         private static Material GarageWorkYellow => Mat("GarageWorkYellow", new Color(0.92f, 0.66f, 0.05f), null, 0.55f, Vector2.one, 0.1f);
         private static Material GarageTyreRubber => Mat("GarageTyre", new Color(0.09f, 0.09f, 0.09f), Tex("garage_tread", TexKind.Fabric), 0.12f, new Vector2(30f, 2f));
@@ -160,8 +187,8 @@ namespace HideAndSeek.Game.Editor
             t.position = pos;
             var tyres = new ProcMesh();
             for (int i = 0; i < 2; i++)
-                tyres.At(new Vector3((Hash01(i + 40) - 0.5f) * 0.04f, 0.1f + i * 0.2f, 0f), Quaternion.Euler(0f, i * 37f, (Hash01(i + 41) - 0.5f) * 2f)).Lathe(GarageTyreProfile, 36, 50f);
-            GMeshObj("Tyres", t, tyres, "GarageTyreTable", GarageTyreRubber, Vector3.zero);
+                TyreWithTread(tyres, new Vector3((Hash01(i + 40) - 0.5f) * 0.04f, 0.1f + i * 0.2f, 0f), Quaternion.Euler(0f, i * 37f, (Hash01(i + 41) - 0.5f) * 2f), 36);
+            GMeshObj("Tyres", t, tyres, "GarageTyreTableTread", GarageTyreRubber, Vector3.zero);
             var ply = Mat("GaragePlywood", new Color(0.86f, 0.74f, 0.56f), Tex("lobby_wood", TexKind.Wood), 0.3f, new Vector2(0.5f, 0.5f));
             MeshObj("Top", t, LatheSaved("GarageTyreTableTop", new[] { new Vector2(0f, 0f), new Vector2(0.36f, 0f), new Vector2(0.36f, 0.02f), new Vector2(0f, 0.02f) }, 40, true, true), ply, new Vector3(0f, 0.4f, 0f));
             BoxCollider(t, new Vector3(0f, 0.21f, 0f), new Vector3(0.68f, 0.42f, 0.68f));

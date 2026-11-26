@@ -61,29 +61,69 @@ namespace HideAndSeek.Characters
             return p;
         }
 
+        /// <summary>
+        /// Posture of the laugh over time: below 0 thrown back (head up), above 0 folded forward. Follows the recorded
+        /// laugh (<see cref="EmoteTimeline.LaughBursts"/>): thrown back by the opening laugh, folded and wheezing
+        /// silently, jerked back by the "HA", bobbing through the chuckles, winding up and folding into the loudest
+        /// burst, catching breath, one more "HA", straightening up while calming down, a last little relapse.
+        /// </summary>
+        static readonly Vector2[] LaughLean =
+        {
+            new(0f, 0f), new(0.25f, -0.9f), new(0.8f, -0.7f), new(1.2f, -0.2f), new(1.6f, 0.85f), new(2.4f, 1f),
+            new(3.3f, 0.9f), new(3.7f, 0.5f), new(3.92f, -0.8f), new(4.25f, -0.3f), new(4.6f, 0.3f), new(5.2f, 0.12f),
+            new(5.8f, 0.25f), new(6.25f, -0.4f), new(6.55f, -1f), new(6.85f, 0.9f), new(7.4f, 1f), new(7.85f, 0.5f),
+            new(8.02f, -0.6f), new(8.35f, 0.1f), new(9.0f, 0.2f), new(9.5f, 0.35f), new(9.95f, 0f), new(10.25f, 0.22f),
+            new(10.5f, 0.05f),
+        };
+
+        /// <summary>Loudness of the recorded laugh at <paramref name="t"/> (0..1): drives the "ha" shaking.</summary>
+        static float LaughLoud(float t)
+        {
+            float l = 0f;
+            foreach (var b in EmoteTimeline.LaughBursts)
+                if (t > b.x - 0.08f && t < b.y + 0.2f) l = Mathf.Max(l, b.z * Env(t, b.x - 0.08f, b.x + 0.04f, b.y - 0.04f, b.y + 0.2f));
+            return l;
+        }
+
         CharacterPose LaughPose(in CharacterPose b, float t)
         {
             var p = Stance(b);
-            float lean = Seg(t, 0.05f, 0.4f);
-            float fold = Env(t, 1.0f, 1.45f, 2.3f, 2.85f);
-            float end = Seg(t, 2.85f, 3.45f);
-            float shake = Env(t, 0.28f, 0.45f, 2.5f, 3.0f);
-            float hh = Mathf.Sin(t * 2f * Mathf.PI * 6.3f) * shake;
-            float k = 1f - end;
-            p.PelvisPos += new Vector3(0f, (-0.045f * fold - 0.006f * Mathf.Abs(hh)) * k, -0.05f * fold * k);
-            p.Torso = Quaternion.Euler((-10f * lean * (1f - fold) + 26f * fold + 2.6f * hh) * k, 0f, 2f * hh * k);
-            p.Head = Quaternion.Euler((-20f * lean * (1f - fold) + 4f * fold + 5f * hh) * k, 0f, -3f * hh * k);
+            float lean = EmoteKeys.Sample(LaughLean, t);
+            float back = Mathf.Max(0f, -lean), fold = Mathf.Max(0f, lean);
+            // "Ha-ha" pulses: fast in the big laughs, a little slower as it calms down; a fine shoulder tremble
+            // through the silent wheeze.
+            float loud = LaughLoud(t);
+            float wheeze = 0.3f * Env(t, 1.35f, 1.6f, 3.5f, 3.8f);
+            float ph = t * 2f * Mathf.PI * (6.6f - 0.057f * t);
+            float hh = Mathf.Sin(ph) * loud + Mathf.Sin(ph * 1.6f) * wheeze;
+            // Chuckles: rocking side to side, the head shaking "I can't".
+            float rock = Env(t, 4.35f, 4.7f, 5.75f, 6.15f) * Mathf.Sin((t - 4.35f) * 2f * Mathf.PI * 0.85f);
+            float k = 1f - Seg(t, 10.3f, 10.5f);
+            p.PelvisPos += new Vector3(0.012f * rock, -0.045f * fold - 0.008f * Mathf.Abs(hh) - 0.01f * back, -0.05f * fold + 0.012f * back) * k;
+            p.Torso = Quaternion.Euler((-11f * back + 28f * fold + 2.8f * hh * (1f + 0.5f * fold)) * k, 7f * rock * k, (2f * hh + 4f * rock) * k);
+            p.Head = Quaternion.Euler((-22f * back + 5f * fold + 5f * hh) * k, 9f * rock * k, (-3f * hh - 3f * rock) * k);
             Feet(ref p, FootR + new Vector3(0.02f, 0f, 0f), FootL - new Vector3(0.02f, 0f, 0f));
             Alive(ref p, t, 0.6f);
-            // Hands on the belly; the right one slaps the knee once while folded, later wipes a tear.
-            float belly = Seg(t, 0.05f, 0.4f) * (1f - Seg(t, 2.95f, 3.45f));
-            Vector3 bR = Vector3.Lerp(RestR, new Vector3(0.1f, 0.28f, 0.22f), belly);
-            Vector3 bL = Vector3.Lerp(RestL, new Vector3(-0.1f, 0.24f, 0.22f), belly);
-            Arm(ref p, 1, bL, new Vector3(-1f, -0.6f, -0.4f));
-            Vector3 handR = p.TorsoPoint(bR);
-            float slap = Hump(t, 1.35f, 1.85f);
-            handR = Vector3.Lerp(handR, new Vector3(0.16f, 0.48f, 0.22f), slap * slap);
-            float tear = Hump(t, 2.55f, 3.3f);
+
+            // Hands on the belly (they ride the shaking); braced on the knees through the silent wheeze (the right one
+            // patting the thigh); left on the chest catching breath; the right one winds up and slaps the knee at the
+            // loudest burst, wipes a tear while calming down.
+            float belly = Seg(t, 0.05f, 0.4f) * (1f - Seg(t, 10.1f, 10.5f));
+            float bob = 0.012f * hh;
+            Vector3 bR = Vector3.Lerp(RestR, new Vector3(0.1f, 0.28f + bob, 0.22f), belly);
+            Vector3 bL = Vector3.Lerp(RestL, new Vector3(-0.1f, 0.24f + bob, 0.22f), belly);
+            float chest = Env(t, 7.2f, 7.5f, 7.85f, 8.05f);
+            bL = Vector3.Lerp(bL, new Vector3(-0.05f, 0.42f, 0.21f), chest);
+            float knees = Env(t, 1.42f, 1.8f, 3.4f, 3.75f);
+            float pat = Hump(t, 1.6f, 1.82f) + Hump(t, 2.3f, 2.52f) + Hump(t, 2.92f, 3.12f);
+            Vector3 handL = Vector3.Lerp(p.TorsoPoint(bL), new Vector3(-0.15f, 0.55f, 0.24f), knees);
+            p.SolveArm(1, handL, p.TorsoRoot * new Vector3(-1f, -0.6f, -0.4f));
+            Vector3 handR = Vector3.Lerp(p.TorsoPoint(bR), new Vector3(0.15f, 0.55f + 0.07f * pat, 0.24f), knees);
+            float windUp = Hump(t, 6.2f, 6.78f);
+            handR = Vector3.Lerp(handR, p.TorsoPoint(new Vector3(0.4f, 0.5f, 0.18f)), windUp);
+            float slap = Hump(t, 6.62f, 7.05f);
+            handR = Vector3.Lerp(handR, new Vector3(0.16f, 0.5f, 0.22f), slap * slap);
+            float tear = Hump(t, 8.95f, 9.95f);
             handR = Vector3.Lerp(handR, HeadPoint(p, new Vector3(0.12f, 0.25f, 0.31f)), Mathf.Clamp01(tear * 1.4f));
             p.SolveArm(0, handR, p.TorsoRoot * new Vector3(1f, -0.6f, -0.3f));
             return p;

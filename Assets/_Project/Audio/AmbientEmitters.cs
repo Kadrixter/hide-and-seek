@@ -21,6 +21,8 @@ namespace HideAndSeek.Audio
         public int maxLamps = 24;
         public float lampSpacing = 7f;
         public int maxDrips = 16;
+        [Tooltip("Max drip emitters at the broken ceiling pipes of the garage (markers named PipeDrip_*).")]
+        public int maxPipeDrips = 20;
         public int maxVents = 12;
         public float ventGridSpacing = 28f;
 
@@ -137,6 +139,15 @@ namespace HideAndSeek.Audio
                     Vector3 p = fs.transform.position + fs.transform.rotation * local;
                     AddEmitter(AmbientId.Drips, p + Vector3.up * 0.2f, Random.Range(0.7f, 1f));
                 }
+            }
+            // quiet drips under the broken ceiling pipes (markers "PipeDrip_*" of the garage map, see CeilingDrips)
+            int pipeDrips = 0;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (pipeDrips >= maxPipeDrips) break;
+                if (!t.name.StartsWith("PipeDrip_")) continue;
+                AddEmitter(AmbientId.Drips, t.position, Random.Range(0.35f, 0.5f));
+                pipeDrips++;
             }
 
             // vents: named objects first

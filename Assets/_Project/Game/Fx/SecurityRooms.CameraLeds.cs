@@ -47,6 +47,7 @@ namespace HideAndSeek.Game
 
         private void UpdateLeds()
         {
+            if (!AnyRoomPowered) return; // cameras without power: LEDs dark (SecurityRooms.Power.cs)
             var mm = MatchManager.Instance;
             bool watched = TestWatched || (mm != null && mm.SecurityWatched.Value);
             float t = Time.time;

@@ -2,7 +2,12 @@ using UnityEngine;
 
 namespace HideAndSeek.Game
 {
-    /// <summary>Things on the console desk: keyboards, mice, mugs, phone, lamp (a real warm light), logbook, papers, radio, fan, snacks.</summary>
+    /// <summary>
+    /// Things on the console desk, left as they were years ago: keyboards, mice, phone, lamp (a real warm light), logbook,
+    /// yellowed papers, radio, fan, an empty stained mug and a cracked one lying on its side, old crushed cans, crumpled
+    /// papers, a wrapper. No food. The spot behind the level-button panel (x cx -0.6 .. +0.6, z Z1 -0.78 .. -0.32) is kept
+    /// free for equipment placed later (e.g. a car battery wired to the console).
+    /// </summary>
     public partial class SecurityRooms
     {
         private static Texture2D _keysTex, _phoneTex, _logTex;
@@ -28,25 +33,21 @@ namespace HideAndSeek.Game
                 Prim(root, PrimitiveType.Cylinder, "MouseCable", mp + new Vector3(0.01f, 0.006f, 0.18f), new Vector3(0.006f, 0.12f, 0.006f), new Color(0.05f, 0.05f, 0.05f), new Vector3(90f, 0f, 0f));
             }
 
-            // Mugs (one with a chipped logo band), coffee inside.
+            // An empty mug with dried dregs, a cracked one knocked over on its side (built upright, then laid down).
             MugModel(root, new Vector3(cx - 3.3f, top, zFront + 0.12f), new Color(0.92f, 0.92f, 0.9f), new Color(0.15f, 0.3f, 0.6f), 30f + lv * 40f);
-            MugModel(root, new Vector3(cx + 1.75f, top, zBack), new Color(0.6f, 0.12f, 0.1f), new Color(0.95f, 0.95f, 0.95f), -70f + lv * 25f);
+            var fallen = new GameObject("MugFallen").transform;
+            fallen.SetParent(root, false);
+            MugModel(fallen, Vector3.zero, new Color(0.6f, 0.12f, 0.1f), new Color(0.95f, 0.95f, 0.95f), 0f, true, true);
+            fallen.SetPositionAndRotation(new Vector3(cx + 1.75f, top + 0.04f, zBack - 0.02f), Quaternion.Euler(0f, -70f + lv * 25f, 0f) * Quaternion.Euler(0f, 0f, 90f));   // handle up
 
-            // Fast-food cup with a lid and a bent straw.
-            CupModel(root, new Vector3(cx - 1.55f, top, zFront + 0.05f), new Color(0.75f, 0.12f, 0.1f), true);
-
-            // Open donut box.
-            Vector3 dbox = new Vector3(cx + 1.75f, top, zMid - 0.15f);
-            var pink = new Color(0.9f, 0.55f, 0.68f);
-            var dq = Quaternion.Euler(0f, 12f, 0f);
-            Box(root, "DonutBox", dbox + Vector3.up * 0.002f, new Vector3(0.38f, 0.004f, 0.3f), pink, false, new Vector3(0f, 12f, 0f));
-            foreach (var (o, sz) in new[] { (new Vector3(0.188f, 0.025f, 0f), new Vector3(0.004f, 0.05f, 0.3f)), (new Vector3(-0.188f, 0.025f, 0f), new Vector3(0.004f, 0.05f, 0.3f)),
-                                             (new Vector3(0f, 0.025f, -0.148f), new Vector3(0.38f, 0.05f, 0.004f)), (new Vector3(0f, 0.025f, 0.148f), new Vector3(0.38f, 0.05f, 0.004f)) })
-                Box(root, "DonutBoxWall", dbox + dq * o, sz, pink * 0.95f, false, new Vector3(0f, 12f, 0f));
-            Box(root, "DonutLid", dbox + new Vector3(-0.03f, 0.17f, 0.17f), new Vector3(0.38f, 0.3f, 0.01f), new Color(0.9f, 0.55f, 0.68f), false, new Vector3(-12f, 12f, 0f));
-            Color[] glaze = { new Color(0.32f, 0.17f, 0.08f), new Color(1f, 0.6f, 0.75f), new Color(0.95f, 0.9f, 0.8f) };
-            for (int i = 0; i < 3 - (lv == 2 ? 1 : 0); i++)
-                DonutModel(root, dbox + Quaternion.Euler(0f, 12f, 0f) * new Vector3(-0.115f + i * 0.115f, 0.004f, -0.03f + (i % 2) * 0.05f), glaze[i], i * 50f, i == 1);
+            // Old crushed cans where the snacks used to be, crumpled papers, a wrapper.
+            CrushedCan(root, new Vector3(cx - 1.6f, top, zFront + 0.06f), 40f + lv * 30f, Crush.Squeezed, 1, lv);
+            CrushedCan(root, new Vector3(cx + 1.7f, top, zMid - 0.05f), 120f + lv * 45f, Crush.Squeezed, 0, lv + 1, true);
+            CrushedCan(root, new Vector3(cx + 2.45f, top, zBack - 0.05f), 20f + lv * 60f, Crush.Stomped, 2, lv);
+            CrushedCan(root, new Vector3(cx + 3.3f, top, zMid - 0.02f), 75f + lv * 20f, Crush.Flattened, 1, lv + 1);
+            TrashBinProp.CreateLitter(root, new Vector3(cx + 1.6f, top, zFront), 0f, 61 + lv, 3, 0.12f, false);
+            TrashBinProp.CreateLitter(root, new Vector3(cx - 3.75f, top, zFront + 0.1f), 0f, 67 + lv, 2, 0.1f, false);
+            Wrapper(root, new Vector3(cx - 1.35f, top, zMid - 0.05f), 60f + lv * 35f, new Color(0.75f, 0.12f, 0.1f), lv);
 
             // Desk phone: wedge base, keypad, handset on the cradle, curly cord.
             Vector3 ph = new Vector3(cx + 3.0f, top, zBack);
@@ -77,20 +78,23 @@ namespace HideAndSeek.Game
             log.transform.rotation = Quaternion.Euler(0f, -8f, 0f) * log.transform.rotation;
             Prim(root, PrimitiveType.Cylinder, "Pen", lb + new Vector3(0.05f, 0.02f, -0.04f), new Vector3(0.008f, 0.07f, 0.008f), new Color(0.1f, 0.2f, 0.7f), new Vector3(90f, 35f, 0f), false, Surf.Shiny(0.6f));
 
-            // Papers (a messy stack), two binders lying flat.
+            // Papers (a messy, yellowed stack, a few sheets slid off across the desk), two binders lying flat.
+            var old = new Color(0.8f, 0.77f, 0.66f);
             for (int i = 0; i < 6; i++)
-                Box(root, "Paper", new Vector3(cx - 4.05f + i * 0.01f, top + 0.002f + i * 0.0025f, zMid + i * 0.012f), new Vector3(0.21f, 0.002f, 0.297f), new Color(0.9f, 0.9f, 0.86f), false, new Vector3(0f, i * 7f - 12f, 0f));
+                Box(root, "Paper", new Vector3(cx - 4.05f + i * 0.01f, top + 0.002f + i * 0.0025f, zMid + i * 0.012f), new Vector3(0.21f, 0.002f, 0.297f), old * (0.94f + (i % 2) * 0.06f), false, new Vector3(0f, i * 7f - 12f, 0f));
+            foreach (var (px, pz, yaw) in new[] { (-3.55f, zMid + 0.05f, 38f), (-2.95f, zFront + 0.05f, -22f), (1.0f, zMid + 0.12f, 64f), (3.2f, zMid - 0.12f, -48f) })
+                Box(root, "LoosePaper", new Vector3(cx + px, top + 0.0015f, pz), new Vector3(0.21f, 0.0012f, 0.297f), old * 0.92f, false, new Vector3(0f, yaw + lv * 13f, 0f));
             Box(root, "BinderFlat", new Vector3(cx - 4.3f, top + 0.03f, zBack), new Vector3(0.32f, 0.06f, 0.29f), new Color(0.1f, 0.25f, 0.5f), false, new Vector3(0f, 5f, 0f), Surf.Shiny(0.35f));
             Box(root, "BinderFlat", new Vector3(cx - 4.28f, top + 0.09f, zBack + 0.01f), new Vector3(0.32f, 0.06f, 0.29f), new Color(0.55f, 0.1f, 0.08f), false, new Vector3(0f, -4f, 0f), Surf.Shiny(0.35f));
 
-            // Walkie-talkie standing in its charger (green LED).
+            // Walkie-talkie standing in its dead charger (LED dark).
             Vector3 wt = new Vector3(cx - 1.6f, top, zBack);
             Box(root, "Charger", wt + Vector3.up * 0.025f, new Vector3(0.09f, 0.05f, 0.08f), new Color(0.08f, 0.08f, 0.09f), false);
             Box(root, "Radio", wt + Vector3.up * 0.13f, new Vector3(0.06f, 0.17f, 0.035f), new Color(0.06f, 0.06f, 0.07f), false, null, Surf.Shiny(0.3f));
             Prim(root, PrimitiveType.Cylinder, "Antenna", wt + new Vector3(0.018f, 0.27f, 0f), new Vector3(0.01f, 0.06f, 0.01f), new Color(0.05f, 0.05f, 0.05f));
-            Led(root, "ChargeLed", wt + new Vector3(0.03f, 0.035f, -0.041f), new Vector3(0.008f, 0.008f, 0.004f), new Color(0.2f, 1.5f, 0.3f));
+            Box(root, "ChargeLed", wt + new Vector3(0.03f, 0.035f, -0.041f), new Vector3(0.008f, 0.008f, 0.004f), new Color(0.05f, 0.09f, 0.05f), false);   // dead, unlit
 
-            // Desk fan (blades spin).
+            // Desk fan, long stopped (blades still), a cobweb across its guard.
             Vector3 fan = new Vector3(cx - 3.0f, top, zBack + 0.05f);
             Prim(root, PrimitiveType.Cylinder, "FanBase", fan + Vector3.up * 0.01f, new Vector3(0.14f, 0.01f, 0.14f), new Color(0.75f, 0.75f, 0.73f), null, false, Surf.Shiny(0.4f));
             Prim(root, PrimitiveType.Cylinder, "FanStem", fan + Vector3.up * 0.12f, new Vector3(0.02f, 0.11f, 0.02f), new Color(0.75f, 0.75f, 0.73f), null, false, Surf.Shiny(0.4f));
@@ -103,12 +107,12 @@ namespace HideAndSeek.Game
                 b.transform.localRotation = Quaternion.Euler(0f, 0f, i * 120f);
                 b.transform.position = blades.position + b.transform.rotation * new Vector3(0f, 0.055f, 0f);
             }
-            _fans.Add(blades);
+            blades.localRotation = Quaternion.Euler(0f, 0f, 17f + lv * 31f);
             Prim(root, PrimitiveType.Cylinder, "FanCage", fan + new Vector3(0f, 0.25f, -0.025f), new Vector3(0.25f, 0.005f, 0.25f), new Color(0.65f, 0.65f, 0.65f), new Vector3(90f, 0f, 0f), false, Surf.Shiny(0.5f, 0.8f));
+            if (_webTex == null) _webTex = MakeCobwebTexture();
+            Sign(root, "FanCobweb", fan + new Vector3(0.05f, 0.31f, -0.034f), new Vector2(0.16f, 0.13f), Vector3.back, _webTex, 0.05f, true);
 
-            // Energy-drink cans (one lying), pen pot.
-            CanModel(root, new Vector3(cx + 2.65f, top, zBack), new Color(0.12f, 0.55f, 0.18f), 20f);
-            CanModel(root, new Vector3(cx + 2.8f, top, zBack + 0.08f), new Color(0.12f, 0.55f, 0.18f), 40f, true);
+            // Pen pot.
             Vector3 pot = new Vector3(cx - 2.85f, top, zBack - 0.15f);
             Prim(root, PrimitiveType.Cylinder, "PenPot", pot + Vector3.up * 0.05f, new Vector3(0.07f, 0.05f, 0.07f), new Color(0.2f, 0.2f, 0.22f), null, false, Surf.T(SecurityTextures.Kind.Metal, 0.1f, 0.4f, 0.8f));
             for (int i = 0; i < 4; i++)
@@ -166,7 +170,7 @@ namespace HideAndSeek.Game
             for (int i = 0; i < left.Length; i++) tb.Text(left[i], 0.04f, 0.8f - i * 0.075f, 0.035f, ink, TextAnchor.MiddleLeft, false, 0.42f);
             string[] right = { "03:10 hałas przy windzie", "03:12 sprawdzić!!", "03:47 ktoś na schodach", "skrzynię zostawić", "NIE WYCHODZIĆ" };
             for (int i = 0; i < right.Length; i++) tb.Text(right[i], 0.54f, 0.8f - i * 0.075f, 0.035f, i == 4 ? new Color(0.6f, 0.08f, 0.06f) : ink, TextAnchor.MiddleLeft, false, 0.42f);
-            return tb.Finish("SecLog", 0.3f, 6);
+            return tb.Finish("SecLog", 0.6f, 6);
         }
     }
 }

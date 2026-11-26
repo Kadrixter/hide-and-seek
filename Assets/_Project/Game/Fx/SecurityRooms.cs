@@ -126,6 +126,7 @@ namespace HideAndSeek.Game
             BuildDeskClutter(root, lv, cx, y0 + 0.77f);
             BuildFurniture(root, lv, cx, cz, y0);
             BuildWallDetails(root, lv, cx, cz, y0);
+            BuildPower(root, lv, y0);   // camera power: battery tray + switch (SecurityRooms.Power.cs)
             BuildLights(root, lv, cx, y0);
             HideAndSeek.Map.LevelLighting.SetLevelLayer(root, lv);   // lights of the other levels skip the room
         }
@@ -185,7 +186,7 @@ namespace HideAndSeek.Game
                 Vector3 v = p.transform.position;
                 if (v.x < X0 || v.x > X1 || v.z < Z0 || v.z > Z1) continue;
                 for (int lv = 0; lv < Levels; lv++)
-                    if (v.y > FloorY(lv) - 0.5f && v.y < FloorY(lv) + 2.5f) return true;
+                    if (v.y > FloorY(lv) - 0.5f && v.y < FloorY(lv) + 2.5f && RoomPowered(lv)) return true; // dark monitors watch nothing
             }
             return false;
         }
@@ -220,6 +221,7 @@ namespace HideAndSeek.Game
             UpdateOsd();
             RenderFeeds();
             UpdateScreenLights();
+            UpdatePower();   // rooms without battery power go dark (SecurityRooms.Power.cs)
             AnimateProps();
             UpdateLeds();
             UpdateCrates();

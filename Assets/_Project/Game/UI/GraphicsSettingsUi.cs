@@ -29,6 +29,8 @@ namespace HideAndSeek.Game.UI
                 p = p < 0 ? (s > 0 ? 0 : n - 1) : (p + s + n) % n;
                 GfxSettings.ApplyPreset(p);
             });
+            Row(refresher, parent, "GfxLook", "Styl obrazu", () => GfxSettings.LookName(GfxSettings.Look),
+                s => GfxSettings.Look = Cycle(GfxSettings.Look, s, GfxSettings.LookCount + 1));
             Row(refresher, parent, "GfxAa", "Wygładzanie", () => GfxSettings.AaName(GfxSettings.Aa),
                 s => GfxSettings.Aa = (AaMode)Cycle((int)GfxSettings.Aa, s, 8));
             Row(refresher, parent, "GfxAniso", "Filtrowanie tekstur", () => GfxSettings.Aniso == 0 ? "wyłączone" : GfxSettings.Aniso + "x",
@@ -59,7 +61,7 @@ namespace HideAndSeek.Game.UI
         private static void Row(GfxRowRefresher r, Transform parent, string name, string label, Func<string> value, Action<int> step)
         {
             var rt = UiStyle.Choice(name, parent, label, value, step, 22);
-            rt.Height(46); // 12 rows still fit the Esc menu column
+            rt.Height(43); // 13 rows still fit the Esc menu column (same total height as 12 x 46 had)
             var t = rt.Find("Value")?.GetComponent<Text>();
             if (t != null) r.Rows.Add((t, value));
         }

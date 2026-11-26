@@ -3,7 +3,10 @@ using UnityEngine;
 
 namespace HideAndSeek.Game
 {
-    /// <summary>Furniture: swivel chairs, recorder shelf (blinking DVRs), filing cabinet, binder shelf, lockers, coat rack, water cooler, bin, PC and UPS under the desk.</summary>
+    /// <summary>
+    /// Furniture: swivel chairs, recorder shelf (blinking DVRs), filing cabinet (a dead plant on top), binder shelf, lockers,
+    /// coat rack, an empty water cooler, PC and UPS under the desk; then the signs of years of neglect (SecurityRooms.Decay.cs).
+    /// </summary>
     public partial class SecurityRooms
     {
         private readonly List<(Renderer r, float phase, Color c)> _blinkLeds = new();
@@ -38,17 +41,13 @@ namespace HideAndSeek.Game
             Prim(root, PrimitiveType.Cylinder, "Cap", cr + new Vector3(0f, 1.83f, 0f), new Vector3(0.2f, 0.05f, 0.2f), new Color(0.06f, 0.08f, 0.16f), null, false, Surf.T(SecurityTextures.Kind.Fabric, 0.1f));
             Box(root, "CapPeak", cr + new Vector3(0f, 1.8f, -0.12f), new Vector3(0.16f, 0.012f, 0.09f), new Color(0.05f, 0.06f, 0.12f), false);
 
-            // Water cooler with a half-empty bottle and paper cups.
+            // Water cooler with an empty, clouded bottle and a few dusty paper cups.
             Vector3 wc = new Vector3(X0 + 0.4f, y0, Z0 + 2.2f);
             Box(root, "Cooler", wc + Vector3.up * 0.5f, new Vector3(0.32f, 1.0f, 0.32f), new Color(0.78f, 0.78f, 0.76f), true, null, Surf.Shiny(0.35f));
-            Prim(root, PrimitiveType.Cylinder, "Bottle", wc + Vector3.up * 1.2f, new Vector3(0.26f, 0.2f, 0.26f), new Color(0.25f, 0.45f, 0.7f), null, false, Surf.Shiny(0.85f));
+            Prim(root, PrimitiveType.Cylinder, "Bottle", wc + Vector3.up * 1.2f, new Vector3(0.26f, 0.2f, 0.26f), new Color(0.42f, 0.48f, 0.5f), null, false, Surf.Shiny(0.5f));
             Box(root, "Tap", wc + new Vector3(0.17f, 0.85f, -0.06f), new Vector3(0.03f, 0.04f, 0.04f), new Color(0.2f, 0.35f, 0.8f), false);
             Box(root, "TapHot", wc + new Vector3(0.17f, 0.85f, 0.06f), new Vector3(0.03f, 0.04f, 0.04f), new Color(0.75f, 0.12f, 0.1f), false);
-            Prim(root, PrimitiveType.Cylinder, "CupStack", wc + new Vector3(0.19f, 0.62f, 0.12f), new Vector3(0.06f, 0.08f, 0.06f), new Color(0.88f, 0.88f, 0.85f));
-
-            // Perforated bin with crumpled papers, one ball missed (built by TrashBinProp, no probes like the rest).
-            Vector3 bin = new Vector3(cx - 4.0f, y0, Z1 - 1.45f);
-            TrashBinProp.Create(root, bin, 125f, 20 + lv, 1, false, false);
+            Prim(root, PrimitiveType.Cylinder, "CupStack", wc + new Vector3(0.19f, 0.62f, 0.12f), new Vector3(0.06f, 0.08f, 0.06f), new Color(0.7f, 0.68f, 0.62f));
 
             // PC tower and UPS under the desk, power strip with a red switch.
             Vector3 pc = new Vector3(cx - 3.1f, y0, Z1 - 0.5f);
@@ -59,6 +58,8 @@ namespace HideAndSeek.Game
             Led(root, "UpsLed", pc + new Vector3(0.45f, 0.22f, -0.141f), new Vector3(0.012f, 0.012f, 0.004f), new Color(0.2f, 1.6f, 0.3f));
             Box(root, "PowerStrip", new Vector3(cx - 1.0f, y0 + 0.03f, Z1 - 0.3f), new Vector3(0.4f, 0.04f, 0.06f), new Color(0.85f, 0.85f, 0.82f), false);
             Led(root, "StripSwitch", new Vector3(cx - 1.17f, y0 + 0.055f, Z1 - 0.3f), new Vector3(0.03f, 0.012f, 0.03f), new Color(1.4f, 0.1f, 0.05f));
+
+            BuildDecay(root, lv, cx, cz, y0);
         }
 
         /// <summary>Open steel shelf with stacked video recorders (blinking HDD LEDs, small green displays).</summary>
@@ -113,8 +114,9 @@ namespace HideAndSeek.Game
             }
             // Second drawer slightly open.
             Box(root, "CabDrawerOpen", at + new Vector3(0.3f, 0.82f, 0f), new Vector3(0.1f, 0.28f, 0.42f), new Color(0.5f, 0.52f, 0.51f), false, null, Surf.Shiny(0.35f, 0.5f));
-            Prim(root, PrimitiveType.Cylinder, "CactusPot", at + new Vector3(0f, 1.38f, 0.1f), new Vector3(0.1f, 0.05f, 0.1f), new Color(0.6f, 0.3f, 0.18f));
-            Prim(root, PrimitiveType.Capsule, "Cactus", at + new Vector3(0f, 1.49f, 0.1f), new Vector3(0.06f, 0.08f, 0.06f), new Color(0.15f, 0.35f, 0.15f));
+            // A cactus that died anyway: shrivelled, brown, slumped over the rim of its pot.
+            Prim(root, PrimitiveType.Cylinder, "CactusPot", at + new Vector3(0f, 1.38f, 0.1f), new Vector3(0.1f, 0.05f, 0.1f), new Color(0.5f, 0.3f, 0.2f));
+            Prim(root, PrimitiveType.Capsule, "DeadCactus", at + new Vector3(0.025f, 1.45f, 0.1f), new Vector3(0.045f, 0.06f, 0.045f), new Color(0.32f, 0.27f, 0.17f), new Vector3(0f, 0f, -38f));
         }
 
         /// <summary>Wall shelf with a row of lever-arch binders (spine labels, finger holes).</summary>

@@ -188,6 +188,7 @@ namespace HideAndSeek.Map.Editor
                 BuildBays(lv);
                 BuildAisleMarkings(lv);
                 BuildGrime(lv);
+                BuildLitter(lv); // ParkingGarageBuilder.Abandon.cs
                 BuildCeilingServices(lv);
                 BuildZones(lv);
                 BuildCommonProps(lv);
@@ -219,6 +220,7 @@ namespace HideAndSeek.Map.Editor
             }
             ParkSomeCarsCrooked();
             BuildMapDetail();
+            BuildDereliction(); // ParkingGarageBuilder.Dereliction.cs (own randoms, after every collider exists)
             ApplyLevelLayers();
             return _root.gameObject;
         }
@@ -686,8 +688,7 @@ namespace HideAndSeek.Map.Editor
             if (noCars) return;
             Vector3 ws = center + inward * (depth * 0.5f - 0.75f);
             var rot = Quaternion.LookRotation(inward, Vector3.up);
-            _decor[lv].Box(new Vector3(ws.x, center.y + 0.06f, ws.z), new Vector3(1.6f, 0.12f, 0.16f), M("Concrete_Yellow"), rot,
-                MeshBuilder.Faces.All & ~MeshBuilder.Faces.NegY);
+            WheelStop(lv, new Vector3(ws.x, center.y, ws.z), rot); // low, no collider (ParkingGarageBuilder.Dereliction.cs)
             if (ev)
             {
                 var cp = center + inward * (depth * 0.5f - 0.05f);
@@ -700,7 +701,7 @@ namespace HideAndSeek.Map.Editor
 
         private void PlaceCars()
         {
-            int[] targets = { 64, 64, 52 };
+            int[] targets = { 55, 54, 45 }; // 26.11: ~13 % fewer cars (was 64 / 64 / 52)
             for (int lv = 0; lv < Levels; lv++)
             {
                 var candidates = _bays.Where(b => b.Level == lv && !b.NoCars).ToList();
@@ -794,7 +795,7 @@ namespace HideAndSeek.Map.Editor
                     d.FloorDecal(c, new Vector3(R(-1, 1), 0, R(-1, 1)) + Vector3.forward * 0.01f, s, s * R(0.8f, 1.3f), M("Oil_Stain"));
                 }
             }
-            int cracks = lv == 2 ? 110 : 40;
+            int cracks = lv == 2 ? 110 : 40; // more of them: BuildLitter (own random, the map layout after this stays put)
             for (int i = 0; i < cracks; i++)
             {
                 var c = _rng.NextDouble() < 0.7
@@ -817,34 +818,41 @@ namespace HideAndSeek.Map.Editor
                 float scale = lv == 2 ? 1.5f : 1f;
                 d.FloorDecal(p, new Vector3(R(-1, 1), 0, R(-1, 1)) + Vector3.forward * 0.01f, R(1.2f, 3.2f) * scale, R(1.5f, 4f) * scale, M("Puddle"));
             }
+            if (lv == 2) WallStains(lv, 45, _rng);
             if (lv == 2)
             {
                 // partially flooded south-east quarter
                 foreach (var (cx, cz, w, l, yo) in new[] { (46f, -44f, 34f, 22f, DecalY.Flood), (66f, -33f, 18f, 12f, DecalY.Flood + 0.004f), (34f, -30f, 10f, 7f, DecalY.Flood + 0.008f) })
                     d.FloorDecal(new Vector3(cx, y0 + yo, cz), new Vector3(R(-0.15f, 0.15f), 0, 1f), w, l, M("Flood_Water"));
-                // water stains running down the walls
-                for (int i = 0; i < 45; i++)
-                {
-                    bool ew = _rng.NextDouble() < 0.4;
-                    Vector3 n, p;
-                    if (ew)
-                    {
-                        float sx = _rng.NextDouble() < 0.5 ? -1f : 1f;
-                        n = sx < 0 ? Vector3.right : Vector3.left;
-                        p = new Vector3(sx * HX - n.x * -0.02f, y0 + R(1.4f, 2.2f), R(-55f, 55f));
-                    }
-                    else
-                    {
-                        n = Vector3.back;
-                        p = new Vector3(R(-85f, 85f), y0 + R(1.4f, 2.2f), HZ - 0.02f);
-                    }
-                    var right = Vector3.Cross(n, Vector3.up);
-                    _signs[lv].FaceUV(p, right * R(0.4f, 0.9f), Vector3.up * R(0.8f, 1.4f), M("Oil_Stain"), Vector2.zero, Vector2.one);
-                }
             }
             foreach (float x in new[] { -63.75f, -33.75f, -3.75f, 26.25f, 56.25f })
             foreach (float z in new[] { -36.5f, -20f, 20f, 36.5f })
                 d.FloorQuad(x - 0.25f, x + 0.25f, z - 0.25f, z + 0.25f, y0 + DecalY.Stain, M("Grate"));
+        }
+
+        /// <summary>Water / rust stains running down the outer walls (all levels since 26.11, most on P -2).</summary>
+        private void WallStains(int lv, int count, System.Random rnd)
+        {
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            float y0 = FloorY(lv);
+            for (int i = 0; i < count; i++)
+            {
+                bool ew = rnd.NextDouble() < 0.4;
+                Vector3 n, p;
+                if (ew)
+                {
+                    float sx = rnd.NextDouble() < 0.5 ? -1f : 1f;
+                    n = sx < 0 ? Vector3.right : Vector3.left;
+                    p = new Vector3(sx * HX - n.x * -0.02f, y0 + R(1.4f, 2.2f), R(-55f, 55f));
+                }
+                else
+                {
+                    n = Vector3.back;
+                    p = new Vector3(R(-85f, 85f), y0 + R(1.4f, 2.2f), HZ - 0.02f);
+                }
+                var right = Vector3.Cross(n, Vector3.up);
+                _signs[lv].FaceUV(p, right * R(0.4f, 0.9f), Vector3.up * R(0.8f, 1.4f), M("Oil_Stain"), Vector2.zero, Vector2.one);
+            }
         }
 
         // ================================================================== ceiling services

@@ -43,6 +43,10 @@ namespace HideAndSeek.Game.Editor
                 var w = root.Find(n);
                 if (w != null) w.GetComponent<MeshRenderer>().sharedMaterial = m;
             }
+            // the cube primitive maps its faces differently (one wall had the paint upside down: dark band at the top):
+            // world-space UVs on every wall, v = height, so the dark band is always at the floor
+            GarageWorldUv(root, new[] { "WallN", "WallS" }, W + 0.4f);
+            GarageWorldUv(root, new[] { "WallE" }, D, true);
 
             var g = new GameObject("GarageShell").transform;
             g.SetParent(root, false);
@@ -118,7 +122,7 @@ namespace HideAndSeek.Game.Editor
         /// position (u = x over <paramref name="lenU"/> m, v = height over the room height) so the blocks and the paint
         /// bands line up with the rest of the wall.
         /// </summary>
-        private static void GarageWorldUv(Transform root, string[] names, float lenU)
+        private static void GarageWorldUv(Transform root, string[] names, float lenU, bool alongZ = false)
         {
             foreach (var name in names)
             {
@@ -131,7 +135,7 @@ namespace HideAndSeek.Game.Editor
                 for (int i = 0; i < v.Length; i++)
                 {
                     Vector3 w = t.TransformPoint(v[i]);
-                    uv[i] = new Vector2((w.x + lenU * 0.5f) / lenU, w.y / LobbyLayout.H);
+                    uv[i] = new Vector2(((alongZ ? w.z : w.x) + lenU * 0.5f) / lenU, w.y / LobbyLayout.H);
                 }
                 m.uv = uv;
                 m.RecalculateTangents();

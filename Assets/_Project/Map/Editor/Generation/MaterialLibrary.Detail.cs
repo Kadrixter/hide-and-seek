@@ -31,8 +31,7 @@ namespace HideAndSeek.Map.Editor
             new DustSpec { Top = 1.1f, Side = 0.42f, Grime = 0.62f, Haze = 0.62f, Level = 2, Dust = new Color(0.4f, 0.385f, 0.355f) },
         };
 
-        private readonly Dictionary<(Material, DustPreset), Material> _dusty = new Dictionary<(Material, DustPreset), Material>();
-
+        private readonly Dictionary<(Material, DustPreset, int), Material> _dusty = new Dictionary<(Material, DustPreset, int), Material>();
         private void BuildDetailMaterials()
         {
             DetailTextures.GenerateAll();
@@ -48,6 +47,9 @@ namespace HideAndSeek.Map.Editor
             Make("Rope_Yellow", new Color(0.85f, 0.66f, 0.12f), null, 1f, 0f, 0.3f);
             Make("Rope_White", new Color(0.82f, 0.82f, 0.78f), null, 1f, 0f, 0.3f);
             Make("Cobweb", new Color(0.8f, 0.8f, 0.78f), "Cobweb", 1f, 0f, 0.3f, mode: Mode.Cutout);
+            // abandonment pass: glass crumbs under smashed windows, litter on the floors
+            Make("Glass_Shards", new Color(0.82f, 0.88f, 0.86f), "Glass_Shards", 1f, 0.2f, 0.95f, mode: Mode.Cutout);
+            Make("Litter", Color.white, "Litter", 1f, 0f, 0.15f, mode: Mode.Cutout);
             Make("Brick", new Color(0.55f, 0.24f, 0.15f), "Wall_Concrete", 0.6f, 0f, 0.1f, "Wall_Concrete_N", 1.2f);
             // leaks
             Fluid("Leak_Oil", new Color(0.022f, 0.018f, 0.014f, 0.93f), new Color(0.045f, 0.04f, 0.035f), 0.9f);
@@ -91,10 +93,12 @@ namespace HideAndSeek.Map.Editor
         /// Dusty copy of a car material (cached). Interior, cut-out text and glowing materials stay as they are.
         /// Transparent glass gets the glass dust shader.
         /// </summary>
-        public Material Dusty(Material src, DustPreset preset)
+        /// <param name="level">Level of the car (its floor height for the grime); -1 = the level of the preset.</param>
+        public Material Dusty(Material src, DustPreset preset, int level = -1)
         {
             if (src == null) return null;
-            if (_dusty.TryGetValue((src, preset), out var cached)) return cached;
+            if (level == DustSpecs[(int)preset].Level) level = -1;
+            if (_dusty.TryGetValue((src, preset, level), out var cached)) return cached;
             Material result = src;
             string n = src.name;
             bool skip = n.Contains("Interior") || n.Contains("Leather") || n.Contains("Headliner") || n.Contains("Dash") ||
@@ -104,7 +108,7 @@ namespace HideAndSeek.Map.Editor
             {
                 bool glass = src.IsKeywordEnabled("_ALPHAPREMULTIPLY_ON") || src.IsKeywordEnabled("_ALPHABLEND_ON");
                 var spec = DustSpecs[(int)preset];
-                var mat = Custom($"{n}_D{(int)preset}", DustFolder, glass ? "Hns/CarDustGlass" : "Hns/CarDust");
+                var mat = Custom(level < 0 ? $"{n}_D{(int)preset}" : $"{n}_D{(int)preset}_L{level}", DustFolder, glass ? "Hns/CarDustGlass" : "Hns/CarDust");
                 mat.SetColor("_Color", src.GetColor("_Color"));
                 mat.SetTexture("_MainTex", src.GetTexture("_MainTex"));
                 mat.SetFloat("_Metallic", src.GetFloat("_Metallic"));
@@ -123,15 +127,43 @@ namespace HideAndSeek.Map.Editor
                 mat.SetFloat("_DustSide", spec.Side * (tyre ? 1.6f : 1f));
                 mat.SetFloat("_Grime", tyre ? spec.Grime * 0.5f : spec.Grime);
                 mat.SetFloat("_GrimeHeight", 0.42f);
-                mat.SetFloat("_FloorY", -3.4f * spec.Level);
+                mat.SetFloat("_FloorY", -3.4f * (level < 0 ? spec.Level : level));
                 mat.SetFloat("_DustScale", 0.8f);
                 mat.SetVector("_Seed", new Vector4(0.37f * (int)preset, 0.11f, 0.73f * (int)preset, 0.29f * (int)preset));
                 mat.SetFloat("_Haze", glass ? spec.Haze : 0f);
                 if (glass) mat.renderQueue = src.renderQueue;
                 result = mat;
             }
-            _dusty[(src, preset)] = result;
+            _dusty[(src, preset, level)] = result;
             return result;
+        }
+
+        /// <summary>True for the see-through car glass (plain or its dusty copy).</summary>
+        public static bool IsCarGlass(Material m) => m != null && m.name.StartsWith("Car_Glass");
+
+        /// <summary>
+        /// Broken copy of car glass <paramref name="src"/> (plain Car_Glass or one of its dusty copies) for ONE car
+        /// (<paramref name="key"/>, e.g. "L1_E24"): the same look and dust plus Hns/CarBrokenGlass. The caller fills in
+        /// which panes are broken and how (ParkingGarageBuilder.BreakGlass).
+        /// </summary>
+        public Material BrokenGlass(Material src, int level, string key)
+        {
+            if (src == null) return null;
+            var mat = Custom($"{src.name}_Broken_{key}", DustFolder, "Hns/CarBrokenGlass");
+            bool dusty = src.shader != null && src.shader.name == "Hns/CarDustGlass";
+            mat.SetColor("_Color", src.GetColor("_Color"));
+            mat.SetTexture("_MainTex", src.GetTexture("_MainTex"));
+            mat.SetFloat("_Metallic", src.GetFloat("_Metallic"));
+            mat.SetFloat("_Glossiness", src.GetFloat("_Glossiness"));
+            mat.SetTexture("_DustTex", DetailTextures.Load("Dust_Noise"));
+            foreach (var prop in new[] { "_DustTop", "_DustSide", "_Grime", "_GrimeHeight", "_DustScale", "_Haze" })
+                mat.SetFloat(prop, dusty ? src.GetFloat(prop) : prop == "_DustScale" ? 0.8f : prop == "_GrimeHeight" ? 0.42f : 0f);
+            mat.SetColor("_DustColor", dusty ? src.GetColor("_DustColor") : new Color(0.36f, 0.35f, 0.32f));
+            mat.SetColor("_GrimeColor", dusty ? src.GetColor("_GrimeColor") : new Color(0.12f, 0.1f, 0.085f));
+            mat.SetVector("_Seed", dusty ? src.GetVector("_Seed") : Vector4.zero);
+            mat.SetFloat("_FloorY", -3.4f * level);
+            mat.renderQueue = src.renderQueue;
+            return mat;
         }
     }
 }

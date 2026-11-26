@@ -105,11 +105,11 @@ namespace HideAndSeek.Game.Editor
                 var off = new Vector3((Hash01(i * 7 + 1) - 0.5f) * 0.07f, 0.11f + i * 0.205f, (Hash01(i * 13 + 2) - 0.5f) * 0.07f);
                 var rot = Quaternion.Euler((Hash01(i * 3) - 0.5f) * 4f, Hash01(i * 5) * 90f, (Hash01(i * 11) - 0.5f) * 4f);
                 // squared-off torus: tread + sidewalls via a lathe profile
-                m.At(off, rot).Lathe(GarageTyreProfile, 36, 50f);
+                TyreWithTread(m, off, rot, 36);
             }
             var go = new GameObject("Tyres");
             go.transform.SetParent(t, false);
-            go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(m.ToMesh("GarageTyres"), "GarageTyres");
+            go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(m.ToMesh("GarageTyresTread"), "GarageTyresTread");
             go.AddComponent<MeshRenderer>().sharedMaterial = rubber;
             var col = t.gameObject.AddComponent<CapsuleCollider>();
             col.center = new Vector3(0f, 0.42f, 0f);

@@ -14,11 +14,14 @@ namespace HideAndSeek.Game.Net
     /// on a swivel chair, turns it with the look, gets up ([OfficeTest] lines, frames of every step).
     /// -officewatch &lt;dir&gt; (second client): photographs a chair while somebody else sits and turns on it.
     /// -testzfight: z-fighting scan of the security rooms built at runtime ([ZFightRoom] lines).
+    /// -testlooks &lt;dir&gt; (host in a round, -forcehider -autostart -hidetime N, works with -batchmode): every "Styl obrazu"
+    /// look on the same garage views, rendered by hand into textures (look{N}_view{V}.png, [LookTest] lines), then quits.
     /// </summary>
     public partial class NetSession
     {
         private void StartGfxTests()
         {
+            if (ArgOr("-testlooks", null) is string lk) StartCoroutine(LookTest(lk));
             if (ArgOr("-testgfx", null) is string g) StartCoroutine(GfxTest(g));
             if (ArgOr("-testoffice", null) is string o) StartCoroutine(OfficeTest(o));
             if (ArgOr("-officewatch", null) is string w) StartCoroutine(OfficeWatch(w));
@@ -351,6 +354,130 @@ namespace HideAndSeek.Game.Net
             }
             foreach (var l in lamps) Destroy(l);
             Debug.Log("[ZFightRoom] shots done");
+        }
+
+        private IEnumerator LookTest(string dir)
+        {
+            yield return WaitForGarageRound();
+            System.IO.Directory.CreateDirectory(dir);
+            // -batchmode skips GfxSettings.Startup: apply the saved quality (shadows, lights, MSAA) as a player has it.
+            GfxSettings.Apply();
+            var me = NetPlayer.Local;
+            var vm = (me.ViewModel as HideAndSeek.Characters.FirstPersonViewModel)?.ViewModelCamera;
+            // The post chain is driven by hand (no screen in batch mode): a component that never runs as an image effect.
+            var post = new GameObject("[LookTestPost]").AddComponent<GfxPost>();
+            post.enabled = false;
+            Debug.Log($"[LookTest] batch {Application.isBatchMode}, camera {(me.Camera != null ? me.Camera.name : "none")} hdr {me.Camera?.allowHDR}, hands {(vm != null)}, " +
+                      $"AA {GfxSettings.AaName(GfxSettings.EffectiveAa)}, bloom {GfxSettings.EffectiveBloom}, colour space {QualitySettings.activeColorSpace}");
+            for (int k = 0; k <= GfxSettings.LookCount; k++)
+                Debug.Log($"[LookTest] look {k} '{GfxSettings.LookName(k)}': {(GfxPost.LookReady(k) ? "ready" : "SHADER MISSING")}");
+
+            var views = new List<(string name, Vector3 pos, float yaw, float pitch, bool flashlight)>
+            {
+                ("aisle", new Vector3(-30f, 0.05f, -28.25f), 90f, -4f, true),          // long aisle, parked cars
+                ("lamp", Vector3.zero, 0f, 0f, false),                                 // filled in below: under a map lamp, no flashlight
+                ("flood", new Vector3(30f, -6.75f, -52f), 40f, -14f, true),            // dark flooded corner of level -2
+                ("office", new Vector3(76.0f, 0.05f, 46.5f), 5f, 6f, true),            // security room door
+            };
+            var lamp = FindObjectsByType<Light>().Where(l => l.type != LightType.Directional && l.transform.position.y > -0.5f && l.transform.position.y < 3.4f && l.GetComponentInParent<NetPlayer>() == null)
+                .OrderBy(l => (l.transform.position - new Vector3(-30f, 2f, -28f)).sqrMagnitude).FirstOrDefault();
+            if (lamp != null)
+            {
+                Vector3 lp = lamp.transform.position, from = lp + new Vector3(-6f, 0f, -3f);
+                from.y = 0.05f;
+                Vector3 to = lp - (from + Vector3.up * 1.6f);
+                views[1] = ("lamp", from, YawTo(to), PitchTo(to) * 0.5f, false);
+            }
+            else views.RemoveAt(1);
+
+            int ok = 0, failed = 0;
+            for (int v = 0; v < views.Count; v++)
+            {
+                var view = views[v];
+                me.Motor.Teleport(view.pos, view.yaw, view.pitch);
+                me.Motor.SetLook(view.yaw, view.pitch);
+                if (me.Flashlight != null) me.Flashlight.SetOn(view.flashlight, false);
+                yield return new WaitForSeconds(2f);
+                for (int look = 0; look <= GfxSettings.LookCount; look++)
+                {
+                    string path = System.IO.Path.Combine(dir, $"look{look}_view{v}.png");
+                    try
+                    {
+                        LookShot(post, me.Camera, vm, look, path);
+                        ok++;
+                        Debug.Log($"[LookTest] view {v} '{view.name}' look {look} '{GfxSettings.LookName(look)}' -> {path}");
+                    }
+                    catch (System.Exception e)
+                    {
+                        failed++;
+                        Debug.LogError($"[LookTest] view {v} look {look} failed: {e}");
+                    }
+                    yield return null;
+                }
+            }
+            Destroy(post.gameObject);
+            Debug.Log($"[LookTest] done: {ok} images, {failed} failed, in {dir}");
+            Application.Quit();
+        }
+
+        /// <summary>
+        /// Renders the player's camera and then the hands camera (clears depth only) into one 1280x720 frame with the same
+        /// format the screen path uses (HDR, MSAA from the quality settings), runs the post chain with
+        /// <paramref name="look"/> into an 8-bit sRGB texture and writes it as a PNG.
+        /// </summary>
+        private static void LookShot(GfxPost post, Camera cam, Camera hands, int look, string path)
+        {
+            const int w = 1280, h = 720;
+            if (cam == null) throw new System.InvalidOperationException("no player camera");
+            int msaa = cam.allowMSAA ? Mathf.Max(1, QualitySettings.antiAliasing) : 1;
+            var fmt = cam.allowHDR ? RenderTextureFormat.DefaultHDR : RenderTextureFormat.Default;
+            var frame = new RenderTexture(w, h, 24, fmt, RenderTextureReadWrite.Default) { antiAliasing = msaa, name = "LookTestFrame" };
+            var final = new RenderTexture(w, h, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB) { name = "LookTestFinal" };
+            frame.Create();
+            final.Create();
+            // Image effects already on these cameras (the game's GfxPost when not in batch mode) would grade twice.
+            var effects = new List<GfxPost>();
+            foreach (var c in new[] { cam, hands })
+            {
+                var p = c != null ? c.GetComponent<GfxPost>() : null;
+                if (p != null && p.enabled)
+                {
+                    p.enabled = false;
+                    effects.Add(p);
+                }
+            }
+            Texture2D tex = null;
+            var prevActive = RenderTexture.active;
+            try
+            {
+                var oldTarget = cam.targetTexture;
+                cam.targetTexture = frame;
+                cam.Render();
+                cam.targetTexture = oldTarget;
+                if (hands != null && hands.gameObject.activeInHierarchy)
+                {
+                    var oldHands = hands.targetTexture;
+                    hands.targetTexture = frame;
+                    hands.Render();
+                    hands.targetTexture = oldHands;
+                }
+                post.Process(frame, final, look);
+                RenderTexture.active = final;
+                tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+                tex.Apply();
+                System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = prevActive;
+                foreach (var p in effects) p.enabled = true;
+                if (tex != null) Destroy(tex);
+                frame.Release();
+                final.Release();
+                Destroy(frame);
+                Destroy(final);
+            }
         }
     }
 }

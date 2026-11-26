@@ -91,6 +91,8 @@ namespace HideAndSeek.Audio.Editor
             { GameSfx.ChainsawIdle, new Def(0.75f, 0f, 40f, loop: true) },
             { GameSfx.ChainsawRev, new Def(1f, 0f, 110f, echo: true, loop: true) },
             { GameSfx.ChainsawCut, new Def(1f, 0.03f, 80f, echo: true) },
+            { GameSfx.ChainsawStall, new Def(0.85f, 0.03f, 50f, echo: true) },
+            { GameSfx.ChainsawDryPull, new Def(0.75f, 0.04f, 22f) },
             { GameSfx.CarAlarm, new Def(1f, 0f, 160f, echo: true, loop: true) },
             { GameSfx.InjectStab, new Def(0.9f, 0.03f, 18f) },
             { GameSfx.ResurrectGasp, new Def(1f, 0.03f, 35f, echo: true) },
@@ -119,6 +121,8 @@ namespace HideAndSeek.Audio.Editor
             { GameSfx.CanAhh, new Def(0.7f, 0.04f, 10f) },
             { GameSfx.CanCrush, new Def(0.8f, 0.06f, 10f) },
             { GameSfx.CanBounce, new Def(0.8f, 0.08f, 16f) },
+            // emotes: no pitch jitter (the clip is timed to the body animation)
+            { GameSfx.EmoteLaugh, new Def(0.9f, 0f, 28f, reverbMix: 0.6f) },
         };
 
         private static readonly Dictionary<AmbientId, (float volume, float range, bool bed)> AmbientDefs = new Dictionary<AmbientId, (float, float, bool)>

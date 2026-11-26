@@ -110,14 +110,6 @@ namespace HideAndSeek.Game.Editor
                 }
             }
 
-            // ---- plant pots: rims
-            foreach (Transform t in root)
-            {
-                if (t.name != "Plant") continue;
-                var rim = Cyl("PotRim", t, t.position + new Vector3(0, 0.5f, 0), 0.56f, 0.05f, Mat("LobbyPotRim", new Color(0.3f, 0.17f, 0.1f), null, 0.4f, Vector2.one));
-                rim.transform.SetParent(t, true);
-            }
-
         }
 
         /// <summary>Arcade cabinet (built facing -Z at <paramref name="a"/>): coloured T-moulding on the side edges, speaker grille.</summary>

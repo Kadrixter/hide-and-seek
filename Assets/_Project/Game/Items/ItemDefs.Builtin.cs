@@ -179,6 +179,7 @@ namespace HideAndSeek.Game
             yield return SeveredLegDef(); // ItemDefs.Leg.cs
             yield return WireDef(); // ItemDefs.Wire.cs
             yield return FuelCanDef(); // ItemDefs.FuelCan.cs
+            yield return CarBatteryDef(); // ItemDefs.CarBattery.cs
             foreach (var d in FuseDefs()) yield return d; // ItemDefs.Fuse.cs
         }
 

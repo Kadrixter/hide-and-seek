@@ -94,7 +94,7 @@ namespace HideAndSeek.Characters
             void Add(EmoteInfo e) => t[(byte)e.Id] = e;
             Add(new EmoteInfo { Id = EmoteId.Wave, Name = "Machanie", Duration = EmoteTimeline.WaveEnd, ThumbTime = 1.05f });
             Add(new EmoteInfo { Id = EmoteId.Clap, Name = "Oklaski", Duration = EmoteTimeline.ClapEnd, ThumbTime = 1.16f });
-            Add(new EmoteInfo { Id = EmoteId.Laugh, Name = "Śmiech", Duration = EmoteTimeline.LaughEnd, ThumbTime = 1.6f });
+            Add(new EmoteInfo { Id = EmoteId.Laugh, Name = "Śmiech", Duration = EmoteTimeline.LaughEnd, ThumbTime = 0.6f });
             Add(new EmoteInfo { Id = EmoteId.Facepalm, Name = "Facepalm", Duration = EmoteTimeline.FacepalmEnd, ThumbTime = 1.5f });
             Add(new EmoteInfo { Id = EmoteId.Point, Name = "Pokazanie palcem", Duration = EmoteTimeline.PointEnd, ThumbTime = 0.95f });
             Add(new EmoteInfo { Id = EmoteId.DanceDisco, Name = "Disco", Period = EmoteTimeline.DiscoPeriod, In = 0.35f, Out = 0.35f, ThumbTime = 0.5f });

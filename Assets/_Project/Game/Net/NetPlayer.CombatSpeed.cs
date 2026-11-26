@@ -16,7 +16,7 @@ namespace HideAndSeek.Game.Net
     public partial class NetPlayer
     {
         /// <summary>Product of all fight-related speed penalties (1 = none).</summary>
-        public float CombatSpeedScale => AttackSlowScale * SawSpeedScale * (GlockAiming.Value && Held.Value == HeldItem.Glock ? Tuning.GlockAimSpeedScale : 1f);
+        public float CombatSpeedScale => AttackSlowScale * SawSpeedScale * BatterySpeedScale * (GlockAiming.Value && Held.Value == HeldItem.Glock ? Tuning.GlockAimSpeedScale : 1f); // + the heavy car battery (NetPlayer.CarBattery.cs)
 
         /// <summary>Seconds since the seeker's last attack / kill (negative or huge when none).</summary>
         public double SinceLastAttack

@@ -21,6 +21,131 @@ namespace HideAndSeek.Map.Editor
             Fabric("Canvas", 2302, 0.78f, 0.85f, 24, 0.12f, 1.4f);
             Foil();
             Cobweb();
+            GlassShards();
+            Litter();
+        }
+
+        // ------------------------------------------------------------------ abandonment pass (26.11)
+
+        /// <summary>Filled triangle into an RGBA buffer (alpha 1 inside).</summary>
+        private static void Tri(Color[] px, int n, Vector2 a, Vector2 b, Vector2 c, Color col)
+        {
+            int x0 = Mathf.Max(0, (int)Mathf.Min(a.x, Mathf.Min(b.x, c.x))), x1 = Mathf.Min(n - 1, (int)Mathf.Max(a.x, Mathf.Max(b.x, c.x)) + 1);
+            int y0 = Mathf.Max(0, (int)Mathf.Min(a.y, Mathf.Min(b.y, c.y))), y1 = Mathf.Min(n - 1, (int)Mathf.Max(a.y, Mathf.Max(b.y, c.y)) + 1);
+            float Edge(Vector2 p, Vector2 q, Vector2 r) => (r.x - p.x) * (q.y - p.y) - (r.y - p.y) * (q.x - p.x);
+            float area = Edge(a, b, c);
+            if (Mathf.Abs(area) < 1e-3f) return;
+            for (int y = y0; y <= y1; y++)
+            for (int x = x0; x <= x1; x++)
+            {
+                var p = new Vector2(x + 0.5f, y + 0.5f);
+                float w0 = Edge(b, c, p) / area, w1 = Edge(c, a, p) / area, w2 = Edge(a, b, p) / area;
+                if (w0 < 0f || w1 < 0f || w2 < 0f) continue;
+                px[y * n + x] = col;
+            }
+        }
+
+        private static void Quad(Color[] px, int n, Vector2 c, Vector2 half, float ang, Color col)
+        {
+            Vector2 u = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)), v = new Vector2(-u.y, u.x);
+            Vector2 p0 = c - u * half.x - v * half.y, p1 = c + u * half.x - v * half.y, p2 = c + u * half.x + v * half.y, p3 = c - u * half.x + v * half.y;
+            Tri(px, n, p0, p1, p2, col);
+            Tri(px, n, p0, p2, p3, col);
+        }
+
+        /// <summary>
+        /// 256px heap of glass crumbs (cut-out, clamp): small angular shards, dense in the middle, thinning out,
+        /// light green-white (the material is glossy, they glint under the lamps).
+        /// </summary>
+        private static void GlassShards()
+        {
+            const int n = 256;
+            var rnd = new System.Random(2611);
+            var px = new Color[n * n];
+            for (int i = 0; i < px.Length; i++) px[i] = new Color(0.8f, 0.85f, 0.84f, 0f);
+            for (int k = 0; k < 420; k++)
+            {
+                float r = Mathf.Pow((float)rnd.NextDouble(), 1.6f) * 120f, a = (float)rnd.NextDouble() * Mathf.PI * 2f;
+                var c = new Vector2(128f + Mathf.Cos(a) * r, 128f + Mathf.Sin(a) * r * 0.8f);
+                float s = Mathf.Lerp(5f, 1.5f, r / 120f) * R(rnd, 0.6f, 1.4f);
+                Vector2 V() => c + new Vector2(R(rnd, -s, s), R(rnd, -s, s));
+                float tone = R(rnd, 0.62f, 1f);
+                var col = new Color(0.72f * tone + 0.2f, 0.8f * tone + 0.18f, 0.78f * tone + 0.18f, 1f);
+                Tri(px, n, V(), V(), V(), col);
+            }
+            Save("Glass_Shards", n, px, n, true, true, false, true);
+        }
+
+        /// <summary>
+        /// 512px patch of litter (cut-out, clamp): loose paper sheets with printed lines, crumpled balls, dry leaves,
+        /// cigarette ends, a squashed can and bottle caps, scattered with gaps in between.
+        /// </summary>
+        private static void Litter()
+        {
+            const int n = 512;
+            var rnd = new System.Random(2612);
+            var px = new Color[n * n];
+            for (int i = 0; i < px.Length; i++) px[i] = new Color(0.5f, 0.45f, 0.38f, 0f);
+            // paper sheets with printed lines
+            for (int k = 0; k < 5; k++)
+            {
+                var c = new Vector2(R(rnd, 60f, 452f), R(rnd, 60f, 452f));
+                float ang = R(rnd, 0f, 6.28f);
+                var half = new Vector2(R(rnd, 24f, 40f), R(rnd, 32f, 52f));
+                float t = R(rnd, 0.62f, 0.85f);
+                var paper = new Color(t, t * 0.97f, t * 0.88f, 1f);
+                Quad(px, n, c, half, ang, paper);
+                Vector2 v = new Vector2(-Mathf.Sin(ang), Mathf.Cos(ang));
+                var ink = new Color(t * 0.6f, t * 0.6f, t * 0.64f, 1f);
+                for (float l = -half.y + 8f; l < half.y - 6f; l += 6f)
+                    Quad(px, n, c + v * l, new Vector2(half.x * 0.75f, 0.8f), ang, ink);
+            }
+            // crumpled paper balls
+            for (int k = 0; k < 6; k++)
+            {
+                var c = new Vector2(R(rnd, 20f, 492f), R(rnd, 20f, 492f));
+                float s = R(rnd, 7f, 13f);
+                for (int f = 0; f < 9; f++)
+                {
+                    float t = R(rnd, 0.55f, 0.9f);
+                    Tri(px, n, c + new Vector2(R(rnd, -s, s), R(rnd, -s, s)), c + new Vector2(R(rnd, -s, s), R(rnd, -s, s)),
+                        c + new Vector2(R(rnd, -s, s), R(rnd, -s, s)), new Color(t, t, t * 0.93f, 1f));
+                }
+            }
+            // dry leaves
+            for (int k = 0; k < 26; k++)
+            {
+                var c = new Vector2(R(rnd, 10f, 502f), R(rnd, 10f, 502f));
+                float ang = R(rnd, 0f, 6.28f), len = R(rnd, 7f, 14f), w = len * R(rnd, 0.35f, 0.55f);
+                var col = Color.Lerp(new Color(0.42f, 0.24f, 0.08f, 1f), new Color(0.62f, 0.45f, 0.16f, 1f), (float)rnd.NextDouble());
+                Vector2 u = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)), v = new Vector2(-u.y, u.x);
+                var dark = new Color(col.r * 0.85f, col.g * 0.85f, col.b * 0.85f, 1f);
+                Tri(px, n, c - u * len, c + v * w, c + u * len, col);
+                Tri(px, n, c - u * len, c - v * w, c + u * len, dark);
+                Quad(px, n, c, new Vector2(len, 0.6f), ang, new Color(col.r * 0.6f, col.g * 0.6f, col.b * 0.6f, 1f));
+            }
+            // cigarette ends
+            for (int k = 0; k < 14; k++)
+            {
+                var c = new Vector2(R(rnd, 10f, 502f), R(rnd, 10f, 502f));
+                float ang = R(rnd, 0f, 6.28f);
+                Vector2 u = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+                Quad(px, n, c, new Vector2(4f, 1.6f), ang, new Color(0.82f, 0.62f, 0.32f, 1f));
+                Quad(px, n, c + u * 6f, new Vector2(2.5f, 1.6f), ang, new Color(0.86f, 0.85f, 0.8f, 1f));
+            }
+            // a squashed can and some bottle caps
+            {
+                var c = new Vector2(R(rnd, 80f, 430f), R(rnd, 80f, 430f));
+                float ang = R(rnd, 0f, 6.28f);
+                Vector2 u = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+                Quad(px, n, c, new Vector2(16f, 9f), ang, new Color(0.65f, 0.1f, 0.08f, 1f));
+                Quad(px, n, c + u * 17f, new Vector2(2f, 8f), ang, new Color(0.7f, 0.7f, 0.72f, 1f));
+                Quad(px, n, c - u * 17f, new Vector2(2f, 8f), ang, new Color(0.7f, 0.7f, 0.72f, 1f));
+                Quad(px, n, c, new Vector2(6f, 9.2f), ang, new Color(0.92f, 0.9f, 0.85f, 1f));
+            }
+            for (int k = 0; k < 4; k++)
+                Quad(px, n, new Vector2(R(rnd, 10f, 502f), R(rnd, 10f, 502f)), new Vector2(3f, 3f), R(rnd, 0f, 6.28f), new Color(0.55f, 0.56f, 0.58f, 1f));
+            Save("Litter", n, px, n, true, true, false, true);
         }
 
         /// <summary>

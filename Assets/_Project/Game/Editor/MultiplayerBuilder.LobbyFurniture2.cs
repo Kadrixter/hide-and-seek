@@ -81,16 +81,23 @@ namespace HideAndSeek.Game.Editor
             }
             // jacket on the front hook, a scarf on another, a hat on top
             var jacket = garage ? GrimyFabric("GarageWorkJacket", new Color(0.12f, 0.16f, 0.3f), 2, 44, Vector2.one) : Mat("LobbyJacket", new Color(0.18f, 0.24f, 0.17f), Tex("lobby_fabric", TexKind.Fabric), 0.1f, new Vector2(2f, 3f));
-            RBox(t, "Jacket", new Vector3(0f, 1.12f, 0.17f), new Vector3(0.42f, 0.78f, 0.1f), jacket, 0.04f, 0.02f).transform.localRotation = Quaternion.Euler(4f, 0f, 0f);
-            RBox(t, "Collar", new Vector3(0f, 1.52f, 0.16f), new Vector3(0.24f, 0.08f, 0.09f), jacket, 0.03f, 0.01f);
+            // hung by the collar loop on the front hook (hook tip ~ y 1.745, z 0.15): shoulders slope down from the hook,
+            // the back of the jacket leans on the pole side, nothing floats
+            RBox(t, "Jacket", new Vector3(0f, 1.27f, 0.17f), new Vector3(0.42f, 0.74f, 0.1f), jacket, 0.04f, 0.02f).transform.localRotation = Quaternion.Euler(4f, 0f, 0f);
+            foreach (float sx in new[] { -1f, 1f })
+                RBox(t, "Shoulder", new Vector3(sx * 0.11f, 1.66f, 0.16f), new Vector3(0.25f, 0.06f, 0.1f), jacket, 0.025f, 0.01f).transform.localRotation = Quaternion.Euler(0f, 0f, sx * -24f);
+            RBox(t, "Collar", new Vector3(0f, 1.705f, 0.155f), new Vector3(0.14f, 0.06f, 0.08f), jacket, 0.02f, 0.01f);
+            RBox(t, "HangLoop", new Vector3(0f, 1.74f, 0.15f), new Vector3(0.03f, 0.04f, 0.012f), Mat("LobbyLoopDark", new Color(0.05f, 0.05f, 0.05f), null, 0.2f, Vector2.one), 0.004f);
             foreach (float sx in new[] { -0.2f, 0.2f })
-                RBox(t, "Sleeve", new Vector3(sx, 1.08f, 0.19f), new Vector3(0.1f, 0.62f, 0.1f), jacket, 0.04f, 0.01f).transform.localRotation = Quaternion.Euler(6f, 0f, sx > 0 ? 4f : -4f);
+                RBox(t, "Sleeve", new Vector3(sx, 1.25f, 0.19f), new Vector3(0.1f, 0.62f, 0.1f), jacket, 0.04f, 0.01f).transform.localRotation = Quaternion.Euler(6f, 0f, sx > 0 ? 4f : -4f);
             var scarf = Mat("LobbyScarf", new Color(0.65f, 0.12f, 0.12f), Tex("lobby_fabric", TexKind.Fabric), 0.05f, new Vector2(1f, 4f));
             var hs = new GameObject("ScarfHook").transform;
             hs.SetParent(t, false);
             hs.localRotation = Quaternion.Euler(0f, 120f, 0f);
-            RBox(hs, "ScarfA", new Vector3(0.03f, 1.28f, 0.16f), new Vector3(0.12f, 0.6f, 0.025f), scarf, 0.01f).transform.localRotation = Quaternion.Euler(3f, 0f, 3f);
-            RBox(hs, "ScarfB", new Vector3(-0.04f, 1.24f, 0.18f), new Vector3(0.12f, 0.66f, 0.025f), scarf, 0.01f).transform.localRotation = Quaternion.Euler(5f, 0f, -4f);
+            // draped over the hook arm (hook 2: tip ~ y 1.745, z 0.15): a fold on top, both ends hanging from it
+            RBox(hs, "ScarfFold", new Vector3(0f, 1.755f, 0.15f), new Vector3(0.12f, 0.03f, 0.06f), scarf, 0.01f);
+            RBox(hs, "ScarfA", new Vector3(0.0f, 1.46f, 0.125f), new Vector3(0.12f, 0.6f, 0.025f), scarf, 0.01f).transform.localRotation = Quaternion.Euler(3f, 0f, 2f);
+            RBox(hs, "ScarfB", new Vector3(-0.01f, 1.43f, 0.18f), new Vector3(0.12f, 0.66f, 0.025f), scarf, 0.01f).transform.localRotation = Quaternion.Euler(-4f, 0f, -3f);
             var felt = Mat("LobbyHat", new Color(0.12f, 0.1f, 0.09f), null, 0.15f, Vector2.one);
             if (garage)
             {
@@ -115,8 +122,8 @@ namespace HideAndSeek.Game.Editor
         {
             var crate = Mat("LobbyCrate", new Color(0.62f, 0.48f, 0.32f), Tex("lobby_crate", TexKind.Crate), 0.1f, Vector2.one);
             Vector3 c = LobbyLayout.Crates, b = LobbyLayout.Boombox;
-            Box("Crate1", parent, c + new Vector3(0f, 0.4f, 0f), new Vector3(0.8f, 0.8f, 0.8f), crate).transform.Rotate(0f, 172f, 0f); // stencil to the room
-            Box("Crate2", parent, c + new Vector3(0.05f, 1.15f, 0.05f), new Vector3(0.7f, 0.7f, 0.7f), crate).transform.Rotate(0f, 198f, 0f);
+            // the two stacked crates in the corner gave way to Claude (LobbyClaudeModel.cs); the small one keeps the boombox
+            BuildLobbyClaude(parent);
             Box("Crate3", parent, new Vector3(b.x, 0.35f, b.z), new Vector3(0.7f, 0.7f, 0.7f), crate).transform.Rotate(0f, 170f, 0f);
         }
 

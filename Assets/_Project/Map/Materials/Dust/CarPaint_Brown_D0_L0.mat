@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: CarPaint_Brown_D0_L0
+  m_Shader: {fileID: 4800000, guid: f0ae40569b2b48a4f8c172ac70a4cc35, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BumpMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DustTex:
+        m_Texture: {fileID: 2800000, guid: df1483cd716f1c74d93bf34dce77d187, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BumpScale: 1
+    - _DustScale: 0.8
+    - _DustSide: 0.015
+    - _DustTop: 0.2
+    - _FloorY: 0
+    - _Glossiness: 0.78
+    - _Grime: 0.12
+    - _GrimeHeight: 0.42
+    - _Haze: 0
+    - _Metallic: 0.54999995
+    m_Colors:
+    - _Color: {r: 0.23999995, g: 0.12999997, b: 0.06999998, a: 1}
+    - _DustColor: {r: 0.36, g: 0.35, b: 0.32, a: 1}
+    - _GrimeColor: {r: 0.12, g: 0.1, b: 0.085, a: 1}
+    - _Seed: {r: 0, g: 0.11, b: 0, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

@@ -58,6 +58,11 @@ namespace HideAndSeek.Game.Net
         Kart,           // E at the free lobby go-kart: get in (LocalPlayerController.Kart.cs)
         LobbyTv,        // E looking at the lobby wall TV: the YouTube panel (LocalPlayerController.LobbyTv.cs)
         ArcLink,        // E at the KABELKI arcade cabinet in the lobby: the dot link puzzle (LocalPlayerController.DotLink.cs)
+        Claude,         // E at Claude in the lobby corner: the survey (LobbyClaude.Survey.cs)
+        CarHood,        // E at the nose of a prepared car: pick the bonnet latch with wire / lift it (LocalPlayerController.CarBattery.cs)
+        CarBatteryTake, // E at an open bonnet: take the battery
+        CamBattery,     // E at a security room's power tray: connect / take out the battery
+        CamSwitch,      // E at a security room's camera power switch
     }
 
     /// <summary>
@@ -76,6 +81,7 @@ namespace HideAndSeek.Game.Net
         private float _focus;
         private float _nextShot;
         private float _nextSawTry, _nextDustTry;
+        private float _nextSawDryTry;
         private int _secFloor;
 
         /// <summary>Alive hider the running chainsaw touches (close, in front).</summary>
@@ -348,6 +354,7 @@ namespace HideAndSeek.Game.Net
             // ---- fence wire torn off / RC antenna swap: the hands are busy; U swaps the antenna (LocalPlayerController.RcWire.cs)
             if (WireTick(kb)) { CancelHold(); return; }
             if (FuseTick()) { CancelHold(); return; } // working on a fuse box (LocalPlayerController.Fuses.cs)
+            if (CarBatteryTick(kb)) { CancelHold(); return; } // lifting a bonnet (LocalPlayerController.CarBattery.cs)
 
             // ---- RC car: 6 puts it down / parks it / takes control again; WASD drives while the car camera is on.
             if (UpdateRc(kb, phase)) { CancelHold(); return; }
@@ -391,6 +398,13 @@ namespace HideAndSeek.Game.Net
                           _p.Life.Value == LifeState.Alive && _p.InputReader.InputEnabled && (kb.fKey.isPressed || TestSawRev) &&
                           _p.SawFuel.Value > 0f && // an empty saw does not start (MatchManager.SawFuel.cs)
                           _p.SawReady;             // pulled and caught; not stalled by dust / goo / foam / a knock-out (NetPlayer.SawNerf.cs)
+            // F on an empty tank: a dry pull of the cord (the server plays it for everybody; no cutting).
+            if (_p.SawInHands && phase == MatchPhase.Seeking && _p.SawDry && !_p.SawStalled && !_p.Busy.Value && _p.InputReader.InputEnabled &&
+                kb.fKey.wasPressedThisFrame && Time.time >= _nextSawDryTry)
+            {
+                _nextSawDryTry = Time.time + SawTuning.DryPullGap;
+                _p.RequestSawDryPullRpc();
+            }
             if (_p.SawInHands && phase == MatchPhase.Seeking && kb.rKey.wasPressedThisFrame && _p.FuelCans.Value > 0 && Time.time >= _nextSawTry)
             {
                 _nextSawTry = Time.time + 0.6f;
@@ -743,6 +757,8 @@ namespace HideAndSeek.Game.Net
             if (TryDotLinkPrompt(eye, fwd, out var dlPos, out string dlText, out float dlD)) Offer(PromptKind.DotLink, dlPos, dlText, dlD); // exit-gate panel
             if (TryFusePrompt(eye, fwd, phase, out var fbPos2, out string fbText2, out float fbD2, out var fbKind)) Offer(fbKind, fbPos2, fbText2, fbD2); // fuse boxes
             if (TrySawWrestPrompt(eye, fwd, phase, out var swPos, out string swText, out float swD)) Offer(PromptKind.SawWrest, swPos, swText, swD - 0.5f); // chainsaw nerf
+            if (TryHoodPrompt(eye, fwd, phase, out var hdKind, out var hdPos, out string hdText, out float hdD)) Offer(hdKind, hdPos, hdText, hdD); // car bonnets (LocalPlayerController.CarBattery.cs)
+            if (TryCamPowerPrompt(eye, fwd, phase, out var cpKind, out var cpPos, out string cpText, out float cpD)) Offer(cpKind, cpPos, cpText, cpD); // security room camera power
 
             // Medkits can be picked up any time during the round (also when not hurt) and kept in the inventory.
             if (phase == MatchPhase.Seeking || phase == MatchPhase.Hiding)
@@ -804,6 +820,13 @@ namespace HideAndSeek.Game.Net
                     if (d <= 2.3f && InView(eye, fwd, bp, 35f, bb.transform)) Offer(PromptKind.Radio, bp + Vector3.up * 0.25f, "E  radio", d);
                 }
                 if (TryTvPrompt(eye, fwd, out var tvPos, out float tvD)) Offer(PromptKind.LobbyTv, tvPos, "E  telewizor (YouTube)", tvD);
+                var claude = LobbyClaude.Instance;
+                if (claude != null && !LobbyClaude.SurveyOpen)
+                {
+                    Vector3 cp = claude.AimPoint;
+                    float d = Vector3.Distance(eye, cp);
+                    if (d <= 2.6f && InView(eye, fwd, cp, 40f, claude.transform)) Offer(PromptKind.Claude, cp + Vector3.up * 0.3f, "E  porozmawiaj z Claude", d);
+                }
                 var vend = LobbyVending.Instance;
                 if (vend != null && vend.Free && mmL.ForkHolder.Value != _p.NetworkObjectId)
                 {
@@ -1110,6 +1133,13 @@ namespace HideAndSeek.Game.Net
                 case PromptKind.LobbyTv:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) LobbyTvVideo.OpenPanel();
                     break;
+                case PromptKind.Claude:
+                    if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame)
+                    {
+                        LobbyClaude.OpenSurvey();
+                        _ignoreEThisFrame = true;
+                    }
+                    break;
                 case PromptKind.ExitDoor:
                     if (kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) _p.RequestExitDoorRpc();
                     break;
@@ -1168,6 +1198,22 @@ namespace HideAndSeek.Game.Net
                     break;
                 case PromptKind.Kart:
                     if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestKartE) { TestKartE = false; KartPromptE(); }
+                    break;
+                case PromptKind.CarHood:
+                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) HoodPromptE();
+                    TestPressE = false;
+                    break;
+                case PromptKind.CarBatteryTake:
+                    if (((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) && _hoodPrompt >= 0) _p.RequestBatteryTakeRpc((byte)_hoodPrompt);
+                    TestPressE = false;
+                    break;
+                case PromptKind.CamBattery:
+                    if ((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) CamBatteryPromptE();
+                    TestPressE = false;
+                    break;
+                case PromptKind.CamSwitch:
+                    if (((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestPressE) && _camRoom >= 0) _p.RequestCamSwitchRpc((byte)_camRoom);
+                    TestPressE = false;
                     break;
                 case PromptKind.SawWrest:
                     SawWrestPromptE((kb.eKey.wasPressedThisFrame && !_ignoreEThisFrame) || TestWrestE);

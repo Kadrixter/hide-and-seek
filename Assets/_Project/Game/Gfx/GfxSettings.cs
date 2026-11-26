@@ -58,6 +58,8 @@ namespace HideAndSeek.Game.Gfx
         public static float LodBias { get => Prefs.GetFloat("hns.gfx.lod", Def.Lod); set { Prefs.SetFloat("hns.gfx.lod", value); Apply(); } }
         /// <summary>Experimental reflections in the garage (<see cref="GarageReflections"/>), off by default and not part of the profiles.</summary>
         public static bool Reflections { get => Prefs.GetInt("hns.gfx.refl", 0) != 0; set => SetI("hns.gfx.refl", value ? 1 : 0); }
+        /// <summary>"Styl obrazu": colour grade of the final image (<see cref="GfxPost"/>), 0 = none, 1..<see cref="LookCount"/>; not part of the profiles.</summary>
+        public static int Look { get => Mathf.Clamp(Prefs.GetInt("hns.gfx.look", 3), 0, LookCount); set => SetI("hns.gfx.look", Mathf.Clamp(value, 0, LookCount)); }
 
         private static void SetI(string key, int v)
         {
@@ -106,6 +108,11 @@ namespace HideAndSeek.Game.Gfx
 
         public static string TextureName(int t) => t switch { 0 => "pełna", 1 => "połowa", _ => "ćwierć" };
 
+        /// <summary>Names of the "Styl obrazu" options; index 0 = no grade, then the shaders loaded by <see cref="GfxPost"/>.</summary>
+        public static readonly string[] LookNames = { "Brak", "Kino", "Monitoring", "Zimny horror", "Ciepły sodowy" };
+        public static int LookCount => LookNames.Length - 1;
+        public static string LookName(int i) => LookNames[Mathf.Clamp(i, 0, LookCount)];
+
         /// <summary>Index of the profile matching the current values, -1 = custom.</summary>
         public static int CurrentPreset()
         {
@@ -143,6 +150,24 @@ namespace HideAndSeek.Game.Gfx
 
         public static AaMode EffectiveAa => TestAa ?? Aa;
         public static bool EffectiveBloom => TestBloom ?? Bloom;
+        /// <summary>Test override (-testlooks): look used instead of the saved one / -look (null = those).</summary>
+        public static int? TestLook;
+        public static int EffectiveLook => Mathf.Clamp(TestLook ?? (CmdLook >= 0 ? CmdLook : Look), 0, LookCount);
+
+        private static int _cmdLook = -2;
+
+        /// <summary>-look N from the command line (0 = none, 1..4), -1 = not given: overrides the saved look without saving it.</summary>
+        public static int CmdLook
+        {
+            get
+            {
+                if (_cmdLook > -2) return _cmdLook;
+                var a = System.Environment.GetCommandLineArgs();
+                int i = System.Array.IndexOf(a, "-look");
+                _cmdLook = i >= 0 && i + 1 < a.Length && int.TryParse(a[i + 1], out int n) ? Mathf.Clamp(n, 0, LookCount) : -1;
+                return _cmdLook;
+            }
+        }
 
         public static void Apply()
         {
@@ -206,7 +231,7 @@ namespace HideAndSeek.Game.Gfx
             GfxPostDriver.Ensure();
             GarageReflections.Ensure();
             Debug.Log($"[Gfx] profile {(CurrentPreset() is int p && p >= 0 ? Presets[p].Name : "własny")}: AA {AaName(Aa)}, aniso {Aniso}x, textures {TextureName(TextureLevel)}, " +
-                      $"shadows {ShadowName(Shadows)} {ShadowDistance:0} m, bloom {Bloom}, vsync {VSync}, fps cap {FpsCap}, lights {PixelLights}, lod {LodBias}, reflections {Reflections}, mirror {MirrorSettings.Name(MirrorSettings.Quality)}");
+                      $"shadows {ShadowName(Shadows)} {ShadowDistance:0} m, bloom {Bloom}, vsync {VSync}, fps cap {FpsCap}, lights {PixelLights}, lod {LodBias}, reflections {Reflections}, mirror {MirrorSettings.Name(MirrorSettings.Quality)}, look {LookName(EffectiveLook)}");
         }
     }
 }

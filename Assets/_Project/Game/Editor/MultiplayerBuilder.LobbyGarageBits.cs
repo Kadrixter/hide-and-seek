@@ -58,7 +58,7 @@ namespace HideAndSeek.Game.Editor
             wheel.SetParent(t, false);
             wheel.localPosition = new Vector3(wx, wy, wz);
             wheel.localRotation = Quaternion.Euler(0f, 0f, -90f); // pivot Y = shaft axis, pointing away from the machine
-            MeshObj("Tyre", wheel, SaveMesh(new ProcMesh().At(Vector3.zero).Lathe(GarageTyreProfile, 40, 50f).ToMesh("GarageBalancerTyre"), "GarageBalancerTyre"), GarageTyreRubber, Vector3.zero);
+            MeshObj("Tyre", wheel, SaveMesh(TyreWithTread(new ProcMesh(), Vector3.zero, Quaternion.identity, 40).ToMesh("GarageBalancerTyreTread"), "GarageBalancerTyreTread"), GarageTyreRubber, Vector3.zero);
             var rimM = Mat("GarageRimSteel", new Color(0.62f, 0.63f, 0.64f), null, 0.6f, Vector2.one, 0.75f);
             var rim = new ProcMesh();
             Vector2[] face = { new(0.205f, 0.035f), new(0.17f, 0.045f), new(0.1f, 0.055f), new(0.045f, 0.06f), new(0.04f, 0.045f) };

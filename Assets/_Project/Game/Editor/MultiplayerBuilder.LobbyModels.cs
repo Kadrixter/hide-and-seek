@@ -32,38 +32,17 @@ namespace HideAndSeek.Game.Editor
 
             BuildSeatModels(root); // sofas and poufs (LobbySeatModels.cs)
 
-            // Plants: tapered, arched leaves (two shades), a few stems.
+            // Plants: detailed pot, soil, canes with leaf rosettes (LobbyPlant.cs)
             var leafDark = Mat("LobbyLeafDark", new Color(0.12f, 0.32f, 0.12f), null, 0.35f, Vector2.one);
+            var plants = new List<Transform>();
             foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                if (t != null && t.name == "Plant") plants.Add(t);
+            foreach (var t in plants)
             {
-                if (t == null || t.name != "Plant") continue;
                 Material leaf = null;
-                var old = new List<GameObject>();
                 foreach (Transform c in t)
-                    if (c.name == "Leaf")
-                    {
-                        if (leaf == null) leaf = c.GetComponent<MeshRenderer>().sharedMaterial;
-                        old.Add(c.gameObject);
-                    }
-                foreach (var g in old) Object.DestroyImmediate(g);
-                if (leaf == null) leaf = leafDark;
-                var rnd = new System.Random(t.GetSiblingIndex() * 31 + 7);
-                int count = 15;
-                for (int i = 0; i < count; i++)
-                {
-                    float yaw = i * 137.5f + (float)rnd.NextDouble() * 20f;
-                    bool inner = i % 3 == 0;
-                    float len = inner ? 0.75f + (float)rnd.NextDouble() * 0.3f : 0.55f + (float)rnd.NextDouble() * 0.45f;
-                    float elev = inner ? 78f : 55f + (float)rnd.NextDouble() * 18f;
-                    var go = new GameObject("Leaf");
-                    go.transform.SetParent(t, false);
-                    go.transform.localPosition = new Vector3(0f, 0.48f, 0f) + Quaternion.Euler(0f, yaw, 0f) * new Vector3(0f, 0f, 0.03f);
-                    go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
-                    go.AddComponent<MeshFilter>().sharedMesh = LeafMesh(len, 0.1f + (float)rnd.NextDouble() * 0.04f, elev, inner ? 35f : 70f);
-                    var mr = go.AddComponent<MeshRenderer>();
-                    mr.sharedMaterial = i % 2 == 0 ? leaf : leafDark;
-                    go.isStatic = true;
-                }
+                    if (c.name == "Leaf") { leaf = c.GetComponent<MeshRenderer>().sharedMaterial; break; }
+                DetailedPlant(t, leaf != null ? leaf : leafDark, leafDark, t.GetSiblingIndex() + 1);
             }
         }
 

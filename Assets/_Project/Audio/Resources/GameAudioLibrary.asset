@@ -400,6 +400,20 @@ MonoBehaviour:
     range: 80
     echo: 1
     reverbMix: 1
+  - id: 84
+    clips: []
+    volume: 0.85
+    pitchJitter: 0.03
+    range: 50
+    echo: 1
+    reverbMix: 1
+  - id: 85
+    clips: []
+    volume: 0.75
+    pitchJitter: 0.04
+    range: 22
+    echo: 0
+    reverbMix: 1
   - id: 90
     clips:
     - {fileID: 8300000, guid: a93fbfd6a7db23444a01a47c5ca0523b, type: 3}
@@ -616,6 +630,14 @@ MonoBehaviour:
     range: 16
     echo: 0
     reverbMix: 1
+  - id: 130
+    clips:
+    - {fileID: 8300000, guid: 8d5d8a6dec515b245b5879e137a897c4, type: 3}
+    volume: 0.9
+    pitchJitter: 0
+    range: 28
+    echo: 0
+    reverbMix: 0.6
   ambient:
   - id: 1
     clip: {fileID: 8300000, guid: 384a4ec721868ef4da4ef80edb786405, type: 3}

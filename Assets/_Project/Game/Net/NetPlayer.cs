@@ -1186,9 +1186,14 @@ namespace HideAndSeek.Game.Net
             _lastHoldAnim = mode;
         }
 
-        /// <summary>Chainsaw engine: idle loop while held, loud throttle loop while F is held; drives the animations.</summary>
+        /// <summary>
+        /// Chainsaw engine: a quiet low idle loop while held, the loud throttle loop only while it is used (F / a cut),
+        /// dead and silent with an empty tank (until refuelled and pulled again) or while stalled; drives the animations.
+        /// </summary>
         private float _sawBlood, _sawSlashUntil = -99f;
-        private bool _wasSawOut;
+        private bool _wasSawOut, _sawEngineWasOn;
+        /// <summary>Idle loop level (owner / other players) and pitch: low revs, well under the throttle (2026-11-26).</summary>
+        private const float SawIdleOwnerVol = 0.32f, SawIdleOtherVol = 0.5f, SawIdlePitch = 0.92f;
 
         /// <summary>Called when the saw cut somebody: the chain is soaked, it wipes clean over ~40 s of running.</summary>
         public void BloodySaw() => _sawBlood = 1f;
@@ -1198,17 +1203,25 @@ namespace HideAndSeek.Game.Net
             bool sawOut = Held.Value == HeldItem.Chainsaw && Life.Value == LifeState.Alive;
             bool killing = Busy.Value && sawOut && IsSeeker && !Stunned;
             // Stalled (blinded / foamed / knocked out, NetPlayer.SawNerf.cs): the engine dies, a new pull-start after.
-            bool stalled = sawOut && SawStalled && !killing;
+            // An empty tank (synced fuel, MatchManager.SawFuel.cs) kills the engine the same way until it is refuelled.
+            bool stalled = sawOut && (SawStalled || SawDry) && !killing;
             // The engine runs once the synced pull-start has caught (NetPlayer.SawStart.cs; tries rolled by the server).
             bool fired = killing || (sawOut && IsSeeker && !stalled && SawStartElapsed >= BlockyProps.ChainsawFireAt(SawAttempts.Value));
             bool rev = sawOut && fired && (SawRev.Value || killing || Time.time < _sawSlashUntil);
             UpdateSawStartView(sawOut, stalled, killing);
+            // The running engine died in the hands (tank ran dry / blinded / knocked out): it sputters out.
+            if (_sawEngineWasOn && !fired && sawOut && stalled) PlaySawStall();
+            _sawEngineWasOn = fired;
             _wasSawOut = sawOut;
             bool idle = sawOut && !rev && fired;
             if (sawOut) _sawBlood = Mathf.Max(0f, _sawBlood - Time.deltaTime * (rev ? 0.06f : 0.012f));
             (Actions as BlockyCharacterActions)?.SetSawBlood(_sawBlood);
             if (IsOwner) (ViewModel as FirstPersonViewModel)?.SetSawBlood(_sawBlood);
-            if (idle && _sawIdle == null) _sawIdle = GameAudio.StartLoop(GameSfx.ChainsawIdle, transform, IsOwner ? 0.55f : 0.9f);
+            if (idle && _sawIdle == null)
+            {
+                _sawIdle = GameAudio.StartLoop(GameSfx.ChainsawIdle, transform, IsOwner ? SawIdleOwnerVol : SawIdleOtherVol);
+                if (_sawIdle != null) _sawIdle.pitch = SawIdlePitch;
+            }
             else if (!idle && _sawIdle != null) { GameAudio.StopLoop(_sawIdle, 0.15f); _sawIdle = null; }
             if (rev && _sawRev == null) _sawRev = GameAudio.StartLoop(GameSfx.ChainsawRev, transform, IsOwner ? 0.75f : 1f);
             else if (!rev && _sawRev != null) { GameAudio.StopLoop(_sawRev, 0.2f); _sawRev = null; }

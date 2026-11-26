@@ -15,7 +15,7 @@ namespace HideAndSeek.Map.Editor
             ScreenZ = 1.38f; RoofFrontZ = 0.5f; RoofRearZ = -0.95f; GlassEndZ = -1.48f;
             BPillar = 0.02f; CPillar = -0.9f;
             TireR = 0.32f; TireW = 0.215f; RimR = 0.21f;
-            RimKind = variant == 0 ? ParkedRim.AlloyMulti : ParkedRim.Alloy5;
+            RimKind = variant == 0 ? ParkedRim.Mesh : ParkedRim.Alloy5;
             RimMaterial = variant == 0 ? "Car_RimSilver" : "Car_RimGraphite";
             PlateText = variant == 0 ? "WE 8M204" : "DW 2PL95";
             Paint0 = variant == 0 ? "CarPaint_Black" : "CarPaint_Grey";

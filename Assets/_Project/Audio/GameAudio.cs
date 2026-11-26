@@ -38,7 +38,7 @@ namespace HideAndSeek.Audio
         {
             int v = (int)id;
             if (v >= 1 && v <= 11) return UiVolume;
-            if (v >= 30 && v <= 33) return VoiceVolume;
+            if ((v >= 30 && v <= 33) || id == GameSfx.EmoteLaugh) return VoiceVolume;
             if ((v >= 20 && v <= 23) || (v >= 50 && v <= 56)) return WeaponVolume;
             return 1f;
         }

@@ -245,7 +245,7 @@ namespace HideAndSeek.Game
 
         private void RenderFeeds()
         {
-            if (!AnyRoomNear(out _)) return;
+            if (!AnyRoomNear(out _) || !AnyRoomPowered) return; // no battery power: nothing to show (SecurityRooms.Power.cs)
             // Every monitor at a steady 30 fps; the ticks of the monitors are staggered so the work is spread over frames.
             var prevShadows = QualitySettings.shadows;
             bool any = false;

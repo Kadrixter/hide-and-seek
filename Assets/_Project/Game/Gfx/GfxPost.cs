@@ -5,13 +5,17 @@ namespace HideAndSeek.Game.Gfx
     /// <summary>
     /// Post effects on the camera that draws last to the screen (picked by <see cref="GfxPostDriver"/>: normally the
     /// first-person hands camera, which clears only depth, so its input already holds the world): soft bloom of
-    /// bright lamps / LEDs, then FXAA or SMAA 1x. Hardware MSAA is a quality setting and needs nothing here.
-    /// Disabled (no extra copy of the frame) when neither bloom nor a post filter is on.
+    /// bright lamps / LEDs, then the "Styl obrazu" colour grade (one pass, <see cref="GfxSettings.EffectiveLook"/>), then
+    /// FXAA or SMAA 1x. Hardware MSAA is a quality setting and needs nothing here.
+    /// Disabled (no extra copy of the frame) when neither bloom, a look nor a post filter is on.
     /// </summary>
     [DisallowMultipleComponent]
     public class GfxPost : MonoBehaviour
     {
         private static Material _fxaa, _smaa, _bloom;
+        /// <summary>Look shaders by <see cref="GfxSettings.LookNames"/> index (0 = none, stays null).</summary>
+        private static readonly Material[] _looks = new Material[5];
+        private static readonly string[] LookShaders = { null, "Shaders/HnsLookFilm", "Shaders/HnsLookCctv", "Shaders/HnsLookCold", "Shaders/HnsLookSodium" };
         private static Texture2D _area, _search;
         private static bool _loaded, _missing;
         private readonly RenderTexture[] _pyramid = new RenderTexture[8];
@@ -26,7 +30,14 @@ namespace HideAndSeek.Game.Gfx
         /// <summary>Bloom strength and HDR threshold (only parts brighter than white glow).</summary>
         public static float BloomIntensity = 0.2f, BloomThreshold = 1.5f, BloomKnee = 0.5f;
 
-        public static bool Wanted => GfxSettings.PostFilter(GfxSettings.EffectiveAa) != 0 || GfxSettings.EffectiveBloom;
+        public static bool Wanted => GfxSettings.PostFilter(GfxSettings.EffectiveAa) != 0 || GfxSettings.EffectiveBloom || GfxSettings.EffectiveLook != 0;
+
+        /// <summary>True when the look shader <paramref name="look"/> loaded and runs on this GPU (0 = none is always ready).</summary>
+        public static bool LookReady(int look)
+        {
+            Load();
+            return look <= 0 || (look < _looks.Length && _looks[look] != null);
+        }
 
         private static void Load()
         {
@@ -35,6 +46,11 @@ namespace HideAndSeek.Game.Gfx
             _fxaa = Mat("Shaders/HnsFxaa");
             _smaa = Mat("Shaders/HnsSmaa");
             _bloom = Mat("Shaders/HnsBloom");
+            for (int i = 1; i < _looks.Length; i++)
+            {
+                _looks[i] = Mat(LookShaders[i]);
+                if (_looks[i] == null) Debug.LogWarning($"[Gfx] look shader missing or unsupported: {LookShaders[i]}");
+            }
             var a = Resources.Load<TextAsset>("Gfx/SmaaArea");
             var s = Resources.Load<TextAsset>("Gfx/SmaaSearch");
             if (a != null && s != null)
@@ -56,12 +72,19 @@ namespace HideAndSeek.Game.Gfx
             }
         }
 
-        private void OnRenderImage(RenderTexture src, RenderTexture dst)
+        private void OnRenderImage(RenderTexture src, RenderTexture dst) => Process(src, dst, GfxSettings.EffectiveLook);
+
+        /// <summary>
+        /// The whole chain from a rendered frame to <paramref name="dst"/>: bloom, look <paramref name="look"/>, FXAA / SMAA
+        /// (current settings). Also called directly by the -testlooks capture (batch mode renders no screen).
+        /// </summary>
+        public void Process(RenderTexture src, RenderTexture dst, int look)
         {
             Load();
             int filter = GfxSettings.PostFilter(GfxSettings.EffectiveAa);
             bool bloom = GfxSettings.EffectiveBloom && _bloom != null;
-            RenderTexture cur = src, withBloom = null;
+            Material lookMat = look > 0 && look < _looks.Length ? _looks[look] : null;
+            RenderTexture cur = src, withBloom = null, graded = null;
             NanScan.Inspect(src, "frame");
             if (bloom)
             {
@@ -70,10 +93,19 @@ namespace HideAndSeek.Game.Gfx
                 cur = withBloom;
                 NanScan.Inspect(withBloom, "bloomed");
             }
+            if (lookMat != null)
+            {
+                // Display values 0..1 from here on; same format as the frame (8-bit sRGB or half float).
+                graded = RenderTexture.GetTemporary(src.width, src.height, 0, src.format, RenderTextureReadWrite.Default);
+                graded.filterMode = FilterMode.Bilinear;
+                Graphics.Blit(cur, graded, lookMat, 0);
+                cur = graded;
+            }
             if (filter == 2 && _smaa != null && _area != null) Smaa(cur, dst);
             else if (filter == 1 && _fxaa != null) Graphics.Blit(cur, dst, _fxaa, 0);
             else Graphics.Blit(cur, dst);
             if (withBloom != null) RenderTexture.ReleaseTemporary(withBloom);
+            if (graded != null) RenderTexture.ReleaseTemporary(graded);
         }
 
         private static void Smaa(RenderTexture src, RenderTexture dst)

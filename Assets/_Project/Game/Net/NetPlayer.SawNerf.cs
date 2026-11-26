@@ -13,6 +13,12 @@ namespace HideAndSeek.Game.Net
         public const float TwoTries = 0.25f, FourTries = 0.10f;
         /// <summary>The pull begins this long after the saw comes out (the arms raise it first).</summary>
         public const float PullDelay = 0.25f;
+        /// <summary>After a refuel of the saw in the hands the pull-start begins this late (the cap is screwed back on first).</summary>
+        public const float RefuelPullDelay = 0.6f;
+        /// <summary>Dry pulls of an empty saw (F): at most one per this many seconds (the server gates it).</summary>
+        public const float DryPullGap = 1.6f;
+        /// <summary>Dry pull: how long the one failed yank is animated (priming reach + one yank, s).</summary>
+        public const float DryPullAnim = 1.0f;
         /// <summary><see cref="NetPlayer.SawStartAt"/> while no start is under way (far future: never "ready" by mistake).</summary>
         public const double NotStarted = 1e9;
         /// <summary>A hider takes the saw out of the hands of a knocked-out / blinded seeker from this far (feet, flat; and height).</summary>
@@ -51,7 +57,10 @@ namespace HideAndSeek.Game.Net
         }
 
         /// <summary>The engine has caught after the pull-start (F may rev it, it may cut).</summary>
-        public bool SawReady => SawInHands && !SawStalled && SawStartElapsed >= HideAndSeek.Characters.BlockyProps.ChainsawFireAt(SawAttempts.Value);
+        public bool SawReady => SawInHands && !SawStalled && !SawDry && SawStartElapsed >= HideAndSeek.Characters.BlockyProps.ChainsawFireAt(SawAttempts.Value);
+
+        /// <summary>The tank is empty: the engine is dead (no idle, no start) until a canister is poured in (2026-11-26).</summary>
+        public bool SawDry => SawFuel.Value <= 0f;
 
         /// <summary>The saw in the hands runs at full throttle (seen by everybody; the minimap of the hiders shows it).</summary>
         public bool SawRunning => IsSeeker && HasChainsaw.Value && Held.Value == HeldItem.Chainsaw && SawRev.Value && Life.Value == LifeState.Alive;
@@ -82,6 +91,14 @@ namespace HideAndSeek.Game.Net
         /// <summary>Owner (seeker): R with the saw in the hands - pour the canister from the inventory into it.</summary>
         [Rpc(SendTo.Server)]
         public void RequestRefuelHandsRpc() => MatchManager.Instance?.ServerRefuelFromHands(this);
+
+        /// <summary>Owner (seeker): F on an empty saw - a pull of the cord that does not catch (heard by everybody).</summary>
+        [Rpc(SendTo.Server)]
+        public void RequestSawDryPullRpc() => MatchManager.Instance?.ServerSawDryPull(this);
+
+        /// <summary>Server -> everybody: play the dry pull (sound + one yank) on this player.</summary>
+        [Rpc(SendTo.Everyone)]
+        public void SawDryPullRpc() => PlaySawDryPull();
 
         /// <summary>Owner (seeker): pour the fuel canister into the chainsaw.</summary>
         [Rpc(SendTo.Server)]

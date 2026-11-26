@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace HideAndSeek.Game
 {
-    /// <summary>Wall details: safety posters, key board, fire extinguisher, clock, garage plan, calendar, cork board, first-aid box, cables.</summary>
+    /// <summary>Wall details: safety posters, key board, fire extinguisher, clock, garage plan, an old yellowed calendar (November 2009), cork board, first-aid box, cables.</summary>
     public partial class SecurityRooms
     {
         private static Texture2D _posterBhp, _posterSmoke, _posterWatch, _posterExit, _extSign, _planTex, _calTex, _keyTagTex, _aidTex;
@@ -59,14 +59,14 @@ namespace HideAndSeek.Game
             tb = new TextureBaker(240, 340, Color.white);
             tb.Rect(0.5f, 0.78f, 0.9f, 0.36f, new Color(0.25f, 0.45f, 0.7f)).Circle(0.3f, 0.75f, 0.12f, new Color(0.95f, 0.85f, 0.4f));
             tb.Triangle(0.62f, 0.68f, 0.35f, new Color(0.2f, 0.35f, 0.25f));
-            tb.Text("LISTOPAD", 0.5f, 0.52f, 0.05f, red);
+            tb.Text("LISTOPAD 2009", 0.5f, 0.52f, 0.05f, red);
             for (int d = 0; d < 30; d++)
             {
                 float x = 0.12f + (d % 7) * 0.127f, y = 0.42f - (d / 7) * 0.085f;
                 tb.Text((d + 1).ToString(), x, y, 0.028f, d % 7 == 6 ? red : dark);
-                if (d < 20) tb.Rect(x, y, 0.09f, 0.008f, red, 35f);
+                if (d < 12) tb.Rect(x, y, 0.09f, 0.008f, red, 35f);   // crossed off up to the 12th: nobody came back on the 13th
             }
-            _calTex = tb.Finish("Calendar", 0.4f, 17);
+            _calTex = tb.Finish("Calendar", 0.85f, 17);
 
             tb = new TextureBaker(64, 32, Color.white);
             tb.Text("P -1", 0.5f, 0.5f, 0.36f, dark);

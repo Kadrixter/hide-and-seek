@@ -32,7 +32,7 @@ namespace HideAndSeek.Map.Editor
             string paint = PickPaint(model.IsVan ? VanPaintMix : CarPaintMix, rnd.NextDouble());
             var mats = (Material[])pm.Materials.Clone();
             mats[0] = M(paint);
-            mats = DustyMats(mats, lv == 2 ? MaterialLibrary.DustPreset.Forgotten : MaterialLibrary.DustPreset.LightPlus);
+            mats = DustyMats(mats, lv == 2 ? MaterialLibrary.DustPreset.Forgotten : MaterialLibrary.DustPreset.LightPlus, lv);
             var go = PlaceProp(pm, $"TarpCar_{Tag(lv)}_{++_propIndex:000}_{kind}_{model.Name}", _tPropsLv[lv], p, yaw + (float)(rnd.NextDouble() * 4.0 - 2.0), mats);
             if (!_store.TryGetValue("Tarps", out var list)) _store["Tarps"] = list = new System.Collections.Generic.List<Mesh>();
             var built = TarpCars.Build(_lib, model, pm.Mesh, kind, seed % 1000, list);

@@ -499,6 +499,7 @@ namespace HideAndSeek.Game.Net
             Step(_stepFlashBox ??= UpdateFlashBox, "flash box");
             Step(_stepToyGuns ??= UpdateToyGuns, "toy guns");
             Step(_stepRcWire ??= UpdateRcWire, "rc wire"); // fence wire / RC antenna upgrade (MatchManager.RcWire.cs)
+            Step(_stepCarBatteries ??= UpdateCarBatteries, "car batteries"); // bonnets, batteries, camera power (MatchManager.CarBatteries.cs / CamPower.cs)
             Step(_stepFuses ??= UpdateFuses, "fuses"); // escape objective: fuses and fuse boxes (MatchManager.Fuses.cs)
             Step(_stepDeathDrops ??= UpdateDeathDrops, "death drops"); // the dead drop their items (MatchManager.DeathDrops.cs)
             Step(_stepPhones ??= UpdatePhones, "phones");

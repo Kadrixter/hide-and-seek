@@ -89,7 +89,6 @@ namespace HideAndSeek.Map.Editor
         {
             ScreenZ - 0.04f, RoofFrontZ, BPillar - 0.045f, BPillar + 0.045f, CPillar, CPillar - 0.06f, DPillar, RoofRearZ, GlassEndZ + 0.03f
         };
-        protected override float[] BodyBreaks => new[] { ScreenZ, BPillar, CPillar };
         protected override int[] SharpRings => new[] { BDeck1 };
 
         protected override void BuildWheel(Vector3 c, float side) =>

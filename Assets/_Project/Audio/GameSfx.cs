@@ -66,6 +66,8 @@ namespace HideAndSeek.Audio
         ChainsawIdle = 81,       // loop: idling engine while held
         ChainsawRev = 82,        // loop: full throttle (F held), heard far away
         ChainsawCut = 83,        // cutting into a body (kill)
+        ChainsawStall = 84,      // engine sputters and dies (out of fuel / blinded); missing clip -> idle fading out, pitch dropping
+        ChainsawDryPull = 85,    // pull cord on an empty tank, the engine does not catch; missing clip -> start clip cut at 0.6 s
 
         // Parked cars
         CarAlarm = 90,           // loop: car alarm siren (heard across the garage)
@@ -103,6 +105,9 @@ namespace HideAndSeek.Audio
         CanAhh = 115,         // satisfied exhale after drinking
         CanCrush = 116,       // empty can squeezed in the fist
         CanBounce = 117,      // thrown can hits the floor and rolls
+
+        // Emotes (voice)
+        EmoteLaugh = 130,     // laughing emote: one 10.5 s take, in step with the body (no pitch jitter), voice mix
     }
 
     /// <summary>Looping ambient beds.</summary>

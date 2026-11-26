@@ -65,6 +65,8 @@ namespace HideAndSeek.Map.Editor
         public Arch RefFrontArch => FrontArch;
         public Arch RefRearArch => RearArch;
         public float RefTireRadius => TireRadius;
+        public float RefTireWidth => TireWidth;
+        public float RefRimRadius => RimRadius;
 
         /// <summary>Greenhouse cell material by ring segment (see CarShapes.C*) and z.</summary>
         protected abstract Material CabinMat(int seg, float z);
@@ -88,6 +90,7 @@ namespace HideAndSeek.Map.Editor
             var arches = new[] { FrontArch, RearArch };
             Body = CarShapes.Body(BKeys, arches, WellInset, TubWall, TubFloor, BodyBreaks, BodyStep, DeckRidge);
             foreach (int r in SharpRings) Body.SharpRing.Add(r);
+            ShapeBody();
             Body.Emit(mb, BodyMat);
             if (FrontCap != null) Body.Cap(mb, Body.Stations - 1, 1f, FrontCap);
             if (RearCap != null) Body.Cap(mb, 0, -1f, RearCap);
@@ -109,6 +112,7 @@ namespace HideAndSeek.Map.Editor
             if (CKeys != null)
             {
                 Cabin = CarShapes.Cabin(CKeys, CabinBreaks, RoofRound, CabinStep, RoofDip, SideFullness);
+                ShapeCabin();
                 Cabin.Emit(mb, (i, j) => CabinMat(i, Mid(Cabin, j)));
                 Cabin.Emit(mb, (i, j) => CabinInner(i, Mid(Cabin, j)), inner: true);
             }
@@ -116,6 +120,12 @@ namespace HideAndSeek.Map.Editor
             Details();
             Colliders();
         }
+
+        /// <summary>Hook to adjust the body sections before they are meshed (panel grooves); default none.</summary>
+        protected virtual void ShapeBody() { }
+
+        /// <summary>Hook to adjust the greenhouse sections before they are meshed (recessed glass); default none.</summary>
+        protected virtual void ShapeCabin() { }
 
         /// <summary>One wheel at its hub centre (side = +1 right).</summary>
         protected virtual void BuildWheel(Vector3 c, float side) =>

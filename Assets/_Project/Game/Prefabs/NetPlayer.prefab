@@ -169,3 +169,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: HideAndSeek.Game::HideAndSeek.Game.Net.NetPlayer
   ShowTopMostFoldoutHeaderGroup: 1
+  ServerSawFuel: 12

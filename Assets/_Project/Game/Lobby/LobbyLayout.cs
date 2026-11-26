@@ -29,8 +29,8 @@ namespace HideAndSeek.Game
         /// <summary>Coffee table centre (floor); it stands 0.58 m in front of the north-facing sofa (closer and the seated poses' hands / legs hit it).</summary>
         public static readonly Vector3 CoffeeTable = new(-4.0f, 0f, 3.03f);
         /// <summary>Sofa facing north (towards the fireplace) and sofa facing east (towards the table): centre, yaw.</summary>
-        public static readonly (Vector3 pos, float yaw) SofaFront = (new Vector3(-4.0f, 0f, 1.55f), 180f);
-        public static readonly (Vector3 pos, float yaw) SofaSide = (new Vector3(-5.85f, 0f, 3.6f), -90f);
+        public static readonly (Vector3 pos, float yaw) SofaFront = (new Vector3(-4.0f, 0f, 1.3f), 180f); // 0.25 m further from the table (players got stuck in the gap)
+        public static readonly (Vector3 pos, float yaw) SofaSide = (new Vector3(-6.1f, 0f, 3.6f), -90f);
         public static readonly (Vector3 pos, float yaw)[] Poufs =
         {
             (new Vector3(-2.2f, 0f, 2.75f), -90f), (new Vector3(-2.25f, 0f, 3.9f), -90f),
@@ -89,6 +89,8 @@ namespace HideAndSeek.Game
 
         // ---- south-west corner: crates with the boombox on the small one (no plant next to it)
         public static readonly Vector3 Crates = new(-7.35f, 0f, -5.35f);
+        /// <summary>Claude (orange blocky mascot, E = the survey) in the corner where two crates stood: floor centre, yaw (front = local +Z).</summary>
+        public static readonly (Vector3 pos, float yaw) Claude = (new Vector3(-7.35f, 0f, -4.95f), 40f);
         public static readonly Vector3 Boombox = new(-6.5f, 0.7f, -5.5f);
         public const float BoomboxYaw = 38f;
 

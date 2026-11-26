@@ -15,7 +15,7 @@ namespace HideAndSeek.Map.Editor
             ScreenZ = 0.95f; RoofFrontZ = 0.06f; RoofRearZ = -1.66f; GlassEndZ = -2.0f;
             BPillar = -0.42f; CPillar = -1.25f;
             TireR = 0.31f; RimR = 0.2f;
-            RimKind = variant == 0 ? ParkedRim.Hubcap : ParkedRim.Alloy5;
+            RimKind = variant == 0 ? ParkedRim.Steel : ParkedRim.Alloy5;   // base trim: bare silver steel wheels
             PlateText = variant == 0 ? "WI 4K271" : "KR 7TC33";
             Paint0 = variant == 0 ? "CarPaint_Silver" : "CarPaint_Blue";
             Weight = 1.1f;

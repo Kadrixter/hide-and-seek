@@ -175,69 +175,6 @@ namespace HideAndSeek.Game.Editor
 
         // ================================================================ coffee table
 
-        private static void TableSnacks(Transform p)
-        {
-            const float top = 0.45f;
-            var t = new GameObject("TableSnacks").transform;
-            t.SetParent(p, false);
-
-            // Pizza box with a slice next to it.
-            var pizzaTop = GenTex("lobby_pizza_box", 32, 32, (x, y) =>
-            {
-                var card = new Color(0.78f, 0.62f, 0.42f) * (0.92f + 0.08f * Hash01(x * 7 + y * 13));
-                float d = Vector2.Distance(new Vector2(x, y), new Vector2(15.5f, 15.5f));
-                if (d < 9f && d > 6.5f) return new Color(0.75f, 0.12f, 0.08f);
-                if (y >= 13 && y <= 18 && x >= 9 && x <= 22 && (x + y) % 3 != 0 && d < 6.5f) return new Color(0.75f, 0.12f, 0.08f);
-                return card;
-            });
-            Deco("PizzaBox", t, new Vector3(-1.9f, top + 0.025f, 0.7f), new Vector3(0.42f, 0.05f, 0.42f), Mat("LobbyCardboard", new Color(0.78f, 0.62f, 0.42f), null, 0.05f, Vector2.one), Quaternion.Euler(0, 12f, 0));
-            QuadAt("PizzaPrint", t, new Vector3(-1.9f, top + 0.0505f, 0.7f), Quaternion.Euler(90, 12f, 0), new Vector2(0.4f, 0.4f), Mat("LobbyPizzaPrint", Color.white, pizzaTop, 0.05f, Vector2.one));
-            var slice = Mat("LobbyPizzaSlice", new Color(0.95f, 0.62f, 0.2f), GenTex("lobby_pizza", 16, 16, (x, y) =>
-                (x * 5 + y * 3) % 11 == 0 ? new Color(0.7f, 0.12f, 0.08f) : (x + y * 2) % 13 == 0 ? new Color(0.25f, 0.45f, 0.15f) : new Color(0.98f, 0.72f, 0.25f)), 0.2f, Vector2.one);
-            Deco("PizzaSlice", t, new Vector3(-1.52f, top + 0.008f, 1.08f), new Vector3(0.13f, 0.016f, 0.2f), slice, Quaternion.Euler(0, -38f, 0));
-            Deco("Crust", t, new Vector3(-1.46f, top + 0.016f, 1.16f), new Vector3(0.14f, 0.03f, 0.04f), Mat("LobbyCrust", new Color(0.7f, 0.45f, 0.2f), null, 0.1f, Vector2.one), Quaternion.Euler(0, -38f, 0));
-
-            // Drink cans (one tipped over).
-            void Can(Vector3 pos, Color c, bool lying)
-            {
-                var can = Mat("LobbyCan_" + ColorUtility.ToHtmlStringRGB(c), c, GenTex("lobby_can_" + ColorUtility.ToHtmlStringRGB(c), 16, 16, (x, y) =>
-                    y > 6 && y < 10 ? Color.white * 0.92f : c * (0.9f + 0.1f * (x % 4 == 0 ? 1f : 0f))), 0.75f, Vector2.one, 0.4f);
-                var rot = lying ? Quaternion.Euler(0, 30f, 90f) : Quaternion.identity;
-                var body = Cyl("Can", t, pos + (lying ? new Vector3(0, 0.033f, 0) : new Vector3(0, 0.06f, 0)), 0.066f, 0.12f, can, rot);
-                var lid = Cyl("CanTop", body.transform, body.transform.position, 1f, 0.04f, metalSilver.Value);
-                lid.transform.localPosition = new Vector3(0, 1f, 0);
-                lid.transform.localRotation = Quaternion.identity;
-                lid.transform.localScale = new Vector3(0.86f, 0.03f, 0.86f);
-            }
-            Can(new Vector3(-1.08f, top, 0.58f), new Color(0.8f, 0.08f, 0.08f), false);
-            Can(new Vector3(-0.98f, top, 0.98f), new Color(0.1f, 0.35f, 0.85f), true);
-            Can(new Vector3(-2.15f, top, 1.12f), new Color(0.15f, 0.65f, 0.2f), false);
-
-            // TV remote.
-            var black = Mat("LobbyRemote", new Color(0.05f, 0.05f, 0.06f), null, 0.4f, Vector2.one);
-            var remote = Deco("Remote", t, new Vector3(-1.32f, top + 0.012f, 0.6f), new Vector3(0.05f, 0.022f, 0.17f), black, Quaternion.Euler(0, 28f, 0));
-            Deco("PowerBtn", remote.transform, Vector3.zero, Vector3.one, Mat("LobbyRemoteRed", new Color(0.8f, 0.1f, 0.1f), null, 0.4f, Vector2.one)).transform.localPosition = new Vector3(0, 0.55f, 0.36f);
-            remote.transform.Find("PowerBtn").localScale = new Vector3(0.4f, 0.3f, 0.12f);
-            for (int i = 0; i < 6; i++)
-            {
-                var b = Deco("Btn", remote.transform, Vector3.zero, Vector3.one, metalSilver.Value);
-                b.transform.localPosition = new Vector3(i % 2 == 0 ? -0.2f : 0.2f, 0.55f, 0.1f - (i / 2) * 0.16f);
-                b.transform.localScale = new Vector3(0.28f, 0.3f, 0.08f);
-            }
-
-            // Chips bag with a few chips spilled.
-            var chipsTex = GenTex("lobby_chips", 16, 24, (x, y) =>
-            {
-                if (y < 3 || y > 20) return new Color(0.75f, 0.75f, 0.78f);
-                if (y > 9 && y < 15 && x > 2 && x < 13) return new Color(0.95f, 0.85f, 0.2f);
-                return new Color(0.85f, 0.12f, 0.1f) * (0.9f + 0.1f * ((x + y) % 2));
-            });
-            Deco("ChipsBag", t, new Vector3(-1.62f, top + 0.03f, 0.45f), new Vector3(0.2f, 0.06f, 0.28f), Mat("LobbyChips", Color.white, chipsTex, 0.7f, Vector2.one), Quaternion.Euler(4f, -70f, 6f));
-            var chip = Mat("LobbyChip", new Color(0.95f, 0.78f, 0.35f), null, 0.3f, Vector2.one);
-            foreach (var (x, z) in new[] { (-1.4f, 0.42f), (-1.36f, 0.5f), (-1.45f, 0.36f), (-1.3f, 0.4f) })
-                Ball("Chip", t, new Vector3(x, top + 0.004f, z), new Vector3(0.04f, 0.008f, 0.035f), chip);
-        }
-
         private static readonly Lazy<Material> metalSilver = new(() => Mat("LobbySilver", new Color(0.78f, 0.78f, 0.8f), null, 0.8f, Vector2.one, 0.9f));
 
         // ================================================================ arcade
@@ -526,25 +463,6 @@ namespace HideAndSeek.Game.Editor
             Yarn(new Vector3(fx, pos.y + 0.33f, pos.z - 0.55f), new Vector3(fx, pos.y + 0.41f, pos.z - 0.15f));
             Yarn(new Vector3(fx, pos.y + 0.41f, pos.z - 0.15f), new Vector3(fx, pos.y - 0.07f, pos.z - 0.42f));
 
-            // MISSING posters
-            var face = GenTex("lobby_missing_face", 8, 8, (x, y) =>
-            {
-                if (y >= 6) return new Color(0.25f, 0.16f, 0.08f);                // hair
-                if (y == 4 && (x == 2 || x == 5)) return Color.white;            // eyes
-                if (y == 4 && (x == 3 || x == 4)) return new Color(0.75f, 0.55f, 0.42f);
-                if (y == 2 && x >= 3 && x <= 4) return new Color(0.45f, 0.25f, 0.2f);
-                return new Color(0.82f, 0.62f, 0.48f);
-            });
-            var faceMat = Mat("LobbyMissingFace", Color.white, face, 0.1f, Vector2.one);
-            foreach (var (z, nick) in new[] { (0.32f, "cendy"), (0.62f, "Kadrixter") })
-            {
-                var at = new Vector3(fx, pos.y + 0.05f, pos.z + z);
-                Deco("Poster", b, at, new Vector3(0.006f, 0.42f, 0.28f), paper, Quaternion.Euler(z > 0.5f ? 3f : -2f, 0, 0));
-                Label3D("Missing", b, at + new Vector3(-0.006f, 0.16f, 0), wallFace, "ZAGINĄŁ", new Color(0.8f, 0.05f, 0.05f), 0.01f, new Vector2(0.24f, 0.06f));
-                QuadAt("Face", b, at + new Vector3(-0.005f, 0.03f, 0), wallFace, new Vector2(0.14f, 0.14f), faceMat);
-                Label3D("Info", b, at + new Vector3(-0.006f, -0.12f, 0), wallFace, $"{nick}\nostatnio widziany:\nparking, poziom -2", new Color(0.1f, 0.1f, 0.1f), 0.006f, new Vector2(0.24f, 0.12f), FontStyle.Normal);
-                Pin(at + new Vector3(0, 0.19f, 0));
-            }
             // Sticky notes
             var sticky = Mat("LobbySticky", new Color(1f, 0.9f, 0.3f), null, 0.1f, Vector2.one);
             var notes = new[] { (-0.3f, 0.05f, "winda\nnie działa?!"), (0.36f, 0.25f, "nie chodź\nsam na -2"), (-0.36f, 0.62f, "kto ma\npiłę??") };

@@ -9,6 +9,8 @@ namespace HideAndSeek.Game
     /// SecurityRooms). Perforated anthracite bin with a liner bag (<see cref="TrashBinMesh"/>), a pile of crumpled balls
     /// inside with a few sticking out over the rim, missed ones on the floor in front (+Z), optionally a crushed soda can.
     /// All papers are one combined mesh; three shared materials (<c>HideAndSeek/TrashProp</c>); no lights.
+    /// Variants: <see cref="tipped"/> (knocked over on its side, the papers spilled out of the mouth) and litter only
+    /// (<see cref="litterSpread"/> &gt; 0: no bin, just crumpled papers scattered round the origin, e.g. on a desk).
     /// </summary>
     public sealed class TrashBinProp : MonoBehaviour
     {
@@ -16,19 +18,34 @@ namespace HideAndSeek.Game
         [Tooltip("Missed papers on the floor in front of the bin (+Z).")] public int floorPapers = 4;
         [Tooltip("Crushed soda can lying next to the bin.")] public bool can = true;
         [Tooltip("Off in the garage: no light / reflection probes, like the rest of the level.")] public bool probes = true;
+        [Tooltip("Knocked over: lying on its side, mouth towards +Z, the papers spilled out in front.")] public bool tipped;
+        [Tooltip("Above 0: no bin, only floorPapers crumpled papers scattered within this radius (metres).")] public float litterSpread;
+
+        /// <summary>Taper of the wall: a tipped bin lies along its side line, the mouth a little higher than the bottom.</summary>
+        static readonly float TipTaper = Mathf.Atan2(TrashBinMesh.Rt - TrashBinMesh.Rb, TrashBinMesh.H);
+        static float TipAxisY => (TrashBinMesh.Rb + TrashBinMesh.RimR * 0.6f) * Mathf.Cos(TipTaper);
 
         static Material _body, _bag, _paper, _shadow;
         bool _built;
         readonly System.Collections.Generic.List<(Vector3 at, float r, float k)> _blobs = new();
 
         /// <summary>Places a bin at <paramref name="floorPos"/> (built in its Start); papers spill towards local +Z (rotated by <paramref name="yaw"/>).</summary>
-        public static TrashBinProp Create(Transform parent, Vector3 floorPos, float yaw, int seed, int floorPapers, bool can, bool probes)
+        public static TrashBinProp Create(Transform parent, Vector3 floorPos, float yaw, int seed, int floorPapers, bool can, bool probes, bool tipped = false)
         {
             var g = new GameObject("TrashBin");
             g.transform.SetParent(parent, false);
             g.transform.SetPositionAndRotation(floorPos, Quaternion.Euler(0f, yaw, 0f));
             var b = g.AddComponent<TrashBinProp>();
-            b.seed = seed; b.floorPapers = floorPapers; b.can = can; b.probes = probes;
+            b.seed = seed; b.floorPapers = floorPapers; b.can = can; b.probes = probes; b.tipped = tipped;
+            return b;
+        }
+
+        /// <summary>Loose crumpled papers (no bin) lying on the surface at <paramref name="pos"/>, within <paramref name="spread"/> metres.</summary>
+        public static TrashBinProp CreateLitter(Transform parent, Vector3 pos, float yaw, int seed, int count, float spread, bool probes)
+        {
+            var b = Create(parent, pos, yaw, seed, count, false, probes);
+            b.name = "Litter";
+            b.litterSpread = Mathf.Max(0.01f, spread);
             return b;
         }
 
@@ -43,19 +60,34 @@ namespace HideAndSeek.Game
         {
             _built = true;
             EnsureMaterials();
-            Part("BinBody", TrashBinMesh.Body(), _body, true);
+            if (litterSpread > 0f)
+            {
+                Part("LitterPapers", Papers(), _paper, true);
+                if (_shadow != null) Part("LitterContactShadow", Shadows(), _shadow, false);
+                return;
+            }
+            Transform bin = transform;
+            if (tipped)
+            {
+                // Lying on its side line: the axis rises a little towards the (wider) mouth, which faces +Z.
+                bin = new GameObject("Tipped") { layer = gameObject.layer }.transform;
+                bin.SetParent(transform, false);
+                bin.SetLocalPositionAndRotation(new Vector3(0f, TipAxisY, 0f), Quaternion.Euler(90f - TipTaper * Mathf.Rad2Deg, 0f, 0f));
+            }
+            Part("BinBody", TrashBinMesh.Body(), _body, true, bin);
             float slip = (40f + (seed * 37) % 50) * Mathf.Deg2Rad; // slipped inside on the front right
-            Part("BinBag", TrashBinMesh.Bag(slip, seed), _bag, true);
+            Part("BinBag", TrashBinMesh.Bag(slip, seed), _bag, true, bin);
             Part("BinPapers", Papers(), _paper, true);
-            _blobs.Add((Vector3.zero, TrashBinMesh.Rb * 1.9f, 0.75f));
+            if (!tipped) _blobs.Add((Vector3.zero, TrashBinMesh.Rb * 1.9f, 0.75f));
+            else for (int i = 0; i < 3; i++) _blobs.Add((new Vector3(0f, 0f, 0.05f + i * 0.14f), TrashBinMesh.Rt * 1.35f, 0.55f));
             if (can) Can();
             if (_shadow != null) Part("BinContactShadow", Shadows(), _shadow, false);
         }
 
-        void Part(string n, Mesh mesh, Material m, bool shadows)
+        void Part(string n, Mesh mesh, Material m, bool shadows, Transform parent = null)
         {
-            var g = new GameObject(n);
-            g.transform.SetParent(transform, false);
+            var g = new GameObject(n) { layer = gameObject.layer };   // built after the room set its level layer
+            g.transform.SetParent(parent != null ? parent : transform, false);
             g.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r = g.AddComponent<MeshRenderer>();
             r.sharedMaterial = m;
@@ -100,7 +132,7 @@ namespace HideAndSeek.Game
             int ball = 0;
             TrashArt.PaperKind Kind(int i) => (TrashArt.PaperKind)(new[] { 0, 1, 3, 0, 2, 1, 0, 3, 2, 0, 1, 3, 2, 0, 3, 1, 0, 1 }[(i + seed) % 18]);
 
-            void Ball(Vector3 at, float r, Vector3 squash, Quaternion rot, bool onFloor)
+            void Ball(Vector3 at, float r, Vector3 squash, Quaternion rot, bool onFloor, bool blob = true)
             {
                 int s = seed * 100 + ball;
                 var kind = Kind(ball++);
@@ -113,7 +145,7 @@ namespace HideAndSeek.Game
                     var probe = new TrashMesh();
                     float low = CrumpledPaper.Add(probe, s, r, squash, kind, p => rot * p);
                     CrumpledPaper.Add(m, s, r, squash, kind, p => at + rot * p + Vector3.up * (-low - 0.002f));
-                    _blobs.Add((at, r * 1.5f * Mathf.Max(squash.x, squash.z), 0.7f));
+                    if (blob) _blobs.Add((at, r * 1.5f * Mathf.Max(squash.x, squash.z), 0.7f));
                 }
                 // Occlusion by height: the underside on the floor, deeper inside the bin.
                 for (int i = first; i < m.V.Count; i++)
@@ -127,6 +159,42 @@ namespace HideAndSeek.Game
             }
             Quaternion RandRot() => Quaternion.Euler(Rf() * 360f, Rf() * 360f, Rf() * 360f);
             Vector3 Squash() => new Vector3(0.85f + Rf() * 0.3f, 0.75f + Rf() * 0.3f, 0.85f + Rf() * 0.3f);
+
+            if (litterSpread > 0f)
+            {
+                // Loose litter: mostly balls, every third one a loosely crumpled flat sheet.
+                for (int i = 0; i < floorPapers; i++)
+                {
+                    float a = Rf() * Mathf.PI * 2f, d = Mathf.Sqrt(Rf()) * litterSpread;
+                    bool flat = i % 3 == 1;
+                    Ball(new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d), flat ? 0.05f : 0.026f + Rf() * 0.02f, flat ? new Vector3(1.5f, 0.42f, 1.2f) : Squash(),
+                        flat ? Quaternion.Euler(Rf() * 10f, Rf() * 360f, Rf() * 10f) : RandRot(), true);
+                }
+                return m.ToMesh("TrashLitter");
+            }
+            if (tipped)
+            {
+                // A few balls stuck in the mouth (lying on the lower inner wall, in front of the full bag), the rest
+                // spilled out in a fan in front of the mouth.
+                float ca = Mathf.Cos(TipTaper), sa = Mathf.Sin(TipTaper);
+                for (int i = 0; i < 3; i++)
+                {
+                    float s = TrashBinMesh.FillY + 0.02f + i * 0.026f, rIn = TrashBinMesh.R(s) - TrashBinMesh.Wall * 2f;
+                    float x = (Rf() - 0.5f) * 0.12f;
+                    float y = TipAxisY + s * sa - rIn * ca + (rIn - Mathf.Sqrt(rIn * rIn - x * x));
+                    Ball(new Vector3(x, y, s * ca), 0.028f + Rf() * 0.014f, Squash(), RandRot(), true, false);
+                }
+                float mouth = TrashBinMesh.H * ca + 0.02f;
+                for (int i = 0; i < floorPapers; i++)
+                {
+                    float a = Mathf.Lerp(-55f, 55f, floorPapers == 1 ? 0.5f : i / (float)(floorPapers - 1)) + (Rf() - 0.5f) * 30f;
+                    var at = new Vector3(0f, 0f, mouth) + Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 0.04f + Rf() * 0.5f);
+                    bool flat = i % 3 == 1;
+                    Ball(at, flat ? 0.055f : 0.03f + Rf() * 0.02f, flat ? new Vector3(1.5f, 0.42f, 1.2f) : Squash(),
+                        flat ? Quaternion.Euler(Rf() * 10f, Rf() * 360f, Rf() * 10f) : RandRot(), true);
+                }
+                return m.ToMesh("TrashPapersSpilt");
+            }
 
             // Inside: a ring of balls of mixed sizes on the bag bottom, a second layer, three on top above the rim.
             float y0 = TrashBinMesh.FillY;

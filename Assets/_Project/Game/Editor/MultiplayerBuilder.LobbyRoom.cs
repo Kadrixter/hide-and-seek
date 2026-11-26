@@ -73,11 +73,10 @@ namespace HideAndSeek.Game.Editor
             var leaf = Mat("LobbyLeaf", new Color(0.16f, 0.42f, 0.14f), Tex("lobby_fabric", TexKind.Fabric), 0.2f, new Vector2(0.5f, 0.5f));
             for (int i = 0; i < LobbyLayout.Plants.Length; i++)
                 if (!LobbyLayout.Garage || LobbyLayout.Plants[i].x < 7f) Plant(root, LobbyLayout.Plants[i], pot, leaf, i + 1); // garage: tyres in the SE corner
-            if (LobbyLayout.Garage) GarageTinSign(root, new Vector3(LobbyLayout.RecordPlayer.x, 1.95f, -D / 2 + 0.003f), 0f); // LobbyGarageBits.cs
-            else PaintingAt(root, new Vector3(LobbyLayout.RecordPlayer.x, 1.95f, -D / 2 + 0.003f), new Vector2(1.3f, 0.9f), "lobby_painting_city", 1, 0f);
+            if (!LobbyLayout.Garage) PaintingAt(root, new Vector3(LobbyLayout.RecordPlayer.x, 1.95f, -D / 2 + 0.003f), new Vector2(1.3f, 0.9f), "lobby_painting_city", 1, 0f);
             if (!LobbyLayout.Garage) PaintingAt(root, new Vector3(-W / 2 + 0.003f, 1.95f, LobbyLayout.Globe.z), new Vector2(0.9f, 1.2f), "lobby_painting_moon", 2, 90f);
             else BuildGarageProps(root); // pegboard with tools instead of the moon, tyres, oil drum (LobbyGarageProps.cs)
-            Neon(root, new Vector3(-W / 2 + 0.06f, 2.65f, LobbyLayout.SofaSide.pos.z), "HIDE & SEEK");
+            // neon "HIDE & SEEK" removed (a graffiti logo will come later)
 
             BuildLobbyLights(root, darkWood, metal);
             BuildLobbyDecor(root, darkWood, metal, trim, fabric);

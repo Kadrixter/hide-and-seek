@@ -27,8 +27,8 @@ namespace HideAndSeek.Game.Net
 
     /// <summary>
     /// Chainsaw fuel on the server: a seeker holding the running saw (F, <see cref="NetPlayer.SawRev"/>) burns
-    /// <see cref="NetSettings.SawUseRate"/> units a second out of <see cref="SawFuel.Full"/>; an empty saw does not start
-    /// (no cutting). A saw from the shelf is full, a dropped one keeps what it had (the drop's extra byte).
+    /// <see cref="NetSettings.SawUseRate"/> units a second out of <see cref="SawFuel.Full"/>; an empty saw stalls and stays dead
+    /// (no idle, no cutting, F = a dry pull) until a canister is poured in, then it is pull-started again (MatchManager.SawNerf.cs). A saw from the shelf is full, a dropped one keeps what it had (the drop's extra byte).
     /// </summary>
     public partial class MatchManager
     {
@@ -54,7 +54,7 @@ namespace HideAndSeek.Game.Net
                     if (Time.time >= _sawEmptyToastAt)
                     {
                         _sawEmptyToastAt = Time.time + 2f;
-                        p.ToastRpc("Piła: koniec paliwa - już nie odpali. Q - wyrzuć ją.", 4f);
+                        p.ToastRpc(p.FuelCans.Value > 0 ? "Piła zgasła - koniec paliwa. R - zatankuj z kanistra." : "Piła zgasła - koniec paliwa. Znajdź kanister, żeby ją znów odpalić.", 4f);
                     }
                 }
             }

@@ -21,6 +21,24 @@ namespace HideAndSeek.Map.Editor
             PlaceProp(pm, $"{name}_{Tag(lv)}_{++_propIndex:000}", _tPropsLv[lv], p, yaw, mats);
         }
 
+        /// <summary>At most this many bicycles per level (the racks stay; 26.11: most bikes are gone).</summary>
+        private const int MaxBicyclesPerLevel = 3;
+        private readonly int[] _bicycles = new int[Levels];
+
+        /// <summary>
+        /// One bicycle in a rack slot, unless the level already has <see cref="MaxBicyclesPerLevel"/>. The caller has
+        /// already drawn the paint and the slot from _rng; a skipped bike still takes its prop number, so the names of
+        /// every later prop stay the same.
+        /// </summary>
+        private void Bicycle(int lv, string paint, float x, float z, float yaw)
+        {
+            var p = new Vector3(x, FloorY(lv), z);
+            if (NearSpawn(p, 1.4f)) return;
+            if (_bicycles[lv] >= MaxBicyclesPerLevel) { ++_propIndex; return; }
+            _bicycles[lv]++;
+            P(lv, _props.Bicycle(paint), "Bicycle", x, z, yaw);
+        }
+
         private void BuildZones(int lv)
         {
             switch (lv)
@@ -102,9 +120,9 @@ namespace HideAndSeek.Map.Editor
                 P(lv, _props.BikeRack(5), "BikeRack", x, 0f, 0f);
                 for (int k = 0; k < 5; k++)
                     if (_rng.NextDouble() < 0.6)
-                        P(lv, _props.Bicycle(bikes[_rng.Next(bikes.Length)]), "Bicycle", x + (k - 2) * 0.75f, -0.9f + (k % 2) * 1.8f, k % 2 == 0 ? 0f : 180f);
+                        Bicycle(lv, bikes[_rng.Next(bikes.Length)], x + (k - 2) * 0.75f, -0.9f + (k % 2) * 1.8f, k % 2 == 0 ? 0f : 180f);
             }
-            SignPlate(_signs[lv], new Vector3(8.6f, y0 + 2.2f, -5f), Vector3.left, 1.6f, 0.3f, "BIKES", 0.18f, M("Sign_Blue"), M("Text_White"));
+            // (the blue "BIKES" plate that hung here in mid-air was removed 26.11)
         }
 
         private void SecurityGate(int lv)
@@ -304,7 +322,7 @@ namespace HideAndSeek.Map.Editor
                         P(lv, _props.BikeRack(5), "BikeRack", x, 55.0f, 0f);
                         for (int k = 0; k < 5; k++)
                             if (_rng.NextDouble() < 0.5)
-                                P(lv, _props.Bicycle(MaterialLibrary.CarPaints[_rng.Next(MaterialLibrary.CarPaints.Length)]), "Bicycle", x + (k - 2) * 0.75f, 54.1f + (k % 2) * 1.8f, k % 2 == 0 ? 0f : 180f);
+                                Bicycle(lv, MaterialLibrary.CarPaints[_rng.Next(MaterialLibrary.CarPaints.Length)], x + (k - 2) * 0.75f, 54.1f + (k % 2) * 1.8f, k % 2 == 0 ? 0f : 180f);
                     }
                     break;
                 case 1:

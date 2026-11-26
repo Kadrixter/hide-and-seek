@@ -58,16 +58,7 @@ namespace HideAndSeek.Game
 
             // Price / "RC" sign on the middle board edge (bright, so the cars are spotted from the door).
             Cube("Sign", new Vector3(0f, BoardY - 0.06f, -d / 2f - 0.003f), new Vector3(0.36f, 0.07f, 0.004f), new Color(1f, 0.82f, 0.12f));
-
-            var lamp = new GameObject("ShelfLamp").AddComponent<Light>();
-            lamp.transform.SetParent(transform, false);
-            lamp.transform.localPosition = new Vector3(0f, 2.05f, -0.55f);
-            lamp.transform.localRotation = Quaternion.Euler(65f, 0f, 0f);
-            lamp.type = LightType.Spot;
-            lamp.spotAngle = 75f;
-            lamp.range = 3.6f;
-            lamp.intensity = 1.2f;
-            lamp.color = new Color(0.95f, 0.9f, 0.75f);
+            // No own lamp (2026-11-26): the spot above the shelf lit the cars up unnaturally; the room lighting is enough.
         }
 
         private void Cube(string n, Vector3 lp, Vector3 size, Color c)

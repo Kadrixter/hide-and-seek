@@ -26,7 +26,24 @@ namespace HideAndSeek.Characters
         /// <summary>Moments the palms meet.</summary>
         public static readonly float[] ClapTimes = { 0.6f, 0.9f, 1.2f, 1.5f, 1.8f, 2.1f, 2.4f };
 
-        public const float LaughEnd = 3.6f;
+        /// <summary>Laughing: as long as its recorded laugh (Audio/Sfx/Emotes/EmoteLaugh_01.wav, 10.5 s).</summary>
+        public const float LaughEnd = 10.5f;
+        /// <summary>
+        /// Bursts of the recorded laugh (start, end, strength 0..1), read off its loudness: the big opening laugh, a
+        /// silent wheeze (folded, 1.3-3.8), a sudden "HA", chuckles, the loudest burst (peak 6.8), a "HA", calming
+        /// chuckles, a quiet breath and one last "ha-ha" at the very end.
+        /// </summary>
+        public static readonly UnityEngine.Vector3[] LaughBursts =
+        {
+            new(0.02f, 0.35f, 1f), new(0.45f, 0.68f, 0.85f), new(0.76f, 0.95f, 0.7f), new(1.06f, 1.24f, 0.6f),
+            new(1.66f, 1.78f, 0.2f), new(2.36f, 2.48f, 0.25f), new(2.98f, 3.08f, 0.25f),
+            new(3.88f, 4.1f, 0.9f),
+            new(4.48f, 4.74f, 0.55f), new(5.08f, 5.26f, 0.5f), new(5.56f, 5.84f, 0.4f),
+            new(6.28f, 6.6f, 0.65f), new(6.6f, 7.15f, 1f),
+            new(7.92f, 8.15f, 0.85f),
+            new(8.58f, 8.72f, 0.4f), new(9.04f, 9.16f, 0.35f), new(9.38f, 9.56f, 0.5f),
+            new(10.13f, 10.45f, 0.75f),
+        };
         public const float FacepalmEnd = 3.3f;
         public const float PointEnd = 2.8f;
 

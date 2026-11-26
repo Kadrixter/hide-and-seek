@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Car_Glass_D3_Broken_L2_J06
+  m_Shader: {fileID: 4800000, guid: e353c63bae2ce3549a4159bde55984fb, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 3000
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _DustTex:
+        m_Texture: {fileID: 2800000, guid: df1483cd716f1c74d93bf34dce77d187, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _DustScale: 0.8
+    - _DustSide: 0.42
+    - _DustTop: 0.99
+    - _FloorY: -6.8
+    - _Glossiness: 0.96
+    - _Grime: 0.62
+    - _GrimeHeight: 0.42
+    - _Haze: 0.62
+    - _Metallic: 0.29999998
+    - _NoGoneSide: 0
+    m_Colors:
+    - _Color: {r: 0.09999994, g: 0.12999994, b: 0.14999995, a: 0.62}
+    - _CrackColor: {r: 0.86, g: 0.9, b: 0.9, a: 1}
+    - _DustColor: {r: 0.39999998, g: 0.38499996, b: 0.35499996, a: 1}
+    - _FrontUp: {r: 0, g: 0.5242758, b: -0.85154855, a: 0}
+    - _GrimeColor: {r: 0.11999995, g: 0.09999997, b: 0.08499997, a: 1}
+    - _Hit: {r: -0.3953839, g: 0.023800328, b: 0.44573185, a: 71.675865}
+    - _Hit2: {r: 0, g: 0, b: 0, a: 0}
+    - _PanesA: {r: 2, g: 0, b: 3, a: 3}
+    - _PanesB: {r: 0, g: 0, b: 4, a: 0}
+    - _RearBox: {r: -0.57, g: 0.57, b: -0.24808522, a: 0.23810865}
+    - _RearUp: {r: 0, g: 0.8594132, b: 0.5112816, a: 0}
+    - _Seed: {r: 1.11, g: 0.11, b: 2.19, a: 0.87}
+    - _Seg0: {r: 0.085, g: 1.1245283, b: 0, a: 0}
+    - _Seg1: {r: -0.88, g: -0.0050000027, b: 0, a: 0}
+    - _Seg2: {r: -1.82, g: -0.94, b: 0, a: 0}
+    - _SideY: {r: 0.96608, g: 1.4300001, b: -0.43, a: 57.62507}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

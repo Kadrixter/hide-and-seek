@@ -39,9 +39,18 @@ namespace HideAndSeek.Game
             yield return ("log", () => { if (_logTex == null) _logTex = MakeLogbookTexture(); });
             yield return ("stencil", () => { if (_stencilTex == null) _stencilTex = MakeStencilTexture(); });
             yield return ("microwave", () => { if (_microTex == null) _microTex = MakeMicrowaveTexture(); });
-            yield return ("chips", () => { if (_chipsTex == null) _chipsTex = MakeChipsTexture(); });
-            yield return ("tin", () => { if (_tinTex == null) _tinTex = MakeTinTexture(); });
-            yield return ("pizza", () => { if (_pizzaLid == null) _pizzaLid = MakePizzaLid(); });
+            yield return ("newspaper", () => { if (_newsTex == null) _newsTex = MakeNewspaperTexture(); });
+            yield return ("grime", () => { if (_grimeAtlas == null) _grimeAtlas = MakeGrimeAtlas(); });
+            yield return ("cobweb", () => { if (_webTex == null) _webTex = MakeCobwebTexture(); });
+            for (int b = 0; b < CanBrands; b++)
+            {
+                int brand = CanBrand(b);
+                yield return ("can label " + brand, () => HideAndSeek.Characters.SodaCanArt.Label(brand));
+            }
+            yield return ("crushed cans", () =>
+            {
+                foreach (Crush k in Enum.GetValues(typeof(Crush))) { CanMeshes(k, 0); CanMeshes(k, 1); }
+            });
             yield return ("box label", () => { if (_boxLabel == null) _boxLabel = MakeBoxLabel(); });
             yield return ("jacket + notes", BakeStorageTextures);
             yield return ("chair pose", () => HideAndSeek.Characters.SeatPoses.Body(0, ChairShape));
