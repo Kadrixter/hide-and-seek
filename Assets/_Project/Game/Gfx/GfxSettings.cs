@@ -59,7 +59,7 @@ namespace HideAndSeek.Game.Gfx
         /// <summary>Experimental reflections in the garage (<see cref="GarageReflections"/>), off by default and not part of the profiles.</summary>
         public static bool Reflections { get => Prefs.GetInt("hns.gfx.refl", 0) != 0; set => SetI("hns.gfx.refl", value ? 1 : 0); }
         /// <summary>"Styl obrazu": colour grade of the final image (<see cref="GfxPost"/>), 0 = none, 1..<see cref="LookCount"/>; not part of the profiles.</summary>
-        public static int Look { get => Mathf.Clamp(Prefs.GetInt("hns.gfx.look", 3), 0, LookCount); set => SetI("hns.gfx.look", Mathf.Clamp(value, 0, LookCount)); }
+        public static int Look { get => Mathf.Clamp(Prefs.GetInt("hns.gfx.look", 0), 0, LookCount); set => SetI("hns.gfx.look", Mathf.Clamp(value, 0, LookCount)); }
 
         private static void SetI(string key, int v)
         {
