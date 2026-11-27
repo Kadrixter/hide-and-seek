@@ -22,6 +22,11 @@ namespace HideAndSeek.Game
 
         public volatile RadioStream Stream;
         public volatile float Bass;
+        /// <summary>
+        /// Hard silence (the source is going away: round start / scene change / destroy). The source loops a constant
+        /// 1.0 clip, so whenever this filter does not shape it, it must output zeros - never the raw clip.
+        /// </summary>
+        public volatile bool Muted;
 
         /// <summary>Bass envelope (0..~1.5) normalised to the song's own loudness: what the cones follow.</summary>
         public float Kick => _kick;
@@ -61,7 +66,7 @@ namespace HideAndSeek.Game
         {
             var s = Stream;
             int frames = data.Length / channels;
-            if (s == null || channels < 1)
+            if (s == null || channels < 1 || Muted)
             {
                 Array.Clear(data, 0, data.Length);
                 Decay(frames);
@@ -76,6 +81,7 @@ namespace HideAndSeek.Game
                 return;
             }
             UpdateFilter();
+            if (!_stateOk) ResetFilterState();
             double sum = 0;
             float peak = 0f;
             for (int f = 0; f < frames; f++)
@@ -95,6 +101,7 @@ namespace HideAndSeek.Game
                     // The safety clip works on what actually leaves the source (after 3D panning / rolloff / volume).
                     data[f * channels] = SafeClip(data[f * channels] * l);
                     data[f * channels + 1] = SafeClip(data[f * channels + 1] * r);
+                    if (!float.IsFinite(data[f * channels]) || !float.IsFinite(data[f * channels + 1])) { Broken(data, frames, channels); return; }
                     for (int c = 2; c < channels; c++) data[f * channels + c] *= m;
                 }
                 sum += m * m;
@@ -107,6 +114,28 @@ namespace HideAndSeek.Game
             _level = Mathf.Clamp01(Mathf.Sqrt((float)(sum / Mathf.Max(1, frames))) * 2.2f);
             if (peak > _peak) _peak = peak;
         }
+
+        private volatile bool _stateOk = true;
+
+        /// <summary>A bad sample (NaN / infinity from a broken read or a blown-up filter): this block is silence and the
+        /// filter starts clean, instead of a burst of noise.</summary>
+        private void Broken(float[] data, int frames, int channels)
+        {
+            Array.Clear(data, 0, data.Length);
+            _stateOk = false;
+            Decay(frames);
+        }
+
+        private void ResetFilterState()
+        {
+            Array.Clear(_x1, 0, Ch); Array.Clear(_x2, 0, Ch); Array.Clear(_y1, 0, Ch); Array.Clear(_y2, 0, Ch);
+            _lp1 = _lp2 = _bassEnv = 0f;
+            _bassAvg = 0.05f;
+            _stateOk = true;
+        }
+
+        private void OnDisable() => Muted = true;
+        private void OnEnable() => Muted = false;
 
         /// <summary>Identity below <see cref="Knee"/>; above it a smooth curve that never passes full scale.</summary>
         private static float SafeClip(float x)

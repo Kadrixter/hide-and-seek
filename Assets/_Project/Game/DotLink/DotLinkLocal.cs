@@ -62,7 +62,7 @@ namespace HideAndSeek.Game.DotLink
             var me = NetPlayer.Local;
             var mm = MatchManager.Instance;
             IDotLinkTarget panel = me == null || mm == null ? null
-                : me.AtDotLink && DotLinkPanel.Instance != null ? (IDotLinkTarget)DotLinkPanel.Instance
+                : me.AtDotLink && DotLinkPanel.Of(mm.DotLinkGateOf(me)) != null ? (IDotLinkTarget)DotLinkPanel.Of(mm.DotLinkGateOf(me))
                 : me.AtArcLink && DotLinkArcade.Instance != null ? (IDotLinkTarget)DotLinkArcade.Instance
                 : null;
             if (panel != Target && _dragging) EndDrag(me, false);

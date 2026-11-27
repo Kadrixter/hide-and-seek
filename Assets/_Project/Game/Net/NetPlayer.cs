@@ -81,6 +81,8 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<sbyte> Seat = new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         /// <summary>Lobby "ready" flag (server-written via <see cref="SetReadyRpc"/>).</summary>
         public readonly NetworkVariable<bool> Ready = new();
+        /// <summary>Round trip to the host in ms (server-written once a second, MatchManager.Ping; 0 = the host).</summary>
+        public readonly NetworkVariable<ushort> PingMs = new();
 
         public string Nick => NickVar.Value.ToString();
         public bool IsHider => Role.Value == PlayerRole.Hider;

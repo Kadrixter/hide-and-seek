@@ -40,6 +40,7 @@ namespace HideAndSeek.Game.Net
 
         private void UpdateLobbyFun()
         {
+            UpdatePings(); // MatchManager.Ping.cs
             bool lobby = Phase.Value == MatchPhase.Lobby && InLobbyScene;
             if (lobby) { LobbyBricks.Ensure(); Boombox.Ensure(); }
             // Fork lying on the table while nobody holds it.

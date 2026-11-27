@@ -91,6 +91,8 @@ namespace HideAndSeek.Game
         {
             if (Instance == this) Instance = null;
             if (_panelOwner == this) ClosePanel();
+            if (_out != null) _out.Muted = true;
+            if (_src != null) _src.Stop();
             SetStream(null);
             if (_rt != null) { _rt.Release(); Destroy(_rt); }
             RadioDuck = 1f;
@@ -106,6 +108,15 @@ namespace HideAndSeek.Game
         {
             var mm = MatchManager.Instance;
             var ch = Channel;
+            if (Boombox.LobbyGone(mm))
+            {
+                // Round start: the TV's sound stops at once (see Boombox.Hush), the picture may stay until the scene goes.
+                if (_out != null) _out.Muted = true;
+                if (_src != null) { _src.volume = 0f; if (_src.isPlaying) _src.Stop(); }
+                if (_stream != null) { SetStream(null); _key = int.MinValue; }
+                return;
+            }
+            if (_out != null && _out.Muted) { _out.Muted = false; if (_src != null && !_src.isPlaying) _src.Play(); }
             if (mm == null || ch == null || ch.Queue == null) { UpdateScreen(default, null); return; }
             var r = ch.State.Value;
             string url = ch.Current;

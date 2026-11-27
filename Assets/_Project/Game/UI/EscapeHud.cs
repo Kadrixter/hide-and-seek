@@ -123,6 +123,17 @@ namespace HideAndSeek.Game
                 // The nearer of the two gates (both boxes have the panel, both gates open together).
                 var near = ExitGate.Get(HideAndSeek.Game.Escape.EscapeTimeline.Nearest(NetPlayer.Local.transform.position));
                 if (near != null) g = near;
+                // Each gate opens on its own: towards an open one when running out, else to a box whose panel is still to do.
+                var mm = MatchManager.Instance;
+                Vector3 me = NetPlayer.Local.transform.position;
+                float best = float.MaxValue;
+                for (int i = 0; mm != null && i < ExitGate.Count; i++)
+                {
+                    var gi = ExitGate.Get(i);
+                    if (gi == null || (mm.EscapeGateAtOf(i).Value > 0d) != opening) continue;
+                    float d = ((opening ? gi.SillWorld : gi.BoxWorld) - me).sqrMagnitude;
+                    if (d < best) { best = d; g = gi; }
+                }
             }
             if (g == null) return ExitGate.DefaultPos + ExitGate.BoxPos;
             return opening ? g.SillWorld : g.BoxWorld;

@@ -22,13 +22,32 @@ namespace HideAndSeek.Game.Voice
             }
         }
 
+        /// <summary>
+        /// Round intro (before the hiding clock starts) or the end of the round (outro / end screen): everybody hears
+        /// everybody - the living, the dead and the escaped - flat, at any distance and on any level, like in the lobby.
+        /// Every peer reads the same networked values (phase, intro time), so the server relay and the clients agree.
+        /// </summary>
+        public static bool Cinematic
+        {
+            get
+            {
+                var mm = MatchManager.Instance;
+                if (mm == null || mm.RaceMode) return false;
+                var ph = mm.Phase.Value;
+                return ph == MatchPhase.Ended || (ph == MatchPhase.Hiding && mm.IntroHoldsStart);
+            }
+        }
+
+        /// <summary>No channels and no range right now (lobby, loading, intro, outro).</summary>
+        public static bool AllHearAll => LobbyLike || Cinematic;
+
         /// <summary>True when <paramref name="p"/> is out of a running round - dead or escaped (talks / listens on the observer channel).</summary>
-        public static bool OnDeadChannel(NetPlayer p) => p != null && p.IsObserver && !LobbyLike;
+        public static bool OnDeadChannel(NetPlayer p) => p != null && p.IsObserver && !AllHearAll;
 
         /// <summary>Server: does <paramref name="listener"/> get <paramref name="speaker"/>'s voice?</summary>
         public static bool Hears(NetPlayer listener, NetPlayer speaker, bool shout)
         {
-            if (LobbyLike) return true;
+            if (AllHearAll) return true;
             bool speakerDead = speaker.IsObserver; // dead or escaped: the observer channel (the dead players' lobby)
             bool listenerDead = listener.IsObserver;
             if (speakerDead) return listenerDead;

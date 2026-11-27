@@ -36,7 +36,7 @@ namespace HideAndSeek.Game.Voice
         public string ActiveDevice { get; private set; }
         public bool MicAvailable => Microphone.devices.Length > 0;
 
-        public static float CurrentHearRange => VoiceRules.LobbyLike ? LobbyRange : HearRange;
+        public static float CurrentHearRange => VoiceRules.AllHearAll ? LobbyRange : HearRange;
 
         /// <summary>-voicereliable: old reliable delivery (for comparison / bad routers).</summary>
         private static readonly bool Reliable = Array.IndexOf(Environment.GetCommandLineArgs(), "-voicereliable") >= 0;

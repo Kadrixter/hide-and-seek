@@ -72,7 +72,7 @@ namespace HideAndSeek.Game.Escape
             bool seekerWall = me != null && me.IsSeeker && (mm.Phase.Value == MatchPhase.Seeking || mm.Phase.Value == MatchPhase.Hiding);
             if (_props.SeekerWall.enabled != seekerWall) _props.SeekerWall.enabled = seekerWall;
 
-            bool started = mm.Escape.Value >= EscapeStage.GateOpening && mm.EscapeGateAt.Value > 0d;
+            bool started = mm.EscapeGateStarted(_gate.Index); // each gate opens on its own (its own dot link panel)
             if (!started)
             {
                 if (_driving) ResetGate();
@@ -89,7 +89,7 @@ namespace HideAndSeek.Game.Escape
                 return;
             }
 
-            double t = mm.Now - mm.EscapeGateAt.Value;
+            double t = mm.Now - mm.EscapeGateAtOf(_gate.Index).Value;
             bool ended = mm.Phase.Value != MatchPhase.Seeking && mm.Phase.Value != MatchPhase.Hiding;
             if (!_driving)
             {
@@ -154,8 +154,9 @@ namespace HideAndSeek.Game.Escape
         void FarSiren(float vol)
         {
             var lis = GameAudio.Listener;
-            // One far copy for the whole map (the east gate's), not one per gate.
-            if (lis == null || vol <= 0.001f || _gate.Index != 0) { Play(_sirenFar, 0f, 1f); return; }
+            // One far copy for the whole map (the gate that opened first), not one per gate.
+            var mm = MatchManager.Instance;
+            if (lis == null || vol <= 0.001f || mm == null || _gate.Index != mm.FirstOpenGate()) { Play(_sirenFar, 0f, 1f); return; }
             Vector3 lp = lis.position;
             Vector3 gp = _siren3D.transform.position;
             int floors = Mathf.Abs(FloorAcoustics.FloorOf(lp.y) - FloorAcoustics.FloorOf(gp.y));

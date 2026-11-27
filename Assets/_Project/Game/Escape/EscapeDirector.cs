@@ -52,7 +52,7 @@ namespace HideAndSeek.Game.Escape
             for (int i = 0; i < ExitGate.Count; i++)
             {
                 var gate = ExitGate.Get(i);
-                if (gate != null) EscapeGateDriver.Attach(gate).Tick(_mm); // both gates open together
+                if (gate != null) EscapeGateDriver.Attach(gate).Tick(_mm); // each gate follows its own opening time
             }
         }
 

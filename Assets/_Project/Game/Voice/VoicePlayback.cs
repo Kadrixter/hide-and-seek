@@ -82,6 +82,9 @@ namespace HideAndSeek.Game.Voice
             _lowPass.cutoffFrequency = 22000f;
         }
 
+        /// <summary>Where the voice sits on the player (as DeadLobbyVoice puts it back).</summary>
+        private static readonly Vector3 CineHome = new(0f, 1.55f, 0f);
+
         public void Push(ushort seq, byte[] data, int length, float level, long stamp)
         {
             if (!IsSpeaking) _nextFloorCheck = 0f; // a new sentence: check the floor before it starts playing
@@ -97,10 +100,13 @@ namespace HideAndSeek.Game.Voice
             _stream.Gain = BaseGain * Mathf.Max(0f, LocalProfile.ChatVolume) * PlayerVoiceVolumes.Get(_nick);
             bool speaking = IsSpeaking;
             _stream.Tick(speaking);
-            if (DeadLobbyVoice.Route(_owner, transform, _source, _echo, _lowPass)) { _wasSpeaking = speaking; return; } // dead players' lobby (Game/DeadLobby)
+            // Intro / outro: everybody hears everybody, flat (the camera is on the cinematic, not at the players).
+            bool cinematic = VoiceRules.Cinematic;
+            if (cinematic && transform.localPosition != CineHome) transform.localPosition = CineHome;
+            if (!cinematic && DeadLobbyVoice.Route(_owner, transform, _source, _echo, _lowPass)) { _wasSpeaking = speaking; return; } // dead players' lobby (Game/DeadLobby)
 
             DeadChannel = VoiceRules.OnDeadChannel(_owner) && VoiceRules.OnDeadChannel(NetPlayer.Local);
-            if (DeadChannel)
+            if (DeadChannel || cinematic)
             {
                 // observer channel: flat, the same everywhere
                 _source.spatialBlend = 0f;

@@ -29,6 +29,7 @@ namespace HideAndSeek.Game.UI
             public float BleedLeft; // downed: seconds left
             public float BleedTotal; // full bleed-out time of this round (seconds)
             public int Fuses; // fuses in the inventory (0 = no icon, 1 = icon, 2+ = icon + count)
+            public int Ping; // lobby: ping to the host in ms, shown small right after the nick (< 0 = none)
         }
 
         public readonly RectTransform Root;
@@ -41,6 +42,10 @@ namespace HideAndSeek.Game.UI
         private readonly Image _fuseIcon;
         private readonly Text _fuseCount;
         private int _lastFuses = -1;
+        private readonly Text _ping;
+        private int _lastPing = int.MinValue;
+        private float _pingW;
+        private const float PingW = 50f;
         private string _lastNick, _lastState;
         private bool _lastSeeker, _bleedOn;
         private int _lastSecs = -1;
@@ -109,6 +114,14 @@ namespace HideAndSeek.Game.UI
             _fuseIcon.gameObject.SetActive(false);
             _fuseCount.gameObject.SetActive(false);
 
+            // Ping (lobby): small coloured "23 ms" just after the nick.
+            _ping = UiKit.Label("Ping", Root, "", 14, TextAnchor.MiddleLeft, new Color(0.55f, 0.9f, 0.55f), FontStyle.Bold);
+            _ping.rectTransform.Place(new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(NickX, 0f), new Vector2(PingW, 20f));
+            _ping.horizontalOverflow = HorizontalWrapMode.Overflow;
+            _ping.raycastTarget = false;
+            _ping.AddOutline(1f, 0.6f);
+            _ping.gameObject.SetActive(false);
+
             for (int i = 0; i < 3; i++)
             {
                 var b = UiKit.Image("VoiceBar" + i, Root, new Color(0.45f, 1f, 0.5f, 1f));
@@ -149,6 +162,7 @@ namespace HideAndSeek.Game.UI
 
             UpdateBleed(d);
             UpdateFuses(d.Fuses);
+            UpdatePing(d.Ping);
 
             _strike.enabled = d.Dead;
             if (d.Dead)
@@ -179,7 +193,33 @@ namespace HideAndSeek.Game.UI
             _fuseIcon.gameObject.SetActive(n > 0);
             _fuseCount.gameObject.SetActive(n > 1);
             _fuseCount.text = n > 1 ? n.ToString() : "";
-            _nick.rectTransform.sizeDelta = new Vector2(-NickX - VoiceW - (n > 0 ? (n > 1 ? 44f : 32f) : 0f), 0);
+            ResizeNick();
+        }
+
+        private void ResizeNick() =>
+            _nick.rectTransform.sizeDelta = new Vector2(-NickX - VoiceW - (_lastFuses > 0 ? (_lastFuses > 1 ? 44f : 32f) : 0f) - _pingW, 0);
+
+        /// <summary>Lobby ping after the nick: green below 80 ms, yellow below 150 ms, red above.</summary>
+        private void UpdatePing(int ms)
+        {
+            bool on = ms >= 0;
+            if (ms != _lastPing)
+            {
+                _lastPing = ms;
+                if (_ping.gameObject.activeSelf != on) _ping.gameObject.SetActive(on);
+                float w = on ? PingW : 0f;
+                if (w != _pingW) { _pingW = w; ResizeNick(); }
+                if (on)
+                {
+                    _ping.text = ms + " ms";
+                    _ping.color = ms < 80 ? new Color(0.5f, 0.92f, 0.5f) : ms < 150 ? new Color(1f, 0.85f, 0.35f) : new Color(1f, 0.45f, 0.4f);
+                }
+            }
+            if (!on) return;
+            // Right after the visible nick text (it may be cut when the row is narrow).
+            float nickW = Mathf.Min(_nick.preferredWidth, Mathf.Max(0f, _nick.rectTransform.rect.width));
+            var pos = new Vector2(NickX + nickW + 6f, 0f);
+            if (_ping.rectTransform.anchoredPosition != pos) _ping.rectTransform.anchoredPosition = pos;
         }
 
         /// <summary>Bleed-out bar of a downed player (hidden otherwise); the state text moves up above it.</summary>

@@ -98,6 +98,8 @@ namespace HideAndSeek.Game.UI
                 var p = _sorted[i];
                 var d = Describe(p, phase, round, mm);
                 d.Me = p == me;
+                // Lobby: the ping to the host next to the nick (the host's own row has none).
+                d.Ping = lobby && p.OwnerClientId != NetworkManager.ServerClientId ? p.PingMs.Value : -1;
                 if (d.Me)
                 {
                     d.Speaking = vc != null && vc.Transmitting;

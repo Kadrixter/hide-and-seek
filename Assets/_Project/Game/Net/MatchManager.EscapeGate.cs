@@ -21,11 +21,45 @@ namespace HideAndSeek.Game.Net
     /// </summary>
     public partial class MatchManager
     {
-        /// <summary>Server time the gate started opening (0 = shut / not this round).</summary>
-        public readonly NetworkVariable<double> EscapeGateAt = new();
+        /// <summary>Server time the east gate (0) / the west gate (1) started opening (0 = shut / not this round).
+        /// Each gate opens on its own, when its own dot link panel is solved (2026-11-28).</summary>
+        public readonly NetworkVariable<double> EscapeGateAt = new(), EscapeGateAtW = new();
 
         double _escSeekerBackAt;
         double _escPinAt;
+        readonly bool[] _escOpenToast = new bool[ExitGate.Count];
+
+        public NetworkVariable<double> EscapeGateAtOf(int g) => g == 1 ? EscapeGateAtW : EscapeGateAt;
+
+        /// <summary>Gate <paramref name="g"/> is opening or open this round.</summary>
+        public bool EscapeGateStarted(int g) => Escape.Value >= EscapeStage.GateOpening && EscapeGateAtOf(g).Value > 0d;
+
+        /// <summary>The gate that started opening first (-1 = none yet).</summary>
+        public int FirstOpenGate()
+        {
+            int best = -1;
+            double at = double.MaxValue;
+            for (int g = 0; g < ExitGate.Count; g++)
+            {
+                double a = EscapeGateAtOf(g).Value;
+                if (a > 0d && a < at) { at = a; best = g; }
+            }
+            return best;
+        }
+
+        public static string GateName(int g) => g == 1 ? "zachodnia" : "wschodnia";
+
+        /// <summary>Server: gate <paramref name="g"/>'s panel is solved - this gate (only) starts opening.</summary>
+        public void ServerEscapeGateStart(int g)
+        {
+            if (!IsServer || g < 0 || g >= ExitGate.Count || EscapeGateAtOf(g).Value > 0d) return;
+            EscapeGateAtOf(g).Value = Now;
+            _escPinAt = 0d;
+            Debug.Log($"[Escape] server: gate {g} ({GateName(g)}) opening at {Now:0.00} (standing pass in {EscapeTimeline.StandAt:0.0} s, fully up in {EscapeTimeline.FullAt:0.0} s)");
+            ServerEscapeAdvance(EscapeStage.GateOpening);
+            foreach (var p in NetPlayer.All)
+                if (p != null && p.IsSeeker) p.ToastRpc($"Brama {GateName(g)} się otwiera! Nie pozwól im uciec.", 5f);
+        }
 
         /// <summary>A hider got out this round (alive): the hiders win when nobody is left on the map.</summary>
         public bool AnyEscaped()
@@ -38,11 +72,18 @@ namespace HideAndSeek.Game.Net
         /// <summary>Every peer: minimap alarm pin at the gate every 10 s while the siren sounds (seekers see it).</summary>
         public void EscapeClientTick()
         {
-            if (Escape.Value < EscapeStage.GateOpening || EscapeGateAt.Value <= 0d || Phase.Value != MatchPhase.Seeking) return;
-            double t = Now - EscapeGateAt.Value;
-            if (t < 0d || t > EscapeTimeline.SirenEnd || Now < _escPinAt) return;
-            _escPinAt = Now + 10d;
-            for (int g = 0; g < ExitGate.Count; g++) AlarmPinged?.Invoke(EscapeTimeline.ToWorld(new Vector3(0f, 0f, 1f), g));
+            if (Escape.Value < EscapeStage.GateOpening || FirstOpenGate() < 0 || Phase.Value != MatchPhase.Seeking || Now < _escPinAt) return;
+            bool any = false;
+            for (int g = 0; g < ExitGate.Count; g++)
+            {
+                double at = EscapeGateAtOf(g).Value;
+                if (at <= 0d) continue;
+                double t = Now - at;
+                if (t < 0d || t > EscapeTimeline.SirenEnd) continue;
+                any = true;
+                AlarmPinged?.Invoke(EscapeTimeline.ToWorld(new Vector3(0f, 0f, 1f), g));
+            }
+            if (any) _escPinAt = Now + 10d;
         }
 
         /// <summary>Server, every frame.</summary>
@@ -52,37 +93,42 @@ namespace HideAndSeek.Game.Net
             var ph = Phase.Value;
             if (Escape.Value < EscapeStage.GateOpening)
             {
-                if (EscapeGateAt.Value != 0d) EscapeGateAt.Value = 0d;
+                for (int g = 0; g < ExitGate.Count; g++)
+                {
+                    if (EscapeGateAtOf(g).Value != 0d) EscapeGateAtOf(g).Value = 0d;
+                    _escOpenToast[g] = false;
+                }
                 return;
             }
             if (ph != MatchPhase.Seeking && ph != MatchPhase.Hiding) return;
             if (RaceMode) return;
 
-            if (EscapeGateAt.Value <= 0d)
+            if (FirstOpenGate() < 0)
             {
-                EscapeGateAt.Value = Now;
-                _escPinAt = 0d;
-                Debug.Log($"[Escape] server: gate opening at {Now:0.00} (standing pass in {EscapeTimeline.StandAt:0.0} s, fully up in {EscapeTimeline.FullAt:0.0} s)");
-                foreach (var p in NetPlayer.All)
-                    if (p != null && p.IsSeeker) p.ToastRpc("Brama się otwiera! Nie pozwól im uciec.", 5f);
+                // GateOpening without a solved panel (forced by a test / an old path): both gates open together, as before.
+                Debug.Log("[Escape] server: GateOpening with no gate started - opening both");
+                for (int g = 0; g < ExitGate.Count; g++) ServerEscapeGateStart(g);
             }
-            double t = Now - EscapeGateAt.Value;
-            if (Escape.Value == EscapeStage.GateOpening && t >= EscapeTimeline.StandAt)
+            for (int g = 0; g < ExitGate.Count; g++)
             {
+                double at = EscapeGateAtOf(g).Value;
+                if (at <= 0d || _escOpenToast[g] || Now - at < EscapeTimeline.StandAt) continue;
+                _escOpenToast[g] = true;
                 ServerEscapeAdvance(EscapeStage.GateOpen);
-                Debug.Log($"[Escape] server: gate open for walking after {t:0.0} s");
+                Debug.Log($"[Escape] server: gate {g} open for walking after {Now - at:0.0} s");
                 foreach (var p in NetPlayer.All)
-                    if (p != null && p.IsSeeker) p.ToastRpc("Brama otwarta! Chowający mogą uciec.", 4f);
+                    if (p != null && p.IsSeeker) p.ToastRpc($"Brama {GateName(g)} otwarta! Chowający mogą uciec.", 4f);
             }
             if (ph != MatchPhase.Seeking) return;
-            // Physically the curtain lets a crouching player through a little before GateOpen.
-            if (t < EscapeTimeline.CrouchAt - 0.5f) return;
 
             for (int i = NetPlayer.All.Count - 1; i >= 0; i--)
             {
                 var p = i < NetPlayer.All.Count ? NetPlayer.All[i] : null;
                 if (p == null || !p.IsSpawned || p.Escaped.Value) continue;
                 if (!EscapeTimeline.PastLine(p.transform.position, out int gate)) continue;
+                // Only through a gate that is up far enough (the curtain lets a crouching player through a little before GateOpen).
+                double gateAt = EscapeGateAtOf(gate).Value;
+                if (gateAt <= 0d || Now - gateAt < EscapeTimeline.CrouchAt - 0.5f) continue;
                 if (p.IsSeeker) { SeekerOverLine(p, gate); continue; }
                 if (!p.IsHider || p.Life.Value != LifeState.Alive || p.BodyCarriedNow || p.Busy.Value) continue;
                 ServerEscape(p, null);

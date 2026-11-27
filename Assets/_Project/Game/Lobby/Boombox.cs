@@ -55,7 +55,8 @@ namespace HideAndSeek.Game
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
-            if (_out != null) _out.Stream = null;
+            if (_out != null) { _out.Muted = true; _out.Stream = null; }
+            if (_src != null) _src.Stop();
             _stream?.Dispose();
             _stream = null;
             _next?.Dispose();
@@ -82,6 +83,14 @@ namespace HideAndSeek.Game
         {
             var mm = MatchManager.Instance;
             var ch = Channel;
+            if (this == Instance && LobbyGone(mm))
+            {
+                // The round is starting (loading screen, scene switch): the lobby boombox goes quiet at once and lets go
+                // of its tracks, so nothing of it can crackle while the garage loads.
+                Hush();
+                return;
+            }
+            if (_hushed) { _hushed = false; if (_out != null) _out.Muted = false; if (_src != null && !_src.isPlaying) _src.Play(); }
             if (mm == null || ch == null || ch.Queue == null) return;
             var r = ch.State.Value;
             string url = ch.Current;
@@ -217,6 +226,25 @@ namespace HideAndSeek.Game
             float pos = r.Loading ? r.LoadFrom : Mathf.Max(0f, r.Playing ? (float)(mm.Now - r.StartTime) : r.PausedAt);
             SetStream(RadioStream.Start(url, pos, out _startError));
             _streamSeq = r.Seq;
+        }
+
+        private bool _hushed;
+
+        /// <summary>The lobby is over for now (round loading / running / ended).</summary>
+        internal static bool LobbyGone(MatchManager mm) => mm != null && mm.Phase.Value != MatchPhase.Lobby;
+
+        private void Hush()
+        {
+            if (_hushed) return;
+            _hushed = true;
+            if (_out != null) { _out.Muted = true; _out.Stream = null; }
+            if (_src != null) { _src.volume = 0f; _src.Stop(); }
+            SetStream(null);
+            _next?.Dispose();
+            _next = null;
+            _nextUrl = null;
+            _key = int.MinValue;
+            Debug.Log("[Radio] lobby boombox hushed (round start)");
         }
 
         private static bool NetworkSessionIsServer() => Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsServer;

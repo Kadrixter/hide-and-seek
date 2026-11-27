@@ -7,7 +7,7 @@ namespace HideAndSeek.Game.Net
     public partial class NetPlayer
     {
         /// <summary>This player works on the dot link panel right now.</summary>
-        public bool AtDotLink => MatchManager.Instance != null && MatchManager.Instance.DotLinkUser.Value == NetworkObjectId;
+        public bool AtDotLink => MatchManager.Instance != null && MatchManager.Instance.DotLinkGateOf(this) >= 0;
 
         /// <summary>E at the panel (<paramref name="use"/> = true) or Esc (false).</summary>
         [Rpc(SendTo.Server)]

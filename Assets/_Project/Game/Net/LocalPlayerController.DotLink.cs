@@ -13,6 +13,7 @@ namespace HideAndSeek.Game.Net
     public partial class LocalPlayerController
     {
         private bool _dlBusyPrompt;
+        private int _dlPromptGate;
         private float _dlNextRequest;
 
         /// <summary>FindPrompt: the panel in front of the player.</summary>
@@ -22,16 +23,18 @@ namespace HideAndSeek.Game.Net
             text = null;
             dist = 0f;
             var mm = MatchManager.Instance;
-            if (mm == null || !mm.DotLinkRoundPhase || mm.Escape.Value != EscapeStage.DotLink || !_p.IsHider || _p.AtDotLink) return false;
+            if (mm == null || !mm.DotLinkRoundPhase || mm.Escape.Value < EscapeStage.DotLink || !_p.IsHider || _p.AtDotLink) return false;
             if (!mm.DotLinkCanUse(_p) || _p.Motor.IsProne || !DotLinkLayout.TryNearest(_p.transform.position, out var lay)) return false;
+            if (mm.EscapeGateAtOf(lay.Gate).Value > 0d) return false; // this gate's panel is solved - its gate is open
             dist = Vector3.Distance(eye, lay.Centre);
             if (dist > 2.2f || !InView(eye, fwd, lay.Centre, 40f, lay.Box)) return false;
             pos = lay.Centre + Vector3.up * 0.2f;
-            var user = mm.DotLinkUserPlayer;
+            var user = mm.DotLinkUserPlayerOf(lay.Gate);
             _dlBusyPrompt = user != null;
-            text = mm.DotLinkPuzzleNet.Value.Length == 0 ? "E  panel się uruchamia..."
+            _dlPromptGate = lay.Gate;
+            text = mm.DotLinkPuzzleOf(lay.Gate).Value.Length == 0 ? "E  panel się uruchamia..."
                 : _dlBusyPrompt ? $"E  panel zajęty - {user.Nick} łączy kable"
-                : "E  podłącz kable (panel bramy)";
+                : $"E  podłącz kable (brama {MatchManager.GateName(lay.Gate)})";
             return true;
         }
 
@@ -39,7 +42,7 @@ namespace HideAndSeek.Game.Net
         {
             _ignoreEThisFrame = true;
             var mm = MatchManager.Instance;
-            if (mm == null || mm.DotLinkPuzzleNet.Value.Length == 0) return;
+            if (mm == null || mm.DotLinkPuzzleOf(_dlPromptGate).Value.Length == 0) return;
             if (_dlBusyPrompt)
             {
                 GameHud.Toast("Panel zajęty - przy panelu może pracować tylko jedna osoba naraz.", 2.5f);

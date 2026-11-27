@@ -14,10 +14,13 @@ namespace HideAndSeek.Game.DotLink
     /// </summary>
     public sealed class DotLinkPanel : MonoBehaviour, IDotLinkTarget
     {
-        /// <summary>One panel per exit gate (east, west); both show the same shared puzzle.</summary>
+        /// <summary>One panel per exit gate (east, west); each has its own puzzle and progress (2026-11-28).</summary>
         static readonly DotLinkPanel[] Panels = new DotLinkPanel[ExitGate.Count];
         /// <summary>The panel the local player is at / nearest to (the east one without a local player).</summary>
         public static DotLinkPanel Instance => Nearest(NetPlayer.Local != null ? NetPlayer.Local.transform.position : (Vector3?)null);
+
+        /// <summary>The panel of gate <paramref name="gate"/> (null = none / not built).</summary>
+        public static DotLinkPanel Of(int gate) => gate >= 0 && gate < Panels.Length ? Panels[gate] : null;
 
         public static DotLinkPanel Nearest(Vector3? world)
         {
@@ -130,7 +133,7 @@ namespace HideAndSeek.Game.DotLink
             return true;
         }
 
-        public string SolvedFlash => "Połączono - brama się otwiera";
+        public string SolvedFlash => _gate != null ? $"Połączono - brama {MatchManager.GateName(_gate.Index)} się otwiera" : "Połączono - brama się otwiera";
         public string StatusExtra => "";
         public void SendPath(NetPlayer me, byte color, FixedString512Bytes cells, byte dragId, bool final) => me.DotLinkPathRpc(color, cells, dragId, final);
         public void SendClear(NetPlayer me, byte color) => me.DotLinkClearRpc(color);
@@ -197,7 +200,8 @@ namespace HideAndSeek.Game.DotLink
 
         void ReadNet(MatchManager mm, bool open)
         {
-            string pt = mm != null ? mm.DotLinkPuzzleNet.Value.ToString() : "";
+            int g = _gate != null ? _gate.Index : 0; // every gate's panel follows its own puzzle and lines
+            string pt = mm != null ? mm.DotLinkPuzzleOf(g).Value.ToString() : "";
             if (pt != _puzzleText)
             {
                 _puzzleText = pt;
@@ -208,7 +212,7 @@ namespace HideAndSeek.Game.DotLink
                 _seenNet = false;
                 _drawnKey = "";
             }
-            string pa = mm != null ? mm.DotLinkPathsNet.Value.ToString() : "";
+            string pa = mm != null ? mm.DotLinkPathsOf(g).Value.ToString() : "";
             if (_net != null && pa != _pathsText)
             {
                 _pathsText = pa;
