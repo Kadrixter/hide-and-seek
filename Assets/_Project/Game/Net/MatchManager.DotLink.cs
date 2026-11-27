@@ -71,7 +71,7 @@ namespace HideAndSeek.Game.Net
                 : DotLinkHurt(u) && !_dlUserHurt ? "user attacked" : null;
             bool solvedHold = _dlSolvedAt >= 0 && Now < _dlSolvedAt + DotLinkSolvedHold;
             if (why == null && Escape.Value != EscapeStage.DotLink && !solvedHold) why = _dlSolvedAt >= 0 ? "solved" : "stage changed";
-            if (why == null && DotLinkLayout.TryGet(out var lay) && Vector3.Distance(u.transform.position, lay.Stand) > 2.5f) why = "walked away";
+            if (why == null && DotLinkLayout.TryNearest(u.transform.position, out var lay) && Vector3.Distance(u.transform.position, lay.Stand) > 2.5f) why = "walked away";
             if (why != null) DotLinkRelease(why);
         }
 
@@ -140,19 +140,19 @@ namespace HideAndSeek.Game.Net
                 return;
             }
             string why = !DotLinkOpen ? "panel not open" : !DotLinkCanUse(p) ? (p.IsSeeker ? "seeker" : "cannot use now")
-                : DotLinkUser.Value != NoDotLinkUser ? "busy" : !DotLinkLayout.TryGet(out var lay) ? "no panel"
+                : DotLinkUser.Value != NoDotLinkUser ? "busy" : !DotLinkLayout.TryNearest(p.transform.position, out var lay) ? "no panel"
                 : Vector3.Distance(p.transform.position, lay.Stand) > 2.4f ? "too far" : null;
             if (why != null)
             {
                 Debug.Log($"[DotLink] {p.Nick} refused at the panel: {why}");
                 return;
             }
-            DotLinkLayout.TryGet(out lay);
+            DotLinkLayout.TryNearest(p.transform.position, out lay);
             DotLinkUser.Value = p.NetworkObjectId;
             _dlUserHurt = DotLinkHurt(p);
             _dlDragBase = null;
             p.TeleportRpc(lay.Stand, lay.Yaw);
-            Debug.Log($"[DotLink] {p.Nick} at the panel; pairs {_dlBoard.CompleteCount}/{_dlPuzzle.Colors}, filled {_dlBoard.FilledCount}/{_dlPuzzle.Cells}");
+            Debug.Log($"[DotLink] {p.Nick} at the panel of gate {lay.Gate}; pairs {_dlBoard.CompleteCount}/{_dlPuzzle.Colors}, filled {_dlBoard.FilledCount}/{_dlPuzzle.Cells}");
         }
 
         /// <summary>Server: a line of the user's drag (<paramref name="final"/> = mouse released).</summary>

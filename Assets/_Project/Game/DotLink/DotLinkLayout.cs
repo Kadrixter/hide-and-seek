@@ -18,12 +18,33 @@ namespace HideAndSeek.Game.DotLink
         public Transform Box;
         public Vector3 Centre, Normal, Up, Stand;
         public float Yaw;
+        /// <summary>0 = east gate, 1 = west gate (both boxes have the same panel, one shared puzzle).</summary>
+        public int Gate;
 
-        public static bool TryGet(out DotLinkLayout l)
+        /// <summary>The east gate's panel (tests).</summary>
+        public static bool TryGet(out DotLinkLayout l) => TryGet(0, out l);
+
+        /// <summary>The panel of the gate nearer to <paramref name="world"/>.</summary>
+        public static bool TryNearest(Vector3 world, out DotLinkLayout l)
         {
             l = default;
-            var gate = ExitGate.Instance;
+            bool any = false;
+            float best = float.MaxValue;
+            for (int i = 0; i < ExitGate.Count; i++)
+            {
+                if (!TryGet(i, out var c)) continue;
+                float d = (c.Stand - world).sqrMagnitude;
+                if (d < best) { best = d; l = c; any = true; }
+            }
+            return any;
+        }
+
+        public static bool TryGet(int gateIndex, out DotLinkLayout l)
+        {
+            l = default;
+            var gate = ExitGate.Get(gateIndex);
             if (gate == null) return false;
+            l.Gate = gateIndex;
             var box = gate.transform.Find("ElectricBox");
             if (box == null) return false;
             l.Box = box;

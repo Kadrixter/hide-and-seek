@@ -23,7 +23,7 @@ namespace HideAndSeek.Game.Net
             dist = 0f;
             var mm = MatchManager.Instance;
             if (mm == null || !mm.DotLinkRoundPhase || mm.Escape.Value != EscapeStage.DotLink || !_p.IsHider || _p.AtDotLink) return false;
-            if (!mm.DotLinkCanUse(_p) || _p.Motor.IsProne || !DotLinkLayout.TryGet(out var lay)) return false;
+            if (!mm.DotLinkCanUse(_p) || _p.Motor.IsProne || !DotLinkLayout.TryNearest(_p.transform.position, out var lay)) return false;
             dist = Vector3.Distance(eye, lay.Centre);
             if (dist > 2.2f || !InView(eye, fwd, lay.Centre, 40f, lay.Box)) return false;
             pos = lay.Centre + Vector3.up * 0.2f;

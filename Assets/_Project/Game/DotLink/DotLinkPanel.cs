@@ -14,7 +14,25 @@ namespace HideAndSeek.Game.DotLink
     /// </summary>
     public sealed class DotLinkPanel : MonoBehaviour, IDotLinkTarget
     {
-        public static DotLinkPanel Instance { get; private set; }
+        /// <summary>One panel per exit gate (east, west); both show the same shared puzzle.</summary>
+        static readonly DotLinkPanel[] Panels = new DotLinkPanel[ExitGate.Count];
+        /// <summary>The panel the local player is at / nearest to (the east one without a local player).</summary>
+        public static DotLinkPanel Instance => Nearest(NetPlayer.Local != null ? NetPlayer.Local.transform.position : (Vector3?)null);
+
+        public static DotLinkPanel Nearest(Vector3? world)
+        {
+            DotLinkPanel best = null;
+            float bd = float.MaxValue;
+            for (int i = 0; i < Panels.Length; i++)
+            {
+                var q = Panels[i];
+                if (q == null) continue;
+                if (world == null) return q;
+                float d = (q.transform.position - world.Value).sqrMagnitude;
+                if (d < bd) { bd = d; best = q; }
+            }
+            return best;
+        }
 
         ExitGate _gate;
         Transform _box, _hinge, _screenQ;
@@ -37,9 +55,15 @@ namespace HideAndSeek.Game.DotLink
 
         public static void Ensure()
         {
-            var gate = ExitGate.Instance;
-            if (gate == null || (Instance != null && Instance._gate == gate)) return;
-            if (Instance != null) Destroy(Instance.gameObject);
+            for (int i = 0; i < Panels.Length; i++) Ensure(i);
+        }
+
+        static void Ensure(int i)
+        {
+            var gate = ExitGate.Get(i);
+            var cur = Panels[i];
+            if (gate == null || (cur != null && cur._gate == gate)) return;
+            if (cur != null) Destroy(cur.gameObject);
             var box = gate.transform.Find("ElectricBox");
             if (box == null) return;
             var go = new GameObject("DotLinkPanel");
@@ -49,12 +73,13 @@ namespace HideAndSeek.Game.DotLink
             p._gate = gate;
             p._box = box;
             p.Build();
-            Instance = p;
+            Panels[i] = p;
         }
 
         void OnDestroy()
         {
-            if (Instance == this) Instance = null;
+            for (int i = 0; i < Panels.Length; i++)
+                if (Panels[i] == this) Panels[i] = null;
             if (_screen != null) Destroy(_screen.Tex);
         }
 
@@ -100,7 +125,7 @@ namespace HideAndSeek.Game.DotLink
         {
             pos = default;
             rot = default;
-            if (!DotLinkLayout.TryGet(out var lay)) return false;
+            if (_gate == null || !DotLinkLayout.TryGet(_gate.Index, out var lay)) return false;
             lay.CameraPose(fov, zoom, out pos, out rot);
             return true;
         }

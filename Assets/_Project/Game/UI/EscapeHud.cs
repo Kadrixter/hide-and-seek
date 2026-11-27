@@ -101,7 +101,7 @@ namespace HideAndSeek.Game
                     color = new Color(0.55f, 0.9f, 1f);
                     target = GateTarget(false);
                     arrow = true;
-                    return "Idź do urwanej dźwigni przy bramie WYJŚCIE" + Where(me, target);
+                    return "Idź do skrzynki z urwaną dźwignią przy bramie WYJŚCIE" + Where(me, target);
                 case EscapeStage.GateOpening:
                     color = new Color(pulse, 0.7f * pulse, 0.3f * pulse);
                     target = GateTarget(true);
@@ -118,9 +118,9 @@ namespace HideAndSeek.Game
         private static Vector3 GateTarget(bool opening)
         {
             var g = ExitGate.Instance;
-            if (opening && NetPlayer.Local != null)
+            if (NetPlayer.Local != null)
             {
-                // Running out: the nearer of the two gates.
+                // The nearer of the two gates (both boxes have the panel, both gates open together).
                 var near = ExitGate.Get(HideAndSeek.Game.Escape.EscapeTimeline.Nearest(NetPlayer.Local.transform.position));
                 if (near != null) g = near;
             }
