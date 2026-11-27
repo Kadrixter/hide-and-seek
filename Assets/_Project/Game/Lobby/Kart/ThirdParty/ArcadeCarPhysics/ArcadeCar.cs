@@ -559,8 +559,10 @@ public class ArcadeCar : MonoBehaviour
         axles[1].brakeLeft = isBrake;
         axles[1].brakeRight = isBrake;
 
-        axles[0].handBrakeLeft = isHandBrake;
-        axles[0].handBrakeRight = isHandBrake;
+        // [Hide and Seek] 2026-11-27: the handbrake works on the rear axle only (a kart's rear brake) - on all four
+        // wheels it stopped the kart from 85 km/h in a second
+        axles[0].handBrakeLeft = false;
+        axles[0].handBrakeRight = false;
         axles[1].handBrakeLeft = isHandBrake;
         axles[1].handBrakeRight = isHandBrake;
 

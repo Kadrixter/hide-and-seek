@@ -20,7 +20,7 @@ namespace HideAndSeek.Game.UI
             "Bramę WYJŚCIE otworzą bezpieczniki - znajdź je na parkingu i włóż do pasujących skrzynek.",
             "Szukający przez pierwsze chwile nic nie widzi. Wykorzystaj ten czas na dobrą kryjówkę.",
             "Pod maskami niektórych aut są akumulatory. Podłączony w pokoju ochrony zasila kamery.",
-            "Zamka maski nie otworzysz gołymi rękami - urwij kawałek drutu z siatki ogrodzenia albo klatki.",
+            "Maskę każdego auta da się otworzyć, ale co drugi akumulator jest rozładowany.",
             "Piła łańcuchowa pali paliwo. Z kanistrem w ekwipunku zatankujesz ją klawiszem R.",
             "Ctrl - kucanie, Z - czołganie. Nisko zmieścisz się tam, gdzie szukający nie zajrzy.",
             "Latarka (T) pomaga w ciemności, ale zdradza, gdzie jesteś.",

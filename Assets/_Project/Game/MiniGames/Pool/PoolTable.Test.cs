@@ -15,6 +15,14 @@ namespace HideAndSeek.Game.MiniGames
         Vector2? _testHold;
         bool _testClick;
 
+        /// <summary>Last aim guide: the ball it hits first (-1 none) and whether it was drawn as legal (white) or red.</summary>
+        int _guideHit = -1;
+        bool _guideLegal = true, _guideOpen;
+        /// <summary>The guide was drawn yellow (groups not picked yet).</summary>
+        public bool TestGuideOpen => _guideOpen;
+        public int TestGuideHit => _guideHit;
+        public bool TestGuideLegal => _guideLegal;
+
         /// <summary>Aim angle of the local shooter (radians, table space).</summary>
         public float AimAngle => _aimAngle;
 

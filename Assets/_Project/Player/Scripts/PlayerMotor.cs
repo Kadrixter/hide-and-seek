@@ -200,6 +200,20 @@ namespace HideAndSeek.Player
             Physics.SyncTransforms();
         }
 
+        /// <summary>Owner: a push (m/s) on top of the current motion - the horizontal part coasts in the air, the vertical part
+        /// replaces a smaller upward speed (2026-11-27: the sofa spring throws the sitter off).</summary>
+        public void AddImpulse(Vector3 v)
+        {
+            _horizontalVelocity += new Vector3(v.x, 0f, v.z);
+            if (v.y > _verticalVelocity) _verticalVelocity = v.y;
+        }
+
+        /// <summary>Owner: a scripted step of the capsule (with collisions), e.g. stepping back to the sofa.</summary>
+        public void ScriptedMove(Vector3 delta)
+        {
+            if (_cc != null && _cc.enabled) _cc.Move(delta);
+        }
+
         public void SetLook(float yaw, float pitch)
         {
             transform.rotation = Quaternion.Euler(0f, yaw, 0f);

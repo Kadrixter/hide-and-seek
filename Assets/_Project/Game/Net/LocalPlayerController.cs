@@ -128,7 +128,7 @@ namespace HideAndSeek.Game.Net
         /// <summary>True while a menu (Esc, settings board) owns the mouse.</summary>
         public static bool MenuOpen { get; set; }
 
-        /// <summary>Downed for longer than Tuning.CrawlTime: cannot crawl any more.</summary>
+        /// <summary>Downed for longer than Tuning.CrawlShare of the bleed-out time: cannot crawl any more.</summary>
         public bool CrawlExhausted { get; private set; }
 
         private void Awake()
@@ -251,12 +251,12 @@ namespace HideAndSeek.Game.Net
             _lastPhase = phase;
             _p.InputReader.InputEnabled = !locked;
             _p.InputReader.ManageCursor = !MenuOpen;
-            // Downed: crawling only for the first CrawlTime seconds, then too weak to move.
+            // Downed: crawling for the first 3/4 of the bleed-out time (Tuning.CrawlShare, 2026-11-27), then too weak to move.
             bool exhausted = false;
             if (_p.Life.Value == LifeState.Downed && mm != null)
             {
                 double downedFor = mm.Now - (_p.DownedUntil.Value - mm.BleedOut);
-                exhausted = downedFor >= Tuning.CrawlTime;
+                exhausted = downedFor >= mm.BleedOut * Tuning.CrawlShare;
             }
             CrawlExhausted = exhausted;
             // Seated: no walking; E, Space or any movement key stands up. Never seated outside the lobby.
@@ -272,6 +272,7 @@ namespace HideAndSeek.Game.Net
                     _ignoreEThisFrame = true;
                 }
             }
+            TickSofaSpring(_p.Seat.Value >= 0); // worn sofas: the spring (LocalPlayerController.SofaSpring.cs)
             // SNAKE arcade: WASD / arrows steer, E or Space leaves. No walking or looking around meanwhile.
             var mmA = MatchManager.Instance;
             int arcadeCab = mmA != null ? mmA.ArcadeCabOf(_p.NetworkObjectId) : -1;
@@ -297,7 +298,7 @@ namespace HideAndSeek.Game.Net
             bool rc = _p.RcAnimating;
             bool gasp = _p.Gasping;
             bool collapsed = _p.OverdoseActive; // lying after too many cans: the body drives the view (NetPlayer.Drunk)
-            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed && !_p.EmoteHoldsMove && SecurityChairDriver.LocalChair < 0;
+            _p.Motor.MovementEnabled = !locked && !exhausted && _p.Seat.Value < 0 && !arcade && !rc && !gasp && !collapsed && !_p.EmoteHoldsMove && SecurityChairDriver.LocalChair < 0 && !SpringBusy;
             bool poseWheel = PoseWheel.IsOpen || EmoteWheel.IsOpen; // K wheels: the mouse points at a slice instead of turning the head
             _p.Motor.LookEnabled = !locked && !arcade && !rc && !poseWheel && !collapsed && !_p.EmoteViewActive;
             var cc = _p.GetComponent<CharacterController>();
@@ -951,6 +952,7 @@ namespace HideAndSeek.Game.Net
 
         private void SitNearest()
         {
+            if (SpringBusy) return;
             LobbySeat best = null;
             float bd = float.MaxValue;
             foreach (var s in LobbySeat.All)

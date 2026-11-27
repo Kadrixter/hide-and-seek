@@ -33,6 +33,7 @@ namespace HideAndSeek.Game.Editor
                 Strip(t);
                 if (t.name == "Sofa") BuildSofaModel(t);
                 else BuildPoufModel(t, PoufStyle);
+                AddWear(t, t.name == "Sofa"); // torn holes with the foam showing (LobbySeatModels.Wear.cs)
             }
         }
 
@@ -42,6 +43,7 @@ namespace HideAndSeek.Game.Editor
             Strip(t);
             if (t.name == "Sofa") BuildSofaModel(t);
             else BuildPoufModel(t, poufStyle);
+            AddWear(t, t.name == "Sofa");
         }
 
         /// <summary>Removes the placeholder geometry (everything but the seats), keeps the transform where it is.</summary>

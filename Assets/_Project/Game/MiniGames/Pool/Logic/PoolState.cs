@@ -105,7 +105,8 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public ulong ShooterId => Place(Shooter);
         public bool IsDown(int ball) => (Down & (1 << ball)) != 0;
         /// <summary>Group of a team: 0 = none yet, 1 = solids, 2 = stripes.</summary>
-        public int GroupOf(int seat) => Groups == Open ? 0 : (Groups == ASolids) == (seat == 0) ? 1 : 2;
+        /// (a place 0..3 works too: team = place &amp; 1 - place A2 = 2 used to get team B's group).
+        public int GroupOf(int seat) => Groups == Open ? 0 : (Groups == ASolids) == ((seat & 1) == 0) ? 1 : 2;
 
         /// <summary>Object balls still on the table (bit mask, bit 0 never set).</summary>
         public ushort OnTable => (ushort)(~Down & ObjectMask);

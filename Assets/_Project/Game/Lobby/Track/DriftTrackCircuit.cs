@@ -5,65 +5,70 @@ namespace HideAndSeek.Game
 {
     /// <summary>
     /// The kart circuit on the drift pad (pure geometry, shared by the builders and the tests): a closed polygon of
-    /// corner points, each rounded with its own radius, sampled every ~1 m. ~1.2 km, 19 corners, raced anticlockwise
-    /// from the start / finish straight (x = -104, heading north) that runs along the paddock (the open asphalt by the
-    /// gate where the karts park; a gap in the straight's east barrier lets them on and off): a right-hander, a banked
-    /// hairpin, fast esses, a tunnel with two kinks, the west corner, a long ground-level diagonal under the bridge, the
-    /// long drift sweeper, the climb along the south side up two banked elevated corners onto the 4.6 m bridge that
-    /// crosses the diagonal (figure-8), the descent through an elevated right-hander and a chicane, the banked
-    /// south hairpin and back onto the straight. Heights are eased between corner apexes (cosine, so every crest and
-    /// dip is smooth, grades under ~8 %); banked corners roll the cross-section (the outside edge up) and lift a
-    /// ground-level corner just enough to keep its low edge above the ground. North = +Z, right of the driving
-    /// direction = <see cref="Right"/>.
+    /// corner points, each rounded with its own radius, sampled every ~1 m. 2026-11-27 rebuild: ~2.3 km, 14 m wide,
+    /// raced anticlockwise from the start / finish straight (x = -104, heading north) along the paddock (a gap in its
+    /// east barrier lets the karts on and off): a banked left onto the north run, a tight left-right onto the long west
+    /// run, the west edge down into a STACKED HELIX - two and a half laps of a 110 x 100 m rectangle climbing 7.2 m a
+    /// lap, so the road runs over itself on three levels (0 / ~7 / ~14 m) - out of its top at 17 m heading north as a
+    /// viaduct over the west run, a sweeping descent east and south (over the west run again) and back through a
+    /// right-left to the south hairpin. Heights are eased between corner apexes (cosine, grades under ~7.5 %); any road
+    /// above ~1.2 m is a viaduct (a slab on columns, open underneath - no earth banks), so the levels simply lie on top
+    /// of each other. Banked corners roll the cross-section (the outside edge up) and lift a ground-level corner just
+    /// enough to keep its low edge above the ground. North = +Z, right of the driving direction = <see cref="Right"/>.
     /// </summary>
     public static class DriftTrackCircuit
     {
-        /// <summary>Half width to the white edge lines (12 m of racing asphalt).</summary>
-        public const float HalfWidth = 6f;
+        /// <summary>Half width to the white edge lines (14 m of racing asphalt; 12 m before 27.11).</summary>
+        public const float HalfWidth = 7f;
         /// <summary>Half width of the asphalt deck (and its collider): it runs on under the barriers.</summary>
-        public const float DeckHalf = 7.2f;
-        /// <summary>Axis of the jersey barriers (base 0.62 m wide: the inner face stands 6.29 m off the centre line).</summary>
-        public const float BarrierLat = 6.6f, BarrierHalfBase = 0.31f;
+        public const float DeckHalf = 8.2f;
+        /// <summary>Axis of the jersey barriers (base 0.62 m wide: the inner face stands 7.29 m off the centre line).</summary>
+        public const float BarrierLat = 7.6f, BarrierHalfBase = 0.31f;
+        /// <summary>Road higher than this is a viaduct (slab on columns); lower road stands on side walls down to the ground.</summary>
+        public const float ViaductFrom = 1.2f;
         /// <summary>Height of the bridge deck over the diagonal; depth of the bridge slab under the road.</summary>
         public const float BridgeHeight = 4.6f, BridgeDepth = 0.7f;
         /// <summary>Tunnel: inner half width, clear height over the road.</summary>
         public const float TunnelHalf = 7.5f, TunnelHeight = 4.8f;
-        /// <summary>Highest road surface (bridge, plus the roll of a banked edge) - the karts are kept below this + a margin.</summary>
-        public const float MaxHeight = BridgeHeight + 0.9f;
+        /// <summary>Highest road surface (the top of the helix exit, plus the roll of a banked edge) - the karts are kept below this + a margin.</summary>
+        public const float MaxHeight = 18f;
         /// <summary>Gap in the east barrier of the start straight (the paddock exit), z range.</summary>
         public const float PitZ0 = -6f, PitZ1 = 28f;
         /// <summary>Start / finish line across the start straight.</summary>
         public const float StartZ = 36f;
-        /// <summary>Tunnel along the north run between these x (heading west).</summary>
-        public const float TunnelXEast = -142f, TunnelXWest = -234f;
+        /// <summary>Tunnel (none since 27.11: the roads under the viaducts are the covered bits now).</summary>
+        public const float TunnelXEast = 0f, TunnelXWest = 0f;
+        /// <summary>x of the start / finish straight.</summary>
+        public const float StartX = -104f;
 
         private const float GroundY = 0f, Lead = 14f, Inside = 4f;
 
-        /// <summary>Corner points: x, z, fillet radius, road height at the apex, bank (degrees, outside edge up).</summary>
+        /// <summary>Corner points: x, z, fillet radius, road height at the apex, bank (degrees, outside edge up). A point that
+        /// does not turn (radius 0) only sets a height on a straight. Checked offline (no two levels closer than 5.3 m where
+        /// the decks overlap, grades, the pad) - keep that in mind when moving points.</summary>
         private static readonly (float x, float z, float r, float h, float bank)[] Plan =
         {
-            (-104f, 58f, 14f, 0f, 0f),     //  0 T1, right onto the north-east run
-            (-38f, 58f, 15f, 0f, 6f),      //  1 hairpin (left) ...
-            (-38f, 88f, 15f, 0f, 6f),      //  2 ... banked, back west
-            (-62f, 88f, 22f, 0f, 0f),      //  3 esses: left
-            (-84f, 79f, 22f, 0f, 0f),      //  4        right
-            (-112f, 79f, 22f, 0f, 0f),     //  5        right
-            (-132f, 88f, 22f, 0f, 0f),     //  6        left
-            (-165f, 88f, 60f, 0f, 0f),     //  7 tunnel kink (left)
-            (-222f, 80f, 60f, 0f, 0f),     //  8 tunnel kink (right)
-            (-292f, 86f, 14f, 0f, 5f),     //  9 west corner (left, south)
-            (-292f, 30f, 14f, 0f, 0f),     // 10 left onto the diagonal (passes under the bridge)
-            (-150f, -55f, 24f, 0f, 0f),    // 11 long drift sweeper (right)
-            (-170f, -86f, 14f, 0f, 0f),    // 12 right, west along the south side: the climb starts
-            (-292f, -86f, 14f, 2.4f, 6f),  // 13 elevated, banked right (north)
-            (-292f, -35f, 14f, 4.6f, 6f),  // 14 elevated, banked right onto the bridge run (north-east)
-            (-206f, 16f, 60f, 4.6f, 0f),   // 15 a slight bend just past the bridge, then down
-            (-150f, 50f, 14f, 2.4f, 6f),   // 16 elevated, banked right (south)
-            (-128f, 20f, 20f, 1.0f, 0f),   // 17 chicane: right ...
-            (-140f, -10f, 20f, 0f, 0f),    // 18          left ...
-            (-128f, -40f, 20f, 0f, 0f),    // 19          right
-            (-128f, -84f, 12f, 0f, 6f),    // 20 south hairpin (left) ...
-            (-104f, -84f, 12f, 0f, 6f),    // 21 ... banked, onto the start straight
+            (-104f, 128f, 12f, 0f, 6f),    //  0 banked left onto the north run (west)
+            (-150f, 128f, 10f, 0f, 6f),    //  1 tight left (south) ...
+            (-150f, 70f, 10f, 0f, 0f),     //  2 ... right onto the long west run (under the descent and the exit viaduct)
+            (-405f, 70f, 12f, 0f, 6f),     //  3 banked left, down the west edge (south)
+            (-405f, -130f, 12f, 0f, 6f),   //  4 helix: SW, lap 1 (ground)
+            (-295f, -130f, 12f, 1.8f, 6f), //  5        SE
+            (-295f, -30f, 12f, 3.6f, 6f),  //  6        NE
+            (-405f, -30f, 12f, 5.4f, 6f),  //  7        NW (over the way in)
+            (-405f, -130f, 12f, 7.2f, 6f), //  8        SW, lap 2 (over lap 1)
+            (-295f, -130f, 12f, 9.0f, 6f), //  9        SE
+            (-295f, -30f, 12f, 10.8f, 6f), // 10        NE
+            (-405f, -30f, 12f, 12.6f, 6f), // 11        NW
+            (-405f, -130f, 12f, 14.4f, 6f),// 12        SW, lap 3 (over lap 2)
+            (-295f, -130f, 12f, 16.2f, 6f),// 13        SE, out of the top heading north
+            (-295f, -5f, 0f, 17f, 0f),     // 14 (straight) keeps the height past the lower NE corners
+            (-295f, 105f, 14f, 12f, 0f),   // 15 right (east), the viaduct over the west run
+            (-190f, 105f, 14f, 7.3f, 0f),  // 16 right (south), descending over the west run
+            (-190f, -60f, 14f, 0f, 0f),    // 17 left (east)
+            (-150f, -60f, 10f, 0f, 0f),    // 18 right (south) ...
+            (-150f, -128f, 10f, 0f, 6f),   // 19 ... banked left (east) - the south hairpin
+            (-104f, -128f, 12f, 0f, 6f),   // 20 ... banked left onto the start straight
         };
 
         /// <summary>One rounded corner of <see cref="Plan"/> along the sampled line.</summary>
@@ -88,7 +93,7 @@ namespace HideAndSeek.Game
         public static float[] Curvature { get { Build(); return _curv; } }
         /// <summary>The row lies inside the tunnel.</summary>
         public static bool[] Tunnel { get { Build(); return _tunnel; } }
-        /// <summary>The row is part of the bridge span over the lower road (no side walls under it).</summary>
+        /// <summary>The row is a viaduct (slab on columns, no side walls under it): any road above <see cref="ViaductFrom"/>.</summary>
         public static bool[] Span { get { Build(); return _span; } }
         /// <summary>No barrier on the left (0) / right (1) side of this row.</summary>
         public static bool[] OpenLeft { get { Build(); return _openL; } }
@@ -218,7 +223,7 @@ namespace HideAndSeek.Game
                 if (pts.Count > 0) Line(pts, pts[pts.Count - 1], a);
                 else pts.Add(a);
                 arcS0[i] = pts.Count - 1;
-                if (Mathf.Abs(th[i]) > 1e-4f)
+                if (Mathf.Abs(th[i]) > 1e-4f && v.r > 0.01f)
                 {
                     Vector2 left = new(-d1s[i].y, d1s[i].x);
                     float sg = Mathf.Sign(th[i]);
@@ -264,7 +269,7 @@ namespace HideAndSeek.Game
                 if (!joined) _cornerCount++;
             }
 
-            // A banked hairpin made of two touching corners rolls as one (no dip in the roll / lift where they meet).
+            // Banked corners of the same hand close together (a hairpin made of two corners) roll as one (no dip in the roll / lift between them).
             var g0 = new float[n];
             var g1 = new float[n];
             for (int i = 0; i < n; i++) { g0[i] = _corners[i].S0; g1[i] = _corners[i].S1; }
@@ -272,7 +277,7 @@ namespace HideAndSeek.Game
             {
                 var a = _corners[i];
                 var b = _corners[i + 1];
-                if (a.Bank > 0f && b.Bank > 0f && a.Sign == b.Sign && b.S0 - a.S1 < 1.5f) { g1[i] = g1[i + 1]; g0[i + 1] = g0[i]; }
+                if (a.Bank > 0f && b.Bank > 0f && a.Sign == b.Sign && b.S0 - a.S1 < 2f * Lead + 4f) { g1[i] = g1[i + 1]; g0[i + 1] = g0[i]; } // 27.11: also two corners a short straight apart (the lift dipped in between: a bump)
             }
 
             _c = new Vector3[m];
@@ -296,7 +301,8 @@ namespace HideAndSeek.Game
                 _c[i] = new Vector3(pts[i].x, GroundY + h + lift, pts[i].y);
             }
             for (int k = 0; k < n; k++)
-                for (int i = arcS0[k] + 1; i <= arcS1[k]; i++) _curv[i] = _corners[k].Sign / Plan[k].r;
+                if (Plan[k].r > 0.01f)
+                    for (int i = arcS0[k] + 1; i <= arcS1[k]; i++) _curv[i] = _corners[k].Sign / Plan[k].r;
 
             _fwd = new Vector3[m];
             _right = new Vector3[m];
@@ -313,29 +319,19 @@ namespace HideAndSeek.Game
                 _normal[i] = Vector3.Cross(f, r).normalized;
             }
 
-            // Flags: tunnel, the bridge span over the diagonal, the paddock gap.
+            // Flags: the viaducts (any raised road), the paddock gap, the start row. No tunnel since 27.11.
             _tunnel = new bool[m];
             _span = new bool[m];
             _openL = new bool[m];
             _openR = new bool[m];
+            int last = n - 1;
             for (int i = 0; i < m; i++)
             {
                 Vector3 p = _c[i];
-                _tunnel[i] = i > arcS0[6] && i < arcS1[9] && p.x < TunnelXEast && p.x > TunnelXWest;
-                _openR[i] = i > arcS1[21] && Mathf.Abs(p.x - Plan[0].x) < 0.5f && p.z > PitZ0 && p.z < PitZ1;
-                if (Mathf.Abs(p.x - Plan[0].x) < 0.5f && i > arcS1[21] && p.z <= StartZ) _startRow = i;
-            }
-            const float clear = BarrierLat + BarrierHalfBase + 1.6f; // the walls stand this far off the lower road's centre
-            for (int i = 0; i < m; i++)
-            {
-                if (_c[i].y < 2f) continue;
-                Vector3 l = _c[i] - _right[i] * DeckHalf, r = _c[i] + _right[i] * DeckHalf;
-                for (int j = 0; j < m && !_span[i]; j++)
-                {
-                    if (_c[j].y > 1f || Mathf.Abs(DeltaS(_s[i], _s[j])) < 60f) continue;
-                    float cl = clear * clear;
-                    if (Sq(_c[j], l) < cl || Sq(_c[j], r) < cl || Sq(_c[j], _c[i]) < cl) _span[i] = true;
-                }
+                bool straight = i > arcS1[last] && Mathf.Abs(p.x - StartX) < 0.5f;
+                _openR[i] = straight && p.z > PitZ0 && p.z < PitZ1;
+                if (straight && p.z <= StartZ) _startRow = i;
+                _span[i] = p.y >= ViaductFrom;
             }
             return _c;
         }

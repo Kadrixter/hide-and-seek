@@ -13,6 +13,8 @@ namespace HideAndSeek.Game.MiniGames
     public sealed partial class PoolTable
     {
         static readonly Color GuideWhite = new Color(1f, 1f, 1f, 0.55f), GuideRed = new Color(1f, 0.26f, 0.2f, 0.8f);
+        /// <summary>Legal hit while the groups are not picked yet (break / open table): yellow; white = an own ball, red = a foul.</summary>
+        static readonly Color GuideYellow = new Color(1f, 0.86f, 0.15f, 0.75f);
         static readonly Color GuideObj = new Color(1f, 0.93f, 0.68f, 0.6f), GuideCue = new Color(0.62f, 0.86f, 1f, 0.42f);
         static readonly Color HandOk = new Color(0.45f, 1f, 0.55f, 0.85f), HandBad = new Color(1f, 0.3f, 0.25f, 0.85f);
         const float GuideY = PoolDims.ClothY + 0.004f;
@@ -143,8 +145,12 @@ namespace HideAndSeek.Game.MiniGames
             Vector2 cue = AimCue();
             PosWithout(cue);
             bool hits = PoolSim.Predict(_scratch, (ushort)(State.Down | 1), cue, _aimAngle, out var ghost, out int hit, out var objDir, out var cueDir);
-            bool legal = !hits || hit < 0 || (PoolRules.Targets(State, seat) & (1 << hit)) != 0;
-            Color main = legal ? GuideWhite : GuideRed;
+            bool legal = !hits || hit < 0 || (PoolRules.Targets(State, PoolState.TeamOf(seat)) & (1 << hit)) != 0;
+            _guideHit = hits ? hit : -1;
+            _guideLegal = legal;
+            bool open = State.Break || State.GroupOf(PoolState.TeamOf(seat)) == 0;
+            _guideOpen = open;
+            Color main = !legal ? GuideRed : open ? GuideYellow : GuideWhite;
             var d = new Vector2(Mathf.Cos(_aimAngle), Mathf.Sin(_aimAngle));
             float len = Vector2.Dot(ghost - cue, d);
             Show(_ghostRing, len > PoolDims.BallR);
@@ -159,7 +165,7 @@ namespace HideAndSeek.Game.MiniGames
             {
                 Vector2 od = objDir.normalized;
                 Vector2 o = _scratch[hit];
-                Seg(_lnObj, o + od * PoolDims.BallR, o + od * 0.32f, legal ? GuideObj : GuideRed, true);
+                Seg(_lnObj, o + od * PoolDims.BallR, o + od * 0.32f, !legal ? GuideRed : open ? GuideYellow : GuideObj, true);
             }
             else Show(_lnObj, false);
             bool cueOn = hits && cueDir.sqrMagnitude > 1e-6f;

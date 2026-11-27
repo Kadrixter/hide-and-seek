@@ -32,7 +32,7 @@ namespace HideAndSeek.Game
         public static float PassageMid => (PassageStart + PadEast) * 0.5f;
 
         // ---- the asphalt pad
-        public const float PadLength = 300f, PadDepth = 200f;
+        public const float PadLength = 420f, PadDepth = 300f; // 27.11: was 300 x 200 (the new circuit is ~2.3 km)
         public static float PadWest => PadEast - PadLength;
         public static Vector3 PadCenter => new(PadEast - PadLength * 0.5f, 0f, ArchZ);
         public static float PadNorth => ArchZ + PadDepth * 0.5f;

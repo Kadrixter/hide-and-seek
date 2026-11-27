@@ -166,6 +166,11 @@ namespace HideAndSeek.Map.Editor
                 Vector3 n0 = -new Vector3(0, Mathf.Sin(t0), Mathf.Cos(t0)), n1 = -new Vector3(0, Mathf.Sin(t1), Mathf.Cos(t1));
                 mb.Quad(Pt(t0, xIn), Pt(t0, xOut), Pt(t1, xOut), Pt(t1, xIn), n0, n0, n1, n1, m);
                 mb.Tri(new Vector3(xIn * side, yBot, a.Z), Pt(t0, xIn + 0.001f), Pt(t1, xIn + 0.001f), inward, inward, inward, m);
+                // 2026-11-27: the back of the housing too (it was one-sided: from the cabin / the engine bay the tyre
+                // showed straight through). Outer face of the arch a few mm out, the inner wall a few mm towards the middle.
+                Vector3 Po(float th, float x) => new Vector3(x * side, a.Y + Mathf.Sin(th) * (r + 0.004f), a.Z + Mathf.Cos(th) * (r + 0.004f));
+                mb.Quad(Po(t0, xIn - 0.003f), Po(t1, xIn - 0.003f), Po(t1, xOut), Po(t0, xOut), -n0, -n1, -n1, -n0, m);
+                mb.Tri(new Vector3((xIn - 0.004f) * side, yBot, a.Z), Pt(t1, xIn - 0.004f), Pt(t0, xIn - 0.004f), -inward, -inward, -inward, m);
             }
         }
     }

@@ -5,14 +5,30 @@ namespace HideAndSeek.Game
     /// <summary>
     /// Go-kart settings for the third-party <see cref="ArcadeCar"/> controller (ThirdParty/ArcadeCarPhysics): 160 kg
     /// (kart + driver), centre of mass low behind the seat, raycast suspension sized for the small wheels, rear-wheel
-    /// drive, a speed curve that reaches ~100 km/h in about 5.5 s and tops out at ~108 km/h, steering lock falling from
-    /// 30 deg at a crawl to 7 deg flat out, and slippery tyres after the handbrake (the rear more than the front) for
-    /// drifts that the throttle and counter-steer can hold. Values are the demo car's, scaled to the kart's mass.
+    /// drive through an automatic 4-speed gearbox (27.11, 120 km/h flat out, the low gears pull harder), steering lock
+    /// falling from 27 deg at a crawl to ~5 deg flat out, a handbrake that brakes (no longer spins the kart). Values are the demo car's, scaled to the kart's mass.
     /// </summary>
     public static class KartTuning
     {
         public const float Mass = 160f;
-        public const float TopSpeedKmh = 170f; // 2026-11-25: user asked for 170 km/h (was 108)
+        /// <summary>2026-11-27: 4 gears, 120 km/h flat out (was 170 km/h without gears).</summary>
+        public const float TopSpeedKmh = 120f;
+
+        // ---- gearbox (automatic): top speed and speed-rise time constant per gear. Acceleration at speed v in gear g is
+        // (Top[g] - v) / Tau[g] km/h per s - the lower the gear, the harder it pulls (and the sooner it runs out).
+        public static readonly float[] GearTop = { 42f, 70f, 97f, TopSpeedKmh + 1.5f };
+        public static readonly float[] GearTau = { 1.05f, 1.9f, 2.9f, 4.2f };
+        /// <summary>Shift up at this share of the gear's top speed; down when below this share of the lower gear's top.</summary>
+        public const float ShiftUpAt = 0.95f, ShiftDownAt = 0.82f;
+        /// <summary>No drive while the clutch is out (s).</summary>
+        public const float ShiftTime = 0.22f;
+
+        /// <summary>The speed-over-time curve of gear <paramref name="g"/> (0..3).</summary>
+        public static AnimationCurve GearCurve(int g)
+        {
+            g = Mathf.Clamp(g, 0, GearTop.Length - 1);
+            return Rise(GearTop[g], GearTau[g], GearTau[g] * 6f);
+        }
 
         public static void Apply(ArcadeCar car, Rigidbody rb)
         {
@@ -23,12 +39,15 @@ namespace HideAndSeek.Game
             car.debugDraw = false;
             car.showDebugGui = false;
             car.raycastMask = KartCollide.LevelMask;
-            car.accelerationCurve = Rise(TopSpeedKmh, 3.6f, 20f);
+            car.accelerationCurve = GearCurve(0);
             car.accelerationCurveReverse = Rise(26f, 1.4f, 6f);
-            car.steerAngleLimit = Lines((0f, 30f), (40f, 17f), (110f, 7f), (170f, 4.5f));
-            car.steeringResetSpeed = Lines((0f, 90f), (110f, 60f), (170f, 50f));
-            car.steeringSpeed = Lines((0f, 3.2f), (40f, 1.7f), (110f, 0.75f), (170f, 0.5f));
-            car.handBrakeSlipperyTime = 1.4f;
+            // 2026-11-27 "skręcanie strasznie czułe": less lock at speed, the wheel turns about half as fast (deg per
+            // physics step at 50 Hz: 2.0 = 100 deg/s at a crawl, 0.45 = 22 deg/s at 100 km/h) and comes back softer.
+            car.steerAngleLimit = Lines((0f, 27f), (30f, 16f), (60f, 9.5f), (100f, 6f), (125f, 4.8f));
+            car.steeringResetSpeed = Lines((0f, 80f), (60f, 55f), (125f, 40f));
+            car.steeringSpeed = Lines((0f, 2.0f), (30f, 1.05f), (60f, 0.7f), (100f, 0.45f), (125f, 0.38f));
+            // the handbrake brakes, it no longer makes the tyres slide (it spun the kart round): grip stays ~85 %
+            car.handBrakeSlipperyTime = 0.3f;
             car.downForceCurve = Lines((0f, 0f), (200f, 100f), (300f, 160f));
             // Downforce (along the kart's down axis, only while a wheel touches): downForce * curve% m/s^2.
             // 2026-11-26: 5 -> 8 (100 km/h: 0.25 g -> 0.41 g extra, 170 km/h: 0.43 g -> 0.69 g) so the kart stays
@@ -42,8 +61,8 @@ namespace HideAndSeek.Game
             car.flightStabilizationDamping = 0.7f;
             car.axles = new[]
             {
-                Axle("Front", KartModel.FrontTrack * 2f, KartPhysics.FrontAxle, 0.28f, KartPhysics.FrontRadius, FrontSpring, 0.3f, 12f, false),
-                Axle("Rear", KartModel.RearTrack * 2f, -KartPhysics.RearAxle, 0.287f, KartPhysics.RearRadius, RearSpring, 0.15f, 4f, true),
+                Axle("Front", KartModel.FrontTrack * 2f, KartPhysics.FrontAxle, 0.28f, KartPhysics.FrontRadius, FrontSpring, 0.9f, 12f, false),
+                Axle("Rear", KartModel.RearTrack * 2f, -KartPhysics.RearAxle, 0.287f, KartPhysics.RearRadius, RearSpring, 0.85f, 4f, true),
             };
             if (OldRide)
             {
@@ -109,7 +128,7 @@ namespace HideAndSeek.Game
         };
 
         /// <summary>Speed (km/h) over time (s): top * (1 - e^(-t / tau)), sampled with matching tangents (monotonic).</summary>
-        private static AnimationCurve Rise(float top, float tau, float until)
+        internal static AnimationCurve Rise(float top, float tau, float until)
         {
             int n = Mathf.CeilToInt(until / 0.5f) + 1;
             var keys = new Keyframe[n];

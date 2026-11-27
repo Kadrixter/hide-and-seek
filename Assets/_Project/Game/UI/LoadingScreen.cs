@@ -38,6 +38,9 @@ namespace HideAndSeek.Game.UI
         private const float SmoothFrame = 0.07f;
         private const int SmoothNeeded = 12;
         private const float SettleMin = 0.3f, SettleMax = 8f;
+        /// <summary>The screen stays up at least this long once shown (2026-11-27: everything gets time to load in;
+        /// failures / "Anuluj" still hide it at once).</summary>
+        public const float MinShow = 4f;
 
         private static LoadingScreen _inst;
         private static bool _automated;
@@ -373,13 +376,16 @@ namespace HideAndSeek.Game.UI
 
             if (_readySince < 0f) { _readySince = now; _smooth = 0; }
             _smooth = Time.unscaledDeltaTime < SmoothFrame ? _smooth + 1 : 0;
+            float shownFor = now - _shownAt;
+            bool minDone = shownFor >= MinShow;
+            float minBar = 0.75f + 0.25f * Mathf.Clamp01(shownFor / MinShow); // the bar never fills before MinShow
 
             if (map && !mm.RaceMode && mm.IntroAt.Value != 0d)
             {
                 // Round intro ahead: off just before it starts (its first frames fade in from black, all of it is seen).
                 _status = "Za chwilę start…";
-                _progress = 0.97f;
-                if (mm.IntroAt.Value > 0d && mm.Now >= mm.IntroAt.Value - FadeOut - 0.05)
+                _progress = Mathf.Min(0.97f, minBar);
+                if (minDone && mm.IntroAt.Value > 0d && mm.Now >= mm.IntroAt.Value - FadeOut - 0.05)
                 {
                     HideNow("intro starts", false);
                     return true;
@@ -388,9 +394,9 @@ namespace HideAndSeek.Game.UI
             }
 
             _status = map ? "Za chwilę start…" : "Prawie gotowe…";
-            _progress = 0.75f + 0.25f * Mathf.Clamp01(_smooth / (float)SmoothNeeded);
+            _progress = Mathf.Min(0.75f + 0.25f * Mathf.Clamp01(_smooth / (float)SmoothNeeded), minBar);
             float waited = now - _readySince;
-            if ((_smooth >= SmoothNeeded && waited >= SettleMin) || waited >= SettleMax)
+            if (minDone && ((_smooth >= SmoothNeeded && waited >= SettleMin) || waited >= SettleMax))
             {
                 HideNow(_smooth >= SmoothNeeded ? "ready" : "ready (frames never settled)", false);
                 return true;

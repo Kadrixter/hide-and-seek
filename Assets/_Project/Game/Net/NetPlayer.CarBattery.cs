@@ -16,7 +16,7 @@ namespace HideAndSeek.Game.Net
     /// <summary>A player working on a bonnet: which hood, what, since when (server time) and for how long.</summary>
     public struct HoodWorkState : INetworkSerializable, IEquatable<HoodWorkState>
     {
-        public sbyte Hood;       // CarHood.Index, -1 = none
+        public short Hood;       // CarHood.Index, -1 = none (short since 27.11: up to 256 bonnets)
         public HoodWorkMode Mode;
         public double Start;
         public float Duration;   // opening only

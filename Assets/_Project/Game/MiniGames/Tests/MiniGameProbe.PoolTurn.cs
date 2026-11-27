@@ -83,6 +83,17 @@ namespace HideAndSeek.Game.MiniGames
             }
             yield return new WaitForSeconds(0.7f);
             Log($"{tag}: stance bend={pool.TestBend(place):0.00} aim={pool.AimAngle * Mathf.Rad2Deg:0.0}");
+            {
+                // The guide must agree with the server's rules: white on a ball of the own team's targets (2026-11-27:
+                // place A2 got team B's group - own balls red, the rival's white).
+                var st = pool.State;
+                int gh = pool.TestGuideHit;
+                if (!st.Break && gh >= 1 && gh <= 15)
+                {
+                    bool rule = (PoolRules.Targets(st, PoolState.TeamOf(place)) & (1 << gh)) != 0;
+                    Log($"guide: place {place} team {(PoolState.TeamOf(place) == 0 ? 'A' : 'B')} aims at {gh}, guide {(!pool.TestGuideLegal ? "red" : pool.TestGuideOpen ? "yellow" : "white")}, rules {(rule ? "legal" : "foul")}{(st.Groups == PoolState.Open ? " (open table)" : "")} => {(rule == pool.TestGuideLegal && (st.Groups == PoolState.Open) == pool.TestGuideOpen ? "OK" : "FAIL")}");
+                }
+            }
             if (shots)
             {
                 PShot(pool, $"{Prefix()}{tag}_a_aim");

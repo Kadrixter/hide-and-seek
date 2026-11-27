@@ -40,6 +40,7 @@ namespace HideAndSeek.Game.Net
             // 1. The road under every row: centre and both edges, expected height, no lips.
             int gaps = 0, off = 0, tilt = 0;
             float worstOff = 0f, maxGrade = 0f, maxGradeStep = 0f, prevGrade = float.NaN;
+            int stepRow = -1;
             Vector3 prevHit = Vector3.zero;
             for (int i = 0; i <= n; i++)
             {
@@ -66,7 +67,7 @@ namespace HideAndSeek.Game.Net
                         {
                             float g = dp.y / run;
                             maxGrade = Mathf.Max(maxGrade, Mathf.Abs(g));
-                            if (!float.IsNaN(prevGrade)) maxGradeStep = Mathf.Max(maxGradeStep, Mathf.Abs(g - prevGrade));
+                            if (!float.IsNaN(prevGrade) && Mathf.Abs(g - prevGrade) > maxGradeStep) { maxGradeStep = Mathf.Abs(g - prevGrade); stepRow = r; }
                             prevGrade = g;
                         }
                     }
@@ -74,7 +75,7 @@ namespace HideAndSeek.Game.Net
                 }
             }
             TLog($"road surface: {gaps} gaps, {off} rows off height (worst {worstOff:0.000} m), {tilt} tilted -> {Cf(gaps == 0 && off == 0 && tilt == 0)}");
-            TLog($"smoothness: max grade {maxGrade * 100f:0.0} %, max grade change per row {maxGradeStep * 100f:0.00} % (a lip would show here) -> {Cf(maxGrade < 0.09f && maxGradeStep < 0.03f)}");
+            TLog($"smoothness: max grade {maxGrade * 100f:0.0} %, max grade change per row {maxGradeStep * 100f:0.00} % at row {stepRow} ({(stepRow >= 0 ? c[stepRow] : Vector3.zero)}) (a lip would show here) -> {Cf(maxGrade < 0.09f && maxGradeStep < 0.03f)}");
 
             // 2. Barriers along both sides (tall ones on the raised road), the paddock gap open.
             int missing = 0, missingHigh = 0, low = 0, gapRows = 0, gapBlocked = 0;
@@ -85,7 +86,7 @@ namespace HideAndSeek.Game.Net
                     bool open = openSide[r];
                     if (!open && (openSide[DriftTrackCircuit.Wrap(r - 1)] || openSide[DriftTrackCircuit.Wrap(r + 1)])) continue; // a run's end row
                     Vector3 o = DriftTrackRoad.Flat(DriftTrackCircuit.Right[r]) * side;
-                    Vector3 from = DriftTrackCircuit.Point(r, side * 4.8f) + nrm[r] * 0.45f;
+                    Vector3 from = DriftTrackCircuit.Point(r, side * (DriftTrackCircuit.HalfWidth - 1.2f)) + nrm[r] * 0.45f;
                     bool hitLow = Physics.Raycast(from, o, out var h0, 2.5f, mask, QueryTriggerInteraction.Ignore);
                     if (open)
                     {
@@ -118,7 +119,7 @@ namespace HideAndSeek.Game.Net
                 }
                 else if (tun) tunnelOpen++;
             }
-            TLog($"head room: {covered} covered rows (tunnel {tunnelRows}, {tunnelOpen} of them open), min clearance {minClear:0.00} m -> {Cf(tunnelRows > 50 && tunnelOpen == 0 && covered > tunnelRows + 8 && minClear >= 2.2f)}");
+            TLog($"head room: {covered} covered rows (tunnel {tunnelRows}, {tunnelOpen} of them open), min clearance {minClear:0.00} m -> {Cf(tunnelOpen == 0 && covered > tunnelRows + 8 && minClear >= 2.2f)}"); // 27.11: no tunnel any more, the roads under the viaducts are the covered rows
 
             // 4. Inside the pad; the kart slots on the paddock floor, clear of the road.
             int outside = 0;
@@ -177,6 +178,13 @@ namespace HideAndSeek.Game.Net
                 CamShot(dir, "circuit_06_tunnel_inside", C(t0 + 25) + Vector3.up * 1.5f, C(t0 + 45) + Vector3.up * 1.3f);
                 CamShot(dir, "circuit_07_tunnel_entry", C(t0 - 30) + Vector3.up * 2f, C(t0) + Vector3.up * 2.5f);
             }
+            // 27.11: the stacked helix (three levels) from outside and from the ground road under it, the exit viaduct
+            CamShot(dir, "circuit_14_helix_outside", new Vector3(-250f, 34f, -175f), new Vector3(-350f, 6f, -80f));
+            CamShot(dir, "circuit_15_helix_corner", new Vector3(-262f, 10f, -150f), new Vector3(-295f, 7f, -125f));
+            int lap1 = RowAt(corners[5].S1 + 30f);
+            CamShot(dir, "circuit_16_helix_inside_lap1", C(lap1) - F(lap1) * 8f + Vector3.up * 1.6f, C(lap1 + 40) + Vector3.up * 1.4f);
+            int exitRow = RowAt(corners[14].Apex + 40f);
+            CamShot(dir, "circuit_17_exit_viaduct", C(exitRow) + new Vector3(30f, 8f, 0f), C(exitRow));
             int hp = RowAt(corners[1].S1);
             CamShot(dir, "circuit_08_hairpin", C(hp) - F(hp) * 20f + Vector3.up * 18f, C(hp));
             int hs = RowAt(corners[20].S1);
@@ -220,7 +228,7 @@ namespace HideAndSeek.Game.Net
                     float s = k switch { 0 => (DriftTrackCircuit.S[t0 >= 0 ? t0 + 20 : 0]), 1 => corners[11].Apex, 2 => corners[13].S0, 3 => DriftTrackCircuit.S[spanMid], _ => corners[20].Apex };
                     shotAt[k] = Mathf.Repeat(s - DriftTrackCircuit.S[row], L);
                 }
-                while (t < 200f && progress < L - 2f)
+                while (t < 320f && progress < L - 2f)
                 {
                     Vector3 pos = kart.Phys.Pos;
                     byte e = mm.KartsVar.Value.Get(0).Epoch;
@@ -253,7 +261,7 @@ namespace HideAndSeek.Game.Net
                     if (t >= nextLog)
                     {
                         nextLog = t + 1f;
-                        TLog($"  lap t={t:0.0} s={progress:0} row={idx} v={kart.Phys.Speed * 3.6f:0} km/h lat={lat:0.00} y={pos.y:0.00} dy={dy:0.00} slip={kart.Phys.SlipAngle:0}");
+                        TLog($"  lap t={t:0.0} s={progress:0} row={idx} v={kart.Phys.Speed * 3.6f:0} km/h gear={kart.Phys.Gear} lat={lat:0.00} y={pos.y:0.00} dy={dy:0.00} slip={kart.Phys.SlipAngle:0}");
                     }
                     if (shot < shotAt.Length && progress >= shotAt[shot])
                     {
@@ -276,6 +284,49 @@ namespace HideAndSeek.Game.Net
                 float ms = 0f;
                 yield return FrameMs(v => ms = v);
                 TLog($"frame time after the lap: {ms:0.0} ms");
+
+                // 27.11: gearbox (full throttle down the west run: all 4 gears, ~120 km/h) and the handbrake (brakes in a
+                // straight line, no spin).
+                int west = -1;
+                for (int r = 0; r < n && west < 0; r++) if (Mathf.Abs(c[r].z - 70f) < 0.5f && c[r].x < -162f && c[r].x > -168f && c[r].y < 0.5f) west = r;
+                if (west >= 0)
+                {
+                    PlaceKart(kart, west);
+                    yield return new WaitForSeconds(0.6f);
+                    LocalPlayerController.TestKartActive = true;
+                    LocalPlayerController.TestKartSteer = 0f;
+                    LocalPlayerController.TestKartThrottle = 1f;
+                    int maxGear = 0, shifts0 = kart.Phys.ShiftCount;
+                    float vTop = 0f, t60 = -1f, tg = 0f;
+                    while (tg < 16f && kart.Phys.Pos.x > -320f)
+                    {
+                        int wi = DriftTrackCircuit.Nearest(kart.Phys.Pos, west, 200);
+                        float lat = DriftTrackCircuit.Lateral(kart.Phys.Pos, wi);
+                        LocalPlayerController.TestKartSteer = Mathf.Clamp(-lat * 0.15f, -0.3f, 0.3f);
+                        maxGear = Mathf.Max(maxGear, kart.Phys.Gear);
+                        vTop = Mathf.Max(vTop, kart.Phys.Speed * 3.6f);
+                        if (t60 < 0f && kart.Phys.Speed * 3.6f >= 60f) t60 = tg;
+                        yield return null;
+                        tg += Time.deltaTime;
+                    }
+                    TLog($"gearbox: top {vTop:0} km/h in gear {maxGear}, {kart.Phys.ShiftCount - shifts0} shifts, 0-60 km/h in {t60:0.0} s (info: the straight ends before 120 km/h) -> {Cf(maxGear >= 3 && vTop > 70f && vTop < 124f)}");
+                    float yaw0 = kart.Phys.Yaw, v0 = kart.Phys.Speed * 3.6f;
+                    LocalPlayerController.TestKartThrottle = 0f;
+                    LocalPlayerController.TestKartSteer = 0f;
+                    LocalPlayerController.TestKartHandbrake = true;
+                    float th = 0f, maxSlip = 0f;
+                    while (th < 3f && kart.Phys.Speed > 0.5f)
+                    {
+                        maxSlip = Mathf.Max(maxSlip, Mathf.Abs(kart.Phys.SlipAngle));
+                        yield return null;
+                        th += Time.deltaTime;
+                    }
+                    LocalPlayerController.TestKartHandbrake = false;
+                    float turned = Mathf.Abs(Mathf.DeltaAngle(yaw0, kart.Phys.Yaw));
+                    TLog($"handbrake from {v0:0} km/h: {kart.Phys.Speed * 3.6f:0} km/h after {th:0.0} s, turned {turned:0} deg, max slip {maxSlip:0} deg -> {Cf(turned < 25f && maxSlip < 20f && kart.Phys.Speed * 3.6f < v0 * 0.5f)}");
+                    LocalPlayerController.TestKartActive = false;
+                }
+                else TLog("gearbox / handbrake: no west run row found -> skipped");
 
                 // R on the circuit: back onto the road where it stands, not to the paddock slot.
                 Vector3 before = kart.Phys.Pos;

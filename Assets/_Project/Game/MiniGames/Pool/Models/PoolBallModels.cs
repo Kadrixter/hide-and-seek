@@ -119,7 +119,9 @@ namespace HideAndSeek.Game.MiniGames.Pool
         {
             var m = template != null ? new Material(template) : new Material(Shader.Find("Standard"));
             m.name = name;
-            m.color = Color.white;
+            // 2026-11-27: the albedo is dimmed a bit - under the 3 lamp spots the cream caps of the stripes clipped to pure
+            // white (a stripe looked like the cue ball from above, its colour band washed out).
+            m.color = new Color(0.82f, 0.82f, 0.82f, 1f);
             m.mainTexture = tex;
             m.mainTextureScale = Vector2.one;
             m.mainTextureOffset = Vector2.zero;
@@ -130,7 +132,8 @@ namespace HideAndSeek.Game.MiniGames.Pool
             // Satin rather than mirror: at 0.93 the lamp spots and the room showed up as big white blots on every ball
             // (a solid then looked like a stripe and the colours washed out). Softer, dimmer highlight, blurred reflection.
             // (No _GLOSSYREFLECTIONS_OFF keyword: runtime-only Standard variants may be stripped from the build.)
-            m.SetFloat("_Glossiness", number == 8 ? 0.68f : 0.62f);
+            // 2026-11-27: 0.62 still threw the lamp spots back as bright blots (hard to tell the balls apart) -> 0.40.
+            m.SetFloat("_Glossiness", number == 8 ? 0.45f : 0.40f);
             m.SetFloat("_SpecularHighlights", 1f);
             m.SetFloat("_GlossyReflections", 1f);
             return m;

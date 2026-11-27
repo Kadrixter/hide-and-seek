@@ -26,7 +26,7 @@ namespace HideAndSeek.Game.MiniGames.Pool
         public const float BulbAboveRim = 0.062f;
 
         static readonly Color LightColor = new Color(1f, 0.86f, 0.68f);
-        public const float LightIntensity = 2.1f, LightRange = 3.2f;
+        public const float LightIntensity = 1.75f, LightRange = 3.2f;
 
         TableKit _kit;
         Material _bulb, _inner, _glass;

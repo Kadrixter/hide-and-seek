@@ -206,7 +206,7 @@ namespace HideAndSeek.Game.Net
             if (!mm.IsServer || !me.IsHider) { Log("need the host as a hider (-forcehider)"); Quit(); yield break; }
             bool hold = true;
             StartCoroutine(HoldRound(mm, () => hold));
-            yield return Until(() => mm.CarHoods.Value.Active != 0 && SecurityRooms.Instance != null && SecurityRooms.Instance.Ready, 20f);
+            yield return Until(() => mm.CarHoods.Value.Active.Any && SecurityRooms.Instance != null && SecurityRooms.Instance.Ready, 20f);
             // the round intro holds the hiders still (no prompts, LocalPlayerController locked) - wait for the round proper
             yield return Until(() => mm.Phase.Value == MatchPhase.Seeking || !mm.IntroHoldsStart, 60f);
             yield return Until(() => LocalPlayerController.Instance != null && me.Camera != null && me.Camera.isActiveAndEnabled, 10f);
@@ -214,7 +214,7 @@ namespace HideAndSeek.Game.Net
             Log($"ready: phase {mm.Phase.Value} intro holds {mm.IntroHoldsStart} camera {(me.Camera != null ? me.Camera.name : "none")} menu {LocalPlayerController.MenuOpen}");
             var all = CarHood.All;
             var bits = mm.CarHoods.Value;
-            Log($"map hoods: {all.Count}, active mask {bits.Active:X}, phase {mm.Phase.Value}");
+            Log($"map hoods: {all.Count}, phase {mm.Phase.Value}");
             int[] active = new int[3], working = new int[3];
             CarHood pick = null;
             foreach (var h in all)
@@ -225,7 +225,9 @@ namespace HideAndSeek.Game.Net
                 Log($"  hood #{h.Index} L{h.Level} {h.name} dust {h.Dust:0.0} active={act} charge={hc}% hoodChild={(h.Hood != null)} battery={(h.Battery != null)} pins={BatteryTuning.PinsFor(h.Dust)} lift~{MatchManager.HoodTime(h.Dust):0.0}s");
                 if (act && hc > 0 && (pick == null || (pick.Level != 0 && h.Level == 0) || (pick.Level == h.Level && h.Dust > pick.Dust))) pick = h;
             }
-            for (int lv = 0; lv < 3; lv++) Log($"level {lv}: active {active[lv]} (3..5) working {working[lv]} (>=3 or all) -> {Pf(active[lv] >= Mathf.Min(3, CountLevel(all, lv)) && active[lv] <= 5 && working[lv] >= Mathf.Min(3, active[lv]))}");
+            // 27.11: every bonnet opens, half of the batteries per level are flat
+            for (int lv = 0; lv < 3; lv++) Log($"level {lv}: active {active[lv]} of {CountLevel(all, lv)} working {working[lv]} (half) -> {Pf(active[lv] == CountLevel(all, lv) && Mathf.Abs(working[lv] * 2 - active[lv]) <= 1)}");
+            Log($"every parked car has a bonnet: {all.Count} hoods -> {Pf(all.Count >= 100)}");
             Log($"start power:{Power(mm)} -> {Pf(!mm.CamPower.Value.AnyPowered)}");
 
             // ---- the dark security room
@@ -236,7 +238,7 @@ namespace HideAndSeek.Game.Net
             yield return Shot("01_room_no_power");
             if (pick == null) { Log("FAIL: no active working hood"); _fails++; Finish(); yield break; }
 
-            // ---- at the bonnet without wire: prompt, then with wire
+            // ---- at the bonnet without any wire: the latch opens by hand (27.11)
             Vector3 fwd = pick.transform.forward;
             fwd.y = 0f;
             fwd.Normalize();
@@ -246,10 +248,7 @@ namespace HideAndSeek.Game.Net
             me.WireCount.Value = 0;
             StandLooking(me, stand, pick.FrontWorld);
             yield return new WaitForSeconds(1f);
-            Log($"at {pick.name} (#{pick.Index}, L{pick.Level}, dust {pick.Dust:0.0}) without wire: prompt {PromptNow()} -> {Pf(LocalPlayerController.Instance.Prompt == PromptKind.CarHood && LocalPlayerController.Instance.PromptText.Contains("drutu"))}");
-            me.WireCount.Value = 2;
-            yield return new WaitForSeconds(0.5f);
-            Log($"with 2 wires: prompt {PromptNow()}");
+            Log($"at {pick.name} (#{pick.Index}, L{pick.Level}, dust {pick.Dust:0.0}) without wire: prompt {PromptNow()} -> {Pf(LocalPlayerController.Instance.Prompt == PromptKind.CarHood && !LocalPlayerController.Instance.PromptText.Contains("drut"))}");
             if (LocalPlayerController.Instance.Prompt != PromptKind.CarHood) Why(me, pick.FrontWorld, "bonnet");
             yield return Shot("02_hood_prompt");
             yield return Side("02_hood_closed_side", pick.FrontWorld + fwd * 2.2f + pick.transform.right * 1.6f + Vector3.up * 1.2f, pick.FrontWorld - fwd * 0.4f);
@@ -263,11 +262,14 @@ namespace HideAndSeek.Game.Net
             LockpickUi.TestFailNext = true;
             yield return Until(() => LockpickUi.Losses > losses0 && me.HoodWork.Value.Start != start0, 4f);
             yield return new WaitForSeconds(0.3f);
-            Log($"lost try: wire {me.WireCount.Value} (expected 1), still picking={me.HoodWork.Value.Mode == HoodWorkMode.Lockpick}, ui={LockpickUi.Active} -> {Pf(me.WireCount.Value == 1 && LockpickUi.Active)}");
+            Log($"lost try: wire {me.WireCount.Value} (expected 0, none used), still picking={me.HoodWork.Value.Mode == HoodWorkMode.Lockpick}, ui={LockpickUi.Active} -> {Pf(me.WireCount.Value == 0 && LockpickUi.Active && me.HoodWork.Value.Mode == HoodWorkMode.Lockpick)}");
             float pickT0 = Time.time;
             LockpickUi.TestAuto = true;
             yield return Until(() => me.HoodWork.Value.Mode == HoodWorkMode.Opening, 15f);
             LockpickUi.TestAuto = false;
+            // the mini-game closes in its own Update (later in this frame or the next) - read the state after it
+            yield return null;
+            yield return null;
             var work = me.HoodWork.Value;
             Log($"lockpick won after {Time.time - pickT0:0.0} s: mode={work.Mode} lift {work.Duration:0.0} s (dust {pick.Dust:0.0}, base {MatchManager.HoodTime(pick.Dust):0.0}) wire {me.WireCount.Value} menu={LocalPlayerController.MenuOpen} -> {Pf(work.Mode == HoodWorkMode.Opening && work.Duration >= 3f && work.Duration <= 7f && !LocalPlayerController.MenuOpen)}");
 

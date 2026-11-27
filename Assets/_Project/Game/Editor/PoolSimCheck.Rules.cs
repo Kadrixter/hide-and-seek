@@ -68,6 +68,10 @@ namespace HideAndSeek.Game.Editor
             s = Game(false, PoolState.Open, 1);
             PoolRules.Apply(s, Res(s, 2, true, 1, 2), "Ala", "Kasia");
             Check("seat B pots a solid -> B solids", s.Groups == PoolState.AStripes && s.Turn == 1 && s.GroupOf(1) == 1, s.Note);
+            // 2v2: the places A2 (2) / B2 (3) share their team's group and targets (A2 used to get B's group).
+            s = Game(false, PoolState.ASolids, 0);
+            Check("place A2 = team A group", s.GroupOf(2) == s.GroupOf(0) && s.GroupOf(3) == s.GroupOf(1)
+                && PoolRules.Targets(s, PoolState.TeamOf(2)) == PoolRules.Targets(s, 0) && PoolRules.Targets(s, 2) == PoolRules.Targets(s, 0), "");
             // Scratch (not on the break) -> foul, ball in hand anywhere.
             s = Game(false, PoolState.ASolids, 0);
             PoolRules.Apply(s, Res(s, 2, true, 1, 0), "Ala", "Kasia");

@@ -12,7 +12,19 @@ namespace HideAndSeek.Game
             red.At(new Vector3(0f, 0.15f, 0.8f), Quaternion.Euler(-8f, 0f, 0f)).RoundBox(new Vector3(0.7f, 0.13f, 0.22f), 0.05f, 5);
             red.At(new Vector3(0f, 0.26f, 0.61f), Quaternion.Euler(-28f, 0f, 0f)).RoundBox(new Vector3(0.36f, 0.25f, 0.035f), 0.014f, 4);
             for (int s = -1; s <= 1; s += 2)
+            {
                 red.At(new Vector3(s * 0.44f, 0.15f, 0f)).RoundBox(new Vector3(0.15f, 0.12f, 0.6f), 0.045f, 5);
+                // 27.11: pods taper in towards the nose and flare out behind (air guides), a rear wheel guard
+                red.At(new Vector3(s * 0.4f, 0.14f, 0.28f), Quaternion.Euler(-6f, -s * 16f, 0f)).RoundBox(new Vector3(0.11f, 0.1f, 0.16f), 0.04f, 4);
+                red.At(new Vector3(s * 0.46f, 0.16f, -0.33f), Quaternion.Euler(4f, s * 8f, 0f)).RoundBox(new Vector3(0.13f, 0.1f, 0.14f), 0.04f, 4);
+            }
+            // nose: a lower splitter wedge under the cone and a raised centre ridge
+            red.At(new Vector3(0f, 0.1f, 0.88f), Quaternion.Euler(10f, 0f, 0f)).RoundBox(new Vector3(0.62f, 0.05f, 0.12f), 0.02f, 3);
+            red.At(new Vector3(0f, 0.2f, 0.74f), Quaternion.Euler(-14f, 0f, 0f)).RoundBox(new Vector3(0.26f, 0.06f, 0.22f), 0.03f, 4);
+            // rear plastic bumper fairing across the back (wraps the tube bumper)
+            red.At(new Vector3(0f, 0.17f, -0.83f)).RoundBox(new Vector3(1.0f, 0.1f, 0.09f), 0.035f, 4);
+            for (int s = -1; s <= 1; s += 2)
+                red.At(new Vector3(s * 0.56f, 0.165f, -0.74f), Quaternion.Euler(0f, s * 30f, 0f)).RoundBox(new Vector3(0.14f, 0.09f, 0.08f), 0.03f, 3);
             Piece(body, "Bodywork", red.ToMesh("KartBodywork"), livery.BodyMat);
 
             var white = new ProcMesh();
@@ -22,7 +34,8 @@ namespace HideAndSeek.Game
             var stripes = new ProcMesh();
             for (int s = -1; s <= 1; s += 2)
                 stripes.At(new Vector3(s * 0.44f, 0.185f, 0.01f)).RoundBox(new Vector3(0.155f, 0.024f, 0.48f), 0.008f, 2);
-            stripes.At(new Vector3(0f, 0.221f, 0.8f), Quaternion.Euler(-8f, 0f, 0f)).RoundBox(new Vector3(0.12f, 0.01f, 0.2f), 0.004f, 2); // nose stripe
+            stripes.At(new Vector3(0f, 0.236f, 0.74f), Quaternion.Euler(-14f, 0f, 0f)).RoundBox(new Vector3(0.1f, 0.01f, 0.21f), 0.004f, 2); // nose stripe (on the ridge)
+            stripes.At(new Vector3(0f, 0.222f, -0.83f)).RoundBox(new Vector3(0.6f, 0.012f, 0.05f), 0.004f, 2); // rear fairing stripe
             Piece(body, "Stripes", stripes.ToMesh("KartStripes"), livery.StripeMat);
             NumberPlate(body, new Vector3(0f, 0.26f, 0.61f) + panel * new Vector3(0f, 0.012f, 0.027f), panel, livery.Number);
 

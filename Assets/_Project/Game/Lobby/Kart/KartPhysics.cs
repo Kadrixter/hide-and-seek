@@ -14,7 +14,7 @@ namespace HideAndSeek.Game
         // ---- geometry (the model is built from these)
         public const float FrontAxle = 0.5f, RearAxle = 0.55f, Wheelbase = FrontAxle + RearAxle;
         public const float FrontRadius = 0.13f, RearRadius = 0.145f;
-        /// <summary>Top speed, m/s (~108 km/h).</summary>
+        /// <summary>Top speed, m/s (120 km/h in 4th).</summary>
         public const float MaxSpeed = KartTuning.TopSpeedKmh / 3.6f;
 
         public Rigidbody Body { get; private set; }
@@ -43,6 +43,27 @@ namespace HideAndSeek.Game
         public bool Braking { get; private set; }
 
         private float _handbrakeHold;
+
+        // ---- gearbox (27.11): automatic, 4 gears (KartTuning.GearTop / GearTau)
+        /// <summary>Gear now, 1..4 (0 while reversing).</summary>
+        public int Gear => _reverse ? 0 : _gear + 1;
+        /// <summary>Clutch out after a shift (0..1, 1 = just shifted).</summary>
+        public float Shifting => Mathf.Clamp01(_shiftLeft / KartTuning.ShiftTime);
+        /// <summary>Bumped on every up / down shift (sounds).</summary>
+        public int ShiftCount { get; private set; }
+        private int _gear;
+        private bool _reverse;
+        private float _shiftLeft;
+
+        private void SetGear(int g)
+        {
+            g = Mathf.Clamp(g, 0, KartTuning.GearTop.Length - 1);
+            if (g == _gear) return;
+            _gear = g;
+            _shiftLeft = KartTuning.ShiftTime;
+            ShiftCount++;
+            if (Car != null) Car.accelerationCurve = KartTuning.GearCurve(g);
+        }
 
         /// <summary>Adds the controller (off) to the kart; <paramref name="rb"/> is its kinematic Rigidbody.</summary>
         public void Attach(GameObject kart, Rigidbody rb)
@@ -83,6 +104,9 @@ namespace HideAndSeek.Game
             Sliding = false;
             Slip01 = 0f;
             Rpm01 = 0.12f;
+            _gear = 1;
+            SetGear(0);
+            _shiftLeft = 0f;
         }
 
         /// <summary>Driver's client, every frame: controls in, outputs out (the controller itself runs in FixedUpdate).</summary>
@@ -90,7 +114,14 @@ namespace HideAndSeek.Game
         {
             if (Body == null || Car == null || dt <= 0f) return;
             float thr = Mathf.Clamp(ThrottleIn, -1f, 1f);
-            Car.inputVertical = thr;
+            // automatic gearbox: up near the gear's top, down when it falls well under the lower gear's top
+            float kmh = Mathf.Max(0f, ForwardSpeed) * 3.6f;
+            _reverse = ForwardSpeed < -0.5f || (thr < -0.05f && ForwardSpeed < 0.5f);
+            if (_shiftLeft > 0f) _shiftLeft -= dt;
+            else if (_gear < KartTuning.GearTop.Length - 1 && thr > 0.05f && kmh >= KartTuning.GearTop[_gear] * KartTuning.ShiftUpAt) SetGear(_gear + 1);
+            else if (_gear > 0 && kmh < KartTuning.GearTop[_gear - 1] * KartTuning.ShiftDownAt) SetGear(_gear - 1);
+            // the clutch is out for a moment after a shift: no drive (braking / reversing still work)
+            Car.inputVertical = thr > 0f && _shiftLeft > 0f ? 0f : thr;
             Car.inputHorizontal = Mathf.Clamp(SteerIn, -1f, 1f);
             Car.inputHandBrake = Handbrake;
 
@@ -110,7 +141,10 @@ namespace HideAndSeek.Game
             if (Braking) screech = Mathf.Max(screech, Mathf.Clamp01((speed - 8f) / 10f) * 0.6f);
             Slip01 = Mathf.MoveTowards(Slip01, screech, dt * 5f);
             float spin = Sliding && thr > 0.05f ? 0.25f * thr : 0f;
-            float rpmT = Mathf.Clamp01(Mathf.Abs(ForwardSpeed) / MaxSpeed * 0.85f + 0.12f + (thr > 0.05f ? 0.06f : 0f) + spin);
+            // revs follow the speed inside the gear (a saw-tooth through the gears, a dip on each shift)
+            float gTop = KartTuning.GearTop[_gear] / 3.6f, gLow = _gear > 0 ? KartTuning.GearTop[_gear - 1] / 3.6f * 0.6f : 0f;
+            float inGear = Mathf.Clamp01((Mathf.Abs(ForwardSpeed) - gLow) / Mathf.Max(0.5f, gTop - gLow));
+            float rpmT = Mathf.Clamp01(inGear * 0.82f + 0.14f + (thr > 0.05f ? 0.06f : 0f) + spin);
             Rpm01 = Mathf.MoveTowards(Rpm01, rpmT, dt * (rpmT > Rpm01 ? 2.5f : 1.5f));
         }
     }

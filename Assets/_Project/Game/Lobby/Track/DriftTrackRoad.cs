@@ -15,8 +15,8 @@ namespace HideAndSeek.Game
     public static class DriftTrackRoad
     {
         private const int ChunkRows = 64;
-        private const float Ground = -0.08f, LineIn = 5.8f, LineOut = 6.0f;
-        private static readonly float[] Lats = { -DriftTrackCircuit.DeckHalf, -6f, -3f, 0f, 3f, 6f, DriftTrackCircuit.DeckHalf };
+        private const float Ground = -0.08f, LineIn = DriftTrackCircuit.HalfWidth - 0.2f, LineOut = DriftTrackCircuit.HalfWidth;
+        private static readonly float[] Lats = { -DriftTrackCircuit.DeckHalf, -DriftTrackCircuit.HalfWidth, -DriftTrackCircuit.HalfWidth * 0.5f, 0f, DriftTrackCircuit.HalfWidth * 0.5f, DriftTrackCircuit.HalfWidth, DriftTrackCircuit.DeckHalf };
 
         public static void Build(Transform parent, Material asphalt)
         {
@@ -101,9 +101,52 @@ namespace HideAndSeek.Game
                     b.Quad(AtY(l, Ground), AtY(r, Ground), r + Vector3.down * D, l + Vector3.down * D, nrm);
                 }
             }
+            Columns(b);
             var mesh = b.ToMesh("TrackSideWalls");
             var go = TrackMats.Piece(root, "SideWalls", mesh, TrackMats.Get("TrackConcreteWall", new Color(0.46f, 0.46f, 0.44f), 0.1f));
             go.AddComponent<MeshCollider>().sharedMesh = mesh;
+        }
+
+        /// <summary>
+        /// Columns under the viaducts (27.11): every ~11 m on both edges, from the slab down to the ground. Only the TOP
+        /// road at a spot puts them down (stacked helix laps share them), and none stands on a road below.
+        /// </summary>
+        private static void Columns(MeshBuf b)
+        {
+            var c = DriftTrackCircuit.Center;
+            var span = DriftTrackCircuit.Span;
+            int n = c.Length;
+            const float D = DriftTrackCircuit.BridgeDepth, Lat = DriftTrackCircuit.DeckHalf + 0.45f, Half = 0.4f;
+            float next = 0f;
+            int made = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (!span[i] || DriftTrackCircuit.S[i] < next) continue;
+                next = DriftTrackCircuit.S[i] + 11f;
+                Vector3 f = Flat(DriftTrackCircuit.Fwd[i]);
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Vector3 top = DriftTrackCircuit.Point(i, side * Lat);
+                    top.y = c[i].y - D + 0.05f;
+                    bool blocked = false, covered = false;
+                    for (int j = 0; j < n && !blocked; j++)
+                    {
+                        float dx = c[j].x - top.x, dz = c[j].z - top.z;
+                        float d2 = dx * dx + dz * dz;
+                        if (d2 > 14f * 14f) continue;
+                        float lat = Mathf.Abs(DriftTrackCircuit.Lateral(top, j));
+                        float along = Mathf.Abs(Vector3.Dot(top - c[j], Flat(DriftTrackCircuit.Fwd[j])));
+                        if (along > 1.2f) continue;
+                        if (c[j].y < top.y - 0.5f && lat < DriftTrackCircuit.DeckHalf + 0.02f) blocked = true;      // a road below
+                        else if (c[j].y > c[i].y + 2f && lat < DriftTrackCircuit.DeckHalf + 1.2f) covered = true;   // a higher road above
+                    }
+                    if (blocked || covered || top.y <= Ground + 0.5f) continue;
+                    var foot = new Vector3(top.x, Ground, top.z);
+                    b.Box((top + foot) * 0.5f, Quaternion.LookRotation(f), new Vector3(Half * 2f, top.y - Ground, Half * 2f));
+                    made++;
+                }
+            }
+            Debug.Log($"[Track] viaduct columns: {made}");
         }
 
         // ------------------------------------------------------------------ barriers
@@ -234,17 +277,17 @@ namespace HideAndSeek.Game
                     float s = DriftTrackCircuit.S[i];
                     var buf = ((int)(s / 1.2f) & 1) == 0 ? kerbRed : kerbWhite;
                     float x = DriftTrackCircuit.DeltaS(mid, s);
-                    if (Mathf.Abs(x) <= half + 3f) Strip(buf, i, j, inner > 0 ? 4.9f : -6.25f, inner > 0 ? 6.25f : -4.9f, 0.012f);
-                    if (x >= 0f && x <= half + 10f) Strip(buf, i, j, inner > 0 ? -6.25f : 4.9f, inner > 0 ? -4.9f : 6.25f, 0.012f); // exit kerb outside
+                    if (Mathf.Abs(x) <= half + 3f) Strip(buf, i, j, inner > 0 ? DriftTrackCircuit.HalfWidth - 1.1f : -DriftTrackCircuit.HalfWidth - 0.25f, inner > 0 ? DriftTrackCircuit.HalfWidth + 0.25f : -DriftTrackCircuit.HalfWidth + 1.1f, 0.012f);
+                    if (x >= 0f && x <= half + 10f) Strip(buf, i, j, inner > 0 ? -DriftTrackCircuit.HalfWidth - 0.25f : DriftTrackCircuit.HalfWidth - 1.1f, inner > 0 ? -DriftTrackCircuit.HalfWidth + 1.1f : DriftTrackCircuit.HalfWidth + 0.25f, 0.012f); // exit kerb outside
                 }
             }
             // Checkered start / finish line: three rows of 0.6 m squares across the straight.
             int sr = DriftTrackCircuit.StartRow;
             Vector3 sc = DriftTrackCircuit.Center[sr], sf = Flat(DriftTrackCircuit.Fwd[sr]), sx = Flat(DriftTrackCircuit.Right[sr]), up = DriftTrackCircuit.Normal[sr];
             for (int row = 0; row < 3; row++)
-                for (int k = 0; k < 20; k++)
+                for (int k = 0; k < Mathf.RoundToInt(DriftTrackCircuit.HalfWidth * 2f / 0.6f); k++)
                 {
-                    Vector3 o = sc + sf * (-0.9f + row * 0.6f) + sx * (-6f + k * 0.6f) + up * 0.009f;
+                    Vector3 o = sc + sf * (-0.9f + row * 0.6f) + sx * (-DriftTrackCircuit.HalfWidth + k * 0.6f) + up * 0.009f;
                     (((row + k) & 1) == 0 ? white : black).Quad(o, o + sx * 0.6f, o + sx * 0.6f + sf * 0.6f, o + sf * 0.6f, up);
                 }
             TrackMats.Piece(root, "CircuitLines", white.ToMesh("TrackCircuitLines"), TrackMats.Get("TrackLineWhite", new Color(0.86f, 0.86f, 0.84f), 0.25f), false);

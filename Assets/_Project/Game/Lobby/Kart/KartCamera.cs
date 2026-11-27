@@ -185,7 +185,7 @@ namespace HideAndSeek.Game
         private GUIStyle _speed, _unit;
 
         /// <summary>Speedometer in the bottom-right corner: big km/h number, a bar that turns orange near the top speed.</summary>
-        private void Speedometer(float kmh, float s)
+        private void Speedometer(float kmh, float s, int gear)
         {
             if (_white == null) { _white = new Texture2D(1, 1); _white.SetPixel(0, 0, Color.white); _white.Apply(); }
             _speed ??= new GUIStyle(GUI.skin.label) { alignment = TextAnchor.LowerRight, fontStyle = FontStyle.Bold };
@@ -203,7 +203,25 @@ namespace HideAndSeek.Game
             GUI.color = Color.white;
             GUI.Label(new Rect(x, y, w - 92f * s, h - 22f * s), $"{kmh:0}", _speed);
             GUI.Label(new Rect(x + w - 88f * s, y, 80f * s, h - 30f * s), "km/h", _unit);
+            // gear (27.11: automatic 4-speed): a box left of the speed, R when reversing
+            float gw = 64f * s;
+            GUI.color = new Color(0f, 0f, 0f, 0.45f);
+            GUI.DrawTexture(new Rect(x - gw - 8f * s, y, gw, h), _white);
+            GUI.color = gear == 0 ? new Color(1f, 0.45f, 0.35f) : gear == 4 ? new Color(1f, 0.75f, 0.3f) : Color.white;
+            _gearStyle ??= new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            _gearStyle.fontSize = Mathf.RoundToInt(52 * s);
+            GUI.Label(new Rect(x - gw - 8f * s, y, gw, h - 16f * s), gear == 0 ? "R" : gear.ToString(), _gearStyle);
+            _unit.alignment = TextAnchor.LowerCenter;
+            GUI.color = new Color(1f, 1f, 1f, 0.6f);
+            float us = _unit.fontSize;
+            _unit.fontSize = Mathf.RoundToInt(16 * s);
+            GUI.Label(new Rect(x - gw - 8f * s, y, gw, h - 6f * s), "bieg", _unit);
+            _unit.fontSize = Mathf.RoundToInt(us);
+            _unit.alignment = TextAnchor.LowerLeft;
+            GUI.color = Color.white;
         }
+
+        private GUIStyle _gearStyle;
 
         private void OnGUI()
         {
@@ -220,7 +238,7 @@ namespace HideAndSeek.Game
             GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), line, _hint);
             GUI.color = Color.white;
             GUI.Label(r, line, _hint);
-            Speedometer(kmh, s);
+            Speedometer(kmh, s, _kart.Phys.Gear);
 
             string drift = _driftT > 0.25f ? $"DRIFT  {Mathf.Abs(_kart.SlipAngleShown):0}°  {_driftT:0.0} s"
                 : Time.time < _lastDriftShow ? $"Drift: {_lastDrift:0.0} s" : null;

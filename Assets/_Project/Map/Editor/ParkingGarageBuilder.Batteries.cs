@@ -8,20 +8,17 @@ using DustPreset = HideAndSeek.Map.Editor.MaterialLibrary.DustPreset;
 namespace HideAndSeek.Map.Editor
 {
     /// <summary>
-    /// Car batteries of 26.11 (the camera-power objective, Game: MatchManager.CarBatteries): on every level up to
-    /// <see cref="HoodsPerLevel"/> ordinary parked cars standing nose to the aisle get a bonnet that opens. The bonnet is
+    /// Car batteries of 26.11 (the camera-power objective, Game: MatchManager.CarBatteries): every parked car (2026-11-27,
+    /// was 6 per level) gets a bonnet that opens. The bonnet is
     /// split out of the car body (the upward-facing paint triangles in front of the windscreen, above the wheel arches,
     /// between the wing tops - found per model from the mesh, so finer car meshes keep working), the body gets a copy of
     /// its mesh without them (one per model, stored in "CarHoods"), the bonnet becomes the "Hood" child with its pivot on
     /// the hinge, and under it a dark engine bay (walls following the cut so nothing shows through), an engine block
     /// and a battery in the front-left corner. A <see cref="CarHood"/> component tells the game which car it is.
-    /// The game picks 3-5 of them per level each round. Own random sequence (StableHash), heroes, the car wash and vans
-    /// are left out.
+    /// The engine bay is shared by all cars of a model. Only the car wash car is left out.
     /// </summary>
     internal sealed partial class ParkingGarageBuilder
     {
-        private const int HoodsPerLevel = 6;
-        private const float HoodMinSpacing = 13f;
 
         /// <summary>One car model's bonnet cut out of its body mesh (car space).</summary>
         private sealed class HoodSplit
@@ -36,6 +33,7 @@ namespace HideAndSeek.Map.Editor
         }
 
         private readonly Dictionary<Mesh, HoodSplit> _hoodSplits = new Dictionary<Mesh, HoodSplit>();
+        private readonly Dictionary<HoodSplit, (Mesh mesh, Material[] mats, Vector3 battery)> _engineBays = new Dictionary<HoodSplit, (Mesh, Material[], Vector3)>();
         private const int ProfileBins = 8;
 
         private static float DustAmount(DustPreset? p) => !p.HasValue ? 0f : p.Value switch
@@ -46,40 +44,36 @@ namespace HideAndSeek.Map.Editor
             _ => 1f,
         };
 
-        /// <summary>Picks the cars, splits their bonnets, builds the engine bays and batteries.</summary>
+        /// <summary>
+        /// Splits the bonnet of EVERY parked car (2026-11-27: any bonnet opens; was 6 per level), builds the engine bays
+        /// and batteries. Only the car wash car is left out; a model whose bonnet cannot be found keeps a closed body.
+        /// </summary>
         private void BuildCarHoods()
         {
             var built = new List<(Parked p, CarHood hood)>();
-            for (int lv = 0; lv < Levels; lv++)
+            int failed = 0;
+            foreach (var p in _parked)
             {
-                var cands = new List<(Parked p, int key)>();
-                foreach (var p in _parked)
-                {
-                    if (p.Hero || p.Label == "WASH" || p.Go == null) continue;
-                    if (Vector3.Dot(p.Go.transform.forward, p.Inward) > -0.5f) continue; // nose into the bay: no room at the bonnet
-                    var model = ParkedModels.FirstOrDefault(m => p.Go.name.Contains("_" + m.Name + "_"));
-                    if (model == null || model.IsVan) continue;
-                    if (p.Level != lv) continue;
-                    cands.Add((p, StableHash("hood" + lv + p.Label)));
-                }
-                cands.Sort((a, b) => a.key.CompareTo(b.key));
-                var picked = new List<Vector3>();
-                foreach (var (p, _) in cands)
-                {
-                    if (picked.Count >= HoodsPerLevel) break;
-                    Vector3 at = p.Go.transform.position;
-                    if (picked.Any(q => (q - at).sqrMagnitude < HoodMinSpacing * HoodMinSpacing)) continue;
-                    var hood = AddCarHood(p);
-                    if (hood == null) continue;
-                    picked.Add(at);
-                    built.Add((p, hood));
-                }
+                if (p.Label == "WASH" || p.Go == null) continue;
+                if (p.Go.name.Contains("_MazdaRx7_")) { failed++; continue; } // low pointed nose: the bay box does not fit under it
+                var hood = AddCarHood(p);
+                if (hood == null) { failed++; continue; }
+                built.Add((p, hood));
             }
             built.Sort((a, b) => a.p.Level != b.p.Level ? a.p.Level.CompareTo(b.p.Level) : string.CompareOrdinal(a.p.Go.name, b.p.Go.name));
+            if (built.Count > MaxCarHoods)
+            {
+                Debug.LogWarning($"[ParkingGarage] Car hoods: {built.Count} cars, the game syncs at most {MaxCarHoods} - the rest stay shut");
+                for (int i = MaxCarHoods; i < built.Count; i++) Object.DestroyImmediate(built[i].hood);
+                built.RemoveRange(MaxCarHoods, built.Count - MaxCarHoods);
+            }
             for (int i = 0; i < built.Count; i++) built[i].hood.Index = i;
             Debug.Log($"[ParkingGarage] Car hoods: {built.Count} cars with an opening bonnet and a battery " +
-                      $"(P 0 {built.Count(b => b.p.Level == 0)}, P -1 {built.Count(b => b.p.Level == 1)}, P -2 {built.Count(b => b.p.Level == 2)}), {_hoodSplits.Count(k => k.Value != null)} models split");
+                      $"(P 0 {built.Count(b => b.p.Level == 0)}, P -1 {built.Count(b => b.p.Level == 1)}, P -2 {built.Count(b => b.p.Level == 2)}), {failed} without, {_hoodSplits.Count(k => k.Value != null)} models split");
         }
+
+        /// <summary>Bonnets the game can sync (HoodBits: 256-bit masks, the RPCs send the index as a byte).</summary>
+        private const int MaxCarHoods = 256;
 
         private CarHood AddCarHood(Parked p)
         {
@@ -107,7 +101,9 @@ namespace HideAndSeek.Map.Editor
             // Engine bay (static) and the battery (hidden when taken).
             var bay = new GameObject("EngineBay");
             bay.transform.SetParent(t, false);
-            var bayMesh = EngineBayMesh(split, p.Go.name, out var bmats, out Vector3 batteryAt);
+            if (!_engineBays.TryGetValue(split, out var bayInfo))
+                _engineBays[split] = bayInfo = (EngineBayMesh(split, mf.sharedMesh.name, out var bm, out Vector3 ba), bm, ba);
+            var (bayMesh, bmats, batteryAt) = bayInfo;
             bay.AddComponent<MeshFilter>().sharedMesh = bayMesh;
             var br = bay.AddComponent<MeshRenderer>();
             br.sharedMaterials = bmats;
@@ -177,20 +173,87 @@ namespace HideAndSeek.Map.Editor
                 if (v[k].z > baseZ + 0.15f && v[k].y > yThr) frontHalf = Mathf.Max(frontHalf, Mathf.Abs(v[k].x));
             float hx = Mathf.Clamp(frontHalf - 0.1f, halfW * 0.55f, halfW * 0.85f);
 
-            // Bonnet = upward-facing paint triangles in front of the windscreen, above the arches, between the wing tops.
+            // Bonnet = upward-facing paint in front of the windscreen, above the arches, between the wing tops. Triangles
+            // across that outline are CUT along it (27.11: taking whole triangles gave the bonnet and the hole in the body
+            // saw-tooth edges on the coarser meshes); the new vertices are interpolated (position, normal, uv, ...).
             var paint = mesh.GetTriangles(0);
             var keep = new List<int>(paint.Length);
             var hoodTris = new List<int>();
+            bool hasN = nrm.Length == v.Length, hasU = uv.Length == v.Length;
+            var cv = new List<Vector3>(v);
+            var cn = hasN ? new List<Vector3>(nrm) : null;
+            var cu = hasU ? new List<Vector2>(uv) : null;
+            var uv2a = mesh.uv2;
+            var cu2 = uv2a != null && uv2a.Length == v.Length ? new List<Vector2>(uv2a) : null;
+            var tana = mesh.tangents;
+            var ct = tana != null && tana.Length == v.Length ? new List<Vector4>(tana) : null;
+            var cola = mesh.colors;
+            var cc = cola != null && cola.Length == v.Length ? new List<Color>(cola) : null;
+            var cut = new Dictionary<(int, int, int), int>();
+            float zCut = baseZ + 0.03f;
+            float Dist(int plane, Vector3 q) => plane switch
+            {
+                0 => q.z - zCut,
+                1 => hx - q.x,
+                2 => q.x + hx,
+                _ => q.y - yThr,
+            };
+            int Mid(int i0, int i1, int plane)
+            {
+                if (i0 > i1) (i0, i1) = (i1, i0);
+                if (cut.TryGetValue((i0, i1, plane), out int m)) return m;
+                float d0 = Dist(plane, cv[i0]), d1 = Dist(plane, cv[i1]);
+                float t = Mathf.Clamp01(d0 / (d0 - d1));
+                m = cv.Count;
+                cv.Add(Vector3.Lerp(cv[i0], cv[i1], t));
+                cn?.Add(Vector3.Slerp(cn[i0], cn[i1], t).normalized);
+                cu?.Add(Vector2.Lerp(cu[i0], cu[i1], t));
+                cu2?.Add(Vector2.Lerp(cu2[i0], cu2[i1], t));
+                ct?.Add(Vector4.Lerp(ct[i0], ct[i1], t));
+                cc?.Add(Color.Lerp(cc[i0], cc[i1], t));
+                cut[(i0, i1, plane)] = m;
+                return m;
+            }
+            void Fan(List<int> poly, List<int> dst)
+            {
+                for (int k = 1; k + 1 < poly.Count; k++) { dst.Add(poly[0]); dst.Add(poly[k]); dst.Add(poly[k + 1]); }
+            }
+            var inside = new List<int>(8);
+            var outside = new List<int>(8);
             for (int i = 0; i + 2 < paint.Length; i += 3)
             {
-                Vector3 a = v[paint[i]], c1 = v[paint[i + 1]], c2 = v[paint[i + 2]];
-                Vector3 cen = (a + c1 + c2) / 3f;
-                var fn = Vector3.Cross(c1 - a, c2 - a);
-                bool hood = fn.sqrMagnitude > 1e-12f && fn.normalized.y > 0.5f && cen.z > baseZ + 0.03f && cen.y > yThr && Mathf.Abs(cen.x) < hx;
-                (hood ? hoodTris : keep).Add(paint[i]);
-                (hood ? hoodTris : keep).Add(paint[i + 1]);
-                (hood ? hoodTris : keep).Add(paint[i + 2]);
+                Vector3 a0 = v[paint[i]], c1 = v[paint[i + 1]], c2 = v[paint[i + 2]];
+                var fn = Vector3.Cross(c1 - a0, c2 - a0);
+                if (fn.sqrMagnitude <= 1e-12f || fn.normalized.y <= 0.3f)
+                {
+                    keep.Add(paint[i]); keep.Add(paint[i + 1]); keep.Add(paint[i + 2]);
+                    continue;
+                }
+                var poly = new List<int>(6) { paint[i], paint[i + 1], paint[i + 2] };
+                for (int plane = 0; plane < 4 && poly.Count >= 3; plane++)
+                {
+                    inside.Clear();
+                    outside.Clear();
+                    for (int k = 0; k < poly.Count; k++)
+                    {
+                        int pc = poly[k], pn = poly[(k + 1) % poly.Count];
+                        bool inC = Dist(plane, cv[pc]) >= 0f, inN = Dist(plane, cv[pn]) >= 0f;
+                        (inC ? inside : outside).Add(pc);
+                        if (inC != inN)
+                        {
+                            int m = Mid(pc, pn, plane);
+                            inside.Add(m);
+                            outside.Add(m);
+                        }
+                    }
+                    if (outside.Count >= 3) Fan(outside, keep);
+                    poly = new List<int>(inside);
+                }
+                if (poly.Count >= 3) Fan(poly, hoodTris);
             }
+            v = cv.ToArray();
+            if (hasN) nrm = cn.ToArray();
+            if (hasU) uv = cu.ToArray();
             if (hoodTris.Count < 18)
             {
                 Debug.LogWarning($"[ParkingGarage] Car hoods: no bonnet found on {mesh.name} ({hoodTris.Count / 3} triangles)");
@@ -320,11 +383,25 @@ namespace HideAndSeek.Map.Editor
             // Body without the bonnet (same sub-meshes, so the per-car materials still fit).
             var body = Object.Instantiate(mesh);
             body.name = mesh.name + "_NoHood";
+            if (cv.Count != mesh.vertexCount)
+            {
+                // the cut added vertices: the body gets them too (all the channels the source had)
+                if (cv.Count > 65000) body.indexFormat = IndexFormat.UInt32;
+                body.SetVertices(cv);
+                if (cn != null) body.SetNormals(cn);
+                if (cu != null) body.SetUVs(0, cu);
+                if (cu2 != null) body.SetUVs(1, cu2);
+                if (ct != null) body.SetTangents(ct);
+                if (cc != null) body.SetColors(cc);
+            }
             body.SetTriangles(keep, 0);
             foreach (int sm in split.ExtraSubs) body.SetTriangles(extraKeep[sm], sm);
             split.Body = body;
 
-            if (!_store.TryGetValue("CarHoods", out var list)) _store["CarHoods"] = list = new List<Mesh>();
+            // one asset per model (27.11: every model is split now - a single CarHoods.asset went past the 50 MB limit)
+            if (!_store.ContainsKey("CarHoods")) _store["CarHoods"] = new List<Mesh>();
+            string key = "CarHoods_" + new string(mesh.name.Where(char.IsLetterOrDigit).ToArray());
+            if (!_store.TryGetValue(key, out var list)) _store[key] = list = new List<Mesh>();
             list.Add(body);
             list.Add(hm);
             _hoodSplits[mesh] = split;
@@ -396,22 +473,102 @@ namespace HideAndSeek.Map.Editor
             var up = Vector3.up;
             mb.Quad(new Vector3(-x, floor, za), new Vector3(x, floor, za), new Vector3(x, floor, zb), new Vector3(-x, floor, zb), up, up, up, up, wall);
 
-            // Engine block with a valve cover, an air box, a radiator and hoses; kept under the closed bonnet.
+            // The engine (2026-11-27: a real-looking bay - transverse block, head, ribbed valve cover in a per-model colour,
+            // intake runners and plenum, air box with its hose, exhaust manifold, alternator and belt, radiator with the fan,
+            // coolant / washer / brake reservoirs, fuse box, strut tops). All of it stays under the closed bonnet.
             float roof = s.MinTop - 0.06f;
             float midZ = (za + zb) * 0.5f, len = zb - za;
-            float blockH = Mathf.Clamp(roof - floor - 0.06f, 0.12f, 0.36f);
+            float room = Mathf.Max(0.16f, roof - floor);
             var metal = M("Metal_Dark");
             var black = M("Plastic_Black");
             var rubber = M("Rubber");
-            var block = new Vector3(x * 0.15f, floor + blockH * 0.5f, midZ - len * 0.04f);
-            mb.Box(block, new Vector3(x * 0.95f, blockH, len * 0.42f), metal);
-            mb.Box(block + new Vector3(0f, blockH * 0.5f + 0.025f, 0f), new Vector3(x * 0.8f, 0.05f, len * 0.36f), black);
-            float airH = Mathf.Clamp(roof - floor - 0.04f, 0.1f, 0.24f);
-            mb.Box(new Vector3(x * 0.62f, floor + airH * 0.5f, midZ + len * 0.22f), new Vector3(x * 0.5f, airH, len * 0.22f), black);
-            mb.Box(new Vector3(0f, floor + Mathf.Min(0.3f, roof - floor - 0.03f) * 0.5f, zb - 0.05f), new Vector3(x * 1.7f, Mathf.Min(0.3f, roof - floor - 0.03f), 0.04f), M("Metal_Steel"));
-            float hoseY = floor + Mathf.Min(blockH * 0.7f, roof - floor - 0.05f);
-            mb.Cylinder(new Vector3(x * 0.35f, hoseY, zb - 0.08f), new Vector3(x * 0.2f, hoseY, block.z + len * 0.2f), 0.025f, 8, rubber);
-            mb.Cylinder(new Vector3(-x * 0.1f, hoseY - 0.03f, zb - 0.08f), new Vector3(-x * 0.25f, hoseY - 0.05f, block.z), 0.02f, 8, rubber);
+            var steel = M("Metal_Steel");
+            var brushed = M("Metal_Galvanized");
+            int pick = Mathf.Abs(StableHash("engine" + carName)) % 4;
+            var cover = pick == 0 ? M("Paint_Red") : pick == 1 ? M("Car_PlasticGrey") : pick == 2 ? brushed : black;
+            float blockH = Mathf.Clamp(room * 0.55f, 0.1f, 0.3f);
+            float headH = Mathf.Clamp(room * 0.12f, 0.035f, 0.07f);
+            float coverH = Mathf.Clamp(room * 0.1f, 0.03f, 0.06f);
+            float blockW = x * 1.05f, blockL = Mathf.Min(len * 0.34f, 0.42f);
+            var block = new Vector3(x * 0.12f, floor + 0.05f + blockH * 0.5f, midZ - len * 0.02f);
+            mb.Box(block, new Vector3(blockW, blockH, blockL), metal);
+            mb.Box(block + new Vector3(0f, -blockH * 0.5f - 0.02f, 0f), new Vector3(blockW * 0.9f, 0.05f, blockL * 0.85f), black);
+            float headY = block.y + blockH * 0.5f + headH * 0.5f;
+            mb.Box(new Vector3(block.x, headY, block.z), new Vector3(blockW * 0.96f, headH, blockL * 0.8f), brushed);
+            float coverY = headY + headH * 0.5f + coverH * 0.5f;
+            mb.Box(new Vector3(block.x, coverY, block.z), new Vector3(blockW * 0.9f, coverH, blockL * 0.62f), cover);
+            for (int k = 0; k < 5; k++)
+                mb.Box(new Vector3(block.x - blockW * 0.36f + k * blockW * 0.18f, coverY + coverH * 0.5f + 0.006f, block.z), new Vector3(0.012f, 0.012f, blockL * 0.5f), cover);
+            Vector3 cap = new Vector3(block.x + blockW * 0.3f, coverY + coverH * 0.5f, block.z + blockL * 0.12f);
+            mb.Cylinder(cap, cap + Vector3.up * 0.022f, 0.026f, 12, M("Paint_Yellow"));
+            Vector3 dip = new Vector3(block.x - blockW * 0.42f, block.y + blockH * 0.3f, block.z + blockL * 0.55f);
+            float dipH = Mathf.Max(0.04f, Mathf.Min(0.16f, roof - dip.y - 0.03f));
+            mb.Cylinder(dip, dip + new Vector3(0f, dipH, 0f), 0.006f, 6, steel);
+            mb.Cylinder(dip + Vector3.up * (dipH - 0.01f), dip + new Vector3(0.03f, dipH, 0f), 0.012f, 8, M("Paint_Yellow"));
+            // intake: four runners over the back of the head into a plenum
+            float plenY = block.y + blockH * 0.15f, plenZ = block.z - blockL * 0.5f - 0.07f;
+            mb.Box(new Vector3(block.x, plenY, plenZ), new Vector3(blockW * 0.8f, Mathf.Min(0.1f, room * 0.3f), 0.09f), black);
+            for (int k = 0; k < 4; k++)
+            {
+                float rx = block.x - blockW * 0.3f + k * blockW * 0.2f;
+                mb.Cylinder(new Vector3(rx, headY, block.z - blockL * 0.38f), new Vector3(rx, plenY + 0.03f, plenZ + 0.03f), 0.018f, 8, brushed);
+            }
+            // exhaust manifold down the front of the block, heat shield
+            for (int k = 0; k < 4; k++)
+            {
+                float ex = block.x - blockW * 0.3f + k * blockW * 0.2f;
+                mb.Cylinder(new Vector3(ex, headY - 0.01f, block.z + blockL * 0.4f), new Vector3(block.x, floor + 0.04f, block.z + blockL * 0.62f), 0.016f, 8, M("Car_Chrome"));
+            }
+            mb.Box(new Vector3(block.x, block.y + blockH * 0.2f, block.z + blockL * 0.58f), new Vector3(blockW * 0.7f, blockH * 0.55f, 0.012f), M("Metal_Galvanized"));
+            // alternator with pulleys and the belt at the right end of the block
+            float bx = block.x + blockW * 0.5f + 0.035f;
+            Vector3 crank = new Vector3(bx, block.y - blockH * 0.25f, block.z), alt = new Vector3(bx, block.y + blockH * 0.25f, block.z + blockL * 0.3f);
+            mb.Cylinder(crank + Vector3.left * 0.015f, crank + Vector3.right * 0.015f, 0.065f, 14, steel);
+            mb.Cylinder(alt + Vector3.left * 0.06f, alt + Vector3.right * 0.03f, 0.055f, 14, brushed);
+            mb.Cylinder(alt + Vector3.right * 0.03f, alt + Vector3.right * 0.045f, 0.03f, 12, steel);
+            Vector3 beltD = (alt - crank).normalized;
+            Vector3 beltN = Vector3.Cross(beltD, Vector3.right).normalized;
+            var beltRot = Quaternion.LookRotation(beltD, beltN);
+            mb.Box((alt + crank) * 0.5f + beltN * 0.058f + Vector3.right * 0.04f, new Vector3(0.016f, 0.008f, (alt - crank).magnitude), rubber, beltRot);
+            mb.Box((alt + crank) * 0.5f - beltN * 0.058f + Vector3.right * 0.04f, new Vector3(0.016f, 0.008f, (alt - crank).magnitude), rubber, beltRot);
+            // air box (left, front) with the hose to the plenum
+            float airH = Mathf.Clamp(room * 0.4f, 0.08f, 0.18f);
+            var airC = new Vector3(-x * 0.55f, floor + 0.08f + airH * 0.5f, midZ - len * 0.08f);
+            if (airC.y + airH * 0.5f > roof - 0.01f) airC.y = roof - 0.01f - airH * 0.5f;
+            mb.Box(airC, new Vector3(x * 0.5f, airH, len * 0.2f), black);
+            mb.Box(airC + Vector3.up * (airH * 0.5f + 0.006f), new Vector3(x * 0.46f, 0.012f, len * 0.18f), M("Car_PlasticGrey"));
+            mb.Cylinder(airC + new Vector3(x * 0.2f, 0f, -len * 0.08f), new Vector3(block.x - blockW * 0.4f, plenY + 0.02f, plenZ), 0.035f, 10, rubber);
+            // radiator, fan shroud and fan, hoses to the block
+            float radH = Mathf.Min(0.32f, room - 0.02f);
+            mb.Box(new Vector3(0f, floor + radH * 0.5f, zb - 0.05f), new Vector3(x * 1.7f, radH, 0.04f), steel);
+            mb.Box(new Vector3(0f, floor + radH * 0.5f, zb - 0.085f), new Vector3(x * 1.2f, radH * 0.9f, 0.025f), black);
+            Vector3 fan = new Vector3(x * 0.2f, floor + radH * 0.5f, zb - 0.1f);
+            mb.Cylinder(fan, fan + Vector3.back * 0.02f, Mathf.Min(0.15f, radH * 0.45f), 16, black);
+            mb.Cylinder(fan + Vector3.back * 0.02f, fan + Vector3.back * 0.05f, 0.035f, 10, metal);
+            float hoseY = Mathf.Min(block.y + blockH * 0.35f, roof - 0.04f);
+            mb.Cylinder(new Vector3(x * 0.55f, hoseY, zb - 0.1f), new Vector3(block.x + blockW * 0.3f, hoseY, block.z + blockL * 0.45f), 0.022f, 8, rubber);
+            mb.Cylinder(new Vector3(-x * 0.1f, floor + 0.07f, zb - 0.1f), new Vector3(block.x - blockW * 0.2f, floor + 0.07f, block.z + blockL * 0.45f), 0.02f, 8, rubber);
+            // reservoirs: coolant (right rear), brake fluid (left, at the bulkhead), washer (right front)
+            float resH = Mathf.Clamp(room * 0.35f, 0.07f, 0.13f);
+            var cool = new Vector3(x * 0.72f, Mathf.Min(floor + 0.1f + resH * 0.5f, roof - resH * 0.5f - 0.03f), za + 0.12f);
+            mb.Box(cool, new Vector3(0.1f, resH, 0.14f), M("Paint_White"));
+            mb.Cylinder(cool + Vector3.up * resH * 0.5f, cool + Vector3.up * (resH * 0.5f + 0.02f), 0.025f, 10, M("Paint_Blue"));
+            var brake = new Vector3(-x * 0.62f, Mathf.Min(floor + 0.18f, roof - 0.08f), za + 0.08f);
+            mb.Box(brake, new Vector3(0.07f, 0.07f, 0.06f), M("Paint_White"));
+            mb.Cylinder(brake + Vector3.up * 0.035f, brake + Vector3.up * 0.052f, 0.02f, 10, M("Paint_Yellow"));
+            mb.Cylinder(brake + new Vector3(0f, -0.02f, -0.04f), brake + new Vector3(0f, -0.02f, -0.07f), 0.03f, 12, metal);
+            var washer = new Vector3(x * 0.72f, Mathf.Min(floor + 0.06f + resH * 0.5f, roof - resH * 0.5f - 0.03f), zb - 0.2f);
+            mb.Box(washer, new Vector3(0.11f, resH, 0.12f), M("Paint_White"));
+            mb.Cylinder(washer + Vector3.up * resH * 0.5f, washer + Vector3.up * (resH * 0.5f + 0.018f), 0.022f, 10, M("Paint_Blue"));
+            // fuse box (left, behind the air box)
+            mb.Box(new Vector3(-x * 0.58f, Mathf.Min(floor + 0.12f, roof - 0.07f), za + 0.24f), new Vector3(0.12f, 0.08f, 0.1f), black);
+            // strut tops on the wheel housings
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                Vector3 st = new Vector3(sx * (x - 0.09f), Mathf.Min(roof - 0.02f, floor + room * 0.75f), midZ - len * 0.05f);
+                mb.Cylinder(st + Vector3.down * 0.02f, st, 0.07f, 14, metal);
+                mb.Cylinder(st, st + Vector3.up * 0.015f, 0.022f, 10, steel);
+            }
 
             // Battery corner (front left): a tray under it, the cables into the bay.
             batteryAt = new Vector3(-(x - 0.03f - BatW * 0.5f), floor + 0.02f, zb - 0.04f - BatL * 0.5f);

@@ -73,7 +73,7 @@ namespace HideAndSeek.Game.UI
             _panelImg = _panel.GetComponent<Image>();
             _title = UiKit.Label("Title", _panel, "Zamek maski", 34, TextAnchor.MiddleCenter, UiKit.Text, FontStyle.Bold);
             _title.rectTransform.Place(new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -18f), new Vector2(0f, 44f));
-            _help = UiKit.Label("Help", _panel, "SPACJA / LPM - ustaw zapadkę, gdy drut jest nad zielonym wcięciem.   Esc - przerwij", 20, TextAnchor.MiddleCenter, UiKit.TextDim);
+            _help = UiKit.Label("Help", _panel, "SPACJA / LPM - ustaw zapadkę, gdy wskaźnik jest nad zielonym wcięciem.   Esc - przerwij", 20, TextAnchor.MiddleCenter, UiKit.TextDim);
             _help.rectTransform.Place(new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(-40f, 30f));
 
             // pins of the latch (rise and turn green when set)
@@ -193,7 +193,7 @@ namespace HideAndSeek.Game.UI
                 _panel.gameObject.SetActive(true);
                 if (!LocalPlayerController.MenuOpen) { LocalPlayerController.MenuOpen = true; _menuHeld = true; }
             }
-            _status.text = retry ? "Nowy kawałek drutu - jeszcze raz." : (h != null && h.Dust >= 0.7f ? "Zardzewiały zamek - ciężko chodzi." : "");
+            _status.text = retry ? "Zapadka się wyślizgnęła - jeszcze raz." : (h != null && h.Dust >= 0.7f ? "Zardzewiały zamek - ciężko chodzi." : "");
             Debug.Log($"[Lockpick] {(retry ? "retry" : "open")} hood #{w.Hood} dust {dust:0.0}: {_pinCount} pins, speed {_speed:0.00}, notch {_width:0.00}");
         }
 
@@ -206,7 +206,7 @@ namespace HideAndSeek.Game.UI
                 Losses++;
                 _pending = true;
                 _failFlash = 0.6f;
-                _status.text = "Drut pękł!";
+                _status.text = "Wyślizgnęło się!";
                 me.LockpickResultRpc(false, (byte)_pin);
                 Debug.Log($"[Lockpick] miss at pin {_pin + 1}/{_pinCount} (tip {_pos:0.00}, notch {_zoneAt[_pin]:0.00} ±{_width * 0.5f:0.00})");
                 return;
@@ -249,11 +249,10 @@ namespace HideAndSeek.Game.UI
                     p.color = set ? new Color(0.3f, 0.85f, 0.4f) : i == _pin ? new Color(0.95f, 0.8f, 0.3f) : new Color(0.45f, 0.45f, 0.48f);
                 }
             }
-            int wire = me.WireCount.Value;
-            if (wire != _shownWire)
+            if (_shownWire != 0)
             {
-                _shownWire = wire;
-                _title.text = $"Zamek maski   (drut: {wire})";
+                _shownWire = 0;
+                _title.text = "Zamek maski";
             }
         }
 

@@ -267,7 +267,7 @@ namespace HideAndSeek.Game.Net
 
         // Downed / rescue
         public const float BleedOutTime = 78f;           // 1.3 min
-        public const float CrawlTime = 20f;              // downed players can crawl only this long
+        public const float CrawlShare = 0.75f;           // downed players can crawl for this share of the bleed-out time
         public const float RescueRange = 2.2f;
         public const float RescueHoldTime = 3f;
         public const float HealHoldTime = HideAndSeek.Characters.HealTimeline.MedkitDuration; // medkit on a wound (animated)

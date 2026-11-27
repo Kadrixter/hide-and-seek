@@ -29,6 +29,7 @@ namespace HideAndSeek.Game.Net
             if (has("-testseatfit")) StartCoroutine(SeatFitTest());
             if (has("-testbrickarea")) StartCoroutine(BrickAreaTest());
             StartWheelTests(has);
+            StartSpringTests(has); // sofa spring + worn upholstery (NetSession.SpringTests.cs)
         }
 
         private static IEnumerator WaitLobby()

@@ -427,6 +427,7 @@ namespace HideAndSeek.Characters
             ApplyArcade(ref p, dt, standing);
             ApplyPoke(ref p, dt, standing);
             ApplyReach(ref p, dt, standing); // lobby mini interactions (BlockyCharacterActions.Reach.cs)
+            ApplySpringPush(ref p, dt, standing); // sofa spring pushed back in (BlockyCharacterActions.SpringPush.cs)
             ApplyFlashTake(ref p, dt);
             ApplyToyGun(ref p, dt, standing, lookPitch);
             ApplyCarry(ref p, dt, lookPitch); // selected inventory item in the right hand

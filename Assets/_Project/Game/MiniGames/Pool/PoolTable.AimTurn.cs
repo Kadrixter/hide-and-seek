@@ -35,7 +35,7 @@ namespace HideAndSeek.Game.MiniGames
             int seat = LocalSeat;
             if (seat < 0) return;
             Vector2 cue = AimCue();
-            ushort mask = PoolRules.Targets(State, seat);
+            ushort mask = PoolRules.Targets(State, PoolState.TeamOf(seat)); // seat = place 0..3, the rules want the team
             float best = float.MaxValue;
             for (int i = 1; i < 16; i++)
             {

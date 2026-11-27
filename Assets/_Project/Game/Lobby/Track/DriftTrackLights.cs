@@ -3,7 +3,8 @@ using UnityEngine;
 namespace HideAndSeek.Game
 {
     /// <summary>
-    /// Night lighting of the drift track: sixteen 18 m floodlight towers round the pad edge (lattice-ish pole, a lamp bank of
+    /// Night lighting of the drift track: twenty 26 m floodlight towers round the pad edge and in the infield, aimed at
+    /// the nearest bit of the circuit, lamps under the viaducts (27.11); (lattice-ish pole, a lamp bank of
     /// glowing panels aimed at the course, one wide spot light each; two of them cast soft shadows), a warm lamp over
     /// the gate and the kart row, and the sky: a dark blue dome with stars and a faint glow on the horizon (unlit).
     /// </summary>
@@ -24,16 +25,26 @@ namespace HideAndSeek.Game
             }
             towers.Add(new Vector3(w, 0f, DriftTrackCourse.Center.z));
             towers.Add(new Vector3(e, 0f, DriftTrackLayout.ArchZ - 34f));
+            // 27.11 (bigger pad, the helix): two more on the west edge and two in the infield
+            towers.Add(new Vector3(w, 0f, DriftTrackLayout.ArchZ + 75f));
+            towers.Add(new Vector3(w, 0f, DriftTrackLayout.ArchZ - 75f));
+            towers.Add(new Vector3(-240f, 0f, 20f));
+            towers.Add(new Vector3(-240f, 0f, -100f));
             var pole = new ProcMesh();
             var head = new ProcMesh();
             var glow = new ProcMesh();
             for (int i = 0; i < towers.Count; i++)
             {
                 var t = towers[i];
-                const float H = 18f;
+                const float H = 26f; // 27.11: 18 -> 26 m, the helix tops out at 17 m
                 pole.At(t).Lathe(new[] { new Vector2(0.32f, 0f), new Vector2(0.32f, 0.4f), new Vector2(0.17f, 0.45f), new Vector2(0.12f, H), new Vector2(0f, H + 0.05f) }, 10);
                 for (float y = 1.5f; y < H - 1f; y += 0.6f) pole.At(t + new Vector3(0f, y, 0f)).Box(new Vector3(0.18f, 0f, 0f), new Vector3(0.24f, 0.03f, 0.03f)); // ladder rungs
-                Vector3 target = t + (DriftTrackCourse.Center - t).normalized * 48f;
+                // aim at the nearest bit of the circuit (27.11; was the paddock centre), at least 30 m out
+                int near = DriftTrackCircuit.Nearest(new Vector3(t.x, 4f, t.z));
+                Vector3 tc = DriftTrackCircuit.Center[near];
+                Vector3 dirT = new Vector3(tc.x - t.x, 0f, tc.z - t.z);
+                if (dirT.sqrMagnitude < 1f) dirT = DriftTrackCourse.Center - t;
+                Vector3 target = t + dirT.normalized * Mathf.Max(30f, dirT.magnitude) + Vector3.up * Mathf.Min(tc.y, 8f);
                 Vector3 top = t + Vector3.up * (H + 0.6f);
                 var aim = Quaternion.LookRotation(target - top);
                 head.At(top, aim).Box(Vector3.zero, new Vector3(2.6f, 1.2f, 0.25f));
@@ -49,7 +60,7 @@ namespace HideAndSeek.Game
                 l.type = LightType.Spot;
                 l.spotAngle = 112f;
                 l.innerSpotAngle = 30f; // soft edge
-                l.range = 110f;
+                l.range = 130f;
                 l.intensity = 1.25f; // a believable night track: lit enough to drive, no blown-out asphalt
                 l.color = new Color(1f, 0.9f, 0.76f); // warm sodium-white
                 l.shadows = i == 6 || i == 7 ? LightShadows.Soft : LightShadows.None; // two shadow casters (mid north / south)
@@ -73,7 +84,55 @@ namespace HideAndSeek.Game
             lamp.At(new Vector3(DriftTrackLayout.PadEast - 0.15f, 4.4f, DriftTrackLayout.ArchZ + 8.5f)).Box(Vector3.zero, new Vector3(0.3f, 0.2f, 0.5f));
             TrackMats.Piece(root, "GateLamp", lamp.ToMesh("TrackGateLamp"), TrackMats.Glow("TrackGateLampGlow", new Color(1f, 0.85f, 0.6f), new Color(1.4f, 1.0f, 0.6f)), false);
 
+            UnderDeck(root);
             Sky(root);
+        }
+
+        /// <summary>
+        /// 27.11: lamps under the viaducts - a glowing strip on the slab underside every ~12 m over a road below, and a
+        /// small unshadowed point light every ~48 m of covered road (the lower helix laps would be pitch black otherwise).
+        /// </summary>
+        private static void UnderDeck(Transform root)
+        {
+            var c = DriftTrackCircuit.Center;
+            int n = c.Length;
+            var strips = new ProcMesh();
+            float nextStrip = 0f, nextLight = 0f;
+            int lights = 0;
+            for (int r = 0; r < n; r++)
+            {
+                float sr = DriftTrackCircuit.S[r];
+                if (sr < nextStrip) continue;
+                // the road right above this row (the next level up)
+                int above = -1;
+                for (int j = 0; j < n; j++)
+                {
+                    float dy = c[j].y - c[r].y;
+                    if (dy < 4f || dy > 9.5f) continue;
+                    float dx = c[j].x - c[r].x, dz = c[j].z - c[r].z;
+                    if (dx * dx + dz * dz < 9f) { above = j; break; }
+                }
+                if (above < 0) continue;
+                nextStrip = sr + 12f;
+                float under = c[above].y - DriftTrackCircuit.BridgeDepth - 0.04f;
+                Vector3 f = DriftTrackRoad.Flat(DriftTrackCircuit.Fwd[r]);
+                strips.At(new Vector3(c[r].x, under, c[r].z), Quaternion.LookRotation(f)).Box(Vector3.zero, new Vector3(0.3f, 0.06f, 2.4f));
+                if (sr >= nextLight)
+                {
+                    nextLight = sr + 48f;
+                    var l = new GameObject("UnderDeckLight").AddComponent<Light>();
+                    l.transform.SetParent(root, false);
+                    l.transform.position = new Vector3(c[r].x, under - 0.3f, c[r].z);
+                    l.type = LightType.Point;
+                    l.range = 17f;
+                    l.intensity = 1.3f;
+                    l.color = new Color(1f, 0.88f, 0.7f);
+                    l.shadows = LightShadows.None;
+                    lights++;
+                }
+            }
+            TrackMats.Piece(root, "UnderDeckLamps", strips.ToMesh("TrackUnderDeckLamps"), TrackMats.Glow("TrackUnderDeckGlow", new Color(1f, 0.9f, 0.7f), new Color(1.5f, 1.2f, 0.8f)), false);
+            Debug.Log($"[Track] under-deck lamps: {lights} lights");
         }
 
         /// <summary>Unlit dome (radius 450 m) round the pad: night blue, stars, a glow on the horizon.</summary>

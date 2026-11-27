@@ -73,7 +73,7 @@ namespace HideAndSeek.Game.Net
                     nose.y = 0f;
                     Vector3 rel = feet - front;
                     rel.y = 0f;
-                    if (Vector3.Dot(rel, nose.normalized) < -0.15f) continue; // standing beside / behind the car
+                    if (Vector3.Dot(rel, nose.normalized) < -0.9f) continue; // behind the front wing (27.11: beside the wing is fine - cars nose to the wall)
                     float d = Vector3.Distance(eye, front);
                     if (d > 2.2f || d >= dist || !InView(eye, fwd, front, 40f, h.transform)) continue;
                     dist = d;
@@ -83,8 +83,7 @@ namespace HideAndSeek.Game.Net
                     var worker = mm.HoodWorker(i);
                     text = worker != null && worker != _p ? $"{worker.Nick} grzebie przy masce"
                         : HoodBits.Has(bits.Unlatched, i) ? "E  podnieś maskę"
-                        : _p.WireCount.Value == 0 ? "E  otwórz maskę (potrzebny kawałek drutu)"
-                        : "E  otwórz zamek maski drutem";
+                        : "E  otwórz zamek maski";
                 }
             }
             return kind != PromptKind.None;
@@ -130,11 +129,6 @@ namespace HideAndSeek.Game.Net
                 GameHud.Toast("Ktoś już grzebie przy tej masce.", 2f);
                 return;
             }
-            if (!HoodBits.Has(mm.CarHoods.Value.Unlatched, _hoodPrompt) && _p.WireCount.Value == 0)
-            {
-                GameHud.Toast("Potrzebujesz kawałka drutu - urwij go z siatki ogrodzenia albo klatki.", 3f);
-                return;
-            }
             _ignoreEThisFrame = true;
             _p.RequestHoodRpc((byte)_hoodPrompt);
         }
@@ -146,7 +140,7 @@ namespace HideAndSeek.Game.Net
             var s = mm.CamPower.Value;
             if (!s.HasBattery(_camRoom) && !_p.HasCarBattery)
             {
-                GameHud.Toast("Nie masz akumulatora. Poszukaj aut z otwieraną maską.", 2.5f);
+                GameHud.Toast("Nie masz akumulatora. Otwórz maskę któregoś auta (co drugi jest rozładowany).", 2.5f);
                 return;
             }
             if (s.HasBattery(_camRoom) && _p.HasCarBattery)

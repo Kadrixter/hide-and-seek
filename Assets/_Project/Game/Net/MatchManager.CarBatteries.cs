@@ -9,14 +9,11 @@ using UnityEngine.SceneManagement;
 
 namespace HideAndSeek.Game.Net
 {
-    /// <summary>Tuning of the car batteries / camera power objective (26.11).</summary>
+    /// <summary>Tuning of the car batteries / camera power objective (26.11, 27.11: every bonnet opens, no wire needed).</summary>
     public static class BatteryTuning
     {
-        /// <summary>Bonnets that open per level and round (out of the cars the map prepared, <see cref="CarHood"/>).</summary>
-        public const int ActiveMin = 3, ActiveMax = 5;
-        /// <summary>Working batteries guaranteed per level; every further one works with <see cref="ExtraWorkChance"/>.</summary>
-        public const int WorkingPerLevel = 3;
-        public const double ExtraWorkChance = 0.4;
+        /// <summary>Share of the batteries that are flat (0 %) this round; the rest hold <see cref="ChargeMin"/>..<see cref="ChargeMax"/>.</summary>
+        public const double DeadShare = 0.5;
         /// <summary>Charge (per cent) of a working battery at the start of the round.</summary>
         public const int ChargeMin = 65, ChargeMax = 100;
         /// <summary>Seconds a full battery runs the cameras of one room (they only drain while switched on).</summary>
@@ -27,47 +24,80 @@ namespace HideAndSeek.Game.Net
         public const float HoodReach = 1.9f, BatteryReach = 2.1f;
         /// <summary>Walking with the battery (heavy).</summary>
         public const float CarrySpeedScale = 0.92f;
-        /// <summary>Lockpick: pins to set (more on dusty cars) and the least time a won try can take (server check).</summary>
+        /// <summary>Latch mini-game: pins to set (more on dusty cars) and the least time a won try can take (server check).</summary>
         public const int PinsMin = 3, PinsMax = 5;
         public const float MinPinTime = 0.15f;
-        /// <summary>Angle the bonnet pops up to once the latch is picked.</summary>
+        /// <summary>Angle the bonnet pops up to once the latch is open.</summary>
         public const float UnlatchedAngle = 2.5f;
 
         public static int PinsFor(float dust) => Mathf.Clamp(PinsMin + Mathf.RoundToInt(dust * (PinsMax - PinsMin)), PinsMin, PinsMax);
     }
 
-    /// <summary>Per-bonnet state of the round (bit i = <see cref="CarHood.Index"/> i).</summary>
+    /// <summary>256 flags, one per bonnet (<see cref="CarHood.Index"/>).</summary>
+    public struct HoodMask : IEquatable<HoodMask>
+    {
+        public ulong A, B, C, D;
+
+        public bool Get(int i)
+        {
+            if (i < 0 || i >= 256) return false;
+            ulong w = (i >> 6) switch { 0 => A, 1 => B, 2 => C, _ => D };
+            return (w & (1ul << (i & 63))) != 0;
+        }
+
+        public HoodMask With(int i)
+        {
+            if (i < 0 || i >= 256) return this;
+            ulong bit = 1ul << (i & 63);
+            switch (i >> 6) { case 0: A |= bit; break; case 1: B |= bit; break; case 2: C |= bit; break; default: D |= bit; break; }
+            return this;
+        }
+
+        public bool Any => (A | B | C | D) != 0;
+
+        public void Serialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+        {
+            s.SerializeValue(ref A);
+            s.SerializeValue(ref B);
+            s.SerializeValue(ref C);
+            s.SerializeValue(ref D);
+        }
+
+        public bool Equals(HoodMask o) => A == o.A && B == o.B && C == o.C && D == o.D;
+    }
+
+    /// <summary>Per-bonnet state of the round (flag i = <see cref="CarHood.Index"/> i).</summary>
     public struct HoodBits : INetworkSerializable, IEquatable<HoodBits>
     {
-        /// <summary>This bonnet can be opened this round.</summary>
-        public uint Active;
-        /// <summary>The latch is picked (lifting it needs no wire any more).</summary>
-        public uint Unlatched;
+        /// <summary>This bonnet can be opened this round (27.11: all of them once the round is dealt).</summary>
+        public HoodMask Active;
+        /// <summary>The latch is open (lifting it needs no mini-game any more).</summary>
+        public HoodMask Unlatched;
         /// <summary>Fully open (stays open for the rest of the round).</summary>
-        public uint Open;
+        public HoodMask Open;
         /// <summary>The battery was taken out.</summary>
-        public uint Taken;
+        public HoodMask Taken;
 
-        public static bool Has(uint mask, int i) => i >= 0 && i < 32 && (mask & (1u << i)) != 0;
-        public static uint With(uint mask, int i) => i >= 0 && i < 32 ? mask | (1u << i) : mask;
+        public static bool Has(HoodMask mask, int i) => mask.Get(i);
+        public static HoodMask With(HoodMask mask, int i) => mask.With(i);
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
-            s.SerializeValue(ref Active);
-            s.SerializeValue(ref Unlatched);
-            s.SerializeValue(ref Open);
-            s.SerializeValue(ref Taken);
+            Active.Serialize(s);
+            Unlatched.Serialize(s);
+            Open.Serialize(s);
+            Taken.Serialize(s);
         }
 
-        public bool Equals(HoodBits o) => Active == o.Active && Unlatched == o.Unlatched && Open == o.Open && Taken == o.Taken;
+        public bool Equals(HoodBits o) => Active.Equals(o.Active) && Unlatched.Equals(o.Unlatched) && Open.Equals(o.Open) && Taken.Equals(o.Taken);
     }
 
     /// <summary>
     /// Car batteries (26.11): the security cameras start without power; a working car battery has to be found under a
-    /// bonnet. Every round the server activates 3-5 of the prepared cars per level (<see cref="CarHood"/>, at least one
-    /// level gets 4+ so a dead battery exists) and decides which batteries work (the first 3 per level always, every
-    /// further one 40 %). A hider with a piece of fence wire picks the bonnet latch (the local lockpick mini-game,
-    /// LockpickUi; a lost try breaks the wire), then lifts the bonnet in 3..7 s depending on the car's dust (it creaks up
+    /// bonnet. Since 27.11 every parked car's bonnet opens (<see cref="CarHood"/>) and half of the batteries are flat
+    /// (<see cref="BatteryTuning.DeadShare"/>, shuffled per level). A hider opens the bonnet latch by hand (the local
+    /// latch mini-game, LockpickUi; a slip just starts it again - no wire needed any more), then lifts the bonnet in
+    /// 3..7 s depending on the car's dust (it creaks up
     /// on every client; walking away, getting hit or E stops it and the bonnet drops back - the latch stays picked),
     /// and takes the battery (the "Akumulator" item, its charge travels with it). The battery powers the cameras of a
     /// security room (MatchManager.CamPower.cs). Synced: <see cref="CarHoods"/>, the players' <see cref="NetPlayer.HoodWork"/>
@@ -77,7 +107,7 @@ namespace HideAndSeek.Game.Net
     {
         public readonly NetworkVariable<HoodBits> CarHoods = new();
 
-        private const int MaxHoods = 32;
+        private const int MaxHoods = 256;
         private readonly int[] _hoodCharge = new int[MaxHoods];      // server: charge (%) of the battery under each bonnet, 0 = dead
         private readonly float[] _hoodCreakAt = new float[MaxHoods]; // client: next creak sound of a bonnet being lifted
         private readonly HashSet<ulong> _hoodCancel = new();
@@ -193,45 +223,29 @@ namespace HideAndSeek.Game.Net
             var levels = new List<int>[3] { new(), new(), new() };
             foreach (var h in all)
                 if (h != null && h.Index < MaxHoods) levels[Mathf.Clamp(h.Level, 0, 2)].Add(h.Index);
-            var counts = new int[3];
+            var bits = new HoodBits();
+            Array.Clear(_hoodCharge, 0, _hoodCharge.Length);
+            int working = 0, dead = 0;
+            var sb = new System.Text.StringBuilder();
             for (int lv = 0; lv < 3; lv++)
             {
                 var l = levels[lv];
                 for (int k = l.Count - 1; k > 0; k--) { int j = rnd.Next(k + 1); (l[k], l[j]) = (l[j], l[k]); }
-                counts[lv] = Mathf.Min(l.Count, rnd.Next(BatteryTuning.ActiveMin, BatteryTuning.ActiveMax + 1));
-            }
-            // "not every battery works": a level with more than 3 bonnets is needed for a dead one
-            if (counts[0] <= BatteryTuning.WorkingPerLevel && counts[1] <= BatteryTuning.WorkingPerLevel && counts[2] <= BatteryTuning.WorkingPerLevel)
-            {
-                int first = rnd.Next(3);
-                for (int k = 0; k < 3; k++)
+                // exactly half of each level flat (an odd one out decided by a coin)
+                int flat = (int)Math.Floor(l.Count * BatteryTuning.DeadShare) + (l.Count % 2 == 1 && rnd.Next(2) == 0 ? 1 : 0);
+                int lvWork = 0;
+                for (int k = 0; k < l.Count; k++)
                 {
-                    int lv = (first + k) % 3;
-                    if (levels[lv].Count <= counts[lv]) continue;
-                    counts[lv]++;
-                    break;
-                }
-            }
-            var bits = new HoodBits();
-            Array.Clear(_hoodCharge, 0, _hoodCharge.Length);
-            var sb = new System.Text.StringBuilder();
-            int working = 0, dead = 0;
-            for (int lv = 0; lv < 3; lv++)
-            {
-                sb.Append($" P {(lv == 0 ? "0" : "-" + lv)}:");
-                for (int k = 0; k < counts[lv]; k++)
-                {
-                    int i = levels[lv][k];
+                    int i = l[k];
                     bits.Active = HoodBits.With(bits.Active, i);
-                    bool works = k < BatteryTuning.WorkingPerLevel || rnd.NextDouble() < BatteryTuning.ExtraWorkChance;
+                    bool works = k >= flat;
                     _hoodCharge[i] = works ? rnd.Next(BatteryTuning.ChargeMin, BatteryTuning.ChargeMax + 1) : 0;
-                    if (works) working++; else dead++;
-                    var h = HoodAt(i);
-                    sb.Append($" #{i}({(h != null ? h.name : "?")}, dust {(h != null ? h.Dust : 0f):0.0}, {_hoodCharge[i]}%)");
+                    if (works) { working++; lvWork++; } else dead++;
                 }
+                sb.Append($" P {(lv == 0 ? "0" : "-" + lv)}: {l.Count} ({lvWork} working)");
             }
             CarHoods.Value = bits;
-            Debug.Log($"[Battery] round bonnets: {counts[0] + counts[1] + counts[2]} of {all.Count} active, {working} working, {dead} dead:{sb}");
+            Debug.Log($"[Battery] round bonnets: all {all.Count} open-able, {working} batteries working, {dead} flat:{sb}");
         }
 
         /// <summary>Why <paramref name="pl"/> cannot work on bonnet <paramref name="i"/> now (null = can). Also used by the prompt.</summary>
@@ -266,13 +280,8 @@ namespace HideAndSeek.Game.Net
             var h = HoodAt(hood);
             if (!NearHood(pl, h, BatteryTuning.HoodReach, h.FrontWorld)) { Refused(pl, "bonnet #" + hood, $"too far ({Vector3.Distance(Flat(pl.transform.position), Flat(h.FrontWorld)):0.00} m)"); return; }
             if (HoodBits.Has(CarHoods.Value.Unlatched, hood)) { StartHoodOpening(pl, h); return; }
-            if (pl.WireCount.Value == 0)
-            {
-                pl.ToastRpc("Potrzebujesz kawałka drutu, żeby otworzyć zamek maski.", 2.5f);
-                return;
-            }
-            pl.HoodWork.Value = new HoodWorkState { Hood = (sbyte)hood, Mode = HoodWorkMode.Lockpick, Start = Now };
-            Debug.Log($"[Battery] {pl.Nick} picks the bonnet latch of {h.name} (#{hood}, dust {h.Dust:0.0}, {BatteryTuning.PinsFor(h.Dust)} pins, wire {pl.WireCount.Value})");
+            pl.HoodWork.Value = new HoodWorkState { Hood = (short)hood, Mode = HoodWorkMode.Lockpick, Start = Now };
+            Debug.Log($"[Battery] {pl.Nick} works the bonnet latch of {h.name} (#{hood}, dust {h.Dust:0.0}, {BatteryTuning.PinsFor(h.Dust)} pins)");
         }
 
         public void ServerLockpickResult(NetPlayer pl, bool won, byte pins)
@@ -288,19 +297,10 @@ namespace HideAndSeek.Game.Net
             }
             if (!won)
             {
-                if (pl.WireCount.Value > 0) pl.WireCount.Value--;
-                CarHoodFxRpc(0, h.FrontWorld);
-                Debug.Log($"[Battery] {pl.Nick}: the wire broke in the latch of {h.name} (wire left {pl.WireCount.Value})");
-                if (pl.WireCount.Value == 0)
-                {
-                    pl.HoodWork.Value = HoodWorkState.None;
-                    pl.ToastRpc("Drut pękł. Nie masz już drutu - urwij nowy kawałek z siatki.", 3.5f);
-                }
-                else
-                {
-                    pl.HoodWork.Value = new HoodWorkState { Hood = w.Hood, Mode = HoodWorkMode.Lockpick, Start = Now };
-                    pl.ToastRpc("Drut pękł! Próbujesz od nowa kolejnym kawałkiem.", 2.5f);
-                }
+                // 27.11: no wire to lose - the latch just slips and the mini-game starts again
+                CarHoodFxRpc(2, h.FrontWorld);
+                Debug.Log($"[Battery] {pl.Nick}: the latch of {h.name} slipped, trying again");
+                pl.HoodWork.Value = new HoodWorkState { Hood = w.Hood, Mode = HoodWorkMode.Lockpick, Start = Now };
                 return;
             }
             int need = BatteryTuning.PinsFor(h.Dust);
@@ -330,7 +330,7 @@ namespace HideAndSeek.Game.Net
         private void StartHoodOpening(NetPlayer pl, CarHood h)
         {
             float dur = Mathf.Clamp(HoodTime(h.Dust) + UnityEngine.Random.Range(-0.25f, 0.5f), BatteryTuning.HoodTimeMin, BatteryTuning.HoodTimeMax);
-            pl.HoodWork.Value = new HoodWorkState { Hood = (sbyte)h.Index, Mode = HoodWorkMode.Opening, Start = Now, Duration = dur };
+            pl.HoodWork.Value = new HoodWorkState { Hood = (short)h.Index, Mode = HoodWorkMode.Opening, Start = Now, Duration = dur };
             _hoodCancel.Remove(pl.NetworkObjectId);
             StartCoroutine(HoodOpenRoutine(pl, h.Index, dur));
             Debug.Log($"[Battery] {pl.Nick} lifts the bonnet of {h.name} ({dur:0.0} s, dust {h.Dust:0.0})");
