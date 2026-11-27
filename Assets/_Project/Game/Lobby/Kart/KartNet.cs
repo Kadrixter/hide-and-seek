@@ -64,43 +64,53 @@ namespace HideAndSeek.Game.Net
         public const ulong Free = ulong.MaxValue;
 
         public ulong Driver;
+        /// <summary>Two-seaters (<see cref="DriftTrackLayout.IsDuo"/>): who sits on the right seat (<see cref="Free"/> = nobody).</summary>
+        public ulong Passenger;
         public Vector3 Pos;
         public float Yaw;
         public byte Epoch;
 
         public bool Driven => Driver != Free;
+        public bool Carries => Passenger != Free;
 
         /// <summary>Parked in its slot by the track gate (<see cref="DriftTrackLayout.KartSlot"/>), nobody in it.</summary>
-        public static KartState AtSlot(int i, byte epoch) => new KartState { Driver = Free, Pos = DriftTrackLayout.KartSlot(i), Yaw = DriftTrackLayout.KartSlotYaw, Epoch = epoch };
+        public static KartState AtSlot(int i, byte epoch) => new KartState { Driver = Free, Passenger = Free, Pos = DriftTrackLayout.KartSlot(i), Yaw = DriftTrackLayout.KartSlotYaw, Epoch = epoch };
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
             s.SerializeValue(ref Driver);
+            s.SerializeValue(ref Passenger);
             s.SerializeValue(ref Pos);
             s.SerializeValue(ref Yaw);
             s.SerializeValue(ref Epoch);
         }
 
-        public bool Equals(KartState o) => Driver == o.Driver && (Pos - o.Pos).sqrMagnitude < 1e-8f && Mathf.Approximately(Yaw, o.Yaw) && Epoch == o.Epoch;
+        public bool Equals(KartState o) => Driver == o.Driver && Passenger == o.Passenger && (Pos - o.Pos).sqrMagnitude < 1e-8f && Mathf.Approximately(Yaw, o.Yaw) && Epoch == o.Epoch;
     }
 
-    /// <summary>All five track karts' <see cref="KartState"/>s in one synced value (late joiners get them all at once).</summary>
+    /// <summary>All eight track karts' <see cref="KartState"/>s in one synced value (late joiners get them all at once).
+    /// 0-4 single-seaters, 5-7 two-seaters (28.11).</summary>
     public struct KartsState : INetworkSerializable, IEquatable<KartsState>
     {
-        public KartState K0, K1, K2, K3, K4;
+        public KartState K0, K1, K2, K3, K4, K5, K6, K7;
 
         public static KartsState AtSlots(byte epoch) => new KartsState
         {
             K0 = KartState.AtSlot(0, epoch), K1 = KartState.AtSlot(1, epoch), K2 = KartState.AtSlot(2, epoch),
-            K3 = KartState.AtSlot(3, epoch), K4 = KartState.AtSlot(4, epoch),
+            K3 = KartState.AtSlot(3, epoch), K4 = KartState.AtSlot(4, epoch), K5 = KartState.AtSlot(5, epoch),
+            K6 = KartState.AtSlot(6, epoch), K7 = KartState.AtSlot(7, epoch),
         };
 
-        public KartState Get(int i) => i switch { 0 => K0, 1 => K1, 2 => K2, 3 => K3, _ => K4 };
+        public KartState Get(int i) => i switch { 0 => K0, 1 => K1, 2 => K2, 3 => K3, 4 => K4, 5 => K5, 6 => K6, _ => K7 };
 
         public KartsState With(int i, KartState k)
         {
             var s = this;
-            switch (i) { case 0: s.K0 = k; break; case 1: s.K1 = k; break; case 2: s.K2 = k; break; case 3: s.K3 = k; break; default: s.K4 = k; break; }
+            switch (i)
+            {
+                case 0: s.K0 = k; break; case 1: s.K1 = k; break; case 2: s.K2 = k; break; case 3: s.K3 = k; break;
+                case 4: s.K4 = k; break; case 5: s.K5 = k; break; case 6: s.K6 = k; break; default: s.K7 = k; break;
+            }
             return s;
         }
 
@@ -111,11 +121,24 @@ namespace HideAndSeek.Game.Net
             return -1;
         }
 
-        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+        /// <summary>The two-seater <paramref name="id"/> rides in as the passenger (-1 = none).</summary>
+        public int PassengerKartOf(ulong id)
         {
-            K0.NetworkSerialize(s); K1.NetworkSerialize(s); K2.NetworkSerialize(s); K3.NetworkSerialize(s); K4.NetworkSerialize(s);
+            if (id == KartState.Free) return -1;
+            for (int i = 0; i < DriftTrackLayout.KartCount; i++) if (Get(i).Passenger == id) return i;
+            return -1;
         }
 
-        public bool Equals(KartsState o) => K0.Equals(o.K0) && K1.Equals(o.K1) && K2.Equals(o.K2) && K3.Equals(o.K3) && K4.Equals(o.K4);
+        /// <summary>Sits in any kart (driver or passenger).</summary>
+        public bool InKart(ulong id) => KartOf(id) >= 0 || PassengerKartOf(id) >= 0;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+        {
+            K0.NetworkSerialize(s); K1.NetworkSerialize(s); K2.NetworkSerialize(s); K3.NetworkSerialize(s);
+            K4.NetworkSerialize(s); K5.NetworkSerialize(s); K6.NetworkSerialize(s); K7.NetworkSerialize(s);
+        }
+
+        public bool Equals(KartsState o) => K0.Equals(o.K0) && K1.Equals(o.K1) && K2.Equals(o.K2) && K3.Equals(o.K3) &&
+                                            K4.Equals(o.K4) && K5.Equals(o.K5) && K6.Equals(o.K6) && K7.Equals(o.K7);
     }
 }

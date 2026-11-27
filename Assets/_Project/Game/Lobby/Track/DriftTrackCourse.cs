@@ -36,8 +36,9 @@ namespace HideAndSeek.Game
             for (int i = 0; i < DriftTrackLayout.KartCount; i++)
             {
                 var s = DriftTrackLayout.KartSlot(i);
-                foreach (float dz in new[] { -1.15f, 1.15f }) white.At(s + new Vector3(0f, Paint, dz)).Box(Vector3.zero, new Vector3(2.4f, 0.002f, 0.1f));
-                white.At(s + new Vector3(1.15f, Paint, 0f)).Box(Vector3.zero, new Vector3(0.1f, 0.002f, 2.4f));
+                float hw = DriftTrackLayout.KartSlotWidth(i) * 0.5f;
+                foreach (float dz in new[] { -hw, hw }) white.At(s + new Vector3(0f, Paint, dz)).Box(Vector3.zero, new Vector3(2.4f, 0.002f, 0.1f));
+                white.At(s + new Vector3(1.15f, Paint, 0f)).Box(Vector3.zero, new Vector3(0.1f, 0.002f, hw * 2f + 0.1f));
             }
 
             var paintW = TrackMats.Get("TrackLineWhite", new Color(0.86f, 0.86f, 0.84f), 0.25f);

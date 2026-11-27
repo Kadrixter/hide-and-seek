@@ -6,7 +6,7 @@ namespace HideAndSeek.Game
     public static partial class KartModel
     {
         /// <summary>Nose cone, front panel with the number plate, side pods with a stripe, rear bumper with the brake light.</summary>
-        private static void BuildBodywork(Transform body, KartParts parts, KartLivery livery)
+        private static void BuildBodywork(Transform body, KartParts parts, KartLivery livery, float pedalX)
         {
             var red = new ProcMesh();
             red.At(new Vector3(0f, 0.15f, 0.8f), Quaternion.Euler(-8f, 0f, 0f)).RoundBox(new Vector3(0.7f, 0.13f, 0.22f), 0.05f, 5);
@@ -58,8 +58,8 @@ namespace HideAndSeek.Game
             var ped = new ProcMesh();
             for (int s = -1; s <= 1; s += 2)
             {
-                ped.At(new Vector3(s * 0.1f, 0.14f, 0.47f), Quaternion.Euler(-35f, 0f, 0f)).RoundBox(new Vector3(0.065f, 0.1f, 0.014f), 0.005f, 2);
-                ped.At(Vector3.zero).Tube(new[] { new Vector3(s * 0.1f, 0.08f, 0.5f), new Vector3(s * 0.1f, 0.11f, 0.49f) }, 0.008f, 6);
+                ped.At(new Vector3(pedalX + s * 0.1f, 0.14f, 0.47f), Quaternion.Euler(-35f, 0f, 0f)).RoundBox(new Vector3(0.065f, 0.1f, 0.014f), 0.005f, 2);
+                ped.At(Vector3.zero).Tube(new[] { new Vector3(pedalX + s * 0.1f, 0.08f, 0.5f), new Vector3(pedalX + s * 0.1f, 0.11f, 0.49f) }, 0.008f, 6);
             }
             Piece(body, "Pedals", ped.ToMesh("KartPedals"), Dark);
             var tank = new ProcMesh();

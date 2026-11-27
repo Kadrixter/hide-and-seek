@@ -20,6 +20,9 @@ namespace HideAndSeek.Game
         public Transform Exhaust;
         /// <summary>Brake light glow (emission follows the brake / handbrake).</summary>
         public Renderer BrakeLight;
+        /// <summary>Two-seaters: the passenger's seat point (same frame as <see cref="Seat"/>) and the grab bar he holds.</summary>
+        public Transform PassengerSeat, Grab;
+        public bool Duo => PassengerSeat != null;
     }
 
     /// <summary>
@@ -72,31 +75,107 @@ namespace HideAndSeek.Game
             return m;
         }
 
-        /// <summary>Builds the kart under <paramref name="root"/> (kart space = root space).</summary>
-        public static KartParts Build(Transform root, KartLivery livery)
+        /// <summary>Two-seater (28.11): the frame and bodywork are 1.45 x wider, the driver sits left, the passenger right.</summary>
+        public const float DuoWiden = 1.45f, DuoDriverX = -0.3f, DuoPassengerX = 0.34f, DuoTrackMul = 1.5f;
+
+        /// <summary>Builds the kart under <paramref name="root"/> (kart space = root space); <paramref name="duo"/> = two-seater.</summary>
+        public static KartParts Build(Transform root, KartLivery livery, bool duo = false)
         {
             var parts = new KartParts();
             var body = new GameObject("Body").transform;
             body.SetParent(root, false);
             parts.Body = body;
 
-            BuildFrame(body);
-            BuildBodywork(body, parts, livery);
-            BuildSeatAndControls(body, parts);
-            BuildEngine(body, parts);
+            if (!duo)
+            {
+                BuildFrame(body);
+                BuildBodywork(body, parts, livery, 0f);
+                BuildSeatAndControls(body, parts);
+                BuildEngine(body, parts);
+            }
+            else
+            {
+                // Same parts, laid out for two: a wider frame and bodywork, the driver's seat and controls on the left,
+                // the engine in the middle behind the seats, the passenger seat with a grab bar on the right.
+                var wide = Sub(body, "Wide", Vector3.zero);
+                wide.localScale = new Vector3(DuoWiden, 1f, 1f);
+                BuildFrame(wide);
+                BuildBodywork(wide, parts, livery, DuoDriverX / DuoWiden);
+                BuildSeatAndControls(Sub(body, "DriverSide", new Vector3(DuoDriverX, 0f, 0f)), parts);
+                BuildEngine(Sub(body, "EngineSide", new Vector3(DuoDriverX, 0f, 0f)), parts);
+                BuildPassenger(Sub(body, "PassengerSide", new Vector3(DuoPassengerX, 0f, 0f)), parts);
+            }
 
+            float ft = duo ? FrontTrack * DuoTrackMul : FrontTrack, rt = duo ? RearTrack * DuoTrackMul : RearTrack;
             for (int i = 0; i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
                 var steer = new GameObject(i == 0 ? "SteerL" : "SteerR").transform;
                 steer.SetParent(root, false);
-                steer.localPosition = new Vector3(side * FrontTrack, KartPhysics.FrontRadius, FrontZ);
+                steer.localPosition = new Vector3(side * ft, KartPhysics.FrontRadius, FrontZ);
                 parts.FrontSteer[i] = steer;
                 parts.FrontWheel[i] = Wheel(steer, Vector3.zero, side, KartPhysics.FrontRadius, FrontWidth, i == 0 ? "WheelFL" : "WheelFR");
                 Spindle(steer, side);
-                parts.RearWheel[i] = Wheel(root, new Vector3(side * RearTrack, KartPhysics.RearRadius, RearZ), side, KartPhysics.RearRadius, RearWidth, i == 0 ? "WheelRL" : "WheelRR");
+                parts.RearWheel[i] = Wheel(root, new Vector3(side * rt, KartPhysics.RearRadius, RearZ), side, KartPhysics.RearRadius, RearWidth, i == 0 ? "WheelRL" : "WheelRR");
+            }
+            if (duo)
+            {
+                // The front axle beam and the rear axle reach out to the wider wheels.
+                var m = new ProcMesh();
+                m.At(Vector3.zero);
+                for (int s = -1; s <= 1; s += 2)
+                {
+                    m.Tube(new[] { new Vector3(s * 0.55f, KartPhysics.FrontRadius - 0.02f, FrontZ), new Vector3(s * (ft - 0.07f), KartPhysics.FrontRadius - 0.01f, FrontZ) }, 0.017f, 8);
+                    m.Tube(new[] { new Vector3(s * 0.6f, KartPhysics.RearRadius, RearZ), new Vector3(s * (rt - 0.06f), KartPhysics.RearRadius, RearZ) }, 0.02f, 10);
+                }
+                Piece(body, "AxleExt", m.ToMesh("KartAxleExt"), Chrome);
             }
             return parts;
+        }
+
+        private static Transform Sub(Transform parent, string name, Vector3 at)
+        {
+            var t = new GameObject(name).transform;
+            t.SetParent(parent, false);
+            t.localPosition = at;
+            return t;
+        }
+
+        /// <summary>Passenger seat (the driver's bucket seat again), a chrome grab bar in front of it and a foot plate.</summary>
+        private static void BuildPassenger(Transform side, KartParts parts)
+        {
+            var seat = new ProcMesh();
+            seat.At(new Vector3(0f, 0.095f, -0.28f)).RoundBox(new Vector3(0.38f, 0.05f, 0.36f), 0.02f, 4);
+            seat.At(new Vector3(0f, 0.33f, -0.49f), Quaternion.Euler(-14f, 0f, 0f)).RoundBox(new Vector3(0.4f, 0.44f, 0.05f), 0.022f, 4);
+            for (int s = -1; s <= 1; s += 2)
+                seat.At(new Vector3(s * 0.215f, 0.18f, -0.31f), Quaternion.Euler(0f, 0f, s * -8f)).RoundBox(new Vector3(0.05f, 0.16f, 0.36f), 0.02f, 3);
+            Piece(side, "PassengerSeatMesh", seat.ToMesh("KartSeat"), Black);
+
+            var chrome = new ProcMesh();
+            chrome.At(Vector3.zero);
+            for (int s = -1; s <= 1; s += 2)
+                chrome.Tube(new[] { new Vector3(s * 0.13f, 0.46f, -0.53f), new Vector3(s * 0.19f, 0.24f, -0.6f), new Vector3(s * 0.24f, 0.08f, -0.6f) }, 0.011f, 6);
+            // Grab bar: two posts up from the floor and a hoop across at chest height.
+            chrome.Tube(new[]
+            {
+                new Vector3(-0.17f, 0.08f, 0.32f), new Vector3(-0.17f, 0.36f, 0.2f), new Vector3(-0.12f, 0.43f, 0.15f),
+                new Vector3(0.12f, 0.43f, 0.15f), new Vector3(0.17f, 0.36f, 0.2f), new Vector3(0.17f, 0.08f, 0.32f),
+            }, 0.014f, 8);
+            Piece(side, "PassengerBars", chrome.ToMesh("KartPassengerBars"), Chrome);
+            var grip = new ProcMesh();
+            for (int s = -1; s <= 1; s += 2)
+                grip.At(new Vector3(s * 0.09f, 0.43f, 0.15f), Quaternion.Euler(0f, 0f, 90f)).Lathe(new[] { new Vector2(0.021f, -0.05f), new Vector2(0.021f, 0.05f) }, 10);
+            grip.At(new Vector3(0f, 0.075f, 0.52f), Quaternion.Euler(-30f, 0f, 0f)).RoundBox(new Vector3(0.3f, 0.012f, 0.16f), 0.006f, 2); // foot plate
+            Piece(side, "PassengerGrips", grip.ToMesh("KartPassengerGrips"), Black);
+
+            var seatPoint = new GameObject("PassengerSeatPoint").transform;
+            seatPoint.SetParent(side, false);
+            seatPoint.localPosition = SeatPos;
+            parts.PassengerSeat = seatPoint;
+            var grab = new GameObject("GrabBar").transform;
+            grab.SetParent(side, false);
+            grab.localPosition = new Vector3(0f, 0.43f, 0.15f);
+            parts.Grab = grab;
         }
 
         internal static GameObject Piece(Transform parent, string name, Mesh mesh, Material mat)

@@ -183,16 +183,18 @@ namespace HideAndSeek.Game
         /// <summary>Keeps the driver's root under the seat (after every Update moved things).</summary>
         private void LateUpdate()
         {
+            PassengerLateUpdate(); // LobbyKart.Passenger.cs
             if (View != Mode.Local || _localDriver == null) return;
             var me = _localDriver;
             var cc = me.GetComponent<CharacterController>();
             if (cc != null && cc.enabled) cc.enabled = false; // the controller is switched back on by the generic lock code
-            Vector3 seat = transform.TransformPoint(new Vector3(KartModel.SeatPos.x, 0f, KartModel.SeatPos.z));
+            float seatX = IsDuo ? KartModel.DuoDriverX : KartModel.SeatPos.x; // two-seaters: the driver sits on the left
+            Vector3 seat = transform.TransformPoint(new Vector3(seatX, 0f, KartModel.SeatPos.z));
             me.transform.SetPositionAndRotation(seat, Quaternion.Euler(0f, _yaw, 0f));
         }
 
         /// <summary>A free standing spot beside the kart (left, right, behind, in front), inside the room.</summary>
-        public Vector3 FindExit()
+        public Vector3 FindExit(bool passenger = false)
         {
             Vector3[] local =
             {
@@ -200,6 +202,15 @@ namespace HideAndSeek.Game
                 new(-1.05f, 0f, 0.6f), new(1.05f, 0f, 0.6f), new(-1.1f, 0f, -1.2f), new(1.1f, 0f, -1.2f),
                 new(-1.6f, 0f, -0.25f), new(1.6f, 0f, -0.25f),
             };
+            // Two-seaters are wider: step out a little further; the passenger gets out on his (right) side first.
+            float wider = IsDuo ? 0.3f : 0f;
+            for (int i = 0; i < local.Length; i++)
+            {
+                var l = local[i];
+                if (Mathf.Abs(l.x) > 0.5f) l.x += Mathf.Sign(l.x) * wider;
+                if (passenger) l.x = -l.x;
+                local[i] = l;
+            }
             int mask = KartCollide.LevelMask;
             Vector3 from = transform.TransformPoint(new Vector3(0f, 0.6f, KartModel.SeatPos.z));
             foreach (var l in local)

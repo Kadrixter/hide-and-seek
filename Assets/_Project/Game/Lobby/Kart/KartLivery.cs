@@ -28,6 +28,10 @@ namespace HideAndSeek.Game
             new("bordowy", new Color(0.36f, 0.025f, 0.07f), new Color(0.93f, 0.85f, 0.55f), 5),
             new("czarny", new Color(0.035f, 0.035f, 0.04f), new Color(0.85f, 0.08f, 0.06f), 9),
             new("niebieski", new Color(0.05f, 0.22f, 0.78f), new Color(0.93f, 0.93f, 0.9f), 1),
+            // two-seaters (28.11)
+            new("zielony dwuosobowy", new Color(0.06f, 0.5f, 0.16f), new Color(0.95f, 0.85f, 0.2f), 22),
+            new("pomarańczowy dwuosobowy", new Color(0.95f, 0.42f, 0.04f), new Color(0.06f, 0.06f, 0.07f), 44),
+            new("biały dwuosobowy", new Color(0.9f, 0.9f, 0.88f), new Color(0.05f, 0.22f, 0.78f), 88),
         };
 
         public static KartLivery Of(int i) => All[Mathf.Clamp(i, 0, All.Length - 1)];

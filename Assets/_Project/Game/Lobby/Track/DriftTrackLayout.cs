@@ -40,10 +40,17 @@ namespace HideAndSeek.Game
         /// <summary>Barriers stand this far inside the pad edge; the karts must stay inside them.</summary>
         public const float BarrierInset = 1.2f;
 
-        // ---- karts: a row north of the gate, noses west
-        public const int KartCount = 5;
+        // ---- karts: a row north of the gate, noses west; the two-seaters (28.11) in a row south of the gate
+        public const int KartCount = 8;
+        /// <summary>Karts from this index on are two-seaters (driver left, passenger right).</summary>
+        public const int DuoFrom = 5;
         public const float KartSlotYaw = 270f;
-        public static Vector3 KartSlot(int i) => new(PadEast - 4.2f, 0f, ArchZ + 3.8f + i * 2.4f);
+        public static bool IsDuo(int i) => i >= DuoFrom;
+        public static Vector3 KartSlot(int i) => IsDuo(i)
+            ? new(PadEast - 4.4f, 0f, ArchZ - 4.2f - (i - DuoFrom) * 3.0f)
+            : new(PadEast - 4.2f, 0f, ArchZ + 3.8f + i * 2.4f);
+        /// <summary>Parking box size across the kart (z, the karts stand noses west).</summary>
+        public static float KartSlotWidth(int i) => IsDuo(i) ? 2.8f : 2.3f;
 
         /// <summary>Inside the barriers, from the ground up to the circuit's bridge (karts outside are put back on their slot).</summary>
         public static bool InsidePad(Vector3 p, float margin = 0.4f) =>

@@ -23,16 +23,19 @@ namespace HideAndSeek.Game
         private BlockyCharacter _c;
         private float _w, _lean, _look;
         private bool _wanted = true;
+        /// <summary>Two-seater passenger: the right seat, hands on the grab bar.</summary>
+        private bool _passenger;
         private FootstepAudio _steps;
         private float _stepsVolume = -1f;
 
         /// <summary>Seated weight now (0..1), for tests.</summary>
         public float Weight => _w;
 
-        public void Init(LobbyKart kart, NetPlayer p)
+        public void Init(LobbyKart kart, NetPlayer p, bool passenger = false)
         {
             _kart = kart;
             _p = p;
+            _passenger = passenger;
             _c = GetComponent<BlockyCharacter>();
             if (!p.IsOwner)
             {
@@ -58,7 +61,8 @@ namespace HideAndSeek.Game
             _w = Mathf.MoveTowards(_w, _wanted ? 1f : 0f, dt / BlendTime);
             if (!_wanted && _w <= 0f) { Finish(); return; }
 
-            var seat = _kart.Parts.Seat;
+            var seat = _passenger ? _kart.Parts.PassengerSeat : _kart.Parts.Seat;
+            if (seat == null) { Finish(); return; }
             var pose = SeatPose(seat, dt);
             // Seat space -> character root space (the joints below the pelvis are local and stay as they are).
             var root = _c.transform;
@@ -92,6 +96,18 @@ namespace HideAndSeek.Game
                 p.SolveLeg(leg, new Vector3(side * 0.14f, 0.04f, 0.64f), new Vector3(side * 0.25f, 1f, 0.3f));
             }
 
+            if (_passenger && _kart.Parts.Grab != null)
+            {
+                // Passenger: both hands on the grab bar's grips, the head free to look round a little more.
+                p.Head = Quaternion.Euler(4f, _look * 1.3f, _lean * 0.5f);
+                for (int arm = 0; arm < 2; arm++)
+                {
+                    float side = arm == 0 ? 1f : -1f;
+                    Vector3 grip = seat.InverseTransformPoint(_kart.Parts.Grab.TransformPoint(new Vector3(side * 0.09f, 0f, 0f)));
+                    p.SolveArm(arm, grip, new Vector3(side * 1f, -0.7f, -0.4f));
+                }
+                return p;
+            }
             // Fists on the rim at a quarter to three, turning with the wheel.
             var wheel = _kart.Parts.SteeringWheel;
             for (int arm = 0; arm < 2; arm++)

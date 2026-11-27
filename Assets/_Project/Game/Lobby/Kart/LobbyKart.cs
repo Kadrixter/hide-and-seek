@@ -80,11 +80,11 @@ namespace HideAndSeek.Game
             transform.SetPositionAndRotation(st.Pos, Quaternion.Euler(0f, st.Yaw, 0f));
             _yaw = st.Yaw;
             _epochSeen = st.Epoch;
-            Parts = KartModel.Build(transform, KartLivery.Of(Index));
+            Parts = KartModel.Build(transform, KartLivery.Of(Index), DriftTrackLayout.IsDuo(Index));
             gameObject.layer = 2; // Ignore Raycast: prompts / cameras / level probes look through it; players still bump into it
             _col = gameObject.AddComponent<BoxCollider>();
             _col.center = KartCollide.Center;
-            _col.size = KartCollide.Half * 2f;
+            _col.size = KartCollide.HalfOf(Index) * 2f;
             _col.sharedMaterial = KartCollide.Slick;
             var rb = gameObject.AddComponent<Rigidbody>(); // kinematic unless driven here: a moving collider players bump into
             rb.isKinematic = true;
@@ -104,6 +104,7 @@ namespace HideAndSeek.Game
         {
             if (Index >= 0 && Index < All.Length && All[Index] == this) All[Index] = null;
             DriverDestroyed();
+            PassengerDestroyed();
         }
 
         private void Update()
@@ -127,6 +128,7 @@ namespace HideAndSeek.Game
             }
             _epochSeen = st.Epoch;
             UpdateRider(View == Mode.Parked ? null : driver);
+            TickPassenger(st); // LobbyKart.Passenger.cs (two-seaters)
             PushLocalPlayer(driver, dt);
             Animate(dt);
         }
@@ -268,14 +270,14 @@ namespace HideAndSeek.Game
         private void PushLocalPlayer(NetPlayer driver, float dt)
         {
             var me = NetPlayer.Local;
-            if (me == null || me == driver || me.Life.Value != LifeState.Alive || me.Seat.Value >= 0) return;
+            if (me == null || me == driver || me == _localPassenger || me.Life.Value != LifeState.Alive || me.Seat.Value >= 0) return;
             if (View == Mode.Parked && Mathf.Abs(ShownSpeed) < 0.1f) return; // standing still: it is just in the way
             var cc = me.GetComponent<CharacterController>();
             if (cc == null || !cc.enabled) return;
             var rot = transform.rotation;
             Vector3 local = Quaternion.Inverse(rot) * (me.transform.position - (transform.position + rot * KartCollide.Center));
             if (Mathf.Abs(me.transform.position.y - transform.position.y) > 1.2f) return;
-            Vector3 half = KartCollide.Half;
+            Vector3 half = KartCollide.HalfOf(Index);
             Vector3 c = new Vector3(Mathf.Clamp(local.x, -half.x, half.x), 0f, Mathf.Clamp(local.z, -half.z, half.z));
             Vector3 d = new Vector3(local.x, 0f, local.z) - c;
             float r = cc.radius + 0.06f, dist = d.magnitude;

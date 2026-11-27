@@ -28,13 +28,17 @@ namespace HideAndSeek.Game
         /// <summary>First person (the driver's eyes) by default; V switches to the chase camera and back (kept for the session).</summary>
         public static bool FirstPerson = true;
 
-        public static KartCamera Begin(NetPlayer me, LobbyKart kart)
+        /// <summary>Riding as the two-seater's passenger: eyes on the right seat, no controls / gear shown.</summary>
+        private bool _passenger;
+
+        public static KartCamera Begin(NetPlayer me, LobbyKart kart, bool passenger = false)
         {
             if (Active != null) Active.End();
             var go = new GameObject("KartCamera");
             var v = go.AddComponent<KartCamera>();
             v._me = me;
             v._kart = kart;
+            v._passenger = passenger;
             v._cam = go.AddComponent<Camera>();
             if (me.Camera != null)
             {
@@ -113,7 +117,7 @@ namespace HideAndSeek.Game
                 _orbitPitch = Mathf.Lerp(_orbitPitch, FirstPerson ? 0f : 16f, k);
             }
             // Drift timer for the overlay.
-            bool drifting = _kart.SlidingNow && Mathf.Abs(_kart.SlipAngleShown) > 10f && _kart.Phys.Speed > 2f;
+            bool drifting = _kart.SlidingNow && Mathf.Abs(_kart.SlipAngleShown) > 10f && FlatSpeed > 2f;
             if (drifting) _driftT += dt;
             else if (_driftT > 0f)
             {
@@ -127,11 +131,11 @@ namespace HideAndSeek.Game
         {
             if (FirstPerson) { PlaceEyes(dt, snap); return; }
             var kt = _kart.transform;
-            Vector3 vel = _kart.Phys.Vel;
+            Vector3 vel = _kart.ShownVelocity; // the driver's physics or, for a passenger, what the kart shows
             float speed = new Vector2(vel.x, vel.z).magnitude;
             float head = kt.eulerAngles.y;
             float travel = speed > 1.2f ? Mathf.Atan2(vel.x, vel.z) * Mathf.Rad2Deg : head;
-            if (_kart.Phys.ForwardSpeed < -0.3f) travel = head; // reversing: stay behind
+            if (_kart.ShownSpeed < -0.3f) travel = head; // reversing: stay behind
             float baseYaw = Mathf.LerpAngle(head, travel, 0.55f);
             _camYaw = snap ? baseYaw : Mathf.LerpAngle(_camYaw, baseYaw, 1f - Mathf.Exp(-4.5f * dt));
 
@@ -167,7 +171,8 @@ namespace HideAndSeek.Game
         private void PlaceEyes(float dt, bool snap)
         {
             var kt = _kart.transform;
-            var seat = _kart.Parts != null && _kart.Parts.Seat != null ? _kart.Parts.Seat : kt;
+            var seatT = _kart.Parts == null ? null : _passenger ? _kart.Parts.PassengerSeat : _kart.Parts.Seat;
+            var seat = seatT != null ? seatT : kt;
             Vector3 eye = seat.TransformPoint(new Vector3(0f, 0.74f, 0.06f));
             float b = _kart.Bump, t = Time.time;
             var shake = Quaternion.Euler(b * 2f * Mathf.Sin(t * 47f), b * 1.5f * Mathf.Sin(t * 39f + 1f), b * 2f * Mathf.Sin(t * 31f + 2f));
@@ -175,11 +180,13 @@ namespace HideAndSeek.Game
             transform.rotation = Quaternion.LookRotation(kt.forward, kt.up) * Quaternion.Euler(_orbitPitch, _orbitYaw, 0f) * shake;
             if (_cam != null)
             {
-                float speed = new Vector2(_kart.Phys.Vel.x, _kart.Phys.Vel.z).magnitude;
+                float speed = FlatSpeed;
                 float fov = 72f + 12f * Mathf.Clamp01(speed / KartPhysics.MaxSpeed);
                 _cam.fieldOfView = snap ? fov : Mathf.Lerp(_cam.fieldOfView, fov, 1f - Mathf.Exp(-3f * dt));
             }
         }
+
+        private float FlatSpeed => new Vector2(_kart.ShownVelocity.x, _kart.ShownVelocity.z).magnitude;
 
         private Texture2D _white;
         private GUIStyle _speed, _unit;
@@ -203,6 +210,7 @@ namespace HideAndSeek.Game
             GUI.color = Color.white;
             GUI.Label(new Rect(x, y, w - 92f * s, h - 22f * s), $"{kmh:0}", _speed);
             GUI.Label(new Rect(x + w - 88f * s, y, 80f * s, h - 30f * s), "km/h", _unit);
+            if (gear < 0) { GUI.color = Color.white; return; } // passenger: no gear box
             // gear (27.11: automatic 4-speed): a box left of the speed, R when reversing
             float gw = 64f * s;
             GUI.color = new Color(0f, 0f, 0f, 0.45f);
@@ -231,14 +239,15 @@ namespace HideAndSeek.Game
             _big ??= new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             _hint.fontSize = Mathf.RoundToInt(22 * s);
             _big.fontSize = Mathf.RoundToInt(44 * s);
-            float kmh = Mathf.Abs(_kart.Phys.Speed) * 3.6f;
-            string line = "W / S - gaz, hamulec     A / D - skręt     Spacja - ręczny     V - kamera     R - na start     E - wysiądź";
+            float kmh = FlatSpeed * 3.6f;
+            string line = _passenger ? "Jedziesz jako pasażer     V - kamera     E - wysiądź"
+                : "W / S - gaz, hamulec     A / D - skręt     Spacja - ręczny     V - kamera     R - na start     E - wysiądź";
             var r = new Rect(0f, Screen.height - 50f * s, Screen.width, 40f * s);
             GUI.color = new Color(0f, 0f, 0f, 0.7f);
             GUI.Label(new Rect(r.x + 2f, r.y + 2f, r.width, r.height), line, _hint);
             GUI.color = Color.white;
             GUI.Label(r, line, _hint);
-            Speedometer(kmh, s, _kart.Phys.Gear);
+            Speedometer(kmh, s, _passenger ? -1 : _kart.Phys.Gear);
 
             string drift = _driftT > 0.25f ? $"DRIFT  {Mathf.Abs(_kart.SlipAngleShown):0}°  {_driftT:0.0} s"
                 : Time.time < _lastDriftShow ? $"Drift: {_lastDrift:0.0} s" : null;

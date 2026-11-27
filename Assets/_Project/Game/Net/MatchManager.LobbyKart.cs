@@ -17,7 +17,14 @@ namespace HideAndSeek.Game.Net
         public readonly NetworkVariable<KartsState> KartsVar = new(KartsState.AtSlots(0));
 
         private System.Action _stepKart;
-        private readonly float[] _kartOutSince = { -1f, -1f, -1f, -1f, -1f };
+        private readonly float[] _kartOutSince = NewKartTimers();
+
+        private static float[] NewKartTimers()
+        {
+            var a = new float[DriftTrackLayout.KartCount];
+            for (int i = 0; i < a.Length; i++) a[i] = -1f;
+            return a;
+        }
 
         /// <summary>MatchManager.Update hook (every instance): the track and its karts exist in the lobby scene; server rules.</summary>
         private void UpdateLobbyKart()
@@ -42,7 +49,7 @@ namespace HideAndSeek.Game.Net
             if (ForkHolder.Value == p.NetworkObjectId) return "holds the fork";
             if (MiniSeatOf(p.NetworkObjectId).game >= 0) return "at a board game";
             if (p.BodyCarryBusy) return "carrying";
-            if (KartsVar.Value.KartOf(p.NetworkObjectId) >= 0) return "already driving";
+            if (KartsVar.Value.InKart(p.NetworkObjectId)) return "already in a kart";
             return null;
         }
 
@@ -59,7 +66,12 @@ namespace HideAndSeek.Game.Net
                 bool inside = LobbyKart.OnPad(pos);
                 s.Driver = KartState.Free;
                 if (inside) { s.Pos = pos; s.Yaw = Mathf.Repeat(yaw, 360f); }
-                else s = KartState.AtSlot(kart, (byte)(s.Epoch + 1));
+                else
+                {
+                    ulong pas = s.Passenger;
+                    s = KartState.AtSlot(kart, (byte)(s.Epoch + 1));
+                    s.Passenger = pas;
+                }
                 KartsVar.Value = all.With(kart, s);
                 Debug.Log($"[Kart] {p.Nick} got out of kart {kart} at {s.Pos} (on the pad {inside})");
                 return;
@@ -94,6 +106,7 @@ namespace HideAndSeek.Game.Net
                 var all = KartsVar.Value;
                 var put = KartState.AtSlot(kart, (byte)(s.Epoch + 1));
                 put.Driver = s.Driver;
+                put.Passenger = s.Passenger;
                 put.Pos = at;
                 put.Yaw = Mathf.Repeat(yaw, 360f);
                 KartsVar.Value = all.With(kart, put);
@@ -103,13 +116,57 @@ namespace HideAndSeek.Game.Net
             ServerKartToSlot(kart, s.Driver, "asked by " + p.Nick);
         }
 
-        private void ServerKartToSlot(int kart, ulong driver, string why)
+        private void ServerKartToSlot(int kart, ulong driver, string why, bool keepPassenger = true)
         {
             var all = KartsVar.Value;
             var s = KartState.AtSlot(kart, (byte)(all.Get(kart).Epoch + 1));
             s.Driver = driver;
+            if (keepPassenger) s.Passenger = all.Get(kart).Passenger;
             KartsVar.Value = all.With(kart, s);
             Debug.Log($"[Kart] kart {kart} back in its slot ({why}), epoch {s.Epoch}");
+        }
+
+        /// <summary>The two-seater's passenger leaves / dies / gets busy / sits elsewhere: his seat is freed. True = changed.</summary>
+        private bool ServerPassengerOut(int i, KartState s)
+        {
+            var p = NetPlayer.Find(s.Passenger);
+            string why = !DriftTrackLayout.IsDuo(i) ? "not a two-seater" : p == null || !p.IsSpawned ? "left" : p.Life.Value != LifeState.Alive ? "not alive"
+                : p.Busy.Value ? "busy" : p.Seat.Value >= 0 ? "sat down" : ArcadeCabOf(p.NetworkObjectId) >= 0 ? "at the arcade" : null;
+            if (why == null) return false;
+            s.Passenger = KartState.Free;
+            KartsVar.Value = KartsVar.Value.With(i, s);
+            Debug.Log($"[Kart] passenger of kart {i} put out ({why})");
+            return true;
+        }
+
+        /// <summary>E at a two-seater's right seat (<paramref name="enter"/>) or E while riding in it (get out).</summary>
+        [Rpc(SendTo.Server)]
+        public void KartPassengerRpc(byte kart, bool enter, RpcParams rpc = default)
+        {
+            var p = NetPlayer.FindByClient(rpc.Receive.SenderClientId);
+            if (p == null || kart >= DriftTrackLayout.KartCount || !DriftTrackLayout.IsDuo(kart)) return;
+            var all = KartsVar.Value;
+            var s = all.Get(kart);
+            if (!enter)
+            {
+                if (s.Passenger != p.NetworkObjectId) return;
+                s.Passenger = KartState.Free;
+                KartsVar.Value = all.With(kart, s);
+                Debug.Log($"[Kart] {p.Nick} got out of kart {kart} (passenger)");
+                return;
+            }
+            // Where the kart is now: the driver's live pose while driven, else where it stands.
+            Vector3 at = s.Pos;
+            var drv = s.Driven ? NetPlayer.Find(s.Driver) : null;
+            var pk = drv != null ? drv.KartDrive.Value : default;
+            if (pk.Valid && pk.Index == kart && pk.Epoch == s.Epoch) at = pk.Pos;
+            string why = s.Carries ? "taken" : KartRefusal(p);
+            Vector3 d = p.transform.position - at;
+            if (why == null && (new Vector2(d.x, d.z).magnitude > 3.2f || Mathf.Abs(d.y) > 1.2f)) why = $"too far ({new Vector2(d.x, d.z).magnitude:0.0} m)";
+            if (why != null) { Debug.Log($"[Kart] {p.Nick} cannot ride in kart {kart}: {why}"); return; }
+            s.Passenger = p.NetworkObjectId;
+            KartsVar.Value = all.With(kart, s);
+            Debug.Log($"[Kart] {p.Nick} rides in kart {kart} as the passenger");
         }
 
         private void ServerKartTick(bool lobby)
@@ -120,10 +177,11 @@ namespace HideAndSeek.Game.Net
                 if (!lobby)
                 {
                     // Round (or another scene): nobody drives, the karts wait in their slots for the next lobby.
-                    if (s.Driven || (s.Pos - DriftTrackLayout.KartSlot(i)).sqrMagnitude > 1e-4f || Mathf.Abs(Mathf.DeltaAngle(s.Yaw, DriftTrackLayout.KartSlotYaw)) > 0.1f)
-                        ServerKartToSlot(i, KartState.Free, "not the lobby");
+                    if (s.Driven || s.Carries || (s.Pos - DriftTrackLayout.KartSlot(i)).sqrMagnitude > 1e-4f || Mathf.Abs(Mathf.DeltaAngle(s.Yaw, DriftTrackLayout.KartSlotYaw)) > 0.1f)
+                        ServerKartToSlot(i, KartState.Free, "not the lobby", false);
                     continue;
                 }
+                if (s.Carries && ServerPassengerOut(i, s)) continue;
                 if (s.Driven)
                 {
                     var p = NetPlayer.Find(s.Driver);

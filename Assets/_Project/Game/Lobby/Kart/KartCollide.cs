@@ -15,6 +15,9 @@ namespace HideAndSeek.Game
     public sealed class KartCollide
     {
         public static readonly Vector3 Half = new(0.6f, 0.2f, 0.83f);
+        /// <summary>Two-seater box: wider (the second seat and the wider axles), the same length.</summary>
+        public static readonly Vector3 HalfDuo = new(0.88f, 0.2f, 0.83f);
+        public static Vector3 HalfOf(int kart) => DriftTrackLayout.IsDuo(kart) ? HalfDuo : Half;
         public const float BoxBottom = 0.12f;
         public static readonly Vector3 Center = new(0f, BoxBottom + 0.2f, -0.02f);
         public const float PlayerRadius = 0.32f;
@@ -49,15 +52,16 @@ namespace HideAndSeek.Game
             foreach (var o in NetPlayer.All)
             {
                 if (o == null || o == Driver || !o.IsSpawned || o.Life.Value == LifeState.Dead) continue;
-                if (mm != null && mm.KartsVar.Value.KartOf(o.NetworkObjectId) >= 0) continue; // sits in a kart: a kart contact
+                if (mm != null && mm.KartsVar.Value.InKart(o.NetworkObjectId)) continue; // sits in a kart: a kart contact
                 Vector3 p = o.transform.position;
                 if (Mathf.Abs(p.y - rb.position.y) > 1.2f) continue;
                 Vector3 local = inv * (p - c);
-                Vector3 clamped = new Vector3(Mathf.Clamp(local.x, -Half.x, Half.x), 0f, Mathf.Clamp(local.z, -Half.z, Half.z));
+                Vector3 hb = Self != null ? HalfOf(Self.Index) : KartCollide.Half;
+                Vector3 clamped = new Vector3(Mathf.Clamp(local.x, -hb.x, hb.x), 0f, Mathf.Clamp(local.z, -hb.z, hb.z));
                 Vector3 d = new Vector3(local.x, 0f, local.z) - clamped;
                 float dist = d.magnitude;
                 if (dist >= PlayerRadius) continue;
-                Vector3 nLocal = dist > 1e-4f ? d / dist : (Mathf.Abs(local.x) / Half.x > Mathf.Abs(local.z) / Half.z ? new Vector3(Mathf.Sign(local.x), 0f, 0f) : new Vector3(0f, 0f, Mathf.Sign(local.z)));
+                Vector3 nLocal = dist > 1e-4f ? d / dist : (Mathf.Abs(local.x) / hb.x > Mathf.Abs(local.z) / hb.z ? new Vector3(Mathf.Sign(local.x), 0f, 0f) : new Vector3(0f, 0f, Mathf.Sign(local.z)));
                 Vector3 n = rot * nLocal; // from the kart towards the player
                 rb.position -= n * (PlayerRadius - dist);
                 Vector3 v = rb.linearVelocity;
