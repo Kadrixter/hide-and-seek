@@ -308,6 +308,7 @@ namespace HideAndSeek.Game
             if (((kb != null && kb.escapeKey.wasPressedThisFrame) || padEsc) && !ConfirmDialog.ConsumesEscape && !PoseWheel.ConsumesEscape && !EmoteWheel.ConsumesEscape
                 && !HideAndSeek.Game.DotLink.DotLinkLocal.ConsumesEscape // Esc at the dot link panel = leave it
                 && !LockpickUi.ConsumesEscape // Esc in the bonnet lockpick = stop it
+                && !DevConsole.ConsumesEscape // Esc closes the debug console (`)
                 && !LoadingScreen.Blocking) // the loading screen owns Esc ("Anuluj")
             {
                 if (Boombox.PanelOpen) Boombox.ClosePanel();
