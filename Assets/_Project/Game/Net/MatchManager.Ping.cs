@@ -1,37 +1,26 @@
-using Unity.Netcode;
 using UnityEngine;
 
 namespace HideAndSeek.Game.Net
 {
     /// <summary>
-    /// Ping of every player (server side): once a second the transport's round trip to each client
-    /// (<see cref="NetworkTransport.GetCurrentRtt"/>, UDP and Steam alike) goes into <see cref="NetPlayer.PingMs"/>, so
-    /// every copy can show it next to the nick in the lobby list (<c>PlayerListRow</c>). The host's own player has 0.
+    /// Ping of every player, measured by the player's own client (28.11; before that the server asked the transport with
+    /// the NGO client id, which is not the transport's id - everybody showed 0 ms). Once a second the local player sends a
+    /// stamped message to the host and the host bounces it straight back (<see cref="NetPlayer.PingRpc"/> /
+    /// <c>PongRpc</c>): the round trip, the same path every game message takes (network + one tick of batching), is
+    /// smoothed and published in <see cref="NetPlayer.PingMs"/> for the lobby list (<c>PlayerListRow</c>). The host has 0.
     /// </summary>
     public partial class MatchManager
     {
         private float _pingAt;
 
-        /// <summary>Server, every frame (from UpdateLobbyFun).</summary>
+        /// <summary>Every peer, every frame (from UpdateLobbyFun): the local client pings the host once a second.</summary>
         private void UpdatePings()
         {
-            if (!IsServer || Time.unscaledTime < _pingAt) return;
+            if (IsServer || Time.unscaledTime < _pingAt) return;
+            var me = NetPlayer.Local;
+            if (me == null || !me.IsSpawned) return;
             _pingAt = Time.unscaledTime + 1f;
-            var nm = NetworkManager;
-            var tr = nm != null ? nm.NetworkConfig.NetworkTransport : null;
-            if (tr == null) return;
-            foreach (var p in NetPlayer.All)
-            {
-                if (p == null || !p.IsSpawned) continue;
-                ulong rtt = 0;
-                if (p.OwnerClientId != NetworkManager.ServerClientId)
-                {
-                    try { rtt = tr.GetCurrentRtt(p.OwnerClientId); }
-                    catch (System.Exception) { rtt = 0; }
-                }
-                ushort ms = (ushort)Mathf.Min(9999, (long)rtt);
-                if (p.PingMs.Value != ms) p.PingMs.Value = ms;
-            }
+            me.SendPing();
         }
     }
 }
