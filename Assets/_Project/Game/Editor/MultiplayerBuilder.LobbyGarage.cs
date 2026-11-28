@@ -35,7 +35,11 @@ namespace HideAndSeek.Game.Editor
                 floor.GetComponent<FootstepSurface>().Type = SurfaceType.Concrete;
             }
             var ceiling = root.Find("Ceiling");
-            if (ceiling != null) ceiling.GetComponent<MeshRenderer>().sharedMaterial = GarageCeilingMat();
+            if (ceiling != null)
+            {
+                ceiling.GetComponent<MeshRenderer>().sharedMaterial = GarageCeilingMat(); // LobbyGarageCeiling.cs
+                GarageCeilingUv(ceiling);
+            }
             var ns = GarageWallMat("GarageWallNS", W + 0.4f);
             var ew = GarageWallMat("GarageWallEW", D);
             foreach (var (n, m) in new[] { ("WallN", ns), ("WallS", ns), ("WallE", ew), ("WallW", ew) })

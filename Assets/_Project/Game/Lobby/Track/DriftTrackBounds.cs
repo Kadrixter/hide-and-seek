@@ -96,10 +96,14 @@ namespace HideAndSeek.Game
             float x = DriftTrackLayout.PadEast, gz = DriftTrackLayout.ArchZ, gw = DriftTrackLayout.PassageWidth * 0.5f, gh = DriftTrackLayout.PassageHeight;
             float z0 = DriftTrackLayout.PadSouth, z1 = DriftTrackLayout.PadNorth;
             const float H = 6f, T = 0.4f;
+            // The wall reaches 0.4 m into the passage: its gate faces stand 3 mm behind the passage walls and its lintel
+            // 3 mm above the passage ceiling (flush they flickered at the way out to the track).
+            const float back = 0.003f;
+            float go = gw + back, gt = gh + back;
             var m = new ProcMesh();
-            m.At(Vector3.zero).Box(new Vector3(x + T * 0.5f, H * 0.5f, (z0 + gz - gw) * 0.5f), new Vector3(T, H, gz - gw - z0));
-            m.At(Vector3.zero).Box(new Vector3(x + T * 0.5f, H * 0.5f, (z1 + gz + gw) * 0.5f), new Vector3(T, H, z1 - gz - gw));
-            m.At(Vector3.zero).Box(new Vector3(x + T * 0.5f, (gh + H) * 0.5f, gz), new Vector3(T, H - gh, gw * 2f));
+            m.At(Vector3.zero).Box(new Vector3(x + T * 0.5f, H * 0.5f, (z0 + gz - go) * 0.5f), new Vector3(T, H, gz - go - z0));
+            m.At(Vector3.zero).Box(new Vector3(x + T * 0.5f, H * 0.5f, (z1 + gz + go) * 0.5f), new Vector3(T, H, z1 - gz - go));
+            m.At(Vector3.zero).Box(new Vector3(x + T * 0.5f, (gt + H) * 0.5f, gz), new Vector3(T, H - gt, go * 2f));
             TrackMats.Piece(root, "EntranceWall", m.ToMesh("TrackEntranceWall"), brick);
             TrackMats.Wall(root, "EntranceColS", new Vector3(x + T * 0.5f, H * 0.5f, (z0 + gz - gw) * 0.5f), new Vector3(T, H, gz - gw - z0));
             TrackMats.Wall(root, "EntranceColN", new Vector3(x + T * 0.5f, H * 0.5f, (z1 + gz + gw) * 0.5f), new Vector3(T, H, z1 - gz - gw));

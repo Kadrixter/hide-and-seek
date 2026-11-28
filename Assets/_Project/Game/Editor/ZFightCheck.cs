@@ -37,7 +37,7 @@ namespace HideAndSeek.Game.Editor
 
         /// <summary>
         /// Removes z-fighting in the open scene: of every coplanar overlapping pair, the smaller object is pushed
-        /// 2 mm out along the shared face normal (faces looking down at the floor are ignored). Repeats until clean.
+        /// 2 mm out along the shared face normal (faces looking down below 2.5 m are ignored: nobody sees them). Repeats until clean.
         /// </summary>
         public static int FixOpenScene()
         {
@@ -50,7 +50,7 @@ namespace HideAndSeek.Game.Editor
                 int movedNow = 0;
                 foreach (var p in pairs.OrderByDescending(p => p.Value.area))
                 {
-                    if (p.Value.n.y < -0.9f) continue; // undersides
+                    if (p.Value.n.y < -0.9f && p.Value.at.y < 2.5f) continue; // undersides near the floor (unseen); ceilings stay in
                     var a = rends[p.Key.Item1];
                     var b = rends[p.Key.Item2];
                     float va = Volume(a.bounds), vb = Volume(b.bounds);
@@ -62,7 +62,7 @@ namespace HideAndSeek.Game.Editor
                 moved += movedNow;
                 if (movedNow == 0) break;
             }
-            Debug.Log($"[ZFight] fixed: {moved} nudges, remaining pairs: {Collect(SceneRenderers()).Count(p => p.Value.n.y >= -0.9f)}");
+            Debug.Log($"[ZFight] fixed: {moved} nudges, remaining pairs: {Collect(SceneRenderers()).Count(p => p.Value.n.y >= -0.9f || p.Value.at.y >= 2.5f)}");
             return moved;
         }
 

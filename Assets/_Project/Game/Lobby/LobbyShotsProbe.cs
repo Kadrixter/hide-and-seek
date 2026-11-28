@@ -39,6 +39,10 @@ namespace HideAndSeek.Game
             ("gate_close", new Vector3(-6.6f, 1.55f, 2.25f), new Vector3(-9.5f, 2.1f, 2.25f), 70f),
             ("pegboard", new Vector3(-6.4f, 1.6f, 0.1f), new Vector3(-8f, 1.55f, 0.1f), 55f),
             ("sofa_close", new Vector3(-2.9f, 1.25f, 0.4f), new Vector3(-4.3f, 0.45f, 1.6f), 58f),
+            ("ceiling", new Vector3(1.0f, 1.6f, -2.0f), new Vector3(-3f, 3.6f, 1.5f), 75f),
+            ("ceiling_up", new Vector3(0.5f, 1.7f, 0.0f), new Vector3(0.6f, 3.6f, 0.4f), 80f),
+            ("passage_ceiling", new Vector3(-8.6f, 1.6f, 2.25f), new Vector3(-12.0f, 3.0f, 2.25f), 70f),
+            ("exit_ceiling", new Vector3(-11.0f, 1.6f, 1.5f), new Vector3(-12.1f, 3.0f, 2.25f), 75f),
         };
 
         private string _dir;

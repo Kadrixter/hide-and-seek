@@ -36,6 +36,13 @@ namespace HideAndSeek.Game.Editor
             GateDoor(g);
             GateBollards(g);
             BuildPassage(root, brick, concrete, steel, new Vector2(-10.65f, DriftTrackLayout.ArchZ + 0.4f));
+            // passage ceiling: the same board-formed slab as the room (a patch between beams and away from the lamps)
+            var pc = root.Find("TrackPassage/PassageCeiling");
+            if (pc != null)
+            {
+                pc.GetComponent<MeshRenderer>().sharedMaterial = GarageCeilingMat();
+                GarageCeilingUv(pc, new Vector2(-2f - DriftTrackLayout.PassageMid, -0.075f - DriftTrackLayout.ArchZ), "GaragePassageCeilingMesh"); // centred on (-2, -0.075)
+            }
 
             // Neon above the side sofa: clear of the door frame.
             foreach (var n in new[] { "Neon", "NeonGlow" })

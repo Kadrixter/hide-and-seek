@@ -69,8 +69,9 @@ namespace HideAndSeek.Game.Editor
             for (int s = -1; s <= 1; s += 2)
                 Box("PassageWall", p, new Vector3(xm, h * 0.5f, z + s * (w * 0.5f + 0.1f)), new Vector3(len, h, 0.2f), brick);
             Box("PassageCeiling", p, new Vector3(xm, h + 0.1f, z), new Vector3(len, 0.2f, w + 0.4f), concrete);
-            // Lintel over the shutter (the track's wall goes on above it at runtime).
-            Box("PassageLintel", p, new Vector3(x1 - 0.15f, h + 0.25f, z), new Vector3(0.3f, 0.5f, w + 0.4f), concrete);
+            // Lintel over the shutter (the track's wall goes on above it at runtime). Its underside sits 3 mm above the
+            // passage ceiling's: flush, the two concrete boxes flickered over the shutter.
+            Box("PassageLintel", p, new Vector3(x1 - 0.15f, h + 0.253f, z), new Vector3(0.3f, 0.5f, w + 0.4f), concrete);
 
             // Cage lamp on the ceiling (the garage look moves it clear of the open door and its opener rail).
             float lx = lampXZ?.x ?? xm, lz = lampXZ?.y ?? z;

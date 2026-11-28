@@ -159,9 +159,6 @@ namespace HideAndSeek.Game.Editor
             return m;
         }
 
-        private static Material GarageCeilingMat() =>
-            Mat("GarageCeiling", new Color(0.5f, 0.5f, 0.5f), Tex("garage_ceiling", TexKind.Concrete), 0.05f, new Vector2(4f, 3f));
-
         private static Material HazardMat(string name, Vector2 tiling) => Mat(name, Color.white, HazardTex(), 0.3f, tiling);
 
     }
