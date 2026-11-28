@@ -8,13 +8,13 @@ using UnityEngine;
 namespace HideAndSeek.Game.UI
 {
     /// <summary>
-    /// Commands of the debug console (<see cref="DevConsole"/>). Player targets: @a (everybody), @s (me), @p (the nearest
-    /// other player), @r (a random other player), a nick (or its start, case ignored) or #id (NetworkObjectId).
-    /// Commands that move other players run on the host only (the host is the server and sends the teleports).
+    /// Commands of the debug console (<see cref="DevConsole"/>, host only). Player targets: @a / wszyscy (everybody),
+    /// @s / ja (me), @p (the nearest other player), @r (a random other player), a nick (or its start, case ignored) or
+    /// #id (NetworkObjectId). Items / spawning / world: DevConsoleCommands.Items.cs.
     /// </summary>
-    public static class DevConsoleCommands
+    public static partial class DevConsoleCommands
     {
-        private static readonly string[] Names = { "help", "clear", "tp", "list", "pos", "fps" };
+        private static readonly string[] Names = { "help", "clear", "tp", "give", "spawn", "cam0", "world", "list", "pos", "fps" };
 
         public static void Execute(string line)
         {
@@ -22,10 +22,14 @@ namespace HideAndSeek.Game.UI
             string cmd = args[0].ToLowerInvariant().TrimStart('/');
             switch (cmd)
             {
-                case "help": case "?": Help(); break;
+                case "help": case "?": case "pomoc": Help(); break;
                 case "clear": case "cls": DevConsole.Clear(); break;
                 case "tp": case "teleport": Tp(args); break;
-                case "list": case "players": List(); break;
+                case "give": case "daj": Give(args); break;
+                case "spawn": case "postaw": Spawn(args); break;
+                case "cam0": case "cam": case "freecam": Out(FreeCam.Toggle()); break;
+                case "world": World(args); break;
+                case "list": case "players": case "gracze": List(); break;
                 case "pos": Pos(); break;
                 case "fps": Fps(args); break;
                 default: Err($"Nie znam komendy '{cmd}'. Wpisz help."); break;
@@ -34,16 +38,16 @@ namespace HideAndSeek.Game.UI
 
         private static void Help()
         {
-            Out("<b>Komendy</b> (Tab uzupełnia nick, strzałki - historia):");
-            Out("  <b>tp @a</b> - wszyscy do mnie");
-            Out("  <b>tp [cel]</b> - ja do gracza");
-            Out("  <b>tp [kto] [cel]</b> - gracz(e) do gracza, np. tp @a Kadrix");
-            Out("  <b>tp [kto] x y z</b> - gracz(e) na współrzędne (~ = obecna wartość, ~2 = +2)");
-            Out("  <b>list</b> - gracze: id, rola, stan, ping, pozycja");
-            Out("  <b>pos</b> - moja pozycja");
-            Out("  <b>fps [n]</b> - limit klatek (0 = bez limitu)");
-            Out("  <b>clear</b> - wyczyść konsolę");
-            Out("Cele: @a wszyscy, @s ja, @p najbliższy, @r losowy, nick (początek wystarczy), #id. tp działa tylko u hosta.");
+            Out("<b>Komendy</b> (Tab uzupełnia komendę / nick / przedmiot, strzałki - historia):");
+            Out("  <b>tp wszyscy</b> - wszyscy do mnie;  <b>tp [nick]</b> - ja do gracza");
+            Out("  <b>tp [kto] [cel]</b> - np. tp wszyscy Kadrix, tp Ala Ola;  <b>tp [kto] x y z</b> (~ = obecna, ~2 = +2)");
+            Out("  <b>give [przedmiot] [użycia] [kto]</b> - do ekwipunku, np. give apteczka 3, give pistolecik 5 Ala");
+            Out("     użycia: ilość (apteczki, strzykawki, pręty, druty), strzały (pistolecik), paliwo s (piła), % (akumulator), naboje (glock)");
+            Out("  <b>spawn [przedmiot/obiekt] [ilość]</b> - przed tobą: przedmioty (w rundzie), gokart / gokart2 (w lobby, na torze)");
+            Out("  <b>cam0</b> - wolna kamera: latasz przez ściany i słyszysz tam, gdzie jest kamera; postać zostaje. cam0 - koniec");
+            Out("  <b>world tp [lobby/garaz] [@a]</b> - wszyscy do lobby albo do garażu (start rundy)");
+            Out("  <b>list</b> - gracze;  <b>pos</b> - moja pozycja;  <b>fps [n]</b> - limit klatek;  <b>clear</b>");
+            Out("Przedmioty: " + string.Join(", ", ItemNames()));
         }
 
         // ================================================================ tp
@@ -52,10 +56,8 @@ namespace HideAndSeek.Game.UI
         {
             var me = NetPlayer.Local;
             if (me == null) { Err("Najpierw wejdź do gry."); return; }
-            if (!IsHost) { Err("tp działa tylko u hosta (on jest serwerem)."); return; }
-            if (a.Length < 2) { Err("Użycie: tp @a | tp [cel] | tp [kto] [cel] | tp [kto] x y z"); return; }
+            if (a.Length < 2) { Err("Użycie: tp wszyscy | tp [cel] | tp [kto] [cel] | tp [kto] x y z"); return; }
 
-            // tp x y z = me to coordinates
             if (a.Length == 4 && LooksLikeCoord(a[1]))
             {
                 if (!Coords(a, 1, me.transform.position, out var at)) return;
@@ -64,8 +66,7 @@ namespace HideAndSeek.Game.UI
             }
             if (a.Length == 2)
             {
-                // tp @a = everybody to me; tp <player> = me to him.
-                if (a[1] == "@a" || a[1] == "@e")
+                if (IsAll(a[1]))
                 {
                     var who = NetPlayer.All.Where(p => p != null && p.IsSpawned && p != me).ToList();
                     if (who.Count == 0) { Out("Nikogo poza tobą."); return; }
@@ -95,7 +96,7 @@ namespace HideAndSeek.Game.UI
                 Move(targets, at, me.transform.eulerAngles.y, targets.Count > 1);
                 return;
             }
-            Err("Użycie: tp @a | tp [cel] | tp [kto] [cel] | tp [kto] x y z");
+            Err("Użycie: tp wszyscy | tp [cel] | tp [kto] [cel] | tp [kto] x y z");
         }
 
         /// <summary>Teleports through the owner (server -> owner RPC); a group is spread on a small ring round the spot.</summary>
@@ -138,8 +139,8 @@ namespace HideAndSeek.Game.UI
         {
             var me = NetPlayer.Local;
             if (me == null) { Err("Najpierw wejdź do gry."); return; }
-            Vector3 q = me.transform.position;
-            Out($"Pozycja: {q.x:0.00} {q.y:0.00} {q.z:0.00}, obrót {me.transform.eulerAngles.y:0}°");
+            Vector3 q = FreeCam.Active ? FreeCam.Position : me.transform.position;
+            Out($"Pozycja{(FreeCam.Active ? " kamery" : "")}: {q.x:0.00} {q.y:0.00} {q.z:0.00}, obrót {me.transform.eulerAngles.y:0}°");
         }
 
         private static void Fps(string[] a)
@@ -152,11 +153,11 @@ namespace HideAndSeek.Game.UI
 
         // ================================================================ targets
 
-        private static bool IsHost => NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
+        private static bool IsAll(string s) => s == "@a" || s == "@e" || s.ToLowerInvariant() == "wszyscy" || s.ToLowerInvariant() == "all";
 
         private static List<NetPlayer> Many(string sel, NetPlayer me)
         {
-            if (sel == "@a" || sel == "@e") return NetPlayer.All.Where(p => p != null && p.IsSpawned).ToList();
+            if (IsAll(sel)) return NetPlayer.All.Where(p => p != null && p.IsSpawned).ToList();
             var one = One(sel, me);
             return one != null ? new List<NetPlayer> { one } : null;
         }
@@ -165,18 +166,14 @@ namespace HideAndSeek.Game.UI
         {
             var all = NetPlayer.All.Where(p => p != null && p.IsSpawned).ToList();
             var others = all.Where(p => p != me).ToList();
-            switch (sel)
+            string low = sel.ToLowerInvariant();
+            if (low == "@s" || low == "ja") return me;
+            if (low == "@p" || low == "@r")
             {
-                case "@s": return me;
-                case "@p":
-                    if (others.Count == 0) { Err("Nikogo poza tobą."); return null; }
-                    return others.OrderBy(p => (p.transform.position - me.transform.position).sqrMagnitude).First();
-                case "@r":
-                    if (others.Count == 0) { Err("Nikogo poza tobą."); return null; }
-                    return others[Random.Range(0, others.Count)];
-                case "@a": case "@e":
-                    Err("Tu potrzebny jeden gracz (nie @a)."); return null;
+                if (others.Count == 0) { Err("Nikogo poza tobą."); return null; }
+                return low == "@p" ? others.OrderBy(p => (p.transform.position - me.transform.position).sqrMagnitude).First() : others[Random.Range(0, others.Count)];
             }
+            if (IsAll(sel)) { Err("Tu potrzebny jeden gracz (nie wszyscy)."); return null; }
             if (sel.StartsWith("#") && ulong.TryParse(sel.Substring(1), out ulong id))
             {
                 var byId = all.FirstOrDefault(p => p.NetworkObjectId == id);
@@ -194,7 +191,7 @@ namespace HideAndSeek.Game.UI
             return null;
         }
 
-        private static bool LooksLikeCoord(string s) => s.StartsWith("~") || float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        private static bool LooksLikeCoord(string s) => s.StartsWith("~") || float.TryParse(s.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out _);
 
         private static bool Coords(string[] a, int from, Vector3 cur, out Vector3 v)
         {
@@ -202,11 +199,12 @@ namespace HideAndSeek.Game.UI
             for (int i = 0; i < 3; i++)
             {
                 string s = a[from + i].Replace(',', '.');
-                float baseV = cur[i], val;
+                float val;
                 if (s.StartsWith("~"))
                 {
                     string rest = s.Substring(1);
-                    val = baseV + (rest.Length == 0 ? 0f : float.Parse(rest, NumberStyles.Float, CultureInfo.InvariantCulture));
+                    if (rest.Length > 0 && !float.TryParse(rest, NumberStyles.Float, CultureInfo.InvariantCulture, out _)) { Err($"Zła współrzędna '{a[from + i]}'."); return false; }
+                    val = cur[i] + (rest.Length == 0 ? 0f : float.Parse(rest, NumberStyles.Float, CultureInfo.InvariantCulture));
                 }
                 else if (!float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out val))
                 {
@@ -218,17 +216,31 @@ namespace HideAndSeek.Game.UI
             return true;
         }
 
-        /// <summary>Tab: completes the command name or the last word as a nick.</summary>
+        /// <summary>Tab: completes the command, then nicks / item names / map names depending on the command.</summary>
         public static string Complete(string line)
         {
             if (string.IsNullOrEmpty(line)) return line;
             int sp = line.LastIndexOf(' ');
             string head = sp >= 0 ? line.Substring(0, sp + 1) : "", word = sp >= 0 ? line.Substring(sp + 1) : line;
             if (word.Length == 0) return line;
-            IEnumerable<string> pool = sp < 0 ? Names : NetPlayer.All.Where(p => p != null).Select(p => p.Nick).Concat(new[] { "@a", "@s", "@p", "@r" });
-            var hits = pool.Where(n => n.StartsWith(word, System.StringComparison.OrdinalIgnoreCase)).ToList();
+            string cmd = line.Split(' ')[0].ToLowerInvariant();
+            int argIndex = line.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries).Length - 1;
+            IEnumerable<string> nicks = NetPlayer.All.Where(p => p != null).Select(p => p.Nick).Concat(new[] { "wszyscy", "@a", "@s", "@p", "@r" });
+            IEnumerable<string> pool = sp < 0 ? Names
+                : (cmd == "give" || cmd == "spawn") && argIndex == 1 ? ItemNames().Concat(cmd == "spawn" ? ObjectNames : new string[0])
+                : cmd == "world" && argIndex == 1 ? new[] { "tp" }
+                : cmd == "world" && argIndex == 2 ? new[] { "lobby", "garaz" }
+                : nicks;
+            var hits = pool.Where(n => n.StartsWith(word, System.StringComparison.OrdinalIgnoreCase)).Distinct().ToList();
             if (hits.Count == 1) return head + hits[0] + " ";
-            if (hits.Count > 1) Out(string.Join("   ", hits));
+            if (hits.Count > 1)
+            {
+                Out(string.Join("   ", hits));
+                // the common start of all hits
+                string common = hits[0];
+                foreach (var h in hits) while (!h.StartsWith(common, System.StringComparison.OrdinalIgnoreCase)) common = common.Substring(0, common.Length - 1);
+                if (common.Length > word.Length) return head + common;
+            }
             return line;
         }
 

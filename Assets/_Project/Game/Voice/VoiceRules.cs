@@ -53,8 +53,12 @@ namespace HideAndSeek.Game.Voice
             if (speakerDead) return listenerDead;
             if (listenerDead) return true;
             float range = (shout ? VoiceChat.ShoutRange : VoiceChat.HearRange) + 5f;
-            return (listener.transform.position - speaker.transform.position).sqrMagnitude <= range * range;
+            return (ListenPos(listener) - speaker.transform.position).sqrMagnitude <= range * range;
         }
+
+        /// <summary>Where <paramref name="listener"/> hears from: the host's debug free camera (console cam0) while it flies, else his body.</summary>
+        public static Vector3 ListenPos(NetPlayer listener) =>
+            listener.IsOwner && HideAndSeek.Game.UI.FreeCam.Active ? HideAndSeek.Game.UI.FreeCam.Position : listener.transform.position;
 
         /// <summary>
         /// Toy phone link (round only): both are hiders, neither is dead and both carry a phone - then the listener gets

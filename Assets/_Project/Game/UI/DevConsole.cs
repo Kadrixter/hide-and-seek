@@ -60,11 +60,15 @@ namespace HideAndSeek.Game.UI
             if (kb.backquoteKey.wasPressedThisFrame)
             {
                 if (IsOpen) Close();
-                else if (!LocalPlayerController.MenuOpen) Open(); // not over another panel (radio, TV, Esc menu...)
+                else if (!LocalPlayerController.MenuOpen && IsHost) Open(); // only the server / lobby creator; not over another panel
             }
             else if (IsOpen && kb.escapeKey.wasPressedThisFrame) Close();
+            if (IsOpen && !IsHost) Close(); // the session ended / became a client
             if (IsOpen && !LocalPlayerController.MenuOpen) LocalPlayerController.MenuOpen = true; // something closed its panel under us
         }
+
+        /// <summary>The console belongs to whoever created the server / lobby (the host); players who joined cannot open it.</summary>
+        public static bool IsHost => Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsServer;
 
         private void Open()
         {

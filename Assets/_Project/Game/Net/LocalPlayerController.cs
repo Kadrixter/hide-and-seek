@@ -327,6 +327,14 @@ namespace HideAndSeek.Game.Net
             }
 
             if (ForceFlashlight && _p.Flashlight != null && !_p.Flashlight.IsOn && _p.Life.Value == LifeState.Alive && _p.HasFlashlight) _p.Flashlight.SetOn(true, false);
+            if (FreeCam.Active)
+            {
+                // Debug free camera (console `cam0`): the body stays where it is, the camera has the keys and the mouse.
+                _p.Motor.MovementEnabled = false;
+                _p.Motor.LookEnabled = false;
+                CancelHold();
+                return;
+            }
             if (KartTick(kb)) { CancelHold(); return; } // lobby go-kart: driving owns the input (LocalPlayerController.Kart.cs)
 
             // ---- lobby toy bricks: while building the mouse / E / 1-5 belong to the bricks.
